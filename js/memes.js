@@ -3,6 +3,7 @@ import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
+import { openMaker } from './maker.js';
 
 const MAX_SIDE = 1280;
 const GIF_MAX = 1_300_000;
@@ -70,7 +71,16 @@ export function renderMemes(screen) {
     key ? h('div', { class: 'courier' },
       h('span', { class: 'mascot', html: mascotImg(key, pose(key)) }),
       h('p', { class: 'bubble' }, h('b', {}, `${name}: `), line)) : null,
-    h('label', { class: 'btn btn-primary meme-send' }, picker, '📎 Отправить мемчик'),
+    h('div', { class: 'meme-send' },
+      h('label', { class: 'btn btn-primary' }, picker, '📎 Из галереи'),
+      h('button', {
+        type: 'button',
+        class: 'btn btn-primary',
+        onclick: () => openMaker({
+          onPhoto: (file) => composeMeme(file, () => renderMemes(screen)),
+          onGif: (gif) => composeGif(gif, () => renderMemes(screen)),
+        }),
+      }, '✨ Подобрать')),
     list.length ? h('div', { class: 'meme-feed' }, ...list.map((m) => card(m, screen))) : null,
   ].filter(Boolean));
 
@@ -103,7 +113,7 @@ function card(m, screen) {
   }
 
   return h('article', { class: `meme${m.mine ? ' is-mine' : ''}` },
-    h('div', { class: 'meme-img', 'data-id': m.id }, h('img', { alt: m.caption || 'Мемчик', decoding: 'async' })),
+    h('div', { class: 'meme-img', 'data-id': m.id, 'data-url': m.url }, h('img', { alt: m.caption || 'Мемчик', decoding: 'async' })),
     m.caption ? h('p', { class: 'meme-cap' }, m.caption) : null,
     h('div', { class: 'meme-meta' }, h('span', {}, `${from} · ${when}`), tail));
 }
@@ -115,8 +125,11 @@ function lazyLoad(screen) {
       io.unobserve(target);
       const img = target.querySelector('img');
       try {
-        img.src = await memeUrl(target.dataset.id);
-        target.classList.add('is-loaded');
+        // GIF із GIPHY — пряме посилання; своє фото — з бази через ключ
+        const src = target.dataset.url || await memeUrl(target.dataset.id);
+        img.onload = () => target.classList.add('is-loaded');
+        img.onerror = () => target.classList.add('is-broken');
+        img.src = src;
       } catch {
         target.classList.add('is-broken');
       }
@@ -184,7 +197,7 @@ const toBase64 = (blob) => new Promise((ok, no) => {
   r.readAsDataURL(blob);
 });
 
-// Шторка «що надсилаю»: прев'ю, підпис, «Отправить». Сюди ж прийде файл із «Поделиться»
+// Сюди ж прийде файл із «Поделиться» і листівка з конструктора
 export async function composeMeme(file, done) {
   let blob;
   try {
@@ -194,6 +207,20 @@ export async function composeMeme(file, done) {
     return;
   }
   const preview = URL.createObjectURL(blob);
+  sendSheet(preview, async (caption) => {
+    const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption });
+    urls.set(meme.id, preview);
+    return meme;
+  }, done);
+}
+
+// GIF із пошуку: на сервер іде лише посилання GIPHY
+export function composeGif(gif, done) {
+  sendSheet(gif.url, (caption) => send('memes', 'POST', { gif: { url: gif.url }, caption }), done);
+}
+
+// Шторка «що надсилаю»: прев'ю, підпис, «Отправить»; post(caption) повертає збережений мемчик
+function sendSheet(preview, post, done) {
   const caption = h('input', {
     type: 'text',
     maxlength: '300',
@@ -205,8 +232,7 @@ export async function composeMeme(file, done) {
   go.addEventListener('click', async () => {
     go.disabled = true;
     try {
-      const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption: caption.value });
-      urls.set(meme.id, preview);
+      const meme = await post(caption.value);
       DATA.memes = [meme, ...(DATA.memes || [])];
       close();
       const key = pet();

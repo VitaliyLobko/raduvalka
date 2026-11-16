@@ -11,6 +11,12 @@ export const petName = (key) => DATA.mascots[key]?.name || '';
 export const petFor = (role) => Object.keys(DATA.mascots).find((k) => DATA.mascots[k].roles?.includes(role))
   || Object.keys(DATA.mascots)[0];
 
+// blob-URL фото пози — для canvas у конструкторі мемчиків
+export function petSrc(key, pose = 'main') {
+  const m = DATA.mascots[key];
+  return m ? PETS[m.poses[pose] || m.poses.main] || '' : '';
+}
+
 export function mascotImg(key, pose = 'main') {
   const m = DATA.mascots[key];
   if (!m) return '';
