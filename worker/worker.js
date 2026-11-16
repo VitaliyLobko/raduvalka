@@ -343,7 +343,8 @@ async function memeIdeas(req, env, side) {
   const list = (a) => (Array.isArray(a) ? a : []).map((x) => String(x).trim()).filter(Boolean);
   return json(b.kind === 'gif'
     ? { queries: list(parsed.queries).slice(0, 3) }
-    : { captions: list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).slice(0, 5) });
+    // llama іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
+    : { captions: list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)).slice(0, 5) });
 }
 
 // Пошук GIF через GIPHY: ключ лише тут, у Worker; «pg» — без 18+
