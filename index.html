@@ -16,16 +16,38 @@
 <body class="is-booting">
   <header class="top">
     <h1 class="wordmark">Радовалка</h1>
+    <button type="button" class="together-chip" id="together-chip" hidden aria-haspopup="dialog">
+      <svg class="chip-planets" viewBox="1 1 38 29" aria-hidden="true">
+        <path class="chip-trail" d="M27 9C17 9 8 13 11 21"/>
+        <circle class="chip-jupiter" cx="31" cy="8" r="6"/>
+        <path class="chip-band" d="M25.4 6.5h11.2M25 9.6h12"/>
+        <circle class="chip-earth" cx="9" cy="23" r="6"/>
+        <path class="chip-land" d="M5 20.2c1.4-1.6 4-1.4 4.6.2.4 1.2-.6 1.8-.4 3 .2 1-1 1.8-2 1.2-.6-1.4-.4-2.4-1.6-3-.6-.3-.8-.8-.6-1.4zM11.6 22.6c.9-.4 2 .1 2.2 1.1.1.9-.8 1.6-1.6 1.2-.6-.4-1-1.5-.6-2.3z"/>
+        <path class="chip-heart" d="M17.5 17.4s-2.6-1.6-3.3-3.2c-.5-1.2.3-2.4 1.5-2.4.8 0 1.3.4 1.8 1 .5-.6 1-1 1.8-1 1.2 0 2 1.2 1.5 2.4-.7 1.6-3.3 3.2-3.3 3.2z"/>
+      </svg>
+      <span class="chip-text"></span>
+    </button>
   </header>
 
   <main id="screen" class="screen"></main>
 
   <nav class="tabs" aria-label="Разделы">
-    <button type="button" class="tab is-active" data-tab="letter"><span class="tab-ico">💌</span>Письмо</button>
-    <button type="button" class="tab" data-tab="envelopes"><span class="tab-ico">✉️</span>Конверты</button>
-    <button type="button" class="tab" data-tab="memes"><span class="tab-ico">😹</span>Мемчики</button>
-    <button type="button" class="tab" data-tab="together"><span class="tab-ico">🪐</span>Вместе</button>
-    <button type="button" class="tab" data-tab="box"><span class="tab-ico">🗃️</span>Шкатулка</button>
+    <button type="button" class="tab is-active" data-tab="letter" aria-current="page">
+      <span class="stamp" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.2"/><path d="m3.6 7.2 8.4 6 8.4-6"/><path class="fill" d="M12 18s-2.4-1.4-2.4-3c0-.9.7-1.5 1.3-1.5.5 0 .9.3 1.1.7.2-.4.6-.7 1.1-.7.6 0 1.3.6 1.3 1.5 0 1.6-2.4 3-2.4 3z"/></svg></span>
+      Письмо
+    </button>
+    <button type="button" class="tab" data-tab="envelopes">
+      <span class="stamp" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5h11.5a2 2 0 0 1 2 2v8.5"/><rect x="3" y="8" width="14.5" height="11.5" rx="2"/><path d="m3.6 9.2 6.65 5 6.65-5"/></svg></span>
+      Конверты
+    </button>
+    <button type="button" class="tab" data-tab="memes">
+      <span class="stamp" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="m7.8 10.2 1.6-1.4 1.6 1.4M13 10.2l1.6-1.4 1.6 1.4"/><path class="fill" d="M7.6 13.4h8.8a4.4 4.4 0 0 1-8.8 0z"/></svg></span>
+      Мемчики
+    </button>
+    <button type="button" class="tab" data-tab="box">
+      <span class="stamp" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10.5V9a3.5 3.5 0 0 1 3.5-3.5h9A3.5 3.5 0 0 1 20 9v1.5"/><rect x="3" y="10.5" width="18" height="9" rx="2"/><path d="M10 13.2h4v3h-4z"/></svg></span>
+      Шкатулка
+    </button>
   </nav>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

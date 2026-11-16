@@ -4,7 +4,7 @@ import { get, save, getKey, takeKeyFromUrl } from './api.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
-import { renderTogether } from './together.js';
+import { renderTogether, chipLabel } from './together.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 
@@ -139,7 +139,6 @@ function renderEmpty(title, text, mascot) {
 function render() {
   if (tab === 'letter') renderLetter();
   else if (tab === 'envelopes') renderEnvelopes(screen);
-  else if (tab === 'together') renderTogether(screen);
   else if (tab === 'memes') {
     const pet = petFor('memes');
     renderEmpty('Мемчики', `Скоро ${petName(pet)} будет носить сюда мемчики. Пока тренируется.`, pet);
@@ -155,10 +154,44 @@ function applySide() {
 document.querySelectorAll('.tab').forEach((t) => {
   t.addEventListener('click', () => {
     tab = t.dataset.tab;
-    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('is-active', x === t));
+    document.querySelectorAll('.tab').forEach((x) => {
+      x.classList.toggle('is-active', x === t);
+      if (x === t) x.setAttribute('aria-current', 'page');
+      else x.removeAttribute('aria-current');
+    });
     render();
   });
 });
+
+// «Вместе» — значок у шапці; тап відкриває шторку з листівкою, датою зустрічі й списком
+const chip = document.getElementById('together-chip');
+
+function drawChip() {
+  chip.querySelector('.chip-text').textContent = chipLabel();
+  chip.setAttribute('aria-label', `Вместе: ${chipLabel()}`);
+  chip.hidden = false;
+}
+
+function openTogether() {
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    sheet.remove();
+    backdrop.remove();
+    drawChip();
+    chip.focus();
+  };
+  const body = h('div', { class: 'sheet-inner' });
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const sheet = h('div', { class: 'sheet sheet-together', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Вместе' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
+    body);
+  document.body.append(backdrop, sheet);
+  document.addEventListener('keydown', onKey);
+  renderTogether(body);
+}
+
+chip.addEventListener('click', openTogether);
 
 async function start() {
   if (!getKey()) {
@@ -174,6 +207,7 @@ async function start() {
   }
   document.body.classList.remove('is-booting');
   applySide();
+  drawChip();
   render();
   maybeWelcome();
 }

@@ -756,7 +756,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .empty h2 { margin: 0 0 6px; font-family: var(--hand); font-size: 2rem; color: var(--ink); }
 .empty p { margin: 0 auto; max-width: 30ch; }
 
-/* Вкладки */
+/* Вкладки — поштові марки із зубчиками; активна кольорова й ніби щойно наклеєна */
 .tabs {
   position: fixed;
   left: 0;
@@ -764,8 +764,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   bottom: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  padding: 6px 4px max(8px, env(safe-area-inset-bottom));
+  grid-template-columns: repeat(4, 1fr);
+  padding: 10px 8px max(10px, env(safe-area-inset-bottom));
   background: var(--tab-bg);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--chip);
@@ -774,18 +774,125 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tab {
   display: grid;
   justify-items: center;
-  gap: 2px;
-  padding: 6px 2px;
+  gap: 5px;
+  padding: 0 2px;
   border: 0;
   background: none;
-  font-size: .6875rem;
+  font-size: .75rem;
   line-height: 1.15;
   color: var(--ink-soft);
+  -webkit-tap-highlight-color: transparent;
 }
 
-.tab-ico { font-size: 1.3rem; filter: grayscale(.6); opacity: .8; }
+.stamp {
+  --s: 7px;
+  --r: 2.3px;
+  --stamp-bg: var(--stamp-off);
+  display: grid;
+  place-items: center;
+  width: 49px;
+  height: 42px;
+  background: var(--stamp-bg);
+  outline: 1px solid var(--stamp-line);
+  outline-offset: -5px;
+  color: var(--ink-soft);
+  -webkit-mask:
+    linear-gradient(#000 0 0) center / calc(100% - 2 * var(--r)) calc(100% - 2 * var(--r)) no-repeat,
+    radial-gradient(circle var(--r), #0000 96%, #000) calc(var(--s) / -2) calc(var(--s) / -2) / var(--s) var(--s);
+  mask:
+    linear-gradient(#000 0 0) center / calc(100% - 2 * var(--r)) calc(100% - 2 * var(--r)) no-repeat,
+    radial-gradient(circle var(--r), #0000 96%, #000) calc(var(--s) / -2) calc(var(--s) / -2) / var(--s) var(--s);
+  transition: transform .25s cubic-bezier(.3, 1.4, .5, 1), background .25s, color .25s;
+}
+
+.stamp svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stamp .fill { fill: currentColor; stroke: none; }
+
 .tab.is-active { color: var(--tab-active); font-weight: 500; }
-.tab.is-active .tab-ico { filter: none; opacity: 1; }
+
+.tab.is-active .stamp {
+  --stamp-bg: var(--stamp-on);
+  color: var(--stamp-ink);
+  transform: rotate(-5deg) translateY(-2px);
+}
+
+.tab:nth-child(even).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+
+:root {
+  --stamp-off: #EDE3FB;
+  --stamp-line: rgba(74, 37, 69, .16);
+  --stamp-on: linear-gradient(135deg, var(--lavender), var(--powder));
+  --stamp-ink: var(--plum);
+}
+
+[data-side="vin"] {
+  --stamp-off: rgba(255, 255, 255, .09);
+  --stamp-line: rgba(237, 185, 73, .25);
+  --stamp-on: var(--star);
+  --stamp-ink: var(--night);
+}
+
+/* «Вместе» у шапці: мініатюра листівки й скільки днів */
+.together-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 12px 4px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: .8125rem;
+  white-space: nowrap;
+}
+
+.together-chip[hidden] { display: none; }
+
+.chip-planets { width: 40px; height: 30px; flex: none; }
+.chip-trail { fill: none; stroke: var(--star); stroke-width: 1.4; stroke-dasharray: 2.2 2; stroke-linecap: round; }
+.chip-jupiter { fill: #E39A5B; }
+.chip-band { fill: none; stroke: #F6DDB8; stroke-width: 1.3; stroke-linecap: round; }
+.chip-earth { fill: #4FA3B4; }
+.chip-land { fill: #9CC46B; }
+.chip-heart { fill: #E8505B; }
+
+/* Шторка «Вместе»: тема своєї половини, гортається */
+.sheet-together {
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding-top: 8px;
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  color: var(--ink);
+}
+
+.sheet-together .title { margin-top: 0; }
+
+[data-side="vin"] .sheet-together .btn-primary { background: var(--star); border-color: var(--star); color: var(--night); }
+
+.sheet-close {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 0 -40px auto;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 1rem;
+}
 
 /* Тост */
 .toast {

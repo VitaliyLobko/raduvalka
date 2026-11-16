@@ -1,4 +1,5 @@
-// «Вместе»: шлях від Юпітера (він) до Землі (вона), відлік до зустрічі, спільний список
+// «Вместе»: шлях від Юпітера (він) до Землі (вона), відлік до зустрічі, спільний список.
+// Не окремий розділ: значок у шапці, повна листівка — у шторці
 import { DATA } from './data.js';
 import { save } from './api.js';
 import { h } from './ui.js';
@@ -20,7 +21,7 @@ export function plural(n, one, few, many) {
 const dayWord = (n) => `${n} ${plural(n, 'день', 'дня', 'дней')}`;
 
 // Що показати в листівці: точний відлік, якщо дата зустрічі відома, інакше — «сердечко в путі»
-function journey(now) {
+export function journey(now = today()) {
   const T = DATA.together;
   if (!T.apartFrom) return null;
   const apart = Math.max(0, -daysTo(now, T.apartFrom));
@@ -32,6 +33,17 @@ function journey(now) {
   if (!left) return { progress: 1, label: 'Сегодня', value: 'встреча! 🎉' };
   const total = Math.max(1, daysTo(new Date(T.apartFrom + 'T00:00'), T.meet));
   return { progress: Math.min(1, Math.max(0, 1 - left / total)), label: 'До встречи ещё', value: dayWord(left) };
+}
+
+// Коротко для значка в шапці: «в пути 76 дн.» / «до встречи 32 дн.»
+export function chipLabel(now = today()) {
+  const T = DATA.together;
+  if (!T.apartFrom) {
+    return T.since ? `${-daysTo(now, T.since)} дн. вместе` : 'Вместе';
+  }
+  if (!T.meet) return `в пути ${Math.max(0, -daysTo(now, T.apartFrom))} дн.`;
+  const left = daysTo(now, T.meet);
+  return left > 0 ? `до встречи ${left} дн.` : 'встреча! 🎉';
 }
 
 export function renderTogether(screen) {
