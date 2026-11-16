@@ -5,7 +5,7 @@ import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
-import { renderMemes, refreshMemes, markBadge } from './memes.js';
+import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 
@@ -153,17 +153,46 @@ function applySide() {
   document.querySelector('meta[name="theme-color"]').content = DATA.side === 'vin' ? '#0B384B' : '#EADFFB';
 }
 
-document.querySelectorAll('.tab').forEach((t) => {
-  t.addEventListener('click', () => {
-    tab = t.dataset.tab;
-    document.querySelectorAll('.tab').forEach((x) => {
-      x.classList.toggle('is-active', x === t);
-      if (x === t) x.setAttribute('aria-current', 'page');
-      else x.removeAttribute('aria-current');
-    });
-    render();
+function selectTab(name) {
+  tab = name;
+  document.querySelectorAll('.tab').forEach((x) => {
+    const on = x.dataset.tab === name;
+    x.classList.toggle('is-active', on);
+    if (on) x.setAttribute('aria-current', 'page');
+    else x.removeAttribute('aria-current');
   });
-});
+  render();
+}
+
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => selectTab(t.dataset.tab)));
+
+// «Поделиться → Радовалка»: service worker поклав картинку в кеш і відкрив ?go=shared.
+// Забираємо лише після входу — якщо замок, картинка чекає в кеші
+async function takeShared() {
+  if (new URLSearchParams(location.search).get('go') !== 'shared') return;
+  history.replaceState(null, '', location.pathname);
+  let file = null;
+  let none = false;
+  try {
+    const cache = await caches.open('shared-radovalka');
+    const res = await cache.match('shared');
+    none = !!(await cache.match('shared-none'));
+    if (res) {
+      const blob = await res.blob();
+      file = new File([blob], 'shared', { type: blob.type || 'image/jpeg' });
+    }
+    await cache.delete('shared');
+    await cache.delete('shared-none');
+  } catch { /* кешу нема — нема й картинки */ }
+  selectTab('memes');
+  if (file) composeMeme(file, () => selectTab('memes'));
+  else if (none) toast('Сюда можно поделиться только картинкой');
+}
+
+function registerWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch(() => { /* без нього просто не буде «Поделиться» */ });
+}
 
 // «Вместе» — значок у шапці; тап відкриває шторку з листівкою, датою зустрічі й списком
 const chip = document.getElementById('together-chip');
@@ -213,7 +242,9 @@ async function start() {
   markBadge();
   render();
   maybeWelcome();
+  takeShared();
 }
 
+registerWorker();
 takeKeyFromUrl();
 start();
