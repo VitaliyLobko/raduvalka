@@ -6,10 +6,12 @@ const LOCAL = ['127.0.0.1', 'localhost'].includes(location.hostname);
 
 export const API = LOCAL ? 'http://127.0.0.1:8787' : 'https://raduvalka.vitaliy-lobko.workers.dev';
 
-// Ключ із посилання «…#k=…» або просто ключ
+// Ключ із посилання «…/#ключ» (чи старого «…#k=ключ») або просто ключ
 export function parseKey(text) {
   const s = String(text || '').trim();
-  const m = s.match(/[#&?]k=([A-Za-z0-9_-]{20,})/) || s.match(/^([A-Za-z0-9_-]{20,})$/);
+  const m = s.match(/[#&?]k=([A-Za-z0-9_-]{20,})/)
+    || s.match(/#([A-Za-z0-9_-]{20,})$/)
+    || s.match(/^([A-Za-z0-9_-]{20,})$/);
   return m ? m[1] : null;
 }
 
