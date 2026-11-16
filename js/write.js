@@ -3,6 +3,7 @@ import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
+import { mountHelper } from './helper.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -73,6 +74,8 @@ export function openWrite() {
   })), pet, (v) => { pet = v; });
   petRow.classList.add('write-pets');
 
+  const helper = h('div', { class: 'write-helper' });
+  mountHelper(helper, area);
   const sent = h('div', { class: 'write-sent' });
   const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
 
@@ -109,7 +112,7 @@ export function openWrite() {
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     h('div', { class: 'sheet-inner' },
       h('h2', {}, `Письмо ${me.toWhom}`),
-      h('div', { class: 'write-helper' }),
+      helper,
       area,
       h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, note),
       pets.length ? h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Кто понесёт'), petRow) : null,

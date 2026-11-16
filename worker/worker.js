@@ -95,6 +95,7 @@ async function route(req, env) {
 
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6));
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
+  if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
   if (m === 'GET' && path === 'gifs') return gifSearch(url, env);
 
   if (m === 'PUT' && path === 'together') {
@@ -447,6 +448,79 @@ async function memeIdeas(req, env, side) {
     ? { queries: list(parsed.queries).slice(0, 3) }
     // llama іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
     : { captions: list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)).slice(0, 5) });
+}
+
+// Відповідь моделі: текст із response або choices, з нього — JSON-обʼєкт
+async function askAI(env, system, user, maxTokens) {
+  const out = await env.AI.run(AI_MODEL, {
+    messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    max_tokens: maxTokens,
+    temperature: 0.9,
+  });
+  const text = typeof out?.response === 'string' ? out.response
+    : (out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || '');
+  try {
+    return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+  } catch {
+    return {};
+  }
+}
+
+const LATIN_WORD = /[a-z]{3,}/i;
+
+// Помічник листа: чернетки від імені того, хто пише (draft), або правка його тексту (fix).
+// Особисте (клички, їхня фраза) — лише з бази, не з коду
+async function letterIdeas(req, env, side) {
+  if (!env.AI) throw fail(503, 'ai');
+  const b = await readJson(req);
+  const level = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+  const [together, mascots] = await Promise.all([getDoc(env.DB, 'together'), getDoc(env.DB, 'mascots')]);
+  const pets = Object.values(mascots || {}).map((x) => `${x.name} (${x.sp || 'питомец'})`).join(', ');
+  const he = side === 'vin';
+  const who = he
+    ? 'Пишет муж жене (от первого лица, мужской род: «я скучал», «я рад»). Он далеко и надолго, она ждёт дома.'
+    : 'Пишет жена мужу (от первого лица, женский род: «я скучала», «я рада»). Она дома, он далеко и надолго.';
+  const rules = 'Никаких слов «мама», «папа», «хозяин», «хозяйка». Без политики, войны, пошлости, хэштегов. '
+    + 'Без штампов и пафоса («солнце моей жизни», «ты мой мир») — живым разговорным языком, как пишут близкому. '
+    + 'Только русский язык. Абзацы разделяй переводом строки \n.';
+
+  if (b.mode === 'fix') {
+    const text = String(b.text || '').trim().slice(0, MAX_LETTER);
+    if (!text) throw fail(400, 'text');
+    const how = {
+      warm: 'сделай теплее и нежнее',
+      short: 'сократи примерно вдвое, оставив главное',
+      fix: 'исправь только орфографию, пунктуацию и явные ошибки, слова и стиль не меняй',
+      fun: 'добавь лёгкого юмора',
+    }[b.fix] || 'сделай теплее';
+    const out = await askAI(env, `Ты бережный редактор личных писем. ${who} ${rules} `
+      + 'Сохрани смысл, факты и голос автора, ничего не выдумывай. Ответь ТОЛЬКО JSON {"text": "..."}.',
+    `Задача: ${how}.\nПисьмо:\n${text}`, 1200);
+    const fixed = String(out.text || '').trim();
+    return json({ text: LATIN_WORD.test(fixed) && !LATIN_WORD.test(text) ? '' : fixed });
+  }
+
+  const reason = String(b.reason || '').trim().slice(0, 200) || 'просто так, сказать, что люблю';
+  const words = String(b.words || '').trim().slice(0, 400);
+  const long = level(b.long);
+  const sentences = long < 34 ? '2–3 предложения' : long < 67 ? '4–6 предложений' : '7–10 предложений';
+  const focus = { today: 'про сегодняшний день и мелочи', memory: 'про общее воспоминание', future: 'про мечты о встрече и планы' }[b.focus] || '';
+  const system = `Ты помогаешь написать короткое личное письмо. ${who} ${rules} `
+    + `Питомцы живут дома с ней: ${pets || 'нет'}${he ? ' — он их не видит, может только спросить о них' : ''}. `
+    + 'Упоминать питомцев — не больше чем в одном варианте'
+    + `${together?.phrase ? `; их общую фразу «${String(together.phrase).slice(0, 120)}» — тоже не больше чем в одном` : ''}. `
+    + 'Варианты заметно разные по началу и идее. Без подписи в конце. '
+    + 'Ответь ТОЛЬКО JSON {"drafts": ["вариант 1", "вариант 2", "вариант 3"]}.';
+  const user = `Повод: ${reason}. ${focus ? `Акцент: ${focus}. ` : ''}`
+    + `${words ? `Что обязательно сказать или вспомнить (слова автора): ${words}. ` : ''}`
+    + `Длина: ${sentences}. Тон: игриво на ${level(b.funny)}% (0 — нежно), `
+    + `поэтично на ${level(b.poetic)}% (0 — просто, как в переписке).`;
+  const out = await askAI(env, system, user, 1500);
+  const drafts = (Array.isArray(out.drafts) ? out.drafts : [])
+    .map((x) => String(x).trim().replace(/\n/g, '\n'))
+    .filter((x) => x && !LATIN_WORD.test(x))
+    .slice(0, 3);
+  return json({ drafts });
 }
 
 // Пошук GIF через GIPHY: ключ лише тут, у Worker; «pg» — без 18+
