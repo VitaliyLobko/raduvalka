@@ -18,22 +18,76 @@ export function spaceCard({ tags, label, extra = [], phrase }) {
   return { card, heart };
 }
 
-// Сердечко летить від Юпітера до точки progress (0…1) на шляху
-export function flyHeart(card, heart, progress, { delay = 0, duration = 1400 } = {}) {
+// Сердечко в точці t (0 — Юпітер, 1 — Земля) шляху
+function place(card, heart, t) {
   const path = card.querySelector('.space-path .trail');
-  const len = path.getTotalLength();
-  const put = (t) => {
-    const p = path.getPointAtLength(len * t);
-    heart.style.left = `${(p.x / 300) * 100}%`;
-    heart.style.top = `${(p.y / 400) * 100}%`;
-  };
-  if (reduceMotion) { put(progress); return; }
-  put(0);
+  const p = path.getPointAtLength(path.getTotalLength() * t);
+  heart.style.left = `${(p.x / 300) * 100}%`;
+  heart.style.top = `${(p.y / 400) * 100}%`;
+}
+
+// Сердечко летить від точки from (типово Юпітер) до progress (0…1) на шляху
+export function flyHeart(card, heart, progress, { delay = 0, duration = 1400, from = 0 } = {}) {
+  const id = heart.flight = (heart.flight || 0) + 1;  // нове торкання чи політ зупиняє попередній
+  if (reduceMotion) { place(card, heart, progress); return; }
+  place(card, heart, from);
   const start = performance.now() + delay;
   const step = (now) => {
+    if (heart.flight !== id) return;
     const k = Math.min(1, Math.max(0, (now - start) / duration));
-    put(progress * (1 - (1 - k) ** 3));
+    place(card, heart, from + (progress - from) * (1 - (1 - k) ** 3));
     if (k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
+}
+
+// Сердечко тягнуть пальцем уздовж пунктиру. Донесли до планети — onPlanet('jupiter' | 'earth')
+// (там згодом буде свій ролик), відпустили посередині — повертається на своє місце home.
+export function dragHeart(card, heart, home, onPlanet) {
+  const box = heart.parentElement;
+  const path = card.querySelector('.space-path .trail');
+  const len = path.getTotalLength();
+  const N = 120;
+  const pts = Array.from({ length: N + 1 }, (_, i) => path.getPointAtLength((len * i) / N));
+  let t = home;
+  let dragging = false;
+
+  heart.classList.add('is-draggable');
+  heart.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    heart.flight = (heart.flight || 0) + 1;
+    heart.setPointerCapture(e.pointerId);
+    heart.classList.add('is-dragging');
+  });
+  heart.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const r = box.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 300;
+    const y = ((e.clientY - r.top) / r.height) * 400;
+    let best = 0;
+    let bestD = Infinity;
+    pts.forEach((p, i) => {
+      const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    t = best / N;
+    place(card, heart, t);
+  });
+  const drop = () => {
+    if (!dragging) return;
+    dragging = false;
+    heart.classList.remove('is-dragging');
+    const planet = t <= 0.08 ? 'jupiter' : t >= 0.92 ? 'earth' : null;
+    if (!planet) { flyHeart(card, heart, home, { from: t, duration: 600 }); return; }
+    const end = planet === 'jupiter' ? 0 : 1;
+    place(card, heart, end);
+    card.classList.add(`hit-${planet}`);
+    onPlanet?.(planet);
+    setTimeout(() => {
+      card.classList.remove(`hit-${planet}`);
+      if (!dragging) flyHeart(card, heart, home, { from: end, duration: 900 });
+    }, 1400);
+  };
+  heart.addEventListener('pointerup', drop);
+  heart.addEventListener('pointercancel', drop);
 }

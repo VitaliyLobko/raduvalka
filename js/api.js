@@ -26,14 +26,39 @@ export function getKey() {
 export function setKey(key) {
   try {
     if (key) localStorage.setItem(STORE, key);
-    else localStorage.removeItem(STORE);
+    else { localStorage.removeItem(STORE); localStorage.removeItem(ALT); }
   } catch { /* приватний режим — ключ житиме до закриття вкладки */ }
+}
+
+// Другий ключ на тому ж телефоні (він перевіряє обидві половини): друге посилання не затирає перший ключ
+const ALT = 'radovalka:key2';
+
+export function getAltKey() {
+  try {
+    return localStorage.getItem(ALT);
+  } catch {
+    return null;
+  }
+}
+
+export function swapKeys() {
+  const key = getKey();
+  const alt = getAltKey();
+  if (!key || !alt) return;
+  try {
+    localStorage.setItem(STORE, alt);
+    localStorage.setItem(ALT, key);
+  } catch { /* без сховища перемикати нічого */ }
 }
 
 // Ключ з адреси одразу прибираємо, щоб він не лишився в історії та на скриншотах
 export function takeKeyFromUrl() {
   const key = parseKey(location.hash);
   if (!key) return;
+  const old = getKey();
+  try {
+    if (old && old !== key) localStorage.setItem(ALT, old);
+  } catch { /* приватний режим */ }
   setKey(key);
   history.replaceState(null, '', location.pathname + location.search);
 }

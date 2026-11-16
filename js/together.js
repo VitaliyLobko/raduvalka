@@ -3,7 +3,7 @@
 import { DATA } from './data.js';
 import { save } from './api.js';
 import { h } from './ui.js';
-import { spaceCard, flyHeart } from './space.js';
+import { spaceCard, flyHeart, dragHeart } from './space.js';
 
 const DAY = 86400000;
 const today = () => new Date(new Date().toDateString());
@@ -116,6 +116,8 @@ export function renderTogether(screen) {
   ].filter(Boolean));
 
   flyHeart(card, heart, trip.progress);
+  // ponytail: на планеті поки лише пульс планети; ролики для Юпітера й Землі — передати сюди onPlanet
+  dragHeart(card, heart, trip.progress);
 }
 
 // «N дней вместе» з датою початку; без дати рядка немає

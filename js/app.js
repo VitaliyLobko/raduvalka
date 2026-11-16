@@ -1,6 +1,6 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, setKey, takeKeyFromUrl } from './api.js';
+import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
@@ -326,6 +326,11 @@ function openAbout() {
       h('p', { class: 'about-version' }, `Версия ${VERSION}`),
       h('h3', {}, 'Что нового'),
       h('ul', { class: 'news' }, ...NEWS.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text)))),
+      getAltKey() ? h('button', {
+        type: 'button',
+        class: 'btn about-logout',
+        onclick: () => { swapKeys(); location.replace(location.pathname); },
+      }, DATA.side === 'vin' ? 'Переключиться на её половину' : 'Переключиться на его половину') : null,
       h('button', { type: 'button', class: 'btn about-logout', onclick: logout }, 'Выйти на этом телефоне')));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
