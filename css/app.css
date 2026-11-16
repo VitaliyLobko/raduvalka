@@ -1498,6 +1498,35 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .want-pic { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .want-pic-frame { position: relative; flex: none; }
 .want-pic .want-img { width: 96px; height: 96px; }
+.want-pic-zoom { display: block; padding: 0; border: 0; border-radius: 12px; background: none; cursor: zoom-in; }
+
+.photo-view {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(20, 10, 22, .92);
+  cursor: zoom-out;
+  animation: photo-in .18s ease-out;
+}
+.photo-view img { max-width: 100%; max-height: 100%; border-radius: 12px; background: #fff; object-fit: contain; }
+.photo-view-close {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-size: 1.125rem;
+}
+@keyframes photo-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .photo-view { animation: none; } }
+
 .want-pic-del {
   position: absolute;
   top: -8px;

@@ -65,3 +65,15 @@ export const SAGITTARIUS_GLYPH = '<path d="M5 19 19 5"/><path d="M11 5h8v8"/><pa
 export const QUILL_GLYPH = '<path d="M19.5 3.5c-6 1-10.5 5.5-12 12.5l1.6 1.6C16 16 20.5 11.5 21 4.9z"/><path d="M8.2 16.6 4 21"/><path d="M11 13c2-1.6 4-3.6 5.6-6"/>';
 
 export const ARROW = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 19 5"/><path d="M12 5h7v7"/><path d="M4 20l1.5-4.5M4 20l4.5-1.5"/></svg>`;
+
+// Фото на весь екран: тап будь-де, ✕ чи Esc — закрити
+export function showPhoto(src, alt = 'Фото') {
+  const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const box = h('div', { class: 'photo-view', role: 'dialog', 'aria-modal': 'true', 'aria-label': alt, onclick: close },
+    h('img', { src, alt }),
+    h('button', { type: 'button', class: 'photo-view-close', 'aria-label': 'Закрыть' }, '✕'));
+  document.addEventListener('keydown', onKey);
+  document.body.append(box);
+  box.querySelector('button').focus();
+}

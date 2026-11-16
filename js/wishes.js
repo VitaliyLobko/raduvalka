@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, send, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, toast, cap } from './ui.js';
+import { h, toast, cap, showPhoto } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 
 export const BUDGETS = [0, 500, 1000, 3000, 10000];
@@ -174,7 +174,8 @@ function editWish(screen, w, sharedLink = '') {
     const img = pic instanceof Blob ? h('img', { class: 'want-img', alt: 'Фото', src: URL.createObjectURL(pic) })
       : pic === undefined && w?.img ? photo(w.img, 'Фото') : null;
     picBox.replaceChildren(
-      img ? h('span', { class: 'want-pic-frame' }, img,
+      img ? h('span', { class: 'want-pic-frame' },
+        h('button', { type: 'button', class: 'want-pic-zoom', 'aria-label': 'Посмотреть фото крупно', onclick: () => { if (img.src) showPhoto(img.src, title.value || 'Фото'); } }, img),
         h('button', { type: 'button', class: 'want-pic-del', 'aria-label': 'Убрать фото', onclick: () => { pic = null; drawPic(); } }, '✕')) : null,
       h('button', { type: 'button', class: 'btn mk-reroll', onclick: () => fileIn.click() }, img ? '📷 Другое фото' : '📷 Фото'),
     );
