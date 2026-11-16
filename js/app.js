@@ -4,6 +4,7 @@ import { get, save, getKey, setKey, takeKeyFromUrl } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
+import { renderGift } from './gift.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
@@ -52,15 +53,18 @@ function prepLetter(l) {
 
 // Сургучна крапка на марці «Письмо», поки свіжий лист не відкрито
 function markLetter() {
-  const fresh = !!DATA.letter && !letterState().opened;
+  const fresh = !!DATA.gift || (!!DATA.letter && !letterState().opened);
   document.querySelector('.tab[data-tab="letter"]')?.classList.toggle('has-new', fresh);
 }
 
 // Push ще нема: свіжий лист і мемчики дотягуємо при поверненні в застосунок
 async function refreshLetter() {
   try {
-    const { letter } = await get('letter');
-    if (letter?.id !== DATA.letter?.id || letter?.text !== DATA.letter?.text) {
+    const { letter, gift } = await get('letter');
+    // Підарунок на екрані вже обирають — не перемальовуємо з-під пальця
+    const giftChanged = gift?.id !== DATA.gift?.id && !document.querySelector('.gift-card.is-chosen');
+    if (giftChanged) DATA.gift = gift;
+    if (giftChanged || letter?.id !== DATA.letter?.id || letter?.text !== DATA.letter?.text) {
       DATA.letter = prepLetter(letter);
       markLetter();
       if (tab === 'letter') render();
@@ -82,6 +86,11 @@ function courier(letter) {
 }
 
 function renderLetter() {
+  // Подарунок, що чекає вибору, — першим; після «Ура!» видно звичайний лист дня
+  if (DATA.gift) {
+    renderGift(screen, DATA.gift, () => { DATA.gift = null; markLetter(); render(); });
+    return;
+  }
   const { letter } = DATA;
   if (!letter) {
     renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'));

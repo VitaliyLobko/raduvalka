@@ -45,6 +45,9 @@ export function openMaker({ onPhoto, onGif }) {
   const funny = slider('мило', 'смешно', 40);
   const bold = slider('нежно', 'дерзко', 20);
   const absurd = slider('жизненно', 'абсурдно', 30);
+  const len = slider('коротко', 'развёрнуто', 40);
+  const about = slider('про питомца', 'про нас', 30);
+  const emoji = slider('без эмодзи', 'с эмодзи', 20);
   const people = slider('котики', 'люди', 20);
 
   const poses = h('div', { class: 'mk-poses' });
@@ -59,15 +62,18 @@ export function openMaker({ onPhoto, onGif }) {
   drawPoses();
 
   const petBox = h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Кто на фото'), petRow.el, poses);
+  const capBox = h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Подпись'), len.el, about.el, emoji.el);
   const peopleBox = h('div', { class: 'mk-group', hidden: true }, people.el);
   const kindRow = choice([{ v: 'pets', label: '🐾 С нашими' }, { v: 'gif', label: 'GIF' }], kind, (v) => {
     kind = v;
     petBox.hidden = v !== 'pets';
+    capBox.hidden = v !== 'pets';
     peopleBox.hidden = v !== 'gif';
     results.replaceChildren();
   });
   kindRow.el.classList.add('mk-kind');
   petBox.hidden = kind !== 'pets';
+  capBox.hidden = kind !== 'pets';
   peopleBox.hidden = kind !== 'gif';
 
   const results = h('div', { class: 'mk-results', 'aria-live': 'polite' });
@@ -80,6 +86,9 @@ export function openMaker({ onPhoto, onGif }) {
     funny: funny.value(),
     bold: bold.value(),
     absurd: absurd.value(),
+    len: len.value(),
+    about: about.value(),
+    emoji: emoji.value(),
     people: people.value(),
   });
 
@@ -107,6 +116,7 @@ export function openMaker({ onPhoto, onGif }) {
       kindRow.el,
       h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Повод'), situation.el, own),
       h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Настроение'), funny.el, bold.el, absurd.el),
+      capBox,
       peopleBox,
       petBox,
       go,

@@ -39,9 +39,26 @@ export function openWrite() {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
+  // «Подарок на выбор»: 2–3 варіанти — значок, назва на конверті й що всередині (видно після вибору)
+  const SAMPLE = [['🌷', 'Цветы', 'Курьер привезёт букет'], ['🍝', 'Ужин', 'Сходим в наше место'], ['💆', 'Массаж', 'Час массажа от меня, когда вернусь']];
+  const giftRows = SAMPLE.map(([e, t, i]) => {
+    const emoji = h('input', { type: 'text', class: 'gift-emoji', maxlength: '4', value: e, 'aria-label': 'Значок' });
+    const title = h('input', { type: 'text', class: 'gift-title', maxlength: '40', placeholder: t, 'aria-label': 'Что на конверте' });
+    const inside = h('input', { type: 'text', class: 'gift-inside', maxlength: '500', placeholder: `Внутри: ${i.toLowerCase()}`, 'aria-label': 'Что внутри' });
+    return { el: h('div', { class: 'gift-row' }, emoji, h('div', { class: 'gift-texts' }, title, inside)), emoji, title, inside };
+  });
+  const giftBox = h('div', { class: 'gift-edit', hidden: true },
+    h('p', { class: 'mk-label' }, 'Варианты (минимум два)'), ...giftRows.map((r) => r.el));
+  const giftOptions = () => giftRows
+    .map((r) => ({ emoji: r.emoji.value.trim() || '🎁', title: r.title.value.trim(), inside: r.inside.value.trim() }))
+    .filter((o) => o.title);
   const paintNote = () => {
     const m = nextMorning();
-    note.textContent = where === 'now'
+    giftBox.hidden = where !== 'gift';
+    area.placeholder = where === 'gift' ? 'Пару слов к подарку (можно без)' : 'Пиши как есть — так, как сказал бы вслух…';
+    note.textContent = where === 'gift'
+      ? `${cap(me.partner)} увидит закрытые конверты и выберет один. Что внутри — узнает после выбора, остальные тоже откроются.`
+      : where === 'now'
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} — как письмо дня.`
@@ -64,6 +81,7 @@ export function openWrite() {
     { v: 'now', label: 'Сейчас' },
     { v: 'morning', label: 'На утро' },
     ...(envs.length ? [{ v: 'env', label: 'В конверт' }] : []),
+    { v: 'gift', label: '🎁 Подарок' },
   ], where, (v) => { where = v; paintNote(); });
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
   paintNote();
@@ -88,7 +106,9 @@ export function openWrite() {
 
   go.addEventListener('click', async () => {
     const text = area.value.trim();
-    if (!text) { area.focus(); return; }
+    const gift = where === 'gift' ? giftOptions() : null;
+    if (gift && gift.length < 2) { toast('Нужно хотя бы два варианта'); giftRows[gift.length].title.focus(); return; }
+    if (!text && !gift) { area.focus(); return; }
     go.disabled = true;
     try {
       await send('letters', 'POST', {
@@ -97,10 +117,11 @@ export function openWrite() {
         mascot: pet,
         env: where === 'env' ? envId : undefined,
         at: where === 'morning' ? nextMorning().getTime() : undefined,
+        gift: gift || undefined,
       });
       draft.set('');
       close();
-      toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} письмо ➶`);
+      toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
     } catch {
       go.disabled = false;
       toast('Не отправилось — проверь интернет. Текст сохранён.');
@@ -114,7 +135,7 @@ export function openWrite() {
       h('h2', {}, `Письмо ${me.toWhom}`),
       helper,
       area,
-      h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, note),
+      h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, giftBox, note),
       pets.length ? h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Кто понесёт'), petRow) : null,
       go,
       sent));
@@ -139,16 +160,20 @@ async function loadSent(box) {
 
   const item = (l) => {
     const e = envLabel(l.env);
-    const where = l.kind === 'env'
+    const chose = me.partner === 'она' ? 'выбрала' : 'выбрал';
+    const where = l.kind === 'gift'
+      ? `🎁 ${(l.gift || []).map((o) => `${o.emoji} ${o.title}`).join(' / ')}`
+      : l.kind === 'env'
       ? `${e ? e.emoji : '✉'} в конверт «${e ? e.label : '…'}»`
       : new Date(l.at).toLocaleDateString('ru', { day: 'numeric', month: 'short' }).replace('.', '');
     let state;
-    if (l.kind === 'morning' && l.at > Date.now()) state = `ждёт утра · ${dayWord(l.at)} в ${hhmm(l.at)}`;
+    if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
+    else if (l.kind === 'morning' && l.at > Date.now()) state = `ждёт утра · ${dayWord(l.at)} в ${hhmm(l.at)}`;
     else if (l.opened) state = `${me.partnerOpened} ✓${l.liked ? ' · ❤️' : ''}`;
     else state = l.kind === 'env' ? 'лежит в конверте' : `ещё не ${me.partnerOpened}`;
 
     const row = h('li', { class: 'sent-item' },
-      h('p', { class: 'sent-text' }, l.text),
+      l.text ? h('p', { class: 'sent-text' }, l.text) : null,
       h('p', { class: 'sent-meta' }, h('span', {}, `${where} · ${state}`),
         l.opened ? null : h('button', {
           type: 'button',
