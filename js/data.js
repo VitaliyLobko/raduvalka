@@ -3,6 +3,7 @@ export const DATA = {
   side: 'vona',
   letter: null,
   envelopes: [],
+  partnerEnvelopes: [],
   together: {},
   mine: {},
   mascots: {},
@@ -15,12 +16,16 @@ export const SIDES = {
     partner: 'он',
     partnerWrites: 'Он уже пишет новое ✍️',
     youOpened: 'открыла',
+    toWhom: 'ему',
+    partnerOpened: 'открыл',
   },
   vin: {
     from: 'Твоя',
     partner: 'она',
     partnerWrites: 'Она уже пишет новое ✍️',
     youOpened: 'открыл',
+    toWhom: 'ей',
+    partnerOpened: 'открыла',
   },
 };
 

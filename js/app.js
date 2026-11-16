@@ -3,7 +3,8 @@ import { DATA, who } from './data.js';
 import { get, save, getKey, setKey, takeKeyFromUrl } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
-import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW } from './ui.js';
+import { openWrite } from './write.js';
+import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
@@ -16,15 +17,55 @@ const POCKET = `<svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidde
 
 let tab = 'letter';
 
-// Стан листа дня { date, opened, liked, reply } — свій у кожного, новий лист починає з нуля
+// Стан листа дня { opened, liked, reply }. Лист із застосунку тримає стан у собі на сервері —
+// так відправник бачить «відкрила», ❤️ і відповідь. Лист-заготовка — у mine, за датою
 function letterState() {
+  const l = DATA.letter;
+  if (l.id) return { opened: l.opened, liked: l.liked, reply: l.reply };
   const s = DATA.mine.letter;
-  return s && s.date === DATA.letter.date ? s : { date: DATA.letter.date };
+  return s && s.date === l.date ? s : { date: l.date };
 }
 
 function setLetterState(patch) {
-  DATA.mine.letter = { ...letterState(), ...patch };
-  save('mine', { letter: DATA.mine.letter });
+  const l = DATA.letter;
+  if (l.id) {
+    Object.assign(l, patch);
+    save(`letters/${l.id}`, patch);
+  } else {
+    DATA.mine.letter = { ...letterState(), ...patch };
+    save('mine', { letter: DATA.mine.letter });
+  }
+  markLetter();
+}
+
+// Лист із застосунку: дата — з часу показу за годинником телефона, репліка кур'єра — за родом
+function prepLetter(l) {
+  if (l?.at) {
+    const d = new Date(l.at);
+    l.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  if (l?.mascot && !l.mascotLine && DATA.mascots[l.mascot]) {
+    l.mascotLine = DATA.mascots[l.mascot].g === 'f' ? 'Принесла тебе письмо. Бежала со всех лап 💌' : 'Принёс тебе письмо. Нёс бережно 💌';
+  }
+  return l;
+}
+
+// Сургучна крапка на марці «Письмо», поки свіжий лист не відкрито
+function markLetter() {
+  const fresh = !!DATA.letter && !letterState().opened;
+  document.querySelector('.tab[data-tab="letter"]')?.classList.toggle('has-new', fresh);
+}
+
+// Push ще нема: свіжий лист і мемчики дотягуємо при поверненні в застосунок
+async function refreshLetter() {
+  try {
+    const { letter } = await get('letter');
+    if (letter?.id !== DATA.letter?.id || letter?.text !== DATA.letter?.text) {
+      DATA.letter = prepLetter(letter);
+      markLetter();
+      if (tab === 'letter') render();
+    }
+  } catch { /* нема зв'язку — лишаємо, що є */ }
 }
 
 function dayLabel(iso) {
@@ -64,7 +105,7 @@ function renderLetter() {
     h('span', { class: 'paper-peek' }),
     h('span', { class: 'env-front', html: POCKET }),
     h('span', { class: 'env-flap' }),
-    h('span', { class: 'seal', 'aria-hidden': 'true', html: SAGITTARIUS }));
+    h('span', { class: 'seal', 'aria-hidden': 'true', html: waxSeal(SAGITTARIUS_GLYPH) }));
     screen.replaceChildren(...head, h('div', { class: 'stage' },
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
@@ -156,6 +197,7 @@ function applySide() {
 
 function selectTab(name) {
   tab = name;
+  if (name === 'letter') refreshLetter();
   document.querySelectorAll('.tab').forEach((x) => {
     const on = x.dataset.tab === name;
     x.classList.toggle('is-active', on);
@@ -225,6 +267,18 @@ function openTogether() {
 
 chip.addEventListener('click', openTogether);
 
+document.getElementById('write-btn').addEventListener('click', openWrite);
+document.querySelector('.nav-seal-wax').innerHTML = waxSeal(QUILL_GLYPH);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !getKey() || document.body.classList.contains('is-booting')) return;
+  refreshLetter();
+  refreshMemes().then((changed) => {
+    markBadge();
+    if (changed && tab === 'memes') renderMemes(screen);
+  });
+});
+
 // Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні
 function openAbout() {
   const btn = document.getElementById('about-btn');
@@ -267,10 +321,12 @@ async function start() {
     showLock(e.status === 401 ? 'bad' : 'offline', start);
     return;
   }
+  prepLetter(DATA.letter);
   document.body.classList.remove('is-booting');
   applySide();
   drawChip();
   markBadge();
+  markLetter();
   render();
   maybeWelcome();
   takeShared();

@@ -55,9 +55,12 @@ function openCard(screen, env) {
   }
 
   const read = seen()[env.id] || 0;
-  const text = env.notes[read];
+  // Записка із заготовки — рядок; дописана в застосунку — { id, text }, і відправник побачить, що її відкрили
+  const note = env.notes[read];
+  const text = typeof note === 'string' ? note : note.text;
   seen()[env.id] = read + 1;
   save('mine', { seen: seen() });
+  if (note.id) save(`letters/${note.id}`, { opened: true });
 
   let liked = false;
   const heart = h('button', {
@@ -66,6 +69,7 @@ function openCard(screen, env) {
     'aria-pressed': 'false',
     onclick: () => {
       liked = !liked;
+      if (note.id) save(`letters/${note.id}`, { liked });
       heart.setAttribute('aria-pressed', String(liked));
       heart.replaceChildren(h('span', { class: 'heart', 'aria-hidden': 'true' }, liked ? '❤️' : '🤍'), liked ? 'Нравится' : 'Сердечко');
       if (liked) toast(`${cap(me.partner)} увидит твоё ❤️`);

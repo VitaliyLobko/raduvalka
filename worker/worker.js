@@ -10,6 +10,10 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS imgs (name TEXT PRIMARY KEY, type TEXT NOT NULL, data TEXT NOT NULL, updated INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS memes (id TEXT PRIMARY KEY, src TEXT NOT NULL, dst TEXT NOT NULL, '
     + 'img TEXT NOT NULL, caption TEXT, created INTEGER NOT NULL, reaction TEXT)',
+  // Листи, написані в застосунку: «зараз», «на ранок» (at — коли показати) і записки в конверт
+  'CREATE TABLE IF NOT EXISTS letters (id TEXT PRIMARY KEY, src TEXT NOT NULL, dst TEXT NOT NULL, '
+    + 'kind TEXT NOT NULL, env TEXT, mascot TEXT, text TEXT NOT NULL, at INTEGER NOT NULL, '
+    + 'created INTEGER NOT NULL, opened INTEGER, liked INTEGER NOT NULL DEFAULT 0, reply TEXT)',
 ];
 
 const SIDES = ['vona', 'vin'];
@@ -24,6 +28,9 @@ const MAX_IMG = 1.4 * 1024 * 1024;
 const MAX_B64 = 1_900_000;
 const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
 const REACTIONS = ['😂', '❤️'];
+const LETTER_KINDS = ['now', 'morning', 'env'];
+const MAX_LETTER = 4000;
+const MAX_AHEAD = 3 * 24 * 3600 * 1000;
 
 // Колонки, додані пізніше: ALTER на вже існуючій таблиці (помилка «вже є» — норма)
 const MIGRATIONS = ['ALTER TABLE memes ADD COLUMN url TEXT'];
@@ -61,9 +68,10 @@ async function route(req, env) {
   const m = req.method;
 
   if (m === 'GET' && path === 'boot') {
-    const [letter, envelopes, together, mine, mascots, memes] = await Promise.all([
-      getDoc(env.DB, `letter:${side}`),
-      getDoc(env.DB, `envelopes:${side}`),
+    const [letter, envelopes, partnerEnvelopes, together, mine, mascots, memes] = await Promise.all([
+      dayLetter(env.DB, side),
+      myEnvelopes(env.DB, side),
+      getDoc(env.DB, `envelopes:${other(side)}`),
       getDoc(env.DB, 'together'),
       getDoc(env.DB, `mine:${side}`),
       getDoc(env.DB, 'mascots'),
@@ -72,13 +80,18 @@ async function route(req, env) {
     return json({
       side,
       letter,
-      envelopes: envelopes || [],
+      envelopes,
+      // Для «В конверт»: лише назви її/його конвертів, без самих записок
+      partnerEnvelopes: (partnerEnvelopes || []).map(({ id, emoji, label }) => ({ id, emoji, label })),
       together: together || {},
       mine: mine || {},
       mascots: mascots || {},
       memes,
     });
   }
+
+  if (m === 'GET' && path === 'letter') return json({ letter: await dayLetter(env.DB, side) });
+  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8));
 
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6));
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
@@ -278,6 +291,92 @@ async function memesRoute(req, db, side, rest) {
   throw fail(404, 'not found');
 }
 
+const other = (side) => (side === 'vin' ? 'vona' : 'vin');
+
+// Лист дня: найновіший написаний у застосунку, чий час настав; «на ранок» до ранку не віддаємо.
+// Нема жодного — лист із бази (заготовка)
+async function dayLetter(db, side) {
+  const r = await db.prepare(
+    "SELECT * FROM letters WHERE dst = ? AND kind IN ('now', 'morning') AND at <= ? ORDER BY at DESC, created DESC LIMIT 1",
+  ).bind(side, Date.now()).first();
+  if (!r) return getDoc(db, `letter:${side}`);
+  return { id: r.id, at: r.at, text: r.text, mascot: r.mascot, opened: !!r.opened, liked: !!r.liked, reply: r.reply };
+}
+
+// Конверти: записки із заготовки, а за ними — дописані в застосунку (лише додаються в кінець,
+// бо «прочитано» рахується позицією)
+async function myEnvelopes(db, side) {
+  const list = (await getDoc(db, `envelopes:${side}`)) || [];
+  const { results } = await db.prepare(
+    "SELECT id, env, text, liked FROM letters WHERE dst = ? AND kind = 'env' ORDER BY created",
+  ).bind(side).all();
+  return list.map((e) => ({
+    ...e,
+    notes: [...(e.notes || []), ...results.filter((r) => r.env === e.id).map((r) => ({ id: r.id, text: r.text, liked: !!r.liked }))],
+  }));
+}
+
+async function lettersRoute(req, db, side, rest) {
+  const m = req.method;
+
+  // Надіслані мною — з тим, що вже сталося на тому боці
+  if (m === 'GET' && rest === 'sent') {
+    const { results } = await db.prepare(
+      'SELECT id, kind, env, text, at, created, opened, liked, reply FROM letters WHERE src = ? ORDER BY created DESC LIMIT 20',
+    ).bind(side).all();
+    return json(results.map((r) => ({ ...r, opened: !!r.opened, liked: !!r.liked })));
+  }
+
+  if (m === 'POST' && !rest) {
+    const b = await readJson(req);
+    const kind = String(b.kind || '');
+    const text = String(b.text || '').trim().slice(0, MAX_LETTER);
+    if (!LETTER_KINDS.includes(kind) || !text) throw fail(400, 'letter');
+    const now = Date.now();
+    let at = now;
+    // Час «на ранок» рахує телефон (його часовий пояс); сервер лише не пускає в минуле й далеко вперед
+    if (kind === 'morning') at = Math.max(now, Math.min(now + MAX_AHEAD, Number(b.at) || now));
+    let envId = null;
+    if (kind === 'env') {
+      envId = String(b.env || '');
+      const theirs = (await getDoc(db, `envelopes:${other(side)}`)) || [];
+      if (!theirs.some((e) => e.id === envId)) throw fail(400, 'env');
+    }
+    const mascots = (await getDoc(db, 'mascots')) || {};
+    const mascot = mascots[b.mascot] ? String(b.mascot) : null;
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    await db.prepare(
+      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, at, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, side, other(side), kind, envId, mascot, text, at, now).run();
+    return json({ id, kind, env: envId, text, at, created: now, opened: false, liked: false, reply: null }, 201);
+  }
+
+  const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(rest).first();
+  if (!r || (r.src !== side && r.dst !== side)) throw fail(404, 'not found');
+
+  // Отримувач: відкрив, ❤️, відповідь
+  if (m === 'PUT') {
+    if (r.dst !== side) throw fail(403, 'forbidden');
+    const b = await readJson(req);
+    const opened = b.opened ? (r.opened || Date.now()) : r.opened;
+    const liked = 'liked' in b ? (b.liked ? 1 : 0) : r.liked;
+    const reply = 'reply' in b ? (String(b.reply || '').trim().slice(0, MAX_LETTER) || null) : r.reply;
+    await db.prepare('UPDATE letters SET opened = ?, liked = ?, reply = ? WHERE id = ?')
+      .bind(opened, liked, reply, r.id).run();
+    return json({ ok: true });
+  }
+
+  // Відправник забирає лист, поки його не відкрили
+  if (m === 'DELETE') {
+    if (r.src !== side) throw fail(403, 'forbidden');
+    if (r.opened) throw fail(409, 'opened');
+    await db.prepare('DELETE FROM letters WHERE id = ?').bind(r.id).run();
+    return json({ ok: true });
+  }
+
+  throw fail(405, 'method');
+}
+
 async function listMemes(db, side) {
   const { results } = await db.prepare(
     'SELECT * FROM memes WHERE src = ? OR dst = ? ORDER BY created DESC LIMIT 300',
@@ -310,23 +409,26 @@ async function memeIdeas(req, env, side) {
       + `Subjects: ${level(b.people) > 50 ? 'people, movie and cartoon characters' : 'animals, cats, dogs'}.`;
   } else {
     const pet = b.pet || {};
-    const from = side === 'vin' ? 'муж' : 'жена';
     system = 'Ты остроумный автор подписей к мемам. Пара: муж надолго уехал далеко, жена ждёт дома, '
       + 'у них общие питомцы. Мем — фото питомца с подписью, один отправляет другому. '
       + 'Подпись — реплика питомца от первого лица (в его роде) или смешной комментарий к фото, '
       + '6–12 слов, с конкретной бытовой деталью (диван, миска, тапки, одеяло, холодильник, прогулка), '
       + 'с неожиданным поворотом, как в хороших мемах. Не банально: не «я скучаю», не «люблю тебя» в лоб. '
       + 'Без пошлости, политики, войны, хэштегов, эмодзи. '
+      + 'Никогда не используй слова «мама», «папа», «хозяин», «хозяйка» — пара себя так не называет. '
       + 'Примеры стиля: «Охраняю твою половину кровати. Никого не пускаю, даже себя… почти»; '
-      + '«Мама сказала, что ты скоро. Я уже третий час смотрю на дверь». '
+      + '«Она сказала, что ты скоро. Я уже третий час смотрю на дверь». '
       + 'Ответь ТОЛЬКО JSON {"captions": [5 разных подписей]}.';
     user = `На фото: ${String(pet.name || 'питомец').slice(0, 30)} — ${String(pet.sp || 'питомец').slice(0, 60)}, `
       + `${pet.g === 'f' ? 'девочка (говорит в женском роде)' : 'мальчик (говорит в мужском роде)'}. `
-      + 'Питомец живёт дома с мамой, папа далеко и его дома НЕТ. '
-      + `Отправляет ${from} — ${to}. Если питомец к кому-то обращается — только к получателю, `
-      + `${side === 'vin' ? '«мама»' : '«папа»'}; ${side === 'vin' ? 'папа' : 'мама'} — тот, кто отправил. `
+      + (side === 'vin'
+        ? 'Мем от мужа жене. Питомец дома с ней и говорит ей «ты». Муж далеко, о нём — «он»; '
+          + 'он не может кормить, гулять, сидеть на диване — его дома НЕТ, по нему скучают. '
+        : 'Мем от жены мужу. Муж далеко, питомец пишет ему «ты» и зовёт домой. '
+          + 'Жена дома с питомцем, о ней — «она» (кормит, гуляет, обнимает, ворчит). ')
       + `Повод: ${situation}. `
-      + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно).`;
+      + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно), `
+      + `абсурдно на ${level(b.absurd)}% (0 — жизненно и узнаваемо, 100 — сюрреализм и неожиданные сравнения).`;
   }
 
   const out = await env.AI.run(AI_MODEL, {

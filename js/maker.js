@@ -44,6 +44,7 @@ export function openMaker({ onPhoto, onGif }) {
   });
   const funny = slider('мило', 'смешно', 40);
   const bold = slider('нежно', 'дерзко', 20);
+  const absurd = slider('жизненно', 'абсурдно', 30);
   const people = slider('котики', 'люди', 20);
 
   const poses = h('div', { class: 'mk-poses' });
@@ -78,6 +79,7 @@ export function openMaker({ onPhoto, onGif }) {
     situation: situation.value() === OWN ? own.value : situation.value(),
     funny: funny.value(),
     bold: bold.value(),
+    absurd: absurd.value(),
     people: people.value(),
   });
 
@@ -87,13 +89,14 @@ export function openMaker({ onPhoto, onGif }) {
     go.disabled = true;
     results.replaceChildren(h('p', { class: 'mk-wait' }, kind === 'gif' ? 'Ищу гифки…' : `${petName(pet)} придумывает подписи…`));
     try {
-      if (kind === 'gif') await showGifs(results, q, (g) => { close(); onGif(g); });
-      else await showCaptions(results, q, pet, pose, (file) => { close(); onPhoto(file); });
+      // «🎲» під результатами — те саме, що ще раз «Придумать» з тими ж налаштуваннями
+      const again = () => go.click();
+      if (kind === 'gif') await showGifs(results, q, (g) => { close(); onGif(g); }, again);
+      else await showCaptions(results, q, pet, pose, (file) => { close(); onPhoto(file); }, again);
     } catch {
       results.replaceChildren(h('p', { class: 'mk-wait' }, 'Не получилось — проверь интернет и попробуй ещё раз.'));
     }
     go.disabled = false;
-    go.textContent = '✨ Ещё варианты';
   });
 
   const backdrop = h('div', { class: 'backdrop', onclick: close });
@@ -103,7 +106,7 @@ export function openMaker({ onPhoto, onGif }) {
       h('h2', {}, 'Подобрать мемчик'),
       kindRow.el,
       h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Повод'), situation.el, own),
-      h('div', { class: 'mk-group' }, funny.el, bold.el),
+      h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Настроение'), funny.el, bold.el, absurd.el),
       peopleBox,
       petBox,
       go,
@@ -112,7 +115,9 @@ export function openMaker({ onPhoto, onGif }) {
 }
 
 // Підписи від ШІ → кнопки; тап малює листівку з фото й підписом і віддає файлом
-async function showCaptions(results, q, pet, pose, done) {
+const reroll = (again, label = '🎲 Ещё варианты') => h('button', { type: 'button', class: 'btn mk-reroll', onclick: again }, label);
+
+async function showCaptions(results, q, pet, pose, done, again) {
   const m = DATA.mascots[pet];
   const { captions } = await send('meme-ideas', 'POST', { ...q, pet: { name: m.name, sp: m.sp, g: m.g } });
   if (!captions?.length) throw new Error('empty');
@@ -121,11 +126,12 @@ async function showCaptions(results, q, pet, pose, done) {
     ...captions.map((c) => h('button', {
       type: 'button',
       class: 'mk-caption',
-      onclick: () => editCaption(results, c, pet, pose, done),
-    }, c)));
+      onclick: () => editCaption(results, c, pet, pose, done, again),
+    }, c)),
+    reroll(again));
 }
 
-function editCaption(results, text, pet, pose, done) {
+function editCaption(results, text, pet, pose, done, again) {
   const field = h('textarea', { maxlength: '120', 'aria-label': 'Подпись на картинке' });
   field.value = text;
   const make = h('button', { type: 'button', class: 'btn btn-primary' }, 'Сделать мемчик');
@@ -138,7 +144,8 @@ function editCaption(results, text, pet, pose, done) {
       toast('Картинка не нарисовалась');
     }
   });
-  results.replaceChildren(h('p', { class: 'mk-label' }, 'Подпись'), field, h('div', { class: 'sheet-actions' }, make));
+  results.replaceChildren(h('p', { class: 'mk-label' }, 'Подпись'), field,
+    h('div', { class: 'sheet-actions' }, reroll(again, '🎲 Другие'), make));
   field.focus();
 }
 
@@ -212,7 +219,7 @@ function stars(ctx, w, hgt) {
 }
 
 // GIF: ШІ дає 3 англійські запити → чипи; сітка по 12, «Ещё» — наступні 12
-async function showGifs(results, q, done) {
+async function showGifs(results, q, done, again) {
   const { queries } = await send('meme-ideas', 'POST', q);
   if (!queries?.length) throw new Error('empty');
   let query = queries[0];
@@ -249,6 +256,6 @@ async function showGifs(results, q, done) {
     load(false);
   });
   more.addEventListener('click', () => { offset += 12; load(true); });
-  results.replaceChildren(chips.el, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY'));
+  results.replaceChildren(chips.el, grid, more, reroll(again, '🎲 Другие запросы'), h('p', { class: 'mk-giphy' }, 'Powered by GIPHY'));
   await load(false);
 }

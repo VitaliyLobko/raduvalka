@@ -175,15 +175,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   z-index: 5;
   left: 50%;
   top: 52%;
-  width: 54px;
-  height: 54px;
-  margin: -27px 0 0 -27px;
+  width: 66px;
+  height: 66px;
+  margin: -33px 0 0 -33px;
   display: grid;
   place-items: center;
-  border-radius: 46% 54% 50% 50% / 52% 48% 52% 48%;
-  background: radial-gradient(circle at 35% 30%, #c25b95, var(--wax) 60%, #7a2c5b);
-  color: #fbe3ef;
-  box-shadow: 0 3px 0 #6d2650, 0 6px 14px rgba(74, 37, 69, .35);
+  filter: drop-shadow(0 2px 0 #5e1f45) drop-shadow(0 6px 8px rgba(74, 37, 69, .35));
   transition: transform .3s, opacity .3s;
 }
 
@@ -199,7 +196,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transition: transform .6s cubic-bezier(.3, .7, .3, 1) .35s;
 }
 
-.seal svg { width: 28px; height: 28px; }
+.seal svg, .nav-seal-wax svg.wax { width: 100%; height: 100%; }
 
 .envelope.is-opening .seal { transform: scale(1.3); opacity: 0; }
 .envelope.is-opening .env-flap { transform: rotateX(180deg); z-index: 1; }
@@ -765,8 +762,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   bottom: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 10px 8px max(10px, env(safe-area-inset-bottom));
+  grid-template-columns: repeat(5, 1fr);
+  padding: 10px 4px max(10px, env(safe-area-inset-bottom));
   background: var(--tab-bg);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--chip);
@@ -826,7 +823,37 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transform: rotate(-5deg) translateY(-2px);
 }
 
-.tab:nth-child(even).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+/* Нахил «через одну» — за назвою, бо посередині стоїть печатка «Написать» */
+.tab:is([data-tab="envelopes"], [data-tab="box"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+
+/* Печатка «Написать» посередині — сургуч, трохи вище за марки */
+.nav-seal {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: .75rem;
+  line-height: 1.15;
+  font-weight: 500;
+  color: var(--wax);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-seal-wax {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-top: -20px;
+  filter: drop-shadow(0 2px 0 #5e1f45) drop-shadow(0 5px 6px rgba(74, 37, 69, .4));
+  transition: transform .2s cubic-bezier(.3, 1.4, .5, 1);
+}
+
+.nav-seal:active .nav-seal-wax { transform: scale(.92) rotate(-6deg); }
+
+[data-side="vin"] .nav-seal { color: var(--powder); }
 
 :root {
   --stamp-off: #EDE3FB;
@@ -1114,4 +1141,137 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* «✍️ Написать» */
+.sheet-write .write-text {
+  min-height: 160px;
+  margin-top: 4px;
+  font-size: 1.6rem;
+  line-height: 1.3;
+}
+
+.write-note { margin: 8px 0 0; font-size: .875rem; color: #7a5a78; }
+.write-envs { margin-top: 8px; }
+
+.write-pets .mk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 4px 14px 4px 4px;
+}
+
+.write-pets img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+
+.write-go { display: flex; justify-content: center; width: 100%; margin-top: 18px; }
+
+.write-sent h3 { margin: 26px 0 8px; font-family: var(--hand); font-size: 1.7rem; }
+.sent-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+
+.sent-item {
+  padding: 10px 12px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.sent-text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  white-space: pre-line;
+  font: 1.35rem/1.25 var(--hand);
+}
+
+.sent-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-size: .8125rem;
+  color: #7a5a78;
+}
+
+.sent-take {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--lavender);
+  border-radius: 999px;
+  background: none;
+  font-size: .8125rem;
+}
+
+.sent-reply { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #F6EEFD; font-size: .9375rem; }
+
+/* hidden сильніший за display: flex у чипів */
+[hidden] { display: none !important; }
+
+/* Шторки на світлому папері: хрестик завжди сливовий, навіть на його темній половині */
+.sheet-maker .sheet-close { color: var(--plum); }
+
+.mk-reroll { display: flex; justify-content: center; width: 100%; margin-top: 4px; border-style: dashed; }
+.sheet-actions .mk-reroll { width: auto; margin: 0; }
+
+/* Повзунки: стрічка лаванда→пудра, бігунок — крапля сургучу */
+.mk-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 28px;
+  background: none;
+}
+
+.mk-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--lavender), var(--powder));
+}
+
+.mk-slider input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--lavender), var(--powder));
+}
+
+.mk-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border: 3px solid #fff;
+  border-radius: 46% 54% 50% 50% / 52% 48% 52% 48%;
+  background: radial-gradient(circle at 35% 30%, #d77aac, var(--wax) 60%, #6a2149);
+  box-shadow: 0 2px 6px rgba(74, 37, 69, .35);
+}
+
+.mk-slider input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #d77aac, var(--wax) 60%, #6a2149);
+  box-shadow: 0 2px 6px rgba(74, 37, 69, .35);
+}
+
+.mk-slider span { color: #7a5a78; }
+
+.sheet-maker .mk-group {
+  padding: 12px 12px 10px;
+  border-radius: 16px;
+  background: #F6EEFD;
+}
+
+.sheet-maker .mk-group .mk-chip { background: #fff; }
+.sheet-maker .mk-group .mk-chip[aria-checked="true"] { background: var(--plum); }
+
+/* Поле листа — аркуш у лінійку, як сам лист */
+.sheet-write .write-text {
+  border-color: var(--lavender);
+  background: #fff repeating-linear-gradient(180deg, transparent 0 39px, rgba(201, 182, 242, .55) 39px 40px);
+  background-attachment: local;
+  line-height: 40px;
+  padding: 6px 14px;
 }
