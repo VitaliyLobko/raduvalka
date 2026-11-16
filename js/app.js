@@ -1,6 +1,7 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, takeKeyFromUrl } from './api.js';
+import { get, save, getKey, setKey, takeKeyFromUrl } from './api.js';
+import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
@@ -223,6 +224,36 @@ function openTogether() {
 }
 
 chip.addEventListener('click', openTogether);
+
+// Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні
+function openAbout() {
+  const btn = document.getElementById('about-btn');
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    sheet.remove();
+    backdrop.remove();
+    btn.focus();
+  };
+  const logout = () => {
+    if (!confirm('Выйти на этом телефоне? Чтобы вернуться, понадобится твоя личная ссылка.')) return;
+    setKey(null);
+    location.replace(location.pathname);
+  };
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'О Радовалке' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
+    h('div', { class: 'sheet-inner' },
+      h('h2', { class: 'title' }, 'Радовалка'),
+      h('p', { class: 'about-version' }, `Версия ${VERSION}`),
+      h('h3', {}, 'Что нового'),
+      h('ul', { class: 'news' }, ...NEWS.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text)))),
+      h('button', { type: 'button', class: 'btn about-logout', onclick: logout }, 'Выйти на этом телефоне')));
+  document.body.append(backdrop, sheet);
+  document.addEventListener('keydown', onKey);
+}
+
+document.getElementById('about-btn').addEventListener('click', openAbout);
 
 async function start() {
   if (!getKey()) {

@@ -842,6 +842,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
   --stamp-ink: var(--night);
 }
 
+/* «Радовалка» в шапці — кнопка «про застосунок», виглядає як напис */
+.wordmark button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.about-version { margin: -6px 0 18px; color: var(--ink-soft); }
+.sheet-about h3 { margin: 0 0 10px; font-family: var(--hand); font-size: 1.7rem; }
+.news { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 10px; }
+.news li { display: grid; grid-template-columns: 3.4em 1fr; gap: 8px; line-height: 1.4; }
+.news b { font-weight: 500; color: var(--ink-soft); }
+.about-logout { width: 100%; justify-content: center; border-color: var(--chip); color: var(--ink-soft); }
+
 /* «Вместе» у шапці: мініатюра листівки й скільки днів */
 .together-chip {
   display: inline-flex;
