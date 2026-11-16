@@ -1,0 +1,274 @@
+// «Хотелки»: свій список бажань і список другого. Позначки «присмотрел/куплено» бачить лише той, хто ставить
+import { DATA, who } from './data.js';
+import { get, send, postBlob, imageUrl } from './api.js';
+import { mascotImg, petName, petFor } from './icons.js';
+import { h, toast, cap } from './ui.js';
+import { prepare, toBase64 } from './memes.js';
+
+export const BUDGETS = [0, 500, 1000, 3000, 10000];
+export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
+const budgetLabel = (b) => (b ? `до ${b.toLocaleString('ru')}` : 'любой');
+const PHOTO_SIDE = 720;
+
+let view = 'theirs';
+let budget = 0;
+const photos = new Map();
+
+// Відповідь сервера могла прийти, коли вже відкрита інша вкладка, — тоді не малюємо
+const onWishTab = () => !!document.querySelector('.tab[data-tab="wish"].is-active');
+
+export async function loadWishes() {
+  DATA.wishes = await get('wishes');
+  return DATA.wishes;
+}
+
+export const fitsBudget = (w, b) => !b || !w.price || w.price <= b;
+
+export function renderWishes(screen) {
+  const me = who();
+  const theirsName = me.partner === 'она' ? 'Её' : 'Его';
+  const data = DATA.wishes;
+  const pet = petFor('box');
+  const iMark = me.partner === 'она' ? 'присмотрел' : 'присмотрела';
+
+  const seg = h('div', { class: 'mk-chips mk-kind', role: 'radiogroup' },
+    ...[['theirs', `${theirsName} хотелки`], ['mine', 'Мои']].map(([v, label]) => h('button', {
+      type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(view === v),
+      onclick: () => { view = v; renderWishes(screen); },
+    }, label)));
+
+  const head = [
+    h('h2', { class: 'title' }, 'Хотелки'),
+    pet ? h('div', { class: 'courier' },
+      h('span', { class: 'mascot', html: mascotImg(pet, 'festive') }),
+      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `),
+        view === 'mine' ? `Пиши, чего хочется. ${cap(me.partner)} подглядит 😉` : 'Тсс. Что ты тут отметишь — останется между нами.')) : null,
+    seg,
+  ];
+
+  if (!data) {
+    const retry = () => {
+      screen.replaceChildren(...head.filter(Boolean), h('p', { class: 'mk-wait' }, 'Загружаю…'));
+      loadWishes()
+        .then(() => { if (onWishTab()) renderWishes(screen); })
+        .catch(() => {
+          if (!onWishTab()) return;
+          screen.replaceChildren(...head.filter(Boolean),
+            h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи.'),
+            h('button', { type: 'button', class: 'btn want-add', onclick: retry }, 'Попробовать ещё'));
+        });
+    };
+    retry();
+    return;
+  }
+
+  let body;
+  if (view === 'mine') {
+    body = [
+      h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '＋ Хочу'),
+      data.mine.length
+        ? h('ul', { class: 'want-list' }, ...data.mine.map((w) => wishCard(w, { onclick: () => editWish(screen, w) })))
+        : h('p', { class: 'mk-wait' }, `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
+    ];
+  } else {
+    const list = data.theirs.filter((w) => fitsBudget(w, budget));
+    body = [
+      h('div', { class: 'want-budget' }, h('span', { class: 'mk-label' }, 'Бюджет'),
+        h('div', { class: 'mk-chips' }, ...BUDGETS.map((b) => h('button', {
+          type: 'button', class: 'mk-chip', 'aria-checked': String(budget === b),
+          onclick: () => { budget = b; renderWishes(screen); },
+        }, budgetLabel(b))))),
+      list.length
+        ? h('ul', { class: 'want-list' }, ...list.map((w) => wishCard(w, {
+          actions: h('span', { class: 'want-marks' },
+            markBtn(screen, w, 'eye', `🤫 ${iMark}`),
+            markBtn(screen, w, 'bought', '✓ куплено')),
+        })))
+        : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь фильтр.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`),
+      h('p', { class: 'hint' }, `Твои отметки ${me.partner} не видит.`),
+    ];
+  }
+  screen.replaceChildren(...head.filter(Boolean), ...body);
+}
+
+// Фото хотілки з сервера — один раз за сеанс, далі з пам'яті
+function photo(name, alt = '') {
+  const img = h('img', { class: 'want-img', alt, loading: 'lazy' });
+  if (!photos.has(name)) photos.set(name, imageUrl(name).catch(() => { photos.delete(name); return ''; }));
+  photos.get(name).then((src) => { if (src) img.src = src; });
+  return img;
+}
+
+function wishCard(w, { onclick, actions } = {}) {
+  const inner = [
+    w.img ? photo(w.img) : null,
+    h('span', { class: 'want-text' },
+      h('span', { class: 'want-title' }, `${w.hot ? '🔥 ' : ''}${w.title}`),
+      h('span', { class: 'want-meta' }, w.price ? money(w.price) : 'цена не указана'),
+      w.note ? h('span', { class: 'want-note' }, w.note) : null),
+  ];
+  const link = w.link ? h('a', { class: 'want-link', href: w.link, target: '_blank', rel: 'noopener noreferrer' }, 'открыть ↗') : null;
+  return h('li', { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}` },
+    onclick ? h('button', { type: 'button', class: 'want-body', onclick }, ...inner) : h('div', { class: 'want-body' }, ...inner),
+    link || actions ? h('div', { class: 'want-foot' }, link, actions) : null);
+}
+
+function markBtn(screen, w, mark, label) {
+  return h('button', {
+    type: 'button',
+    class: 'want-mark',
+    'aria-pressed': String(w.mark === mark),
+    onclick: async () => {
+      const prev = w.mark;
+      w.mark = prev === mark ? null : mark;
+      renderWishes(screen);
+      try {
+        await send(`wishes/${w.id}`, 'PUT', { mark: w.mark });
+      } catch {
+        w.mark = prev;
+        if (onWishTab()) renderWishes(screen);
+        toast('Не сохранилось — нет связи');
+      }
+    },
+  }, label);
+}
+
+// Посилання з тексту, яким поділились («Подивись: Светр … https://…»)
+export const linkIn = (text) => /https?:\/\/\S+/i.exec(String(text || ''))?.[0]?.replace(/[)\].,»"']+$/, '') || '';
+
+// Нова хотілка з «Поделиться» в магазині: форма одразу з посиланням і заповнюється сама
+export function wishFromShare(screen, link) {
+  view = 'mine';
+  renderWishes(screen);
+  editWish(screen, null, link);
+}
+
+const FILL_ERRORS = {
+  fetch: 'Магазин не отдал страницу. Открой товар, выдели и скопируй текст страницы — и вставь сюда.',
+  empty: 'На странице не видно товара. Скопируй текст со страницы товара и вставь сюда.',
+  url: 'Это не похоже на ссылку на сайт.',
+};
+
+// Додати або змінити свою хотілку
+function editWish(screen, w, sharedLink = '') {
+  const field = (attrs, value = '') => { const el = h('input', attrs); el.value = value ?? ''; return el; };
+  const link = field({ type: 'url', maxlength: '500', placeholder: 'Ссылка на товар', 'aria-label': 'Ссылка' }, w?.link || sharedLink);
+  const title = field({ type: 'text', maxlength: '120', placeholder: 'Что хочется', 'aria-label': 'Что хочется' }, w?.title);
+  const price = field({ type: 'number', inputmode: 'numeric', min: '0', step: '50', placeholder: 'Примерно сколько стоит, ₴', 'aria-label': 'Цена' }, w?.price);
+  const note = field({ type: 'text', maxlength: '500', placeholder: 'Размер, цвет, подробности', 'aria-label': 'Подробности' }, w?.note);
+  let hot = !!w?.hot;
+  const hotBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-checked': String(hot), onclick: () => { hot = !hot; hotBtn.setAttribute('aria-checked', String(hot)); } }, '🔥 очень хочу');
+
+  // Фото: undefined — не чіпали, null — прибрали, Blob — нове
+  let pic;
+  const picBox = h('div', { class: 'want-pic' });
+  const fileIn = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  const drawPic = () => {
+    const img = pic instanceof Blob ? h('img', { class: 'want-img', alt: 'Фото', src: URL.createObjectURL(pic) })
+      : pic === undefined && w?.img ? photo(w.img, 'Фото') : null;
+    picBox.replaceChildren(
+      img ? h('span', { class: 'want-pic-frame' }, img,
+        h('button', { type: 'button', class: 'want-pic-del', 'aria-label': 'Убрать фото', onclick: () => { pic = null; drawPic(); } }, '✕')) : null,
+      h('button', { type: 'button', class: 'btn mk-reroll', onclick: () => fileIn.click() }, img ? '📷 Другое фото' : '📷 Фото'),
+    );
+  };
+  const takeFile = async (blob) => {
+    try {
+      pic = await prepare(blob, PHOTO_SIDE, false);
+      drawPic();
+    } catch {
+      toast('Это фото не открылось');
+    }
+  };
+  fileIn.addEventListener('change', () => { if (fileIn.files[0]) takeFile(fileIn.files[0]); fileIn.value = ''; });
+  drawPic();
+
+  // «Заповнити»: сторінку читає Worker, ИИ складає назву, ціну й подробиці; людина перевіряє
+  const status = h('p', { class: 'want-status', 'aria-live': 'polite' });
+  const pasted = h('textarea', { class: 'want-paste', rows: '4', placeholder: 'Текст со страницы товара', 'aria-label': 'Текст со страницы товара', hidden: true });
+  const fillBtn = h('button', { type: 'button', class: 'btn btn-primary want-fill' }, '✨ Заполнить');
+  const fill = async () => {
+    const url = linkIn(link.value) || link.value.trim();
+    const text = pasted.hidden ? '' : pasted.value.trim();
+    if (!url && !text) { link.focus(); return; }
+    if (url !== link.value) link.value = url;
+    fillBtn.disabled = true;
+    status.textContent = text ? 'Читаю текст…' : 'Смотрю, что там в магазине…';
+    try {
+      const r = await send('wish-from-url', 'POST', text ? { text, ...(url ? { url } : {}) } : { url });
+      title.value = r.title || title.value;
+      if (r.price) price.value = r.price;
+      if (r.note) note.value = r.note;
+      pasted.hidden = true;
+      status.textContent = 'Готово — проверь и поправь, если что.';
+      if (r.image) {
+        try {
+          await takeFile(await postBlob('wish-image', { url: r.image }));
+        } catch { /* без фото теж добре */ }
+      }
+    } catch (e) {
+      const code = e.code || '';
+      status.textContent = FILL_ERRORS[code] || (e.status ? 'Не получилось разобрать — заполни сам(а) или вставь текст страницы.' : 'Нет связи');
+      if (code === 'fetch' || code === 'empty' || code === 'ai') { pasted.hidden = false; pasted.focus(); }
+    } finally {
+      fillBtn.disabled = false;
+    }
+  };
+  fillBtn.addEventListener('click', fill);
+
+  const close = () => { sheet.remove(); backdrop.remove(); };
+  const saveBtn = h('button', { type: 'button', class: 'btn btn-primary' }, 'Сохранить');
+  const save = async () => {
+    if (!title.value.trim()) { title.focus(); return; }
+    saveBtn.disabled = true;
+    const body = { title: title.value, price: price.value, link: linkIn(link.value), note: note.value, hot };
+    try {
+      if (pic instanceof Blob) body.img = { type: pic.type, data: await toBase64(pic) };
+      else if (pic === null) body.img = null;
+      if (w) await send(`wishes/${w.id}`, 'PUT', body);
+      else await send('wishes', 'POST', body);
+    } catch (e) {
+      saveBtn.disabled = false;
+      toast(e.status === 413 ? 'Фото слишком большое' : 'Не сохранилось — нет связи');
+      return;
+    }
+    close();
+    try {
+      await loadWishes();
+    } catch {
+      toast('Сохранено, но список не обновился — нет связи');
+      return;
+    }
+    if (onWishTab()) renderWishes(screen);
+  };
+  saveBtn.addEventListener('click', save);
+  const remove = async () => {
+    if (!confirm('Убрать из хотелок?')) return;
+    try {
+      await send(`wishes/${w.id}`, 'DELETE');
+      close();
+      await loadWishes();
+      if (onWishTab()) renderWishes(screen);
+    } catch {
+      toast('Не удалилось — нет связи');
+    }
+  };
+
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const sheet = h('div', { class: 'sheet sheet-maker', role: 'dialog', 'aria-modal': 'true', 'aria-label': w ? 'Изменить хотелку' : 'Новая хотелка' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
+    h('div', { class: 'sheet-inner want-form' },
+      h('h2', {}, w ? 'Хотелка' : 'Хочу…'),
+      h('div', { class: 'want-fillbox' },
+        h('div', { class: 'want-linkrow' }, link, fillBtn),
+        status, pasted),
+      picBox, fileIn,
+      title, price, note,
+      h('div', { class: 'mk-chips' }, hotBtn),
+      h('div', { class: 'sheet-actions' },
+        w ? h('button', { type: 'button', class: 'btn want-remove', onclick: remove }, 'Уже не хочу') : null,
+        saveBtn)));
+  document.body.append(backdrop, sheet);
+  if (sharedLink) fill();
+  else (w ? title : link).focus();
+}

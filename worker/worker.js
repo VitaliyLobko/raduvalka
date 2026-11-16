@@ -14,6 +14,9 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS letters (id TEXT PRIMARY KEY, src TEXT NOT NULL, dst TEXT NOT NULL, '
     + 'kind TEXT NOT NULL, env TEXT, mascot TEXT, text TEXT NOT NULL, at INTEGER NOT NULL, '
     + 'created INTEGER NOT NULL, opened INTEGER, liked INTEGER NOT NULL DEFAULT 0, reply TEXT)',
+  // «Хотелки»: список бажань кожного; mark — позначка другого («присмотрел»/«куплено»), власнику не видно
+  'CREATE TABLE IF NOT EXISTS wishes (id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, '
+    + 'price INTEGER, link TEXT, note TEXT, hot INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, mark TEXT)',
 ];
 
 const SIDES = ['vona', 'vin'];
@@ -38,6 +41,8 @@ const MIGRATIONS = [
   // «Подарок на выбор»: варіанти JSON [{ emoji, title, inside }] і номер обраного
   'ALTER TABLE letters ADD COLUMN gift TEXT',
   'ALTER TABLE letters ADD COLUMN chosen INTEGER',
+  // Фото хотілки — назва в imgs
+  'ALTER TABLE wishes ADD COLUMN img TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -103,9 +108,12 @@ async function route(req, env) {
   }
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8));
 
+  if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7));
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6));
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
   if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
+  if (m === 'POST' && path === 'wish-from-url') return wishFromUrl(req, env);
+  if (m === 'POST' && path === 'wish-image') return wishImage(req);
   if (m === 'GET' && path === 'gifs') return gifSearch(url, env);
 
   if (m === 'PUT' && path === 'together') {
@@ -304,6 +312,322 @@ async function memesRoute(req, db, side, rest) {
 
 const other = (side) => (side === 'vin' ? 'vona' : 'vin');
 
+const WISH_MARKS = ['eye', 'bought'];
+
+function wishFields(b) {
+  const link = String(b.link || '').trim().slice(0, 500);
+  const price = Math.round(Number(b.price));
+  return {
+    title: String(b.title || '').trim().slice(0, 120),
+    price: Number.isFinite(price) && price > 0 ? Math.min(price, 10_000_000) : null,
+    // Лише звичайні веб-посилання — щоб у списку не опинилось javascript: чи щось дивне
+    link: /^https?:\/\/\S+$/i.test(link) ? link : null,
+    note: String(b.note || '').trim().slice(0, 500) || null,
+    hot: b.hot ? 1 : 0,
+  };
+}
+
+// Фото хотілки { type, data base64 } → новий запис у imgs; телефон уже зменшив його
+function wishImg(db, b) {
+  if (!b || typeof b !== 'object') return null;
+  const type = String(b.type || '');
+  const data = String(b.data || '');
+  if (!/^image\/(webp|jpeg|png)$/.test(type)) throw fail(415, 'type');
+  if (!data || data.length > MAX_B64 || !/^[A-Za-z0-9+/]+=*$/.test(data)) throw fail(413, 'size');
+  const name = `w-${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  return { name, stmt: db.prepare('INSERT INTO imgs (name, type, data, updated) VALUES (?, ?, ?, ?)').bind(name, type, data, Date.now()) };
+}
+
+const dropImg = (db, name) => db.prepare('DELETE FROM imgs WHERE name = ?').bind(name);
+
+// Свої — без позначок другого (сюрприз), чужі — з позначками
+async function wishesRoute(req, db, side, rest) {
+  const m = req.method;
+  if (m === 'GET' && !rest) {
+    const { results } = await db.prepare('SELECT * FROM wishes ORDER BY hot DESC, created DESC').all();
+    const view = (r, withMark) => ({
+      id: r.id, title: r.title, price: r.price, link: r.link, note: r.note, hot: !!r.hot, img: r.img || null, created: r.created,
+      ...(withMark ? { mark: r.mark } : {}),
+    });
+    return json({
+      mine: results.filter((r) => r.owner === side).map((r) => view(r, false)),
+      theirs: results.filter((r) => r.owner === other(side)).map((r) => view(r, true)),
+    });
+  }
+  if (m === 'POST' && !rest) {
+    const b = await readJson(req, MAX_B64 + 8192);
+    const f = wishFields(b);
+    if (!f.title) throw fail(400, 'title');
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const created = Date.now();
+    const img = wishImg(db, b.img);
+    await db.batch([
+      ...(img ? [img.stmt] : []),
+      db.prepare('INSERT INTO wishes (id, owner, title, price, link, note, hot, created, img) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, side, f.title, f.price, f.link, f.note, f.hot, created, img?.name ?? null),
+    ]);
+    return json({ id, ...f, hot: !!f.hot, img: img?.name ?? null, created }, 201);
+  }
+  const r = await db.prepare('SELECT * FROM wishes WHERE id = ?').bind(rest).first();
+  if (!r) throw fail(404, 'not found');
+  if (m === 'PUT') {
+    const b = await readJson(req, MAX_B64 + 8192);
+    // Власник править свою хотілку; другий — лише ставить чи знімає позначку
+    if (r.owner === side) {
+      const f = wishFields({ ...r, hot: !!r.hot, ...b });
+      if (!f.title) throw fail(400, 'title');
+      // img: { type, data } — нове фото, null — прибрати, нема ключа — лишити як було
+      const img = 'img' in b ? wishImg(db, b.img) : null;
+      const imgName = 'img' in b ? (img?.name ?? null) : r.img;
+      await db.batch([
+        ...(img ? [img.stmt] : []),
+        db.prepare('UPDATE wishes SET title = ?, price = ?, link = ?, note = ?, hot = ?, img = ? WHERE id = ?')
+          .bind(f.title, f.price, f.link, f.note, f.hot, imgName, r.id),
+        ...(r.img && r.img !== imgName ? [dropImg(db, r.img)] : []),
+      ]);
+      return json({ ok: true, img: imgName });
+    }
+    const mark = WISH_MARKS.includes(b.mark) ? b.mark : null;
+    await db.prepare('UPDATE wishes SET mark = ? WHERE id = ?').bind(mark, r.id).run();
+    return json({ ok: true });
+  }
+  if (m === 'DELETE') {
+    if (r.owner !== side) throw fail(403, 'forbidden');
+    await db.batch([
+      db.prepare('DELETE FROM wishes WHERE id = ?').bind(r.id),
+      ...(r.img ? [dropImg(db, r.img)] : []),
+    ]);
+    return json({ ok: true });
+  }
+  throw fail(405, 'method');
+}
+
+// ---------- Хотілка зі сторінки магазину ----------
+// Телефон шле посилання (або вставлений текст, якщо сайт не віддає сторінку серверу); Worker бере сторінку,
+// витягує розмітку товару (JSON-LD, og:) і текст, а ИИ складає коротку назву, ціну й подробиці.
+// Людина все бачить у формі й править перед збереженням. Розбір сторінки — як у боті Fishing Log.
+const SHOP_PAGE_MAX = 3_000_000;
+const SHOP_IMAGE_MAX = 4_000_000;
+const SHOP_TEXT_MAX = 20_000;
+const SHOP_AI_TEXT = 6_000;
+const SHOP_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36';
+
+const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', laquo: '«', raquo: '»', ndash: '–', mdash: '—', deg: '°', times: '×', hellip: '…', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“' };
+function unent(s) {
+  return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+    if (e[0] === '#') {
+      const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+      return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m;
+    }
+    return ENT[e.toLowerCase()] ?? m;
+  });
+}
+
+const stripTags = (s) => unent(String(s).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+
+// <meta property|name|itemprop=… content=…> → { ключ: значення }; перше значення перемагає
+function metaTags(html) {
+  const out = {};
+  for (const m of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const k = /(?:property|name|itemprop)\s*=\s*["']([^"']+)["']/i.exec(m[0])?.[1]?.toLowerCase();
+    const v = /content\s*=\s*"([^"]*)"|content\s*=\s*'([^']*)'/i.exec(m[0]);
+    if (k && v && !(k in out)) out[k] = unent(v[1] ?? v[2] ?? '').trim();
+  }
+  return out;
+}
+
+// Перший Product із JSON-LD: назва, бренд, ціна з валютою, фото, опис
+function ldProduct(html) {
+  const found = [];
+  const walk = (x, depth = 0) => {
+    if (!x || typeof x !== 'object' || depth > 6) return;
+    if (Array.isArray(x)) { x.forEach((y) => walk(y, depth + 1)); return; }
+    if ([].concat(x['@type'] ?? []).some((t) => /product/i.test(String(t)))) found.push(x);
+    if (x['@graph']) walk(x['@graph'], depth + 1);
+  };
+  for (const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { walk(JSON.parse(m[1].trim())); } catch { /* битий JSON-LD — пропускаємо */ }
+  }
+  const p = found[0];
+  if (!p) return null;
+  const offer = [].concat(p.offers ?? [])[0] ?? {};
+  const inner = [].concat(offer.offers ?? [])[0] ?? {};
+  const img = [].concat(p.image ?? [])[0];
+  const brand = typeof p.brand === 'string' ? p.brand : p.brand?.name;
+  return {
+    name: p.name ? stripTags(p.name) : '',
+    brand: brand ? stripTags(brand) : '',
+    price: Number(offer.price ?? offer.lowPrice ?? inner.price) || 0,
+    currency: String(offer.priceCurrency ?? inner.priceCurrency ?? '').toUpperCase(),
+    image: typeof img === 'string' ? img : String(img?.url ?? img?.contentUrl ?? ''),
+    description: p.description ? stripTags(p.description).slice(0, 1000) : '',
+  };
+}
+
+// Видимий текст сторінки рядками: без скриптів, стилів і розмітки
+function pageText(html) {
+  const s = html.replace(/<(script|style|noscript|svg|template|iframe|head)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<\/(td|th|dt)>/gi, ': ')
+    .replace(/<(br|\/p|\/div|\/li|\/tr|\/h\d|\/dd|\/section|\/article)\b[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ');
+  return unent(s).replace(/[ \t ]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{2,}/g, '\n').trim();
+}
+
+// Рядки, які варто лишити з довгої сторінки: розмір, колір, об'єм — те, що важить для подарунка
+const SHOP_KEYS = /характеристик|розмір|размер|колір|цвет|об'єм|объем|объём|матеріал|материал|склад|состав|бренд|виробник|производитель|модель|ціна|цена|грн|₴/i;
+
+// Картка товару від назви плюс рядки з ключовими словами — без меню й підвалу
+function focusText(text, name, max) {
+  if (text.length <= max) return text;
+  const lines = text.split('\n').filter((l) => l.length > 1 && l.length < 400);
+  const words = name.toLowerCase().split(/\s+/).filter((x) => x.length > 3).slice(0, 3);
+  const start = Math.max(0, lines.findIndex((l) => words.length && words.every((x) => l.toLowerCase().includes(x))));
+  const pick = new Set();
+  for (let i = start; i < Math.min(lines.length, start + 40); i++) pick.add(i);
+  lines.forEach((l, i) => { if (SHOP_KEYS.test(l)) for (let j = i - 1; j <= i + 1; j++) if (j >= 0 && j < lines.length) pick.add(j); });
+  let out = '';
+  for (const i of [...pick].sort((a, b) => a - b)) {
+    if (out.length + lines[i].length + 1 > max) break;
+    out += `${lines[i]}\n`;
+  }
+  return out.trim();
+}
+
+// Лише http(s) з нормальним хостом: адресу дає людина, але Worker не має ходити куди завгодно
+function publicUrl(raw) {
+  let u;
+  try { u = new URL(String(raw ?? '').trim()); } catch { return null; }
+  if (!['http:', 'https:'].includes(u.protocol) || u.username || u.password) return null;
+  const host = u.hostname.toLowerCase();
+  if (!host.includes('.') || host === 'localhost' || host.endsWith('.local') || /^[\d.]+$/.test(host) || host.includes(':')) return null;
+  return u;
+}
+
+// Тіло відповіді не більше max байт — велику сторінку чи фото обриваємо, а не тримаємо в пам'яті
+async function readCapped(res, max) {
+  const reader = res.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const parts = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { await reader.cancel(); return null; }
+    parts.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.byteLength; }
+  return out;
+}
+
+async function fetchPage(u) {
+  let res;
+  try {
+    res = await fetch(u.href, {
+      headers: { 'user-agent': SHOP_UA, accept: 'text/html,application/xhtml+xml', 'accept-language': 'uk,ru;q=0.8,en;q=0.5' },
+      redirect: 'follow', signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw fail(502, 'fetch');
+  }
+  if (!res.ok || !/html|xml|text/i.test(res.headers.get('content-type') || '')) throw fail(502, 'fetch');
+  const bytes = await readCapped(res, SHOP_PAGE_MAX);
+  if (!bytes) throw fail(502, 'fetch');
+  // Кодування: з заголовка чи <meta charset>, інакше utf-8 (старі магазини бувають у windows-1251)
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, 4096));
+  const cs = (/charset=([\w-]+)/i.exec(res.headers.get('content-type') || '')?.[1]
+    || /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i.exec(head)?.[1] || 'utf-8').toLowerCase();
+  try { return new TextDecoder(cs).decode(bytes); } catch { return new TextDecoder('utf-8').decode(bytes); }
+}
+
+const WISH_PROMPT = [
+  'Ты заполняешь карточку в списке желаний (вишлисте) по странице интернет-магазина.',
+  'Отвечай только JSON: {"title": "...", "price": число, "note": "..."}.',
+  'title — коротко по-русски, как человек запишет себе в список: что это + бренд или модель, 2–6 слов.',
+  'Без «купить», цены, артикула и названия магазина. Бренды и модели латиницей оставляй как есть.',
+  'price — цена в гривнах целым числом; цены в гривнах на странице нет — 0.',
+  'note — одной строкой то, что важно, чтобы подарить именно это: цвет, размер, объём, вариант.',
+  'Бери только то, что написано на странице, ничего не выдумывай. Нечего сказать — пустая строка.',
+  'Страница не про товар — title пустой.',
+].join('\n');
+
+/**
+ * POST wish-from-url { url } або { text, url? } → { title, price, note, link, image }.
+ * Помилки: fetch — сайт не віддав сторінку (застосунок просить вставити текст), empty — товару не видно, ai.
+ */
+async function wishFromUrl(req, env) {
+  const b = await readJson(req);
+  const pasted = String(b.text ?? '').trim();
+  const u = b.url ? publicUrl(b.url) : null;
+  if ((!u && !pasted) || pasted.length > SHOP_TEXT_MAX || (b.url && !u)) throw fail(400, 'url');
+  if (!env.AI) throw fail(503, 'no-ai');
+  let ld = null;
+  let meta = {};
+  let text;
+  if (pasted) {
+    text = `${u ? `Адрес: ${u.href}\n` : ''}Текст страницы (вставил человек):\n${pasted}`;
+  } else {
+    const html = await fetchPage(u);
+    ld = ldProduct(html);
+    meta = metaTags(html);
+    const name = ld?.name || meta['og:title'] || '';
+    const head = [
+      `Адрес: ${u.href}`,
+      name ? `Название товара: ${name}` : '',
+      ld?.brand ? `Бренд: ${ld.brand}` : '',
+      ld?.price ? `Цена: ${ld.price} ${ld.currency}` : '',
+      ld?.description || meta['og:description'] ? `Описание: ${ld?.description || meta['og:description']}` : '',
+    ].filter(Boolean).join('\n');
+    const body = focusText(pageText(html), name, Math.max(1000, SHOP_AI_TEXT - head.length));
+    if (!name && body.length < 200) throw fail(422, 'empty');
+    text = `${head}\n\nТекст страницы:\n${body}`;
+  }
+  let r;
+  try {
+    r = await askAI(env, WISH_PROMPT, text.slice(0, SHOP_AI_TEXT), 300, 0.2);
+  } catch {
+    r = {};
+  }
+  const clean = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+  let title = clean(r.title, 120);
+  let price = Math.round(Number(String(r.price ?? '').replace(/[^\d.,]/g, '').replace(',', '.'))) || 0;
+  // Назва й ціна з розмітки товару надійніші; ціну беремо лише в гривнях
+  if (ld?.price > 0 && (!ld.currency || ld.currency === 'UAH')) price = Math.round(ld.price);
+  // og:title — лише коли ИИ не відповів; сказав «не товар» і розмітки товару нема — це не сторінка товару
+  if (!title) title = clean(ld?.name || (r.title === undefined ? meta['og:title'] : ''), 120);
+  if (!title) throw fail(r.title === undefined ? 502 : 422, r.title === undefined ? 'ai' : 'empty');
+  const rawImage = ld?.image || meta['og:image'] || '';
+  let image = '';
+  try { if (rawImage && u) image = publicUrl(new URL(rawImage, u.href).href)?.href ?? ''; } catch { /* бита адреса фото */ }
+  return json({
+    title,
+    price: price > 0 && price < 10_000_000 ? price : 0,
+    note: clean(r.note, 300),
+    link: u?.href ?? '',
+    image,
+  });
+}
+
+// POST wish-image { url } → саме фото товару: з магазину телефону його напряму не дадуть (CORS)
+async function wishImage(req) {
+  const u = publicUrl((await readJson(req)).url);
+  if (!u) throw fail(400, 'url');
+  let res;
+  try {
+    res = await fetch(u.href, { headers: { 'user-agent': SHOP_UA, accept: 'image/avif,image/webp,image/*' }, signal: AbortSignal.timeout(15000) });
+  } catch {
+    throw fail(502, 'fetch');
+  }
+  const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!res.ok || !/^image\/(jpeg|png|webp|gif|avif)$/.test(type)) throw fail(502, 'fetch');
+  const bytes = await readCapped(res, SHOP_IMAGE_MAX);
+  if (!bytes) throw fail(413, 'size');
+  return new Response(bytes, { headers: { 'content-type': type, 'cache-control': 'no-store' } });
+}
+
 // Лист дня: найновіший написаний у застосунку, чий час настав; «на ранок» до ранку не віддаємо.
 // Нема жодного — лист із бази (заготовка)
 async function dayLetter(db, side) {
@@ -400,19 +724,27 @@ async function lettersRoute(req, db, side, rest) {
   if (m === 'PUT') {
     if (r.dst !== side) throw fail(403, 'forbidden');
     const b = await readJson(req);
-    const opened = b.opened ? (r.opened || Date.now()) : r.opened;
-    const liked = 'liked' in b ? (b.liked ? 1 : 0) : r.liked;
-    const reply = 'reply' in b ? (String(b.reply || '').trim().slice(0, MAX_LETTER) || null) : r.reply;
-    // Вибір подарунка — один раз і назавжди; у відповідь — усі варіанти вже з начинкою
+    // Вибір подарунка — один раз і назавжди; у відповідь — усі варіанти вже з начинкою.
+    // Уже обрано (повтор після втраченої відповіді) — віддаємо той вибір, що стоїть
     if ('choose' in b) {
-      if (r.kind !== 'gift' || r.chosen != null) throw fail(409, 'chosen');
+      if (r.kind !== 'gift') throw fail(409, 'chosen');
+      if (r.chosen != null) return json(giftView(r));
       const i = Number(b.choose);
       if (!Number.isInteger(i) || i < 0 || i >= JSON.parse(r.gift || '[]').length) throw fail(400, 'choose');
-      await db.prepare('UPDATE letters SET chosen = ?, opened = ? WHERE id = ?').bind(i, Date.now(), r.id).run();
+      const res = await db.prepare('UPDATE letters SET chosen = ?, opened = ? WHERE id = ? AND chosen IS NULL')
+        .bind(i, Date.now(), r.id).run();
+      if (res.meta?.changes === 0) {
+        return json(giftView(await db.prepare('SELECT * FROM letters WHERE id = ?').bind(r.id).first()));
+      }
       return json(giftView({ ...r, chosen: i }));
     }
-    await db.prepare('UPDATE letters SET opened = ?, liked = ?, reply = ? WHERE id = ?')
-      .bind(opened, liked, reply, r.id).run();
+    // Лише поля із запиту: «відкрив» і ❤️ можуть летіти одночасно, і старе прочитане не має затерти нове
+    const sets = [];
+    const args = [];
+    if (b.opened) { sets.push('opened = COALESCE(opened, ?)'); args.push(Date.now()); }
+    if ('liked' in b) { sets.push('liked = ?'); args.push(b.liked ? 1 : 0); }
+    if ('reply' in b) { sets.push('reply = ?'); args.push(String(b.reply || '').trim().slice(0, MAX_LETTER) || null); }
+    if (sets.length) await db.prepare(`UPDATE letters SET ${sets.join(', ')} WHERE id = ?`).bind(...args, r.id).run();
     return json({ ok: true });
   }
 
@@ -490,7 +822,7 @@ async function memeIdeas(req, env, side) {
   const out = await env.AI.run(AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: 400,
-    temperature: 0.9,
+    temperature,
   });
   const text = typeof out?.response === 'string' ? out.response
     : (out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || '');
@@ -506,11 +838,11 @@ async function memeIdeas(req, env, side) {
 }
 
 // Відповідь моделі: текст із response або choices, з нього — JSON-обʼєкт
-async function askAI(env, system, user, maxTokens) {
+async function askAI(env, system, user, maxTokens, temperature = 0.9) {
   const out = await env.AI.run(AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: maxTokens,
-    temperature: 0.9,
+    temperature,
   });
   const text = typeof out?.response === 'string' ? out.response
     : (out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || '');

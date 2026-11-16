@@ -4,6 +4,7 @@ import { get, send } from './api.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { mountHelper } from './helper.js';
+import { loadWishes, fitsBudget, money, BUDGETS } from './wishes.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -33,7 +34,8 @@ export function openWrite() {
   let envId = envs[0]?.id || null;
   let pet = petFor('push');
 
-  const area = h('textarea', { class: 'write-text', 'aria-label': 'Текст письма', placeholder: 'Пиши как есть — так, как сказал бы вслух…' });
+  const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
+  const area = h('textarea', { class: 'write-text', 'aria-label': 'Текст письма', placeholder: said });
   area.value = draft.get();
   area.addEventListener('input', () => draft.set(area.value));
 
@@ -47,7 +49,12 @@ export function openWrite() {
     const inside = h('input', { type: 'text', class: 'gift-inside', maxlength: '500', placeholder: `Внутри: ${i.toLowerCase()}`, 'aria-label': 'Что внутри' });
     return { el: h('div', { class: 'gift-row' }, emoji, h('div', { class: 'gift-texts' }, title, inside)), emoji, title, inside };
   });
+  // Варіанти з її/його «Хотелок»: відмічаєш до трьох — вони стають конвертами
+  const fromWish = h('button', { type: 'button', class: 'btn mk-reroll gift-from-wish' }, `🎁 Из ${me.partner === 'она' ? 'её' : 'его'} хотелок`);
+  const wishPick = h('div', { class: 'gift-wish-pick', hidden: true });
+  fromWish.addEventListener('click', () => pickFromWishes(wishPick, giftRows));
   const giftBox = h('div', { class: 'gift-edit', hidden: true },
+    fromWish, wishPick,
     h('p', { class: 'mk-label' }, 'Варианты (минимум два)'), ...giftRows.map((r) => r.el));
   const giftOptions = () => giftRows
     .map((r) => ({ emoji: r.emoji.value.trim() || '🎁', title: r.title.value.trim(), inside: r.inside.value.trim() }))
@@ -55,7 +62,7 @@ export function openWrite() {
   const paintNote = () => {
     const m = nextMorning();
     giftBox.hidden = where !== 'gift';
-    area.placeholder = where === 'gift' ? 'Пару слов к подарку (можно без)' : 'Пиши как есть — так, как сказал бы вслух…';
+    area.placeholder = where === 'gift' ? 'Пару слов к подарку (можно без)' : said;
     note.textContent = where === 'gift'
       ? `${cap(me.partner)} увидит закрытые конверты и выберет один. Что внутри — узнает после выбора, остальные тоже откроются.`
       : where === 'now'
@@ -193,4 +200,58 @@ async function loadSent(box) {
   };
 
   box.replaceChildren(h('h3', {}, 'Мои письма'), h('ul', { class: 'sent-list' }, ...list.map(item)));
+}
+
+// Список її/його хотілок із фільтром бюджету; «Взять» заповнює рядки подарунка
+async function pickFromWishes(box, rows) {
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  box.replaceChildren(h('p', { class: 'mk-wait' }, 'Загружаю хотелки…'));
+  let data;
+  try {
+    data = await loadWishes();
+  } catch {
+    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
+    return;
+  }
+  const picked = new Set();
+  let budget = 0;
+  // Хотілки кладемо лише в порожні рядки — вписане руками не чіпаємо; уже куплене не пропонуємо
+  const free = rows.filter((r) => !r.title.value.trim());
+  if (!free.length) {
+    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Все три варианта уже заполнены — очисти название, куда поставить хотелку.'));
+    return;
+  }
+  const open = data.theirs.filter((w) => w.mark !== 'bought');
+  const draw = () => {
+    const list = open.filter((w) => fitsBudget(w, budget));
+    box.replaceChildren(
+      h('div', { class: 'mk-chips' }, ...BUDGETS.map((b) => h('button', {
+        type: 'button', class: 'mk-chip', 'aria-checked': String(budget === b),
+        onclick: () => { budget = b; draw(); },
+      }, b ? `до ${b.toLocaleString('ru')}` : 'любой бюджет'))),
+      list.length ? h('div', { class: 'gift-wish-list' }, ...list.map((w) => h('button', {
+        type: 'button', class: 'mk-chip gift-wish', 'aria-checked': String(picked.has(w.id)),
+        onclick: () => {
+          if (picked.has(w.id)) picked.delete(w.id);
+          else if (picked.size < free.length) picked.add(w.id);
+          else toast(free.length === 1 ? 'Свободен один вариант' : `Свободно вариантов: ${free.length}`);
+          draw();
+        },
+      }, `${w.hot ? '🔥 ' : ''}${w.title}${w.price ? ` · ${money(w.price)}` : ''}`))) : h('p', { class: 'mk-wait' }, open.length ? 'В этот бюджет ничего' : 'Хотелок пока нет'),
+      h('button', {
+        type: 'button', class: 'btn btn-primary', disabled: !picked.size,
+        onclick: () => {
+          const ws = open.filter((w) => picked.has(w.id));
+          ws.forEach((w, i) => {
+            const r = free[i];
+            r.emoji.value = '🎁';
+            r.title.value = w.title.slice(0, 40);
+            r.inside.value = w.note || 'То самое из твоего списка 💜';
+          });
+          box.hidden = true;
+        },
+      }, `Взять (${picked.size})`));
+  };
+  draw();
 }

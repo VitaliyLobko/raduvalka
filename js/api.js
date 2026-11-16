@@ -43,7 +43,11 @@ async function request(path, init = {}) {
     ...init,
     headers: { authorization: `Bearer ${getKey()}`, ...(init.headers || {}) },
   });
-  if (!res.ok) throw Object.assign(new Error(`api ${res.status}`), { status: res.status });
+  if (!res.ok) {
+    // Код помилки з тіла ({ error }), щоб розрізнити причини з однаковим статусом
+    const code = await res.json().then((j) => j?.error || '').catch(() => '');
+    throw Object.assign(new Error(`api ${res.status}`), { status: res.status, code });
+  }
   return res;
 }
 
@@ -70,4 +74,14 @@ export function save(path, body) {
 
 export async function imageUrl(name) {
   return URL.createObjectURL(await (await request(`img/${name}`)).blob());
+}
+
+// POST, відповідь якого — файл (фото товару через Worker)
+export async function postBlob(path, body) {
+  const res = await request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.blob();
 }

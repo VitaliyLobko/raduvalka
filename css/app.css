@@ -824,7 +824,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* Нахил «через одну» — за назвою, бо посередині стоїть печатка «Написать» */
-.tab:is([data-tab="envelopes"], [data-tab="box"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+.tab:is([data-tab="envelopes"], [data-tab="wish"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
 
 /* Печатка «Написать» посередині — сургуч, трохи вище за марки */
 .nav-seal {
@@ -968,6 +968,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border: 1.5px solid var(--lavender);
   border-radius: 999px;
   background: #fff;
+  color: var(--plum);
   font-size: .9375rem;
 }
 
@@ -1396,3 +1397,131 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sheet .gift-emoji { padding: 0; text-align: center; font-size: 1.4rem; }
 .gift-texts { display: grid; gap: 6px; }
 .sheet .gift-inside { font-size: .875rem; }
+
+/* «Хотелки» */
+.want-add { display: flex; justify-content: center; width: 100%; margin: 14px 0 12px; }
+.want-budget { display: grid; gap: 6px; margin: 14px 0 10px; }
+.want-budget .mk-label { margin: 0; color: var(--ink-soft); }
+.want-budget .mk-chip { background: var(--paper); }
+.want-budget .mk-chip[aria-checked="true"] { background: var(--plum); color: #fff; }
+[data-side="vin"] .want-budget .mk-chip[aria-checked="true"] { background: var(--star); border-color: var(--star); color: var(--night); }
+
+.want-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+
+.want {
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--plum);
+  box-shadow: 0 10px 22px -16px rgba(74, 37, 69, .5);
+}
+
+.want-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.want-text { display: grid; flex: 1; gap: 2px; min-width: 0; }
+
+/* Фото товару: магазинні знімки на білому, тому рамка біла й contain, щоб не різати */
+.want-img {
+  flex: none;
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  background: #fff;
+  object-fit: contain;
+  box-shadow: inset 0 0 0 1px rgba(74, 37, 69, .08);
+}
+
+.want-title { font: 700 1.5rem/1.15 var(--hand); }
+.want-meta { font-size: .875rem; color: #7a5a78; }
+.want-note { font-size: .9375rem; }
+
+.want-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 10px 14px;
+}
+
+.want-link { color: var(--wax); font-size: .875rem; font-weight: 500; }
+.want-marks { display: flex; gap: 6px; margin-left: auto; }
+
+.want-mark {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--plum);
+  font-size: .8125rem;
+}
+
+.want-mark[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); color: #fff; }
+.want.is-bought { opacity: .6; }
+.want.is-bought .want-title { text-decoration: line-through; text-decoration-thickness: 2px; }
+.want.is-eye { outline: 2px dashed var(--wax); outline-offset: -2px; }
+
+.want-form input { margin-bottom: 8px; }
+
+/* Посилання й «Заповнити» — першими: зазвичай хотілку додають із магазину */
+.want-fillbox { display: grid; gap: 6px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: rgba(201, 182, 242, .25); }
+.want-linkrow { display: flex; gap: 8px; }
+.want-linkrow input { flex: 1; min-width: 0; margin: 0; }
+.want-fill { flex: none; min-height: 46px; padding: 0 14px; }
+.want-status { margin: 0; font-size: .875rem; color: #7a5a78; }
+.want-status:empty { display: none; }
+.want-paste {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--plum);
+  font: inherit;
+  resize: vertical;
+}
+
+.want-pic { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.want-pic-frame { position: relative; flex: none; }
+.want-pic .want-img { width: 96px; height: 96px; }
+.want-pic-del {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--plum);
+  color: #fff;
+  font-size: .8125rem;
+}
+.want-pic .mk-reroll { margin: 0; }
+.sheet input[type="number"], .sheet input[type="url"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--plum);
+  font: inherit;
+}
+.want-remove { margin-right: auto; border-color: var(--lavender); color: #7a5a78; }
+
+.gift-from-wish { margin: 0 0 10px; }
+.gift-wish-pick { display: grid; gap: 10px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: #fff; }
+.gift-wish-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.gift-wish { text-align: left; }

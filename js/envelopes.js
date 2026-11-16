@@ -7,7 +7,7 @@ import { h, toast, cap, SAGITTARIUS } from './ui.js';
 // Скільки листів уже прочитано в кожному конверті: { hard: 1 } — зберігається на сервері
 const seen = () => (DATA.mine.seen ||= {});
 
-const left = (env) => env.notes.length - (seen()[env.id] || 0);
+const left = (env) => Math.max(0, env.notes.length - (seen()[env.id] || 0));
 
 export function renderEnvelopes(screen) {
   const cards = DATA.envelopes.map((env, i) => {

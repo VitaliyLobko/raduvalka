@@ -48,8 +48,9 @@ async function choose(screen, gift, i, done) {
   const o = gift.options[i];
   if (!confirm(`Выбрать «${o.title}»? Передумать уже не получится.`)) return;
   try {
-    const opened = await send(`letters/${gift.id}`, 'PUT', { choose: i });
-    const show = () => renderGift(screen, opened, done);
+    // Той самий об'єкт, що й DATA.gift: перейде на іншу вкладку й назад — побачить уже відкрите
+    Object.assign(gift, await send(`letters/${gift.id}`, 'PUT', { choose: i }));
+    const show = () => renderGift(screen, gift, done);
     if (reduceMotion) show();
     else {
       screen.querySelectorAll('.gift-card')[i].classList.add('is-opening');

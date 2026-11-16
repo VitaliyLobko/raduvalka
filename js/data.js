@@ -3,6 +3,7 @@ export const DATA = {
   side: 'vona',
   letter: null,
   gift: null,
+  wishes: null,
   envelopes: [],
   partnerEnvelopes: [],
   together: {},

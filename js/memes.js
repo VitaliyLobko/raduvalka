@@ -184,15 +184,15 @@ async function removeMeme(m, screen) {
   }
 }
 
-// Фото — до 1280 px у webp; GIF не чіпаємо (canvas зʼїв би анімацію), лише перевіряємо розмір
-async function prepare(file) {
+// Фото — до maxSide px (типово 1280) у webp; GIF не чіпаємо (canvas зʼїв би анімацію), лише перевіряємо розмір
+export async function prepare(file, maxSide = MAX_SIDE, keepGif = true) {
   if (!file.type.startsWith('image/')) throw new Error('type');
-  if (file.type === 'image/gif') {
+  if (keepGif && file.type === 'image/gif') {
     if (file.size > GIF_MAX) throw new Error('big');
     return file;
   }
   const bmp = await createImageBitmap(file);
-  const k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bmp.width * k);
   canvas.height = Math.round(bmp.height * k);
@@ -203,7 +203,7 @@ async function prepare(file) {
   return new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
 }
 
-const toBase64 = (blob) => new Promise((ok, no) => {
+export const toBase64 = (blob) => new Promise((ok, no) => {
   const r = new FileReader();
   r.onload = () => ok(String(r.result).split(',')[1]);
   r.onerror = no;

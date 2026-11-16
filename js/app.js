@@ -5,6 +5,7 @@ import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
 import { renderGift } from './gift.js';
+import { renderWishes, loadWishes, wishFromShare, linkIn } from './wishes.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
@@ -195,7 +196,12 @@ function render() {
     // Показуємо, що вже є, і одразу дотягуємо свіже (push поки немає)
     renderMemes(screen);
     refreshMemes().then((changed) => { if (changed && tab === 'memes') renderMemes(screen); });
-  } else renderEmpty('Шкатулка', 'Здесь будут собираться все письма — чтобы перечитывать любимые.', petFor('box'));
+  } else {
+    // Хотелки: показуємо збережене й одразу дотягуємо свіже (друга половина могла дописати)
+    const had = !!DATA.wishes;
+    renderWishes(screen);
+    if (had) loadWishes().then(() => { if (tab === 'wish') renderWishes(screen); }).catch(() => {});
+  }
 }
 
 // Половину визначає ключ: її ключ — лаванда, його — космос
@@ -225,20 +231,26 @@ async function takeShared() {
   history.replaceState(null, '', location.pathname);
   let file = null;
   let none = false;
+  let link = '';
   try {
     const cache = await caches.open('shared-radovalka');
     const res = await cache.match('shared');
     none = !!(await cache.match('shared-none'));
+    link = linkIn(await (await cache.match('shared-link'))?.text());
     if (res) {
       const blob = await res.blob();
       file = new File([blob], 'shared', { type: blob.type || 'image/jpeg' });
     }
-    await cache.delete('shared');
-    await cache.delete('shared-none');
+    await Promise.all(['shared', 'shared-none', 'shared-link'].map((k) => cache.delete(k)));
   } catch { /* кешу нема — нема й картинки */ }
+  if (link && !file) {
+    selectTab('wish');
+    wishFromShare(screen, link);
+    return;
+  }
   selectTab('memes');
   if (file) composeMeme(file, () => selectTab('memes'));
-  else if (none) toast('Сюда можно поделиться только картинкой');
+  else if (none) toast('Сюда можно поделиться картинкой или ссылкой на товар');
 }
 
 function registerWorker() {
