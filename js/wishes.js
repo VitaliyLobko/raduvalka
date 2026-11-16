@@ -80,6 +80,7 @@ export function renderWishes(screen) {
         }, budgetLabel(b))))),
       list.length
         ? h('ul', { class: 'want-list' }, ...list.map((w) => wishCard(w, {
+          open: true,
           actions: h('span', { class: 'want-marks' },
             markBtn(screen, w, 'eye', `🤫 ${iMark}`),
             markBtn(screen, w, 'bought', '✓ куплено')),
@@ -99,17 +100,23 @@ function photo(name, alt = '') {
   return img;
 }
 
-function wishCard(w, { onclick, actions } = {}) {
+// open — уся картка веде в магазин (чужі хотілки); onclick — відкриває форму (свої)
+function wishCard(w, { onclick, actions, open } = {}) {
+  const toShop = open && w.link;
   const inner = [
     w.img ? photo(w.img) : null,
     h('span', { class: 'want-text' },
       h('span', { class: 'want-title' }, `${w.hot ? '🔥 ' : ''}${w.title}`),
-      h('span', { class: 'want-meta' }, w.price ? money(w.price) : 'цена не указана'),
+      h('span', { class: 'want-meta' }, `${w.price ? money(w.price) : 'цена не указана'}${toShop ? ' · в магазин ↗' : ''}`),
       w.note ? h('span', { class: 'want-note' }, w.note) : null),
   ];
-  const link = w.link ? h('a', { class: 'want-link', href: w.link, target: '_blank', rel: 'noopener noreferrer' }, 'открыть ↗') : null;
+  const ext = { href: w.link, target: '_blank', rel: 'noopener noreferrer' };
+  const link = w.link && !toShop ? h('a', { class: 'want-link', ...ext }, 'открыть ↗') : null;
+  const body = toShop ? h('a', { class: 'want-body', ...ext, 'aria-label': `${w.title} — открыть в магазине` }, ...inner)
+    : onclick ? h('button', { type: 'button', class: 'want-body', onclick }, ...inner)
+    : h('div', { class: 'want-body' }, ...inner);
   return h('li', { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}` },
-    onclick ? h('button', { type: 'button', class: 'want-body', onclick }, ...inner) : h('div', { class: 'want-body' }, ...inner),
+    body,
     link || actions ? h('div', { class: 'want-foot' }, link, actions) : null);
 }
 

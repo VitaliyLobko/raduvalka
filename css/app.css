@@ -1429,6 +1429,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   text-align: left;
 }
 
+a.want-body { text-decoration: none; -webkit-tap-highlight-color: transparent; }
+a.want-body:active { background: rgba(201, 182, 242, .25); }
 .want-text { display: grid; flex: 1; gap: 2px; min-width: 0; }
 
 /* Фото товару: магазинні знімки на білому, тому рамка біла й contain, щоб не різати */
