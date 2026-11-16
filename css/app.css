@@ -1049,8 +1049,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 .meme-img.is-loaded { min-height: 0; background: none; }
-.meme-img img { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
-.meme-img:not(.is-loaded) img { visibility: hidden; }
+.meme-img img, .meme-img video { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+.meme-img:not(.is-loaded) :is(img, video) { visibility: hidden; }
 .meme-img.is-broken::after { content: 'Картинка не загрузилась'; font-size: .875rem; color: var(--ink-soft); }
 
 .meme-cap { margin: 0; padding: 10px 14px 0; font: 1.45rem/1.25 var(--hand); }

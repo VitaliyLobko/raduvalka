@@ -12,6 +12,17 @@ const REACTIONS = ['😂', '❤️'];
 // id мемчика → blob-URL; свої щойно надіслані кладемо сюди одразу, щоб не тягнути назад
 const urls = new Map();
 
+// GIF із GIPHY приходить як MP4 — показуємо беззвучним відео по колу, виглядає як гіфка
+const isVideo = (url) => /\.mp4(\?|$)/.test(url || '');
+
+// kind — посилання, за яким вирішуємо img чи video; src ставимо одразу або пізніше (лениво)
+function media(kind, label, src) {
+  if (!isVideo(kind)) return h('img', { alt: label, decoding: 'async', ...(src ? { src } : {}) });
+  const v = h('video', { 'aria-label': label, autoplay: true, loop: true, muted: true, playsinline: true, preload: 'auto', ...(src ? { src } : {}) });
+  v.muted = true;
+  return v;
+}
+
 const pet = () => petFor('memes');
 const isShe = (key) => DATA.mascots[key]?.g === 'f';
 const pose = (key) => (DATA.mascots[key]?.poses?.cowboy ? 'cowboy' : 'main');
@@ -113,7 +124,7 @@ function card(m, screen) {
   }
 
   return h('article', { class: `meme${m.mine ? ' is-mine' : ''}` },
-    h('div', { class: 'meme-img', 'data-id': m.id, 'data-url': m.url }, h('img', { alt: m.caption || 'Мемчик', decoding: 'async' })),
+    h('div', { class: 'meme-img', 'data-id': m.id, 'data-url': m.url }, media(m.url, m.caption || 'Мемчик')),
     m.caption ? h('p', { class: 'meme-cap' }, m.caption) : null,
     h('div', { class: 'meme-meta' }, h('span', {}, `${from} · ${when}`), tail));
 }
@@ -123,13 +134,15 @@ function lazyLoad(screen) {
   const io = new IntersectionObserver((entries) => {
     entries.filter((e) => e.isIntersecting).forEach(async ({ target }) => {
       io.unobserve(target);
-      const img = target.querySelector('img');
+      const el = target.querySelector('img, video');
       try {
         // GIF із GIPHY — пряме посилання; своє фото — з бази через ключ
         const src = target.dataset.url || await memeUrl(target.dataset.id);
-        img.onload = () => target.classList.add('is-loaded');
-        img.onerror = () => target.classList.add('is-broken');
-        img.src = src;
+        const ok = () => target.classList.add('is-loaded');
+        if (el.tagName === 'VIDEO') el.addEventListener('loadeddata', ok, { once: true });
+        else el.onload = ok;
+        el.onerror = () => target.classList.add('is-broken');
+        el.src = src;
       } catch {
         target.classList.add('is-broken');
       }
@@ -247,7 +260,7 @@ function sendSheet(preview, post, done) {
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новый мемчик' },
     h('div', { class: 'sheet-inner' },
       h('h2', {}, 'Мемчик'),
-      h('img', { class: 'meme-preview', src: preview, alt: 'Что отправляю' }),
+      Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }),
       caption,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),

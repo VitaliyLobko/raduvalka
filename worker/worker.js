@@ -537,12 +537,13 @@ async function gifSearch(url, env) {
   if (!res.ok) throw fail(502, 'giphy');
   const { data = [] } = await res.json();
   return json(data.map((g) => {
-    const full = g.images?.downsized_medium || g.images?.original || {};
-    const small = g.images?.fixed_width || full;
+    // MP4 оригіналу в 13–20 разів легший за GIF тієї ж якості; у сітці — проріджене webp-превʼю ~50 КБ
+    const full = g.images?.original || {};
+    const small = g.images?.fixed_width_downsampled || g.images?.fixed_width || {};
     return {
       id: g.id,
       preview: small.webp || small.url,
-      url: full.url,
+      url: full.mp4 || g.images?.downsized_medium?.url || full.url,
       w: Number(full.width) || 0,
       h: Number(full.height) || 0,
     };
