@@ -1,0 +1,18 @@
+{
+  "id": "/raduvalka/",
+  "name": "Радовалка",
+  "short_name": "Радовалка",
+  "description": "Письма, конверты и мемчики для двоих",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EADFFB",
+  "theme_color": "#EADFFB",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

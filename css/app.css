@@ -1,0 +1,812 @@
+/* Дві половинки: її — світла (лаванда/пудра), його — космос з їхньої листівки */
+:root {
+  --lavender: #C9B6F2;
+  --powder: #F7B8D2;
+  --plum: #4A2545;
+  --night: #0B384B;
+  --star: #EDB949;
+  --cream: #F4E6C4;
+  --paper: #FDF8FF;
+  --wax: #9C3D74;
+
+  --bg-top: #EEE4FC;
+  --bg-bottom: #FCE6F0;
+  --ink: var(--plum);
+  --ink-soft: #7a5a78;
+  --env: #E4D6FA;
+  --env-shade: #D3C0F5;
+  --tab-bg: rgba(255, 255, 255, .72);
+  --tab-active: var(--plum);
+  --chip: rgba(74, 37, 69, .08);
+
+  --hand: 'Caveat', 'Segoe Print', cursive;
+  --ui: 'Rubik', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+[data-side="vin"] {
+  --bg-top: #0B384B;
+  --bg-bottom: #0A3142;
+  --ink: var(--cream);
+  --ink-soft: #a9c3c9;
+  --env: #1b4f63;
+  --env-shade: #154457;
+  --tab-bg: rgba(10, 49, 66, .86);
+  --tab-active: var(--star);
+  --chip: rgba(255, 255, 255, .1);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  font-family: var(--ui);
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom)) fixed;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  transition: background .4s, color .4s;
+}
+
+/* Жовті зірки й крапки, як на листівці «від Землі до Юпітера» */
+[data-side="vin"] body::before,
+.welcome::before,
+.space::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .9;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='220'%3E%3Cg fill='%23EDB949'%3E%3Cpath d='M30 20l2.4 6 6 2.4-6 2.4-2.4 6-2.4-6-6-2.4 6-2.4z'/%3E%3Cpath d='M140 60l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z'/%3E%3Cpath d='M70 150l2 5 5 2-5 2-2 5-2-5-5-2 5-2z'/%3E%3Cpath d='M160 180l1.4 3.4 3.4 1.4-3.4 1.4-1.4 3.4-1.4-3.4-3.4-1.4 3.4-1.4z'/%3E%3Ccircle cx='100' cy='30' r='1.6'/%3E%3Ccircle cx='15' cy='95' r='1.3'/%3E%3Ccircle cx='120' cy='120' r='1.4'/%3E%3Ccircle cx='45' cy='205' r='1.2'/%3E%3Ccircle cx='170' cy='130' r='1'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 180px 220px;
+}
+
+[data-side="vin"] body::before,
+.welcome::before { position: fixed; opacity: .55; }
+
+/* Зірки фону — під текстом і полями, а не поверх */
+.welcome > * { position: relative; }
+
+[data-side="vin"] .btn-primary,
+[data-side="vin"] .toast { background: var(--star); border-color: var(--star); color: var(--night); }
+
+button { font: inherit; color: inherit; cursor: pointer; }
+
+:focus-visible { outline: 3px solid var(--powder); outline-offset: 3px; border-radius: 8px; }
+
+/* Шапка */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(14px, env(safe-area-inset-top)) 16px 6px;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: .01em;
+}
+
+/* Екран */
+.screen {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 8px 16px 112px;
+}
+
+.day {
+  margin: 4px 0 0;
+  font-size: .875rem;
+  color: var(--ink-soft);
+}
+
+.title {
+  margin: 0 0 18px;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 2.6rem;
+  line-height: 1.05;
+}
+
+/* Конверт — головний герой екрана */
+.screen:has(.stage) { display: flex; flex-direction: column; }
+
+.stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  margin-block: auto;
+  padding-bottom: 24px;
+}
+
+.hint { margin: 14px 0 0; font-size: .875rem; color: var(--ink-soft); }
+
+.envelope {
+  position: relative;
+  width: min(100%, 330px);
+  aspect-ratio: 3 / 2;
+  border: 0;
+  padding: 0;
+  background: none;
+  perspective: 900px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.env-back,
+.env-front,
+.env-flap {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+}
+
+.env-back {
+  background: var(--env-shade);
+  box-shadow: 0 18px 40px -18px rgba(74, 37, 69, .45);
+}
+
+/* Кишеня: бокові й нижній клини (SVG) */
+.env-front { z-index: 3; overflow: hidden; }
+.env-front svg { display: block; width: 100%; height: 100%; }
+.pocket { fill: var(--env); }
+.pocket-fold { fill: none; stroke: var(--env-shade); stroke-width: 2; }
+
+.env-flap {
+  z-index: 4;
+  height: 52%;
+  background: var(--env);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  border-radius: 14px 14px 0 0;
+  transform-origin: top center;
+  transition: transform .5s cubic-bezier(.5, 0, .3, 1);
+  filter: drop-shadow(0 4px 3px rgba(74, 37, 69, .12));
+}
+
+.seal {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 52%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  display: grid;
+  place-items: center;
+  border-radius: 46% 54% 50% 50% / 52% 48% 52% 48%;
+  background: radial-gradient(circle at 35% 30%, #c25b95, var(--wax) 60%, #7a2c5b);
+  color: #fbe3ef;
+  box-shadow: 0 3px 0 #6d2650, 0 6px 14px rgba(74, 37, 69, .35);
+  transition: transform .3s, opacity .3s;
+}
+
+.paper-peek {
+  position: absolute;
+  z-index: 2;
+  left: 7%;
+  right: 7%;
+  top: 8%;
+  height: 84%;
+  border-radius: 8px;
+  background: var(--paper);
+  transition: transform .6s cubic-bezier(.3, .7, .3, 1) .35s;
+}
+
+.seal svg { width: 28px; height: 28px; }
+
+.envelope.is-opening .seal { transform: scale(1.3); opacity: 0; }
+.envelope.is-opening .env-flap { transform: rotateX(180deg); z-index: 1; }
+.envelope.is-opening .paper-peek { transform: translateY(-62%); }
+
+/* Кур'єр: улюбленець із реплікою */
+.courier {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  width: min(100%, 330px);
+  margin-top: 18px;
+  position: relative;
+  z-index: 6;
+}
+
+.mascot { flex: none; width: 96px; height: 96px; }
+
+/* Мордочка-наліпка: біла рамка, легкий нахил */
+.mascot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 4px solid var(--paper);
+  border-radius: 28%;
+  transform: rotate(var(--tilt, 0deg));
+  box-shadow: 0 8px 18px -8px rgba(42, 23, 48, .55);
+}
+
+.bubble {
+  position: relative;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--paper);
+  color: var(--plum);
+  font-size: .9375rem;
+  line-height: 1.35;
+  box-shadow: 0 6px 16px -10px rgba(74, 37, 69, .5);
+}
+
+.bubble b { font-weight: 500; }
+
+/* Розгорнутий лист */
+.letter {
+  position: relative;
+  margin: 0 auto;
+  width: min(100%, 360px);
+  padding: 26px 24px 22px;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--plum);
+  box-shadow: 0 22px 44px -22px rgba(74, 37, 69, .55);
+  animation: unfold .55s cubic-bezier(.2, .8, .2, 1);
+}
+
+.letter-text {
+  margin: 0;
+  font-family: var(--hand);
+  font-weight: 500;
+  font-size: 1.65rem;
+  line-height: 34px;
+  white-space: pre-line;
+  /* Лінійка під кожним рядком, як у зошиті */
+  background: repeating-linear-gradient(180deg, transparent 0 32px, rgba(201, 182, 242, .5) 32px 33px, transparent 33px 34px);
+}
+
+.sign-arrow { display: inline-block; width: 22px; height: 22px; vertical-align: -2px; color: var(--wax); }
+.sign-arrow svg { width: 100%; height: 100%; }
+
+.letter-sign {
+  margin: 14px 0 0;
+  text-align: right;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 1.6rem;
+}
+
+@keyframes unfold {
+  from { opacity: 0; transform: translateY(24px) scale(.96); }
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  background: transparent;
+  font-weight: 500;
+}
+
+.btn-heart[aria-pressed="true"] {
+  background: var(--wax);
+  border-color: var(--wax);
+  color: #fff;
+}
+
+.btn-heart[aria-pressed="true"] .heart { animation: pop .35s ease-out; }
+
+@keyframes pop {
+  50% { transform: scale(1.45); }
+}
+
+.btn-primary {
+  background: var(--plum);
+  border-color: var(--plum);
+  color: #fff;
+}
+
+
+.btn svg { width: 22px; height: 22px; }
+
+.reply-sent {
+  margin: 16px auto 0;
+  width: min(100%, 360px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--chip);
+  font-size: .9375rem;
+  line-height: 1.4;
+}
+
+.reply-sent span { display: block; font-size: .8125rem; color: var(--ink-soft); margin-bottom: 2px; }
+
+/* Шторка відповіді */
+.sheet {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  padding: 18px 16px max(18px, env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--paper);
+  color: var(--plum);
+  box-shadow: 0 -12px 40px rgba(42, 23, 48, .25);
+  animation: rise .3s ease-out;
+}
+
+.sheet-inner { max-width: 480px; margin: 0 auto; }
+
+.sheet h2 { margin: 0 0 10px; font-family: var(--hand); font-size: 1.9rem; }
+
+.sheet textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 12px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--plum);
+  font: 1.5rem/1.3 var(--hand);
+}
+
+.sheet-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+
+.sheet .btn-primary { background: var(--plum); border-color: var(--plum); color: #fff; }
+
+.backdrop { position: fixed; inset: 0; z-index: 19; background: rgba(42, 23, 48, .35); }
+
+@keyframes rise { from { transform: translateY(100%); } }
+
+/* «Відкрий, коли…»: полиця конвертів */
+.env-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 14px;
+}
+
+.env-card {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mini-env {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 2;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tint) 55%, var(--paper));
+  box-shadow: 0 10px 22px -14px rgba(74, 37, 69, .6);
+  overflow: hidden;
+  transition: transform .2s;
+}
+
+/* Клапан */
+.mini-env::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 60%;
+  background: color-mix(in srgb, var(--tint) 85%, var(--paper));
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.mini-seal {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #c25b95, var(--wax) 60%, #7a2c5b);
+  box-shadow: 0 2px 0 #6d2650;
+  font-size: 1.15rem;
+}
+
+.env-card:active .mini-env { transform: scale(.97); }
+
+/* На його нічній половині конверти приглушені під сливу */
+[data-side="vin"] .mini-env { background: color-mix(in srgb, var(--tint) 30%, var(--env)); }
+[data-side="vin"] .mini-env::before { background: color-mix(in srgb, var(--tint) 48%, var(--env)); }
+
+.env-label {
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 1.5rem;
+  line-height: 1.05;
+}
+
+.env-meta { font-size: .8125rem; color: var(--ink-soft); }
+
+.env-signal { font-size: .75rem; color: var(--ink-soft); opacity: .85; }
+
+.env-card.is-empty .mini-env { filter: grayscale(.7); opacity: .55; }
+.env-card.is-empty .env-label { opacity: .6; }
+
+/* Вікно читання листа з конверта */
+.reader {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: rgba(42, 23, 48, .55);
+  backdrop-filter: blur(6px);
+  animation: fade .25s ease-out;
+}
+
+.reader-inner { width: min(100%, 380px); }
+
+/* На затемненні контурна кнопка губиться — даємо їй папір */
+.reader .btn-heart:not([aria-pressed="true"]) {
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--plum);
+}
+.reader .courier { margin: 0 0 -6px 6px; }
+.reader .bubble { margin-bottom: 22px; }
+
+.letter-kind {
+  margin: 0 0 6px;
+  font-size: .8125rem;
+  color: #8b6e8f;
+}
+
+.letter-empty { text-align: center; }
+
+@keyframes fade { from { opacity: 0; } }
+
+/* «Вместе»: листівка з космосом — спільна для обох половин */
+.space {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--night);
+  color: var(--cream);
+  box-shadow: 0 24px 48px -26px rgba(11, 56, 75, .8);
+  isolation: isolate;
+}
+
+.space::before { z-index: -1; opacity: .8; }
+
+.planet { position: absolute; display: block; }
+
+/* Краї вирізок розчиняються в небі, як на листівці */
+.planet-jupiter {
+  top: 0;
+  right: 0;
+  width: 46%;
+  -webkit-mask: linear-gradient(to right, transparent, #000 14%) , linear-gradient(to top, transparent, #000 14%);
+  -webkit-mask-composite: source-in;
+  mask: linear-gradient(to right, transparent, #000 14%), linear-gradient(to top, transparent, #000 14%);
+  mask-composite: intersect;
+}
+
+.planet-earth {
+  left: 0;
+  bottom: 0;
+  width: 42%;
+  -webkit-mask: linear-gradient(to left, transparent, #000 14%), linear-gradient(to bottom, transparent, #000 14%);
+  -webkit-mask-composite: source-in;
+  mask: linear-gradient(to left, transparent, #000 14%), linear-gradient(to bottom, transparent, #000 14%);
+  mask-composite: intersect;
+}
+
+.planet-tag {
+  position: absolute;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(11, 56, 75, .75);
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+
+.tag-jupiter { top: 37%; right: 21%; }
+.tag-earth { bottom: 3%; left: 44%; }
+
+.space-trail { position: absolute; inset: 0; }
+
+.space-path { width: 100%; height: 100%; display: block; }
+
+.space-path .trail {
+  fill: none;
+  stroke: var(--star);
+  stroke-width: 2.6;
+  stroke-dasharray: 9 8;
+  stroke-linecap: round;
+}
+
+/* Планети обертаються: смуга-розгортка з копією праворуч їде ліворуч на свій період — безшовно.
+   Періоди збігаються з P у js/planets.js: Земля 224, Юпітер 240 */
+.spin-e { animation: spin-earth 60s linear infinite; }
+.spin-c { animation: spin-earth 42s linear infinite; }
+.spin-j { animation: spin-jupiter 140s linear infinite; }
+
+@keyframes spin-earth { to { transform: translateX(-224px); } }
+@keyframes spin-jupiter { to { transform: translateX(-240px); } }
+
+.travel-heart {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  fill: #E8473C;
+  filter: drop-shadow(0 0 8px rgba(232, 71, 60, .7));
+}
+
+.travel-heart svg { width: 100%; height: 100%; display: block; animation: beat 1.6s ease-in-out infinite; }
+
+@keyframes beat {
+  0%, 60%, 100% { transform: scale(1); }
+  30% { transform: scale(1.18); }
+}
+
+.countdown {
+  position: absolute;
+  top: 6%;
+  left: 7%;
+  display: grid;
+  max-width: 50%;
+}
+
+.countdown-label { font-size: .875rem; color: #a9c3c9; }
+
+.countdown-days {
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--star);
+}
+
+/* Їхня фраза — округлі великі літери, як на листівці */
+.phrase {
+  position: absolute;
+  right: 6%;
+  top: 44%;
+  width: 52%;
+  margin: 0;
+  font-weight: 700;
+  font-size: clamp(1.05rem, 5.4vw, 1.5rem);
+  line-height: 1.12;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--cream);
+}
+
+.together-days {
+  margin: 14px 0 22px;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.together-days small { display: block; font-size: .8125rem; margin-top: 2px; }
+
+.meet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 999px;
+  background: var(--chip);
+}
+
+.meet-row input {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--plum);
+  font: inherit;
+}
+
+.together-days b {
+  font-family: var(--hand);
+  font-size: 1.9rem;
+  color: var(--ink);
+}
+
+.wish-box h3 {
+  margin: 0 0 10px;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 1.7rem;
+}
+
+.wish-add { display: flex; gap: 8px; margin-bottom: 12px; }
+
+.wish-add input {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--chip);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--plum);
+  font: inherit;
+}
+
+.wishes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.wish {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--chip);
+  cursor: pointer;
+}
+
+.wish input { width: 20px; height: 20px; accent-color: var(--wax); flex: none; }
+.wish span { flex: 1; }
+.wish small { color: var(--ink-soft); }
+.wish.is-done span { text-decoration: line-through; opacity: .6; }
+
+/* Перший запуск: листівка на весь екран */
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: var(--night);
+  color: var(--cream);
+  animation: fade .5s ease-out;
+}
+
+.welcome-card { width: min(100%, 420px); }
+.welcome .space { box-shadow: none; }
+
+.welcome-foot { width: min(100%, 420px); text-align: center; }
+
+.welcome-hello {
+  margin: 0;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 2.2rem;
+  color: var(--star);
+}
+
+.welcome-from { margin: 4px auto 18px; max-width: 32ch; line-height: 1.45; color: #cfe0e3; }
+
+.btn-star {
+  background: var(--star);
+  border-color: var(--star);
+  color: var(--night);
+  min-width: 160px;
+  justify-content: center;
+}
+
+.welcome-step { width: min(100%, 360px); text-align: center; }
+.welcome-step .mascot { width: 120px; height: 120px; margin: 0 auto 16px; display: block; }
+.welcome-step h2 { margin: 0 0 8px; font-family: var(--hand); font-size: 2.1rem; color: var(--star); }
+.welcome-step p { margin: 0 0 20px; line-height: 1.5; color: #cfe0e3; }
+.welcome-step .btn:not(.btn-star) { color: var(--cream); }
+
+.together-days b { margin-right: .15em; }
+
+/* Поки тягнемо дані — без шапки й вкладок */
+.is-booting .top,
+.is-booting .tabs { visibility: hidden; }
+
+/* Замок: поле для посилання з ключем */
+.lock-form { display: grid; gap: 10px; justify-items: center; }
+
+.lock-form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1.5px solid rgba(237, 185, 73, .5);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+  color: var(--cream);
+  font: inherit;
+}
+
+.lock-form input::placeholder { color: rgba(244, 230, 196, .55); }
+
+.lock-error { min-height: 1.3em; margin: 0; font-size: .875rem; color: var(--powder); }
+
+/* Порожні розділи */
+.empty {
+  margin-top: 48px;
+  text-align: center;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.empty .mascot { margin: 0 auto 10px; }
+.empty h2 { margin: 0 0 6px; font-family: var(--hand); font-size: 2rem; color: var(--ink); }
+.empty p { margin: 0 auto; max-width: 30ch; }
+
+/* Вкладки */
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 6px 4px max(8px, env(safe-area-inset-bottom));
+  background: var(--tab-bg);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--chip);
+}
+
+.tab {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  font-size: .6875rem;
+  line-height: 1.15;
+  color: var(--ink-soft);
+}
+
+.tab-ico { font-size: 1.3rem; filter: grayscale(.6); opacity: .8; }
+.tab.is-active { color: var(--tab-active); font-weight: 500; }
+.tab.is-active .tab-ico { filter: none; opacity: 1; }
+
+/* Тост */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 92px;
+  z-index: 30;
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--plum);
+  color: #fff;
+  font-size: .9375rem;
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+
+.toast.is-shown { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru" data-side="vona">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#EADFFB">
+  <meta name="description" content="Письма, фото и мемчики для двоих">
+  <title>Радовалка</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body class="is-booting">
+  <header class="top">
+    <h1 class="wordmark">Радовалка</h1>
+  </header>
+
+  <main id="screen" class="screen"></main>
+
+  <nav class="tabs" aria-label="Разделы">
+    <button type="button" class="tab is-active" data-tab="letter"><span class="tab-ico">💌</span>Письмо</button>
+    <button type="button" class="tab" data-tab="envelopes"><span class="tab-ico">✉️</span>Конверты</button>
+    <button type="button" class="tab" data-tab="memes"><span class="tab-ico">😹</span>Мемчики</button>
+    <button type="button" class="tab" data-tab="together"><span class="tab-ico">🪐</span>Вместе</button>
+    <button type="button" class="tab" data-tab="box"><span class="tab-ico">🗃️</span>Шкатулка</button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
