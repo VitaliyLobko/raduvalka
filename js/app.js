@@ -5,6 +5,7 @@ import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
+import { renderMemes, refreshMemes, markBadge } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 
@@ -140,8 +141,9 @@ function render() {
   if (tab === 'letter') renderLetter();
   else if (tab === 'envelopes') renderEnvelopes(screen);
   else if (tab === 'memes') {
-    const pet = petFor('memes');
-    renderEmpty('Мемчики', `Скоро ${petName(pet)} будет носить сюда мемчики. Пока тренируется.`, pet);
+    // Показуємо, що вже є, і одразу дотягуємо свіже (push поки немає)
+    renderMemes(screen);
+    refreshMemes().then((changed) => { if (changed && tab === 'memes') renderMemes(screen); });
   } else renderEmpty('Шкатулка', 'Здесь будут собираться все письма — чтобы перечитывать любимые.', petFor('box'));
 }
 
@@ -208,6 +210,7 @@ async function start() {
   document.body.classList.remove('is-booting');
   applySide();
   drawChip();
+  markBadge();
   render();
   maybeWelcome();
 }

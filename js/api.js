@@ -49,6 +49,16 @@ async function request(path, init = {}) {
 
 export const get = async (path) => (await request(path)).json();
 
+// Запит, результат якого потрібен одразу (надіслати, видалити): помилку ловить той, хто кличе
+export async function send(path, method, body) {
+  const res = await request(path, {
+    method,
+    headers: body === undefined ? {} : { 'content-type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return res.json();
+}
+
 // Запис — у фоні: інтерфейс уже показав зміну, сервер лише наздоганяє
 export function save(path, body) {
   return request(path, {

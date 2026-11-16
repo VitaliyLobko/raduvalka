@@ -8,15 +8,22 @@ const ORIGINS = new Set([
 const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS docs (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS imgs (name TEXT PRIMARY KEY, type TEXT NOT NULL, data TEXT NOT NULL, updated INTEGER NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS memes (id TEXT PRIMARY KEY, src TEXT NOT NULL, dst TEXT NOT NULL, '
+    + 'img TEXT NOT NULL, caption TEXT, created INTEGER NOT NULL, reaction TEXT)',
 ];
 
 const SIDES = ['vona', 'vin'];
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'wishes'];
-const MINE_FIELDS = ['letter', 'seen'];
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;
 const MAX_IMG = 1.4 * 1024 * 1024;
+// Мемчик приходить уже в base64 (кодує телефон — у Worker на безкоштовному плані ~10 мс CPU);
+// рядок D1 — до 2 МБ, тож base64 до 1,9 млн символів (≈1,4 МБ картинки)
+const MAX_B64 = 1_900_000;
+const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
+const REACTIONS = ['😂', '❤️'];
 
 let schemaReady = false;
 
@@ -47,12 +54,13 @@ async function route(req, env) {
   const m = req.method;
 
   if (m === 'GET' && path === 'boot') {
-    const [letter, envelopes, together, mine, mascots] = await Promise.all([
+    const [letter, envelopes, together, mine, mascots, memes] = await Promise.all([
       getDoc(env.DB, `letter:${side}`),
       getDoc(env.DB, `envelopes:${side}`),
       getDoc(env.DB, 'together'),
       getDoc(env.DB, `mine:${side}`),
       getDoc(env.DB, 'mascots'),
+      listMemes(env.DB, side),
     ]);
     return json({
       side,
@@ -61,8 +69,11 @@ async function route(req, env) {
       together: together || {},
       mine: mine || {},
       mascots: mascots || {},
+      memes,
     });
   }
+
+  if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6));
 
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
@@ -105,7 +116,7 @@ function corsHeaders(req) {
   if (!ORIGINS.has(origin)) return { vary: 'Origin' };
   return {
     'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET, PUT, OPTIONS',
+    'access-control-allow-methods': 'GET, PUT, POST, DELETE, OPTIONS',
     'access-control-allow-headers': 'authorization, content-type',
     'access-control-max-age': '86400',
     vary: 'Origin',
@@ -174,9 +185,86 @@ async function putImg(db, name, req) {
   return json({ ok: true, size: buf.length });
 }
 
-async function readJson(req) {
+// Мемчики: картинку завантажують обоє, але тільки сюди — PUT img/* лишається за його ключем
+async function memesRoute(req, db, side, rest) {
+  const m = req.method;
+  if (m === 'GET' && !rest) return json(await listMemes(db, side));
+
+  if (m === 'POST' && !rest) {
+    const body = await readJson(req, MAX_B64 + 4096);
+    const type = String(body.type || '');
+    const data = String(body.data || '');
+    if (!MEME_TYPES.test(type)) throw fail(415, 'type');
+    if (!data || data.length > MAX_B64 || !/^[A-Za-z0-9+/]+=*$/.test(data)) throw fail(413, 'size');
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const meme = {
+      id,
+      src: side,
+      dst: side === 'vin' ? 'vona' : 'vin',
+      img: `m-${id}`,
+      caption: String(body.caption || '').trim().slice(0, 300) || null,
+      created: Date.now(),
+      reaction: null,
+    };
+    await db.batch([
+      db.prepare('INSERT INTO imgs (name, type, data, updated) VALUES (?, ?, ?, ?)')
+        .bind(meme.img, type, data, meme.created),
+      db.prepare('INSERT INTO memes (id, src, dst, img, caption, created, reaction) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(meme.id, meme.src, meme.dst, meme.img, meme.caption, meme.created, null),
+    ]);
+    return json(view(meme, side), 201);
+  }
+
+  const [id, sub] = rest.split('/');
+  const meme = await db.prepare('SELECT * FROM memes WHERE id = ?').bind(id).first();
+  if (!meme || (meme.src !== side && meme.dst !== side)) throw fail(404, 'not found');
+
+  // Картинка base64-рядком: розкодовує телефон, не Worker
+  if (m === 'GET' && sub === 'img') {
+    const row = await db.prepare('SELECT type, data FROM imgs WHERE name = ?').bind(meme.img).first();
+    if (!row) throw fail(404, 'not found');
+    return new Response(JSON.stringify(row), {
+      headers: { 'content-type': 'application/json', 'cache-control': 'private, max-age=31536000, immutable' },
+    });
+  }
+
+  // Реакцію ставить лише отримувач; null — зняти
+  if (m === 'PUT' && !sub) {
+    if (meme.dst !== side) throw fail(403, 'forbidden');
+    const { reaction = null } = await readJson(req);
+    if (reaction !== null && !REACTIONS.includes(reaction)) throw fail(400, 'reaction');
+    await db.prepare('UPDATE memes SET reaction = ? WHERE id = ?').bind(reaction, id).run();
+    return json(view({ ...meme, reaction }, side));
+  }
+
+  // Видаляє лише той, хто надіслав
+  if (m === 'DELETE' && !sub) {
+    if (meme.src !== side) throw fail(403, 'forbidden');
+    await db.batch([
+      db.prepare('DELETE FROM memes WHERE id = ?').bind(id),
+      db.prepare('DELETE FROM imgs WHERE name = ?').bind(meme.img),
+    ]);
+    return json({ ok: true });
+  }
+
+  throw fail(404, 'not found');
+}
+
+async function listMemes(db, side) {
+  const { results } = await db.prepare(
+    'SELECT * FROM memes WHERE src = ? OR dst = ? ORDER BY created DESC LIMIT 300',
+  ).bind(side, side).all();
+  return results.map((r) => view(r, side));
+}
+
+// Для телефона: mine — «я надіслав», без внутрішніх src/dst/img
+function view(r, side) {
+  return { id: r.id, mine: r.src === side, caption: r.caption, created: r.created, reaction: r.reaction };
+}
+
+async function readJson(req, max = MAX_JSON) {
   const text = await req.text();
-  if (text.length > MAX_JSON) throw fail(413, 'size');
+  if (text.length > max) throw fail(413, 'size');
   try {
     return JSON.parse(text);
   } catch {

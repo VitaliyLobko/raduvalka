@@ -68,6 +68,7 @@ body {
 
 /* Зірки фону — під текстом і полями, а не поверх */
 .welcome > * { position: relative; }
+[data-side="vin"] body::before { z-index: -1; }
 
 [data-side="vin"] .btn-primary,
 [data-side="vin"] .toast { background: var(--star); border-color: var(--star); color: var(--night); }
@@ -893,6 +894,110 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--ink);
   font-size: 1rem;
 }
+
+/* Мемчики */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.meme-send { display: flex; justify-content: center; width: 100%; margin: 4px 0 18px; }
+.meme-send:focus-within { outline: 3px solid var(--powder); outline-offset: 3px; }
+
+.meme-feed { display: grid; gap: 16px; }
+
+.meme {
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--plum);
+  box-shadow: 0 10px 26px -16px rgba(74, 37, 69, .45);
+}
+
+.meme.is-mine { margin-left: 28px; }
+.meme:not(.is-mine) { margin-right: 28px; }
+
+.meme-img {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  background: var(--env);
+}
+
+.meme-img.is-loaded { min-height: 0; background: none; }
+.meme-img img { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+.meme-img:not(.is-loaded) img { visibility: hidden; }
+.meme-img.is-broken::after { content: 'Картинка не загрузилась'; font-size: .875rem; color: var(--ink-soft); }
+
+.meme-cap { margin: 0; padding: 10px 14px 0; font: 1.45rem/1.25 var(--hand); }
+
+.meme-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px 10px 14px;
+  font-size: .8125rem;
+  color: #7a5a78;
+}
+
+.meme-actions { display: flex; align-items: center; gap: 6px; }
+
+.meme-react,
+.meme-del {
+  min-width: 44px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(74, 37, 69, .07);
+  font-size: 1.2rem;
+}
+
+.meme-react[aria-pressed="true"] { background: var(--powder); transform: scale(1.06); }
+.meme-del { font-size: 1rem; opacity: .7; }
+.meme-their { font-size: .9375rem; }
+
+.meme-preview {
+  display: block;
+  width: 100%;
+  max-height: 46vh;
+  object-fit: contain;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: var(--env);
+}
+
+.sheet input[type="text"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--plum);
+  font: inherit;
+}
+
+/* Нове на марці — сургучна крапка */
+.tab { position: relative; }
+
+.tab.has-new::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: calc(50% + 18px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--wax);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+[data-side="vin"] .tab.has-new::after { background: var(--powder); box-shadow: 0 0 0 2px var(--night); }
 
 /* Тост */
 .toast {
