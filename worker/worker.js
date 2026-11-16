@@ -106,6 +106,7 @@ async function route(req, env) {
     const [letter, gift] = await Promise.all([dayLetter(env.DB, side), pendingGift(env.DB, side)]);
     return json({ letter, gift });
   }
+  if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8));
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7));

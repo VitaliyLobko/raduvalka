@@ -294,6 +294,8 @@ document.querySelector('.nav-seal-wax').innerHTML = waxSeal(QUILL_GLYPH);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !getKey() || document.body.classList.contains('is-booting')) return;
   refreshLetter();
+  // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
+  get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
   refreshMemes().then((changed) => {
     markBadge();
     if (changed && tab === 'memes') renderMemes(screen);
