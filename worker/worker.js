@@ -31,9 +31,10 @@ const MAX_IMG = 1.4 * 1024 * 1024;
 const MAX_B64 = 1_900_000;
 const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
 const REACTIONS = ['😂', '❤️'];
-const LETTER_KINDS = ['now', 'morning', 'env', 'gift'];
+const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date'];
 const MAX_LETTER = 4000;
 const MAX_AHEAD = 3 * 24 * 3600 * 1000;
+const MAX_DATE_AHEAD = 400 * 24 * 3600 * 1000; // «К дате» — до року вперед
 
 // Колонки, додані пізніше: ALTER на вже існуючій таблиці (помилка «вже є» — норма)
 const MIGRATIONS = [
@@ -631,12 +632,17 @@ async function wishImage(req) {
 
 // Лист дня: найновіший написаний у застосунку, чий час настав; «на ранок» до ранку не віддаємо.
 // Нема жодного — лист із бази (заготовка)
+// Лист до особливої дати цілу добу головніший за будь-який інший
 async function dayLetter(db, side) {
-  const r = await db.prepare(
-    "SELECT * FROM letters WHERE dst = ? AND kind IN ('now', 'morning') AND at <= ? ORDER BY at DESC, created DESC LIMIT 1",
-  ).bind(side, Date.now()).first();
+  const now = Date.now();
+  const special = await db.prepare(
+    "SELECT * FROM letters WHERE dst = ? AND kind = 'date' AND at <= ? AND at > ? ORDER BY at DESC LIMIT 1",
+  ).bind(side, now, now - 24 * 3600 * 1000).first();
+  const r = special || await db.prepare(
+    "SELECT * FROM letters WHERE dst = ? AND kind IN ('now', 'morning', 'date') AND at <= ? ORDER BY at DESC, created DESC LIMIT 1",
+  ).bind(side, now).first();
   if (!r) return getDoc(db, `letter:${side}`);
-  return { id: r.id, at: r.at, text: r.text, mascot: r.mascot, opened: !!r.opened, liked: !!r.liked, reply: r.reply };
+  return { id: r.id, at: r.at, text: r.text, mascot: r.mascot, opened: !!r.opened, liked: !!r.liked, reply: r.reply, special: !!special };
 }
 
 // Подарунок, який ще чекає вибору. Що всередині — не віддаємо, поки не обрано: підглянути не можна
@@ -703,6 +709,7 @@ async function lettersRoute(req, db, side, rest) {
     let at = now;
     // Час «на ранок» рахує телефон (його часовий пояс); сервер лише не пускає в минуле й далеко вперед
     if (kind === 'morning') at = Math.max(now, Math.min(now + MAX_AHEAD, Number(b.at) || now));
+    if (kind === 'date') at = Math.max(now, Math.min(now + MAX_DATE_AHEAD, Number(b.at) || now));
     let envId = null;
     if (kind === 'env') {
       envId = String(b.env || '');

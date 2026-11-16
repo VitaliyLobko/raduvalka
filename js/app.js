@@ -80,6 +80,12 @@ function dayLabel(iso) {
 }
 
 function courier(letter) {
+  // Лист до особливої дати несуть усі разом, у святкових позах (де вони є)
+  if (letter.special) {
+    return h('div', { class: 'courier courier-all' },
+      h('span', { class: 'mascots' }, ...Object.keys(DATA.mascots).map((k) => h('span', { class: 'mascot', html: mascotImg(k, 'festive') }))),
+      h('p', { class: 'bubble' }, 'Мы принесли всей командой — сегодня особенный день! 🎉'));
+  }
   if (!DATA.mascots[letter.mascot]) return null;
   return h('div', { class: 'courier' },
     h('span', { class: 'mascot', html: mascotImg(letter.mascot) }),
@@ -101,7 +107,7 @@ function renderLetter() {
 
   const head = [
     h('p', { class: 'day' }, dayLabel(letter.date)),
-    h('h2', { class: 'title' }, st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
+    h('h2', { class: 'title' }, letter.special ? 'Праздничное письмо 🎉' : st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
   ];
 
   if (!st.opened) {
@@ -126,7 +132,7 @@ function renderLetter() {
   // replaceChildren не пропускає null, на відміну від h()
   screen.replaceChildren(...[
     ...head,
-    h('article', { class: 'letter' },
+    h('article', { class: `letter${letter.special ? ' is-special' : ''}` },
       h('p', { class: 'letter-text' }, letter.text),
       h('p', { class: 'letter-sign', html: `${who().from} <span class="sign-arrow">${SAGITTARIUS}</span>` })),
     h('div', { class: 'actions' },

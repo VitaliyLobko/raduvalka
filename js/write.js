@@ -26,6 +26,7 @@ function nextMorning(now = new Date()) {
 const isShe = (key) => DATA.mascots[key]?.g === 'f';
 const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
+const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 
 export function openWrite() {
   const me = who();
@@ -41,6 +42,11 @@ export function openWrite() {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
+  // «К дате»: свято обирає сам автор (дати — не в коді), приходить того дня о 8:00
+  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('sv');
+  const dateInput = h('input', { type: 'date', class: 'write-date', min: tomorrow, 'aria-label': 'К какой дате', onchange: () => paintNote() });
+  const dateRow = h('label', { class: 'meet-row write-date-row', hidden: true }, h('span', {}, 'Какого числа?'), dateInput);
+  const dateAt = () => (dateInput.value ? new Date(`${dateInput.value}T${String(MORNING_HOUR).padStart(2, '0')}:00`).getTime() : null);
   // «Подарок на выбор»: 2–3 варіанти — значок, назва на конверті й що всередині (видно після вибору)
   const SAMPLE = [['🌷', 'Цветы', 'Курьер привезёт букет'], ['🍝', 'Ужин', 'Сходим в наше место'], ['💆', 'Массаж', 'Час массажа от меня, когда вернусь']];
   const giftRows = SAMPLE.map(([e, t, i]) => {
@@ -69,8 +75,11 @@ export function openWrite() {
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} — как письмо дня.`
+      : where === 'date'
+        ? (dateAt() ? `Придёт ${dayMonth(dateAt())} в ${hhmm(dateAt())} — праздничным письмом, принесут все вместе 🎉` : 'Выбери день — день рождения, годовщину, праздник.')
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
     envRow.hidden = where !== 'env';
+    dateRow.hidden = where !== 'date';
   };
 
   const chips = (items, picked, onPick) => {
@@ -87,6 +96,7 @@ export function openWrite() {
   const whereRow = chips([
     { v: 'now', label: 'Сейчас' },
     { v: 'morning', label: 'На утро' },
+    { v: 'date', label: '🎂 К дате' },
     ...(envs.length ? [{ v: 'env', label: 'В конверт' }] : []),
     { v: 'gift', label: '🎁 Подарок' },
   ], where, (v) => { where = v; paintNote(); });
@@ -116,6 +126,7 @@ export function openWrite() {
     const gift = where === 'gift' ? giftOptions() : null;
     if (gift && gift.length < 2) { toast('Нужно хотя бы два варианта'); giftRows[gift.length].title.focus(); return; }
     if (!text && !gift) { area.focus(); return; }
+    if (where === 'date' && !dateAt()) { toast('Выбери дату'); dateInput.focus(); return; }
     go.disabled = true;
     try {
       await send('letters', 'POST', {
@@ -123,7 +134,7 @@ export function openWrite() {
         text,
         mascot: pet,
         env: where === 'env' ? envId : undefined,
-        at: where === 'morning' ? nextMorning().getTime() : undefined,
+        at: where === 'morning' ? nextMorning().getTime() : where === 'date' ? dateAt() : undefined,
         gift: gift || undefined,
       });
       draft.set('');
@@ -142,7 +153,7 @@ export function openWrite() {
       h('h2', {}, `Письмо ${me.toWhom}`),
       helper,
       area,
-      h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, giftBox, note),
+      h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, dateRow, giftBox, note),
       pets.length ? h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Кто понесёт'), petRow) : null,
       go,
       sent));
@@ -176,6 +187,7 @@ async function loadSent(box) {
     let state;
     if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
     else if (l.kind === 'morning' && l.at > Date.now()) state = `ждёт утра · ${dayWord(l.at)} в ${hhmm(l.at)}`;
+    else if (l.kind === 'date' && l.at > Date.now()) state = `🎂 ждёт · ${dayMonth(l.at)} в ${hhmm(l.at)}`;
     else if (l.opened) state = `${me.partnerOpened} ✓${l.liked ? ' · ❤️' : ''}`;
     else state = l.kind === 'env' ? 'лежит в конверте' : `ещё не ${me.partnerOpened}`;
 
