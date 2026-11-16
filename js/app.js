@@ -297,8 +297,36 @@ chip.addEventListener('click', openTogether);
 document.getElementById('write-btn').addEventListener('click', openWrite);
 document.querySelector('.nav-seal-wax').innerHTML = waxSeal(QUILL_GLYPH);
 
+// Плашка зверху: «є нова версія» / «оновилась». Одна на екрані, зникає після тапу
+function pill(text, onclick) {
+  document.querySelector('.update-pill')?.remove();
+  const b = h('button', { type: 'button', class: 'update-pill', onclick: () => { b.remove(); onclick(); } }, text);
+  document.body.append(b);
+}
+
+// Після оновлення — один раз: «обновилась, що нового». Перший запуск на телефоні — лише запамʼятати версію
+function noteUpdated() {
+  let seen;
+  try {
+    seen = localStorage.getItem('radovalka:version');
+    localStorage.setItem('radovalka:version', VERSION);
+  } catch { return; }
+  if (seen && seen !== VERSION) pill(`✨ Радовалка обновилась до ${VERSION} — что нового?`, openAbout);
+}
+
+// Застосунок довго відкритий у фоні: при поверненні дивимось, чи не вийшла нова версія.
+// ponytail: GitHub Pages кешує модулі до 10 хв — одразу після випуску оновлення може підтягнутись не з першого разу
+async function checkUpdate() {
+  try {
+    const text = await (await fetch('js/version.js', { cache: 'no-store' })).text();
+    const v = text.match(/VERSION = '([^']+)'/)?.[1];
+    if (v && v !== VERSION) pill(`Есть новая версия ${v} — обновить`, () => location.reload());
+  } catch { /* немає звʼязку — перевіримо наступного разу */ }
+}
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !getKey() || document.body.classList.contains('is-booting')) return;
+  checkUpdate();
   refreshLetter();
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
   get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
@@ -366,6 +394,8 @@ async function start() {
   render();
   maybeWelcome();
   takeShared();
+  noteUpdated();
+  checkUpdate();
 }
 
 registerWorker();

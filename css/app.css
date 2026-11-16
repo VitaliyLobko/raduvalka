@@ -1158,6 +1158,27 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .toast.is-shown { opacity: 1; transform: translate(-50%, 0); }
 
+/* «Есть новая версия» / «обновилась» — плашка під шапкою, тап — дія */
+.update-pill {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 64px);
+  z-index: 31;
+  max-width: calc(100% - 32px);
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--plum);
+  color: #fff;
+  font: inherit;
+  font-size: .9375rem;
+  box-shadow: 0 10px 24px -10px rgba(42, 23, 48, .6);
+  transform: translateX(-50%);
+  animation: fade .3s;
+  cursor: pointer;
+}
+[data-side="vin"] .update-pill { background: var(--star); color: var(--night); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
