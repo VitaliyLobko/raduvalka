@@ -21,7 +21,7 @@ const SCHEMA = [
 
 const SIDES = ['vona', 'vin'];
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'wishes'];
-const MINE_FIELDS = ['letter', 'seen', 'memesSeen'];
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;

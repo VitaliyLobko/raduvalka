@@ -5,7 +5,7 @@ import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
 import { renderGift } from './gift.js';
-import { renderWishes, loadWishes, wishFromShare, linkIn } from './wishes.js';
+import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
@@ -296,6 +296,7 @@ document.addEventListener('visibilitychange', () => {
   refreshLetter();
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
   get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
+  if (tab !== 'wish') loadWishes().then(markWishes).catch(() => {});
   refreshMemes().then((changed) => {
     markBadge();
     if (changed && tab === 'memes') renderMemes(screen);
@@ -349,6 +350,7 @@ async function start() {
   applySide();
   drawChip();
   markBadge();
+  loadWishes().then(markWishes).catch(() => {});
   markLetter();
   render();
   maybeWelcome();

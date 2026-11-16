@@ -1,6 +1,6 @@
 // «Хотелки»: свій список бажань і список другого. Позначки «присмотрел/куплено» бачить лише той, хто ставить
 import { DATA, who } from './data.js';
-import { get, send, postBlob, imageUrl } from './api.js';
+import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, showPhoto } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
@@ -20,6 +20,12 @@ const onWishTab = () => !!document.querySelector('.tab[data-tab="wish"].is-activ
 export async function loadWishes() {
   DATA.wishes = await get('wishes');
   return DATA.wishes;
+}
+
+// Точка на вкладці: другий додав хотілку, якої ти ще не бачив(ла) у його/її списку
+const newestTheirs = () => Math.max(0, ...(DATA.wishes?.theirs || []).map((w) => w.created || 0));
+export function markWishes() {
+  document.querySelector('.tab[data-tab="wish"]')?.classList.toggle('has-new', newestTheirs() > (DATA.mine.wishesSeen || 0));
 }
 
 export const fitsBudget = (w, b) => !b || !w.price || w.price <= b;
@@ -72,6 +78,12 @@ export function renderWishes(screen) {
     ];
   } else {
     const list = data.theirs.filter((w) => fitsBudget(w, budget));
+    const newest = newestTheirs();
+    if (newest > (DATA.mine.wishesSeen || 0)) {
+      DATA.mine.wishesSeen = newest;
+      save('mine', { wishesSeen: newest });
+    }
+    markWishes();
     body = [
       h('div', { class: 'want-budget' }, h('span', { class: 'mk-label' }, 'Бюджет'),
         h('div', { class: 'mk-chips' }, ...BUDGETS.map((b) => h('button', {
