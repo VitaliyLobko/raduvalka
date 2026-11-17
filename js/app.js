@@ -1,6 +1,6 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide } from './api.js';
+import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
@@ -19,7 +19,7 @@ import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
-import { checkinRow, paint as paintCheckin } from './checkin.js';
+import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -528,6 +528,17 @@ function refreshAll() {
   refreshFeed();
 }
 
+// Без зв'язку показуємо збережене (api.js) і пробуємо знову кожні 30 с; зв'язок повернувся — дотягуємо свіже
+const offlineBar = h('p', { class: 'offline-bar', role: 'status', hidden: true }, 'Нет связи — показываю сохранённое');
+document.querySelector('header.top').after(offlineBar);
+let offlineTimer = null;
+document.addEventListener('radovalka:offline', (e) => {
+  offlineBar.hidden = !e.detail;
+  clearInterval(offlineTimer);
+  if (e.detail) offlineTimer = setInterval(refreshAll, 30000);
+  else if (!document.body.classList.contains('is-booting')) refreshAll();
+});
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') { hiddenAt = Date.now(); return; }
   if (!getKey() || document.body.classList.contains('is-booting')) return;
@@ -551,6 +562,7 @@ function openAbout() {
     if (!confirm('Выйти на этом телефоне? Чтобы вернуться, понадобится твоя личная ссылка.')) return;
     // Без ключа телефон більше нічий — і сповіщення йому слати нікому
     await disablePush().catch(() => { /* сервер прибере підписку сам, коли push-сервіс відповість 410 */ });
+    await forgetSaved();
     setKey(null);
     leave(() => location.replace(location.pathname));
   };
@@ -605,6 +617,11 @@ async function start() {
   takeShared();
   syncPush();
   startOutbox();
+  // Ярлик «Я в порядке» (довге натискання на іконку): відмітка одразу; адресу чистимо, щоб перезавантаження не повторило
+  if (new URLSearchParams(location.search).get('do') === 'checkin') {
+    history.replaceState(null, '', location.pathname);
+    checkIn();
+  }
   noteUpdated();
   checkUpdate();
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли

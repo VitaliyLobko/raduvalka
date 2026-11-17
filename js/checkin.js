@@ -23,9 +23,9 @@ function theirLine() {
   return h('p', { class: 'checkin-theirs' }, `💚 ${did} — ${when(at)}`);
 }
 
-async function tap(btn) {
+// Кнопка на «Письмах» і ярлик з іконки (?do=checkin) — одне й те саме
+export async function checkIn() {
   const at = Date.now();
-  btn.disabled = true;
   DATA.checkins = { ...DATA.checkins, mine: at };
   try {
     const r = await deliver('checkin', 'checkin', { at });
@@ -42,7 +42,7 @@ async function tap(btn) {
 // Рядок на «Письмах»: кнопка, чужа відмітка і скільки листів чекає зв'язку
 export function checkinRow() {
   const n = waiting();
-  const btn = h('button', { type: 'button', class: 'btn checkin-btn', onclick: () => tap(btn) }, '💚 Я в порядке');
+  const btn = h('button', { type: 'button', class: 'btn checkin-btn', onclick: () => { btn.disabled = true; checkIn(); } }, '💚 Я в порядке');
   return h('div', { class: 'checkin-row' },
     btn,
     theirLine(),

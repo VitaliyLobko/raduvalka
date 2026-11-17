@@ -47,5 +47,20 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Я в порядке",
+      "short_name": "Я в порядке",
+      "description": "Отметиться: второму придёт «всё хорошо»",
+      "url": "./?do=checkin",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

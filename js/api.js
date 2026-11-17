@@ -87,7 +87,52 @@ async function request(path, init = {}) {
   return res;
 }
 
-export const get = async (path) => (await request(path)).json();
+// Читання без зв'язку: останні відповіді цих запитів лежать у кеші телефона (Cache Storage — не localStorage:
+// його 5 МБ ділять усі застосунки на цьому сайті). Нема мережі — віддаємо збережене і кажемо, що це воно
+const DATA_CACHE = 'data-radovalka';
+const OFFLINE_PATHS = /^(boot|letter|envelopes|letters\/(inbox|sent)|plans|wishes|memes)$/;
+let offline = false;
+export const isOffline = () => offline;
+
+function setOffline(v) {
+  if (offline === v) return;
+  offline = v;
+  document.dispatchEvent(new CustomEvent('radovalka:offline', { detail: v }));
+}
+
+// Кожна половина (на одному телефоні може бути дві) — своє збережене; ключ у назву не кладемо, лише його відбиток
+let printFor = '';
+let print = '';
+async function keyPrint() {
+  const key = getKey() || '';
+  if (printFor !== key) {
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
+    print = Array.from(new Uint8Array(hash).slice(0, 8), (b) => b.toString(16).padStart(2, '0')).join('');
+    printFor = key;
+  }
+  return print;
+}
+const dataUrl = async (path) => `${API}/api/${path}?saved=${await keyPrint()}`;
+
+export async function get(path) {
+  if (!OFFLINE_PATHS.test(path) || !self.caches) return (await request(path)).json();
+  try {
+    const text = await (await request(path)).text();
+    caches.open(DATA_CACHE).then(async (c) => c.put(await dataUrl(path), new Response(text))).catch(() => {});
+    setOffline(false);
+    return JSON.parse(text);
+  } catch (e) {
+    // Сервер відповів помилкою (401, 500) — це не «нема зв'язку», старе не підсовуємо
+    if (e.status) throw e;
+    const hit = await caches.open(DATA_CACHE).then(async (c) => c.match(await dataUrl(path))).catch(() => null);
+    if (!hit) throw e;
+    setOffline(true);
+    return hit.json();
+  }
+}
+
+// Вихід на цьому телефоні — збережені листи теж геть
+export const forgetSaved = () => (self.caches ? caches.delete(DATA_CACHE).catch(() => {}) : Promise.resolve());
 
 // Запит, результат якого потрібен одразу (надіслати, видалити): помилку ловить той, хто кличе.
 // timeout — для черги без зв'язку: на слабкому сигналі fetch висить хвилинами, обрив = «нема зв'язку» (без status)
