@@ -137,8 +137,10 @@ function reload(screen) {
 
 function courier(pet, text) {
   if (!pet) return null;
+  // Підказки — з цікавим поглядом, якщо таке фото є; святкова поза лишається для «Совпадение!»
+  const pose = DATA.mascots[pet]?.poses.look ? 'look' : 'festive';
   return h('div', { class: 'courier plan-courier' },
-    h('span', { class: 'mascot', html: mascotImg(pet, 'festive') }),
+    h('span', { class: 'mascot', html: mascotImg(pet, pose) }),
     h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), text));
 }
 

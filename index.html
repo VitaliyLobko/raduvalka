@@ -7,6 +7,16 @@
   <meta name="description" content="Письма, фото и мемчики для двоих">
   <title>Радовалка</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    // Його половина — космос одразу, ще до першого кадру (інакше на мить видно її лаванду)
+    try {
+      if (localStorage.getItem('radovalka:key') && localStorage.getItem('radovalka:side') === 'vin') {
+        document.documentElement.dataset.side = 'vin';
+        document.querySelector('meta[name="theme-color"]').content = '#0B384B';
+        document.querySelector('link[rel="manifest"]').href = 'manifest-vin.webmanifest';
+      }
+    } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }
+  </script>
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="fonts/fonts.css">

@@ -1,6 +1,6 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl } from './api.js';
+import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
@@ -111,7 +111,7 @@ function renderLetter() {
   }
   const { letter } = DATA;
   if (!letter) {
-    renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'));
+    renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'), 'guilty');
     screen.append(pushAsk(), letterArchive(render));
     return;
   }
@@ -223,9 +223,9 @@ function openReply() {
   area.focus();
 }
 
-function renderEmpty(title, text, mascot) {
+function renderEmpty(title, text, mascot, pose) {
   screen.replaceChildren(h('div', { class: 'empty' },
-    mascot ? h('span', { class: 'mascot', html: mascotImg(mascot) }) : null,
+    mascot ? h('span', { class: 'mascot', html: mascotImg(mascot, pose) }) : null,
     h('h2', {}, title),
     h('p', {}, text)));
 }
@@ -258,6 +258,7 @@ function render() {
 function applySide() {
   document.documentElement.dataset.side = DATA.side;
   document.querySelector('meta[name="theme-color"]').content = DATA.side === 'vin' ? '#0B384B' : '#EADFFB';
+  rememberSide(DATA.side);
 }
 
 function selectTab(name) {

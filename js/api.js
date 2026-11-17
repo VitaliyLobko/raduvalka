@@ -2,6 +2,8 @@
 import { toast } from './ui.js';
 
 const STORE = 'radovalka:key';
+// Половина цього телефону — щоб index.html увімкнув тему ще до першого кадру
+const SIDE = 'radovalka:side';
 const LOCAL = ['127.0.0.1', 'localhost'].includes(location.hostname);
 
 export const API = LOCAL ? 'http://127.0.0.1:8787' : 'https://raduvalka.vitaliy-lobko.workers.dev';
@@ -26,8 +28,14 @@ export function getKey() {
 export function setKey(key) {
   try {
     if (key) localStorage.setItem(STORE, key);
-    else { localStorage.removeItem(STORE); localStorage.removeItem(ALT); }
+    else { localStorage.removeItem(STORE); localStorage.removeItem(ALT); localStorage.removeItem(SIDE); }
   } catch { /* приватний режим — ключ житиме до закриття вкладки */ }
+}
+
+export function rememberSide(side) {
+  try {
+    localStorage.setItem(SIDE, side);
+  } catch { /* приватний режим — тема прийде з сервера, як раніше */ }
 }
 
 // Другий ключ на тому ж телефоні (він перевіряє обидві половини): друге посилання не затирає перший ключ
@@ -48,6 +56,9 @@ export function swapKeys() {
   try {
     localStorage.setItem(STORE, alt);
     localStorage.setItem(ALT, key);
+    // Другий ключ — друга половина
+    const side = localStorage.getItem(SIDE);
+    if (side) localStorage.setItem(SIDE, side === 'vin' ? 'vona' : 'vin');
   } catch { /* без сховища перемикати нічого */ }
 }
 
@@ -57,7 +68,7 @@ export function takeKeyFromUrl() {
   if (!key) return;
   const old = getKey();
   try {
-    if (old && old !== key) localStorage.setItem(ALT, old);
+    if (old && old !== key) { localStorage.setItem(ALT, old); localStorage.removeItem(SIDE); }
   } catch { /* приватний режим */ }
   setKey(key);
   history.replaceState(null, '', location.pathname + location.search);
