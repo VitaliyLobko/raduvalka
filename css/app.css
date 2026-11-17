@@ -1861,3 +1861,39 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .mk-canvas { max-height: 44vh; width: auto; max-width: 100%; margin: 0 auto; }
 .mk-results .mk-group { margin-top: 8px; }
 .mk-results textarea { font-size: 1.2rem; }
+
+/* Шторка мемчика: підпис + ✨ в один рядок, варіанти ШІ — стрічкою, повод і настрій — згорнуті */
+.sheet-meme .meme-preview { max-height: 34vh; }
+.meme-cap-row { display: flex; gap: 8px; }
+.meme-cap-row input { flex: 1; min-width: 0; }
+.mk-ai-cap { width: 46px; min-height: 46px; padding: 0; justify-content: center; font-size: 1.2rem; border-color: var(--lavender); }
+.mk-helper { margin-top: 6px; }
+.mk-capts:empty { display: none; }
+.mk-capts { margin: 0 -16px; padding: 2px 16px 4px; }
+.sheet-meme .mk-capts { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.mk-capts .mk-capt {
+  flex: none;
+  max-width: 240px;
+  min-height: 0;
+  padding: 6px 14px;
+  border-radius: 16px;
+  white-space: normal;
+  text-align: left;
+  font: 1.15rem/1.15 var(--hand);
+}
+.mk-capts .mk-wait { margin: 4px 0; }
+.mk-tune summary {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--wax);
+  font-size: .875rem;
+  font-weight: 500;
+}
+.mk-mood { display: grid; gap: 4px; padding: 6px 0 2px; }
+.mk-mood .mk-row { margin: 0 -16px; padding: 2px 16px; }
+.mk-mood input[type="text"] { margin-top: 4px; }
+.sheet-meme .meme-place { margin: 4px 0 0; }
+.sheet-meme .sheet-actions { margin-top: 10px; }
+.sheet-maker .mk-ai { margin: 0 0 10px; }

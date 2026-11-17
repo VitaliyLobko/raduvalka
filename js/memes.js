@@ -3,7 +3,7 @@ import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
-import { openMaker, rememberGif } from './maker.js';
+import { openGifs, rememberGif, captionHelper } from './maker.js';
 
 const MAX_SIDE = 1280;
 const GIF_MAX = 1_300_000;
@@ -83,15 +83,12 @@ export function renderMemes(screen) {
       h('span', { class: 'mascot', html: mascotImg(key, pose(key)) }),
       h('p', { class: 'bubble' }, h('b', {}, `${name}: `), line)) : null,
     h('div', { class: 'meme-send' },
-      h('label', { class: 'btn btn-primary' }, picker, '📎 Из галереи'),
+      h('label', { class: 'btn btn-primary' }, picker, '📷 Из галереи'),
       h('button', {
         type: 'button',
         class: 'btn btn-primary',
-        onclick: () => openMaker({
-          onPhoto: (file) => composeMeme(file, () => renderMemes(screen)),
-          onGif: (gif) => composeGif(gif, () => renderMemes(screen)),
-        }),
-      }, '✨ Подобрать')),
+        onclick: () => openGifs((gif) => composeGif(gif, () => renderMemes(screen))),
+      }, '🎞 Гифка')),
     list.length ? h('div', { class: 'meme-feed' }, ...list.map((m) => card(m, screen))) : null,
   ].filter(Boolean));
 
@@ -235,12 +232,13 @@ export function composeGif(gif, done) {
     const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style });
     rememberGif(gif);
     return meme;
-  }, done, 'bottom');
+  }, done, 'bottom', gif.title || '');
 }
 
-// Шторка «що надсилаю»: прев'ю, підпис і де він (під картинкою чи поверх), «Отправить».
-// post(caption, style) повертає збережений мемчик; style0 — де підпис спочатку (GIF — поверх знизу)
-function sendSheet(preview, post, done, style0 = null) {
+// Шторка «що надсилаю»: прев'ю, підпис (свій або ✨ від ШІ) і де він — під картинкою чи поверх, «Отправить».
+// post(caption, style) повертає збережений мемчик; style0 — де підпис спочатку (GIF — поверх знизу);
+// about — що відомо про картинку (назва гифки) для ШІ
+function sendSheet(preview, post, done, style0 = null, about = '') {
   let style = style0;
   const over = h('span', { class: 'meme-over', 'aria-hidden': 'true' });
   const caption = h('input', {
@@ -261,6 +259,7 @@ function sendSheet(preview, post, done, style0 = null) {
       onclick: () => { style = v === 'null' ? null : v; paint(); },
     }, label)));
   caption.addEventListener('input', paint);
+  const helper = captionHelper(caption, () => about, paint);
   const close = () => { sheet.remove(); backdrop.remove(); };
   const go = h('button', { type: 'button', class: 'btn btn-primary', html: `${ARROW}Отправить` });
   go.addEventListener('click', async () => {
@@ -278,11 +277,12 @@ function sendSheet(preview, post, done, style0 = null) {
     }
   });
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новый мемчик' },
+  const sheet = h('div', { class: 'sheet sheet-maker sheet-meme', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новый мемчик' },
     h('div', { class: 'sheet-inner' },
       h('h2', {}, 'Мемчик'),
       h('div', { class: 'meme-frame' }, Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }), over),
-      caption,
+      h('div', { class: 'meme-cap-row' }, caption, helper.button),
+      helper.el,
       place,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
