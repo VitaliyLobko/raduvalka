@@ -5,12 +5,20 @@ const layers = [];
 // Скільки popstate прийде від нашого ж history.back(); записи, що чекають, поки той назад відпрацює
 let skip = 0;
 const queue = [];
+// Скільки своїх записів лежить над першим; перед перезавантаженням їх знімаємо, щоб «Назад» не вів у старий документ
+let depth = 0;
+let leaving = false;
 
 const isLayer = (n) => n.nodeType === 1 && n.getAttribute('role') === 'dialog' && !n.classList.contains('welcome');
 
+function pushNow(state) {
+  history.pushState(state, '');
+  depth += 1;
+}
+
 function push(state) {
   if (skip) queue.push(state);
-  else history.pushState(state, '');
+  else pushNow(state);
 }
 
 function back() {
@@ -30,7 +38,10 @@ function closeLayer(n) {
 
 export function initBack(showTab) {
   history.replaceState({ tab: HOME }, '');
+  // Сторінку повернули з кешу браузера (bfcache) — вона могла бути іншою половиною чи до виходу: лише наново
+  addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
   new MutationObserver((records) => {
+    if (leaving) return;
     for (const r of records) {
       r.addedNodes.forEach((n) => {
         if (!isLayer(n)) return;
@@ -48,9 +59,11 @@ export function initBack(showTab) {
   }).observe(document.body, { childList: true });
 
   addEventListener('popstate', (e) => {
+    depth = Math.max(0, depth - 1);
+    if (leaving) return;
     if (skip) {
       skip -= 1;
-      if (!skip) queue.splice(0).forEach((s) => history.pushState(s, ''));
+      if (!skip) queue.splice(0).forEach(pushNow);
       return;
     }
     const top = layers.pop();
@@ -59,12 +72,20 @@ export function initBack(showTab) {
       // Вікно не закрилось (наприклад, перепитало й почуло «ні») — повертаємо йому запис
       if (top.isConnected) {
         layers.push(top);
-        history.pushState({ layer: true }, '');
+        pushNow({ layer: true });
       }
       return;
     }
     showTab(e.state?.tab || HOME);
   });
+}
+
+// Перед reload / location.replace: зняти свої записи, щоб після перезапуску під першим не лишилось старих
+export function leave(go) {
+  leaving = true;
+  if (!depth) { go(); return; }
+  addEventListener('popstate', () => go(), { once: true });
+  history.go(-depth);
 }
 
 // Перехід на вкладку з меню: з «Писем» — новий запис, між іншими — заміна, назад на «Письма» — крок назад

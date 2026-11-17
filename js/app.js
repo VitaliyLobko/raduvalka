@@ -15,7 +15,7 @@ import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
-import { initBack, tabChanged } from './back.js';
+import { initBack, tabChanged, leave } from './back.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -271,6 +271,8 @@ function render() {
 function applySide() {
   document.documentElement.dataset.side = DATA.side;
   document.querySelector('meta[name="theme-color"]').content = DATA.side === 'vin' ? '#0B384B' : '#EADFFB';
+  // Встановлять застосунок у цій же сесії — заставка вже його кольору, не з першого завантаження
+  document.querySelector('link[rel="manifest"]').href = DATA.side === 'vin' ? 'manifest-vin.webmanifest' : 'manifest.webmanifest';
   rememberSide(DATA.side);
 }
 
@@ -389,7 +391,7 @@ async function hardReload() {
     Promise.allSettled(urls.map((u) => fetch(u, { cache: 'reload' }))),
     new Promise((ok) => setTimeout(ok, 8000)),
   ]);
-  location.reload();
+  leave(() => location.reload());
 }
 
 // Застосунок довго відкритий у фоні: при поверненні дивимось, чи не вийшла нова версія
@@ -432,7 +434,7 @@ function openAbout() {
     // Без ключа телефон більше нічий — і сповіщення йому слати нікому
     await disablePush().catch(() => { /* сервер прибере підписку сам, коли push-сервіс відповість 410 */ });
     setKey(null);
-    location.replace(location.pathname);
+    leave(() => location.replace(location.pathname));
   };
   const backdrop = h('div', { class: 'backdrop', onclick: close });
   const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'О Радовалке' },
@@ -448,7 +450,7 @@ function openAbout() {
       getAltKey() ? h('button', {
         type: 'button',
         class: 'btn about-logout',
-        onclick: () => { swapKeys(); location.replace(location.pathname); },
+        onclick: () => { swapKeys(); leave(() => location.replace(location.pathname)); },
       }, DATA.side === 'vin' ? 'Переключиться на её половину' : 'Переключиться на его половину') : null,
       h('button', { type: 'button', class: 'btn about-logout', onclick: logout }, 'Выйти на этом телефоне')));
   document.body.append(backdrop, sheet);

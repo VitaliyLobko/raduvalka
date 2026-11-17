@@ -19,14 +19,16 @@ export function budgetSlider(prices, value, onInput) {
   const steps = [0, ...STEPS.filter((x) => x < top), Infinity];
   if (steps.length < 3) return null;
   const last = steps.length - 1;
-  const at = (v, fallback) => { const i = steps.indexOf(v); return i < 0 ? fallback : i; };
   const thumb = (label, i) => {
     const el = h('input', { type: 'range', min: '0', max: String(last), step: '1', 'aria-label': label });
     el.value = String(i);
     return el;
   };
-  const lo = thumb('Бюджет от', at(value.min, 0));
-  const hi = thumb('Бюджет до', at(value.max, last));
+  // Збережений бюджет міг устаріти (найдорожчу хотілку прибрали) — ставимо на найближчі кроки, що є
+  const loAt = Math.min(last - 1, Math.max(0, steps.findLastIndex((x) => x <= value.min)));
+  const hiAt = Math.max(loAt + 1, steps.findIndex((x) => x >= value.max));
+  const lo = thumb('Бюджет от', loAt);
+  const hi = thumb('Бюджет до', hiAt);
   const out = h('output', { class: 'want-budget-val' });
   const bar = h('div', { class: 'want-range' }, h('span', { class: 'want-range-fill' }), lo, hi);
   const show = () => {
@@ -53,7 +55,8 @@ export function budgetSlider(prices, value, onInput) {
     if (Number(hi.value) <= Number(lo.value)) hi.value = String(Number(lo.value) + 1);
     onInput(show());
   });
-  show();
+  const now = show();
+  if (now.min !== value.min || now.max !== value.max) onInput(now);
   return h('div', { class: 'want-budget' },
     h('div', { class: 'want-budget-head' }, h('span', { class: 'mk-label' }, 'Бюджет'), out),
     bar);
@@ -83,10 +86,12 @@ export function dueText(due) {
   return `🎁 к ${name}${days > 1 ? ` · через ${days} дн.` : days === 1 ? ' · завтра' : ' · сегодня'}`;
 }
 // Найближчий такий день: цього року, а якщо вже минув — наступного
+// 29 лютого в невисокосний рік — 28-го, інакше рядок дати вийде неіснуючим
+const onYear = (y, mmdd) => (mmdd === '02-29' && new Date(y, 1, 29).getMonth() !== 1 ? `${y}-02-28` : `${y}-${mmdd}`);
 const nextDay = (mmdd) => {
   const y = today().getFullYear();
-  const d = `${y}-${mmdd}`;
-  return daysTo(d) >= 0 ? d : `${y + 1}-${mmdd}`;
+  const d = onYear(y, mmdd);
+  return daysTo(d) >= 0 ? d : onYear(y + 1, mmdd);
 };
 
 let view = 'theirs';
@@ -179,9 +184,13 @@ export function renderWishes(screen) {
         })))
         : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь бегунки.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`));
     };
+    // Повзунок — до першого малювання: застарілий бюджет він сам поправить, а без повзунка фільтра немає
+    const slider = budgetSlider(data.theirs.map((w) => w.price), budget, (b) => { budget = b; });
+    if (!slider) budget = ANY_BUDGET;
+    slider?.addEventListener('input', drawList);
     drawList();
     body = [
-      budgetSlider(data.theirs.map((w) => w.price), budget, (b) => { budget = b; drawList(); }),
+      slider,
       listBox,
       h('p', { class: 'hint' }, `Твои отметки ${me.partner} не видит.`),
     ].filter(Boolean);
@@ -273,7 +282,7 @@ function editWish(screen, w, sharedLink = '') {
     ...(myBday ? [[myBday.slice(5), '🎂 Мой ДР']] : []),
     ...(T.since ? [[T.since.slice(5), '💞 Годовщина']] : []),
     ['12-31', '🎄 Новый год'], ['02-14', '💘 14 февраля'], ['03-08', '💐 8 марта'],
-  ];
+  ].filter(([md], i, all) => all.findIndex(([x]) => x === md) === i); // той самий день — одна кнопка, свій ДР першим
   const drawDue = () => {
     const preset = due && PRESETS.find(([md]) => due.slice(5) === md);
     const own = !!due && !preset;

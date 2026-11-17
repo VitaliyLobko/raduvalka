@@ -134,6 +134,9 @@ function gifPanel(done) {
   let source = { mood: MOODS[2] };
   // Під який настрій просити ШІ: останній обраний; пошук своїми словами — під ці слова
   let moodFor = MOODS[2];
+  let words = '';
+  // Номер запиту до ШІ: інший настрій чи пошук, поки ШІ думав, — його відповідь уже не до речі
+  let ask = 0;
   let offset = 0;
   let ai = [];
   const grid = h('div', { class: 'mk-gifs' });
@@ -156,7 +159,7 @@ function gifPanel(done) {
     const now = keyOf(source);
     moods.replaceChildren(...MOODS.map((m) => h('button', {
       type: 'button', role: 'radio', class: 'mk-chip mk-mood-tile', 'aria-checked': String(now === `m:${m.key}`),
-      onclick: () => { ai = []; moodFor = m; pick({ mood: m }); },
+      onclick: () => { ai = []; ask += 1; moodFor = m; pick({ mood: m }); },
     }, m.label)));
     const list = [
       ...(recentGifs().length ? [{ label: '🕘 Недавние', src: { recent: true } }] : []),
@@ -171,21 +174,24 @@ function gifPanel(done) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = input.value.trim();
-    if (q) { moodFor = null; pick({ q }); }
+    if (q) { ask += 1; moodFor = null; words = q; pick({ q }); }
     input.blur();
   });
   // ШІ: 6 інших запитів саме під обраний настрій (чи під пошук своїми словами)
   aiGo.addEventListener('click', async () => {
     const m = moodFor;
-    const situation = m ? m.label.replace(/^\S+\s/, '') : input.value.trim() || 'просто так, порадовать';
+    const my = ++ask;
+    const situation = m ? m.label.replace(/^\S+\s/, '') : words || 'просто так, порадовать';
     aiGo.disabled = true;
     aiGo.textContent = 'Подбираю…';
     try {
       const { queries } = await send('meme-ideas', 'POST', { kind: 'gif', situation, funny: m?.funny ?? 50, bold: m?.bold ?? 20 });
       if (!queries?.length) throw new Error('empty');
-      ai = queries.slice(0, 6);
-      pick({ q: ai[0].q, fromChip: true, ai: true });
-      chips.scrollLeft = 0;
+      if (my === ask) {
+        ai = queries.slice(0, 6);
+        pick({ q: ai[0].q, fromChip: true, ai: true });
+        chips.scrollLeft = 0;
+      }
     } catch {
       toast('Не получилось подобрать — попробуй ещё раз');
     }
@@ -204,10 +210,12 @@ function gifPanel(done) {
     try {
       if (source.recent) { list = offset ? [] : recentGifs(); full = false; }
       else if (source.mood) {
-        const pages = await Promise.all(source.mood.qs.map((q) => gifPage({ q, offset: offset / 3, limit: PER }).catch(() => [])));
-        if (!pages.some((p) => p.length) && !offset) throw Object.assign(new Error('none'), { status: 0 });
+        // Один пошук не відповів — беремо інші; не відповів жоден — помилка, як і для звичайного пошуку
+        const got = await Promise.allSettled(source.mood.qs.map((q) => gifPage({ q, offset: offset / 3, limit: PER })));
+        if (got.every((r) => r.status === 'rejected')) throw got[0].reason;
+        const pages = got.map((r) => (r.status === 'fulfilled' ? r.value : []));
         list = mix(pages);
-        full = pages.some((p) => p.length === PER);
+        full = pages.some((p) => p.length >= PER);
       } else {
         list = await gifPage(source.trending ? { trending: 1, offset } : { q: source.q, offset });
         full = list.length === 12;
