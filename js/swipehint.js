@@ -1,6 +1,6 @@
 // Підказки до свайпів: поки людина жодного разу не змахнула в цьому місці — рядок-підказка й одне
 // «похитування» першої картки за сеанс. Після першого справжнього змаху — більше не показуємо
-import { reduceMotion } from './ui.js';
+import { h, reduceMotion } from './ui.js';
 
 const key = (place) => `radovalka:swiped:${place}`;
 // Уже хитнули за сеанс; pending — остання картка, яку хитатимемо (екран міг перемалюватися до старту)
@@ -13,6 +13,16 @@ export function learned(place) {
 
 export function learn(place) {
   try { localStorage.setItem(key(place), '1'); } catch { /* приватне вікно — підказка лишиться */ }
+}
+
+// Плашка-підказка: ліворуч — що буде від змаху вліво, пальчик посередині, праворуч — вправо.
+// right = null — змах лише вліво, тоді пальчик ходить тільки туди; tap — підпис праворуч без стрілки
+export function hintBar(cls, left, right, tap = null) {
+  return h('p', { class: `swipe-hint ${cls}`, role: 'note' },
+    h('span', { class: 'swipe-hint-l' }, `← ${left}`),
+    h('span', { class: `swipe-hint-hand${right ? '' : ' is-left'}`, 'aria-hidden': 'true' }, '👆'),
+    right ? h('span', { class: 'swipe-hint-r' }, `${right} →`) : null,
+    tap ? h('span', { class: 'swipe-hint-tap' }, tap) : null);
 }
 
 // steps — кроки руху (функції), по одному на ~0,6 с; el зник з екрана — зупиняємось

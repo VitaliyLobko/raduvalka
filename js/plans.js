@@ -4,7 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
-import { learned, learn, nudge } from './swipehint.js';
+import { learned, learn, nudge, hintBar } from './swipehint.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -185,7 +185,7 @@ function deckView(screen, me, pet) {
   return [banner,
     h('div', { class: `plan-deck${data.deck.length > 1 ? ' has-more' : ''}` }, card),
     h('div', { class: 'plan-votes' }, voteBtn(0, 'Не сейчас', '✕'), voteBtn(1, 'Хочу', '❤️')),
-    learned('plans') ? null : h('p', { class: 'hint plan-hint plan-swipe-hint' }, '← не сейчас · хочу → — можно смахнуть карточку'),
+    learned('plans') ? null : hintBar('plan-swipe-hint', 'не сейчас', 'хочу'),
     h('p', { class: 'hint plan-hint' }, `${data.deck.length > 1 ? `Ещё ${data.deck.length - 1} после этой. ` : ''}`
       + `Твой ответ ${me.partner} не увидит — только если вы оба ❤️.`),
     tools, waitingList(screen, me)];

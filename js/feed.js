@@ -4,7 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
-import { learned, learn, nudge } from './swipehint.js';
+import { learned, learn, nudge, hintBar } from './swipehint.js';
 
 const FILTERS = [['all', 'Все'], ['letters', 'Письма'], ['memes', 'Мемчики']];
 const SWIPE = 70;
@@ -153,7 +153,7 @@ function draw(force = false) {
   const nHidden = hiddenItems.length + (dayHidden ? 1 : 0);
   box.replaceChildren(...[
     seg,
-    shown.length && !learned('feed') ? h('p', { class: 'hint feed-swipe-hint' }, '← спрятать у себя · ответить →') : null,
+    shown.length && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
     shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
     nHidden ? h('button', {
       type: 'button', class: 'feed-hidden-toggle', 'aria-expanded': String(showHidden),

@@ -5,7 +5,7 @@ import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, showPhoto } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
-import { learned, nudge } from './swipehint.js';
+import { learned, nudge, hintBar } from './swipehint.js';
 
 export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
 const PHOTO_SIDE = 720;
@@ -165,7 +165,7 @@ export function renderWishes(screen) {
   if (view === 'mine') {
     body = [
       h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '＋ Хочу'),
-      data.mine.length && !learned('wish') ? h('p', { class: 'hint want-swipe-hint' }, 'Тап — изменить. Перехотелось — смахни влево.') : null,
+      data.mine.length && !learned('wish') ? hintBar('want-swipe-hint', 'перехотелось', null, 'тап — изменить') : null,
       data.mine.length
         ? h('ul', { class: 'want-list' }, ...data.mine.map((w) => mineCard(screen, w)))
         : h('p', { class: 'mk-wait' }, `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
