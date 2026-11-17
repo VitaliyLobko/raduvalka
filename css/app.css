@@ -2262,3 +2262,44 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 }
 @media (prefers-reduced-motion: reduce) { .swipe-hint-hand { animation: none; } }
 .want-swipe-hint { margin: 2px auto 10px; }
+
+/* Знайомство: затемнення з «віконцем» навколо того, про що розповідають */
+.tour { position: fixed; inset: 0; z-index: 45; animation: fade .3s ease-out; }
+.tour-hole {
+  position: fixed;
+  border-radius: 22px;
+  box-shadow: 0 0 0 200vmax rgba(42, 23, 48, .66), 0 0 0 3px var(--powder);
+  transition: top .45s cubic-bezier(.3, 1.2, .5, 1), left .45s cubic-bezier(.3, 1.2, .5, 1),
+    width .45s cubic-bezier(.3, 1.2, .5, 1), height .45s cubic-bezier(.3, 1.2, .5, 1);
+  pointer-events: none;
+  animation: tour-glow 1.8s ease-in-out infinite;
+}
+[data-side="vin"] .tour-hole { box-shadow: 0 0 0 200vmax rgba(4, 22, 30, .72), 0 0 0 3px var(--star); }
+@keyframes tour-glow { 50% { outline: 6px solid rgba(247, 184, 210, .35); outline-offset: 4px; } }
+.tour-card {
+  position: fixed;
+  left: 50%;
+  width: min(calc(100% - 32px), 400px);
+  transform: translateX(-50%);
+  transition: top .45s ease, bottom .45s ease;
+}
+.tour-talk { display: flex; align-items: flex-end; gap: 10px; }
+.tour-card.is-right .tour-talk { flex-direction: row-reverse; }
+.tour-pet { width: 76px; height: 76px; }
+.tour-say { flex: 1; margin: 0; font-size: 1rem; line-height: 1.4; }
+.tour-card.is-right .tour-say { border-radius: 16px 16px 4px 16px; }
+.tour-pet.is-hop { animation: tour-hop .55s cubic-bezier(.3, 1.5, .5, 1); }
+.tour-card.is-right .tour-pet.is-hop { animation-name: tour-hop-r; }
+@keyframes tour-hop { from { opacity: 0; transform: translate(-40px, 20px) scale(.6) rotate(-12deg); } }
+@keyframes tour-hop-r { from { opacity: 0; transform: translate(40px, 20px) scale(.6) rotate(12deg); } }
+.tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.tour-skip { min-height: 42px; border-color: transparent; background: none; color: #f4e6f0; }
+.tour-next { min-height: 42px; }
+[data-side="vin"] .tour-next { background: var(--star); border-color: var(--star); color: var(--night); }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .35); transition: background .3s, transform .3s; }
+.tour-dots i.is-on { background: #fff; transform: scale(1.3); }
+@media (prefers-reduced-motion: reduce) {
+  .tour-hole, .tour-card { transition: none; animation: none; }
+  .tour-pet.is-hop { animation: none; }
+}

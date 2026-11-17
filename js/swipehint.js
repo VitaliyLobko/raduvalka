@@ -33,6 +33,8 @@ export function nudge(place, el, steps) {
   const tick = () => {
     if (!el.isConnected || i >= steps.length) return;
     if (i === 0) {
+      // Поки йде знайомство, картку під ним не видно — чекаємо, доки його закриють
+      if (document.querySelector('.tour')) { setTimeout(tick, 800); return; }
       // Перемалювали — хитаємо нову картку, не цю
       if (pending.get(place) !== el || nudged.has(place)) return;
       nudged.add(place);

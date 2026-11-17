@@ -13,6 +13,7 @@ import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
+import { startTour } from './tour.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { initBack, tabChanged, leave } from './back.js';
@@ -467,6 +468,8 @@ function openAbout() {
       newsList(NEWS.slice(0, 3)),
       NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null,
       pushPanel(),
+      // Тур живе на «Письмах» — туди й повертаємось
+      h('button', { type: 'button', class: 'btn about-logout', onclick: () => { close(); selectTab('letter'); setTimeout(startTour, 400); } }, '🐾 Познакомиться заново'),
       getAltKey() ? h('button', {
         type: 'button',
         class: 'btn about-logout',

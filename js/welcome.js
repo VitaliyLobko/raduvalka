@@ -1,8 +1,10 @@
 // Перший запуск: листівка з їхньою фразою, потім — прохання про сповіщення з поясненням
 import { DATA } from './data.js';
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, toast, sky } from './ui.js';
+import { h, sky } from './ui.js';
 import { spaceCard, flyHeart } from './space.js';
+import { turnOn } from './push.js';
+import { maybeTour, startTour } from './tour.js';
 
 const KEY = 'radovalka:welcomed';
 
@@ -23,6 +25,9 @@ function showWelcome() {
   const done = () => {
     try { localStorage.setItem(KEY, '1'); } catch { /* приватний режим */ }
     root.remove();
+    // Після листівки — знайомство; ?hello показує його наново
+    if (location.search.includes('hello')) startTour();
+    else maybeTour();
   };
 
   const askPush = () => {
@@ -36,7 +41,8 @@ function showWelcome() {
         h('button', {
           type: 'button',
           class: 'btn btn-star',
-          onclick: () => { done(); toast('Готово — первое письмо уже ждёт 💌'); },
+          // Дозвіл питаємо просто з цього тапу; відмова чи помилка — підкаже тост, а знайомство піде далі
+          onclick: () => { turnOn(); done(); },
         }, 'Разрешить'))));
   };
 
