@@ -77,3 +77,25 @@ export function showPhoto(src, alt = 'Фото') {
   document.body.append(box);
   box.querySelector('button').focus();
 }
+
+// Зоряне небо справжніми елементами: кожна зірка мерехтить у своєму ритмі.
+// SVG-плиткою у фоні того ж не досягти — однакові зірки сусідніх плиток гаснуть разом.
+const STAR = '<svg viewBox="-6 -6 12 12"><path d="M0-6l1.5 4.5L6 0 1.5 1.5 0 6-1.5 1.5-6 0-1.5-1.5z"/></svg>';
+const DOT = '<svg viewBox="-6 -6 12 12"><circle r="6"/></svg>';
+export function sky(count, seed = 1, cls = '') {
+  // Сталий генератор: та сама картка — те саме небо, без стрибків при перемальовуванні
+  let s = seed >>> 0;
+  const rnd = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const box = h('div', { class: `sky ${cls}`.trim(), 'aria-hidden': 'true' });
+  for (let i = 0; i < count; i++) {
+    const big = rnd() < 0.35;
+    const size = big ? 7 + rnd() * 8 : 2 + rnd() * 2.5;
+    const star = h('i', { html: big ? STAR : DOT });
+    star.style.cssText = `left:${(rnd() * 100).toFixed(2)}%;top:${(rnd() * 100).toFixed(2)}%;`
+      + `width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;`
+      + `--lo:${(0.1 + rnd() * 0.45).toFixed(2)};animation-duration:${(3 + rnd() * 6).toFixed(2)}s;`
+      + `animation-delay:${(-rnd() * 9).toFixed(2)}s`;
+    box.append(star);
+  }
+  return box;
+}

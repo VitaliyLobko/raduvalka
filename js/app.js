@@ -6,12 +6,15 @@ import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH } from './ui.js';
+import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
+
+// Небо його половини — під усім, фіксоване; на її половині сховане стилем
+document.body.prepend(sky(46, 3, 'sky-page'));
 
 const screen = document.getElementById('screen');
 

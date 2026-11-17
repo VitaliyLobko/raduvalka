@@ -1,5 +1,5 @@
 // Замок: без ключа видно лише листівку з планетами й поле для посилання
-import { h } from './ui.js';
+import { h, sky } from './ui.js';
 import { parseKey, setKey } from './api.js';
 import { spaceCard, flyHeart } from './space.js';
 
@@ -46,6 +46,7 @@ export function showLock(reason, retry) {
           error,
           h('button', { type: 'submit', class: 'btn btn-star' }, 'Открыть'))));
 
+  root.prepend(sky(40, 13));
   document.body.append(root);
   flyHeart(card, heart, 0.5, { delay: 300, duration: 1800 });
 }

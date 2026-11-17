@@ -1,7 +1,7 @@
 // Перший запуск: листівка з їхньою фразою, потім — прохання про сповіщення з поясненням
 import { DATA } from './data.js';
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, toast } from './ui.js';
+import { h, toast, sky } from './ui.js';
 import { spaceCard, flyHeart } from './space.js';
 
 const KEY = 'radovalka:welcomed';
@@ -49,6 +49,7 @@ function showWelcome() {
       h('p', { class: 'welcome-from' }, HELLO[DATA.side]),
       h('button', { type: 'button', class: 'btn btn-star', onclick: askPush }, 'Открыть')));
 
+  root.prepend(sky(40, 11));
   document.body.append(root);
   flyHeart(card, heart, 1, { delay: 500, duration: 2400 });
 }

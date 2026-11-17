@@ -1,5 +1,5 @@
 // Листівка «від Землі до Юпітера»: спільна для екрана «Вместе» і першого запуску
-import { h, reduceMotion } from './ui.js';
+import { h, reduceMotion, sky } from './ui.js';
 import { planetsSvg } from './planets.js';
 
 // Шлях з листівки: від краю Юпітера праворуч угорі — дугою ліворуч — до краю Землі
@@ -10,6 +10,7 @@ const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-
 export function spaceCard({ tags, label, extra = [], phrase }) {
   const heart = h('span', { class: 'travel-heart', html: HEART });
   const card = h('section', { class: 'space', 'aria-label': label },
+    sky(26, 7),
     h('div', { class: 'space-trail', html: `<svg class="space-path" viewBox="0 0 300 400" aria-hidden="true">${planetsSvg()}<path class="trail" d="${PATH}"/></svg>` }, heart),
     tags ? h('span', { class: 'planet-tag tag-jupiter' }, tags.jupiter) : null,
     tags ? h('span', { class: 'planet-tag tag-earth' }, tags.earth) : null,
