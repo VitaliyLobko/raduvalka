@@ -1002,7 +1002,7 @@ async function gifSearch(url, env) {
       id: g.id,
       preview: small.webp || small.url,
       // Назва з GIPHY («Cat Hug GIF by …») — підказка ШІ, про що гифка
-      title: String(g.title || '').replace(/\s+GIF.*$/i, '').trim().slice(0, 80),
+      title: String(g.title || '').replace(/\s+GIF(\s.*)?$/i, '').trim().slice(0, 80),
       url: full.mp4 || g.images?.downsized_medium?.url || full.url,
       w: Number(full.width) || 0,
       h: Number(full.height) || 0,
