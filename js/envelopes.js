@@ -9,6 +9,25 @@ const seen = () => (DATA.mine.seen ||= {});
 
 const left = (env) => Math.max(0, env.notes.length - (seen()[env.id] || 0));
 
+// Хто приносить конверт: основний кур'єр або варіант із env.looks [{ mascot, pose, line }].
+// Міняється раз на добу (за місцевою датою), конверти — не всі разом
+function look(env) {
+  const own = { mascot: env.mascot, pose: env.pose, line: env.mascotLine };
+  const all = [own, ...(env.looks || [])].filter((l) => DATA.mascots[l.mascot]);
+  if (!all.length) return own;
+  const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
+  const salt = [...String(env.id)].reduce((s, c) => s + c.charCodeAt(0), 0);
+  const pick = all[(day + salt) % all.length];
+  return { ...pick, line: pick.line || env.mascotLine };
+}
+
+function courier(env, line) {
+  const l = look(env);
+  return h('div', { class: 'courier' },
+    h('span', { class: 'mascot', html: mascotImg(l.mascot, l.pose) }),
+    h('p', { class: 'bubble' }, h('b', {}, `${petName(l.mascot)}: `), line || l.line));
+}
+
 export function renderEnvelopes(screen) {
   const cards = DATA.envelopes.map((env, i) => {
     const n = left(env);
@@ -45,9 +64,7 @@ function openCard(screen, env) {
 
   if (!n) {
     reader = overlay(close,
-      h('div', { class: 'courier' },
-        h('span', { class: 'mascot', html: mascotImg(env.mascot, env.pose) }),
-        h('p', { class: 'bubble' }, h('b', {}, `${petName(env.mascot)}: `), 'Тут пока пусто.')),
+      courier(env, 'Тут пока пусто.'),
       h('div', { class: 'letter letter-empty' }, h('p', { class: 'letter-text' }, me.partnerWrites)),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Хорошо')));
     toast(`${cap(me.partner)} получит напоминание дописать`);
@@ -77,9 +94,7 @@ function openCard(screen, env) {
   }, h('span', { class: 'heart', 'aria-hidden': 'true' }, '🤍'), 'Сердечко');
 
   reader = overlay(close,
-    h('div', { class: 'courier' },
-      h('span', { class: 'mascot', html: mascotImg(env.mascot, env.pose) }),
-      h('p', { class: 'bubble' }, h('b', {}, `${petName(env.mascot)}: `), env.mascotLine)),
+    courier(env),
     h('article', { class: 'letter' },
       h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
       h('p', { class: 'letter-text' }, text),
