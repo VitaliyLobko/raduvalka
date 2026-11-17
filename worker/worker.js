@@ -843,7 +843,7 @@ async function memeIdeas(req, env, side) {
   const out = await env.AI.run(AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: 400,
-    temperature,
+    temperature: 0.9,
   });
   const text = typeof out?.response === 'string' ? out.response
     : (out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || '');
