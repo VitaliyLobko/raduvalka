@@ -1902,13 +1902,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 /* Тост — по ширині тексту, а не пів екрана */
 .toast { width: max-content; text-align: center; }
 
-/* Колода «Листать» влазить разом із «Мои идеи ждут ответа» */
-.plan-card { min-height: 190px; padding-bottom: 14px; }
-.plan-card-emoji { font-size: 2.4rem; }
-.plan-votes { margin-top: 20px; }
-.plan-tools { margin-top: 14px; }
-.plan-wait { margin-top: 12px; }
-
 /* «Вместе»: кнопка «Планы» в межах екрана; календар видно на його половині */
 .sheet-together .meet-row { margin-top: 8px; }
 .sheet-together .together-days { margin-top: 8px; }
