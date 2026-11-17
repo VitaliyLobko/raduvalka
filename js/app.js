@@ -322,13 +322,26 @@ function noteUpdated() {
   if (seen && seen !== VERSION) pill(`✨ Радовалка обновилась до ${VERSION} — что нового?`, openAbout);
 }
 
-// Застосунок довго відкритий у фоні: при поверненні дивимось, чи не вийшла нова версія.
-// ponytail: GitHub Pages кешує модулі до 10 хв — одразу після випуску оновлення може підтягнутись не з першого разу
+// Оновитись насправді: GitHub Pages дозволяє браузеру тримати модулі 10 хв, і звичайний reload
+// бере старі з кешу. Тож спершу перекачуємо з мережі сторінку й усі свої скрипти та стилі
+// (cache: 'reload' заодно оновлює кеш браузера), а тоді перезавантажуємо
+async function hardReload() {
+  const own = performance.getEntriesByType('resource').map((e) => e.name)
+    .filter((u) => u.startsWith(location.origin) && /\.(js|css|html)(\?|$)/.test(u));
+  const urls = [...new Set([location.href.split('#')[0], ...own])];
+  await Promise.race([
+    Promise.allSettled(urls.map((u) => fetch(u, { cache: 'reload' }))),
+    new Promise((ok) => setTimeout(ok, 8000)),
+  ]);
+  location.reload();
+}
+
+// Застосунок довго відкритий у фоні: при поверненні дивимось, чи не вийшла нова версія
 async function checkUpdate() {
   try {
     const text = await (await fetch('js/version.js', { cache: 'no-store' })).text();
     const v = text.match(/VERSION = '([^']+)'/)?.[1];
-    if (v && v !== VERSION) pill(`Есть новая версия ${v} — обновить`, () => location.reload());
+    if (v && v !== VERSION) pill(`Есть новая версия ${v} — обновить`, hardReload);
   } catch { /* немає звʼязку — перевіримо наступного разу */ }
 }
 
