@@ -15,6 +15,7 @@ import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
+import { initBack, tabChanged } from './back.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -261,7 +262,9 @@ function applySide() {
   rememberSide(DATA.side);
 }
 
-function selectTab(name) {
+// fromBack — вкладку повернула кнопка «Назад»: історію вже зсунув телефон
+function selectTab(name, fromBack = false) {
+  if (!fromBack) tabChanged(tab, name);
   tab = name;
   if (name === 'letter') refreshLetter();
   document.querySelectorAll('.tab').forEach((x) => {
@@ -274,6 +277,7 @@ function selectTab(name) {
 }
 
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => selectTab(t.dataset.tab)));
+initBack((name) => selectTab(name, true));
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
 document.addEventListener('radovalka:sent', () => { if (tab === 'letter') render(); });
 
@@ -332,7 +336,7 @@ function openTogether() {
   };
   const body = h('div', { class: 'sheet-inner' });
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-together', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Вместе' },
+  const sheet = h('div', { class: 'sheet sheet-together sheet-full', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Вместе' },
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     body);
   document.body.append(backdrop, sheet);

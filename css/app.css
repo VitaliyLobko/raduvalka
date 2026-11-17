@@ -2007,3 +2007,18 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 
 /* Хотелки: нахилене фото кур'єра не лягає кутом на «Её хотелки / Мои» */
 .want-courier { margin-bottom: 16px; }
+
+/* «Вместе» — на весь екран: листівка росте до висоти екрана, вміст по центру */
+.sheet-full {
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: none;
+  padding-top: max(12px, env(safe-area-inset-top));
+  border-radius: 0;
+}
+.sheet-full .sheet-inner { display: flex; flex: 1; flex-direction: column; width: 100%; }
+.sheet-full .sheet-inner > .space { margin-top: auto; }
+.sheet-full .sheet-inner > :last-child { margin-bottom: auto; }
+.sheet-full .space { width: min(100%, calc((100dvh - 19rem) * .75)); }

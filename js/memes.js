@@ -79,7 +79,7 @@ export function renderMemes(screen) {
 
   screen.replaceChildren(...[
     h('h2', { class: 'title' }, 'Мемчики'),
-    key ? h('div', { class: 'courier' },
+    key ? h('div', { class: 'courier want-courier' },
       h('span', { class: 'mascot', html: mascotImg(key, pose(key)) }),
       h('p', { class: 'bubble' }, h('b', {}, `${name}: `), line)) : null,
     h('div', { class: 'meme-send' },
