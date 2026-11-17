@@ -44,6 +44,19 @@ function setLetterState(patch) {
   markLetter();
 }
 
+// Прочитаний лист можна скласти назад у конверт — пам'ятаємо лише на цьому телефоні, для цього дня
+const FOLD_KEY = 'radovalka:letter-folded';
+const letterKey = () => DATA.letter.id || DATA.letter.date;
+function isFolded() {
+  try { return localStorage.getItem(FOLD_KEY) === letterKey(); } catch { return false; }
+}
+function setFolded(on) {
+  try {
+    if (on) localStorage.setItem(FOLD_KEY, letterKey());
+    else localStorage.removeItem(FOLD_KEY);
+  } catch { /* без сховища — просто без «складено» */ }
+}
+
 // Лист із застосунку: дата — з часу показу за годинником телефона, репліка кур'єра — за родом
 function prepLetter(l) {
   if (l?.at) {
@@ -115,11 +128,12 @@ function renderLetter() {
     h('h2', { class: 'title' }, letter.special ? 'Праздничное письмо 🎉' : st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
   ];
 
-  if (!st.opened) {
+  if (!st.opened || isFolded()) {
+    const reread = st.opened;
     const env = h('button', {
       type: 'button',
-      class: 'envelope',
-      'aria-label': 'Открыть письмо',
+      class: `envelope${reread ? ' is-folded' : ''}`,
+      'aria-label': reread ? 'Перечитать письмо' : 'Открыть письмо',
       onclick: () => openEnvelope(env),
     },
     h('span', { class: 'env-back' }),
@@ -129,7 +143,7 @@ function renderLetter() {
     h('span', { class: 'seal', 'aria-hidden': 'true', html: waxSeal(SAGITTARIUS_GLYPH) }));
     screen.replaceChildren(...head, h('div', { class: 'stage' },
       env,
-      h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
+      h('p', { class: 'hint' }, reread ? 'Коснись, чтобы перечитать' : 'Коснись печати, чтобы открыть'),
       courier(letter)), letterArchive(render));
     return;
   }
@@ -147,7 +161,12 @@ function renderLetter() {
         'aria-pressed': String(!!st.liked),
         onclick: toggleHeart,
       }, h('span', { class: 'heart', 'aria-hidden': 'true' }, st.liked ? '❤️' : '🤍'), st.liked ? 'Нравится' : 'Сердечко'),
-      st.reply ? null : h('button', { type: 'button', class: 'btn btn-primary', onclick: openReply }, 'Ответить')),
+      st.reply ? null : h('button', { type: 'button', class: 'btn btn-primary', onclick: openReply }, 'Ответить'),
+      h('button', {
+        type: 'button',
+        class: 'btn btn-fold',
+        onclick: () => { setFolded(true); render(); window.scrollTo({ top: 0 }); },
+      }, '✉ Сложить')),
     st.reply ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
     letterArchive(render),
   ].filter(Boolean));
@@ -155,7 +174,8 @@ function renderLetter() {
 
 function openEnvelope(env) {
   const done = () => {
-    setLetterState({ opened: true });
+    setFolded(false);
+    if (!letterState().opened) setLetterState({ opened: true });
     render();
   };
   if (reduceMotion) return done();
@@ -305,11 +325,13 @@ chip.addEventListener('click', openTogether);
 document.getElementById('write-btn').addEventListener('click', openWrite);
 document.querySelector('.nav-seal-wax').innerHTML = waxSeal(QUILL_GLYPH);
 
-// Плашка зверху: «є нова версія» / «оновилась». Одна на екрані, зникає після тапу
+// Рядок у шапці під логотипом: «є нова версія» / «оновилась». Нічого не перекриває, ✕ — сховати
 function pill(text, onclick) {
   document.querySelector('.update-pill')?.remove();
-  const b = h('button', { type: 'button', class: 'update-pill', onclick: () => { b.remove(); onclick(); } }, text);
-  document.body.append(b);
+  const bar = h('div', { class: 'update-pill', role: 'status' },
+    h('button', { type: 'button', class: 'update-go', onclick: () => { bar.remove(); onclick(); } }, text),
+    h('button', { type: 'button', class: 'update-x', 'aria-label': 'Скрыть', onclick: () => bar.remove() }, '✕'));
+  document.querySelector('.top').append(bar);
 }
 
 // Після оновлення — один раз: «обновилась, що нового». Перший запуск на телефоні — лише запамʼятати версію

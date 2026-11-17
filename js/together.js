@@ -35,15 +35,16 @@ export function journey(now = today()) {
   return { progress: Math.min(1, Math.max(0, 1 - left / total)), label: 'До встречи ещё', value: dayWord(left) };
 }
 
-// Коротко для значка в шапці: «в пути 76 дн.» / «до встречи 32 дн.»
+// Коротко для значка в шапці: є дата зустрічі попереду — «до встречи 32 дн.»; немає (чи вже минула) —
+// скільки разом «вместе 2424 дн.»; без дати знайомства — «в пути 76 дн.»
 export function chipLabel(now = today()) {
   const T = DATA.together;
-  if (!T.apartFrom) {
-    return T.since ? `${-daysTo(now, T.since)} дн. вместе` : 'Вместе';
-  }
-  if (!T.meet) return `в пути ${Math.max(0, -daysTo(now, T.apartFrom))} дн.`;
-  const left = daysTo(now, T.meet);
-  return left > 0 ? `до встречи ${left} дн.` : 'встреча! 🎉';
+  const left = T.meet ? daysTo(now, T.meet) : -1;
+  if (left > 0) return `до встречи ${left} дн.`;
+  if (left === 0) return 'встреча! 🎉';
+  if (T.since) return `вместе ${-daysTo(now, T.since)} дн.`;
+  if (T.apartFrom) return `в пути ${Math.max(0, -daysTo(now, T.apartFrom))} дн.`;
+  return 'Вместе';
 }
 
 export function renderTogether(screen) {

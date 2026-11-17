@@ -3,7 +3,7 @@ import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
-import { openMaker } from './maker.js';
+import { openMaker, rememberGif } from './maker.js';
 
 const MAX_SIDE = 1280;
 const GIF_MAX = 1_300_000;
@@ -123,9 +123,11 @@ function card(m, screen) {
     }, r)));
   }
 
+  // Підпис поверх картинки (style top/bottom) — як у справжнього мема; інакше під нею
+  const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
   return h('article', { class: `meme${m.mine ? ' is-mine' : ''}` },
-    h('div', { class: 'meme-img', 'data-id': m.id, 'data-url': m.url }, media(m.url, m.caption || 'Мемчик')),
-    m.caption ? h('p', { class: 'meme-cap' }, m.caption) : null,
+    h('div', { class: 'meme-img', 'data-id': m.id, 'data-url': m.url }, media(m.url, m.caption || 'Мемчик'), over),
+    m.caption && !over ? h('p', { class: 'meme-cap' }, m.caption) : null,
     h('div', { class: 'meme-meta' }, h('span', {}, `${from} · ${when}`), tail));
 }
 
@@ -220,8 +222,8 @@ export async function composeMeme(file, done) {
     return;
   }
   const preview = URL.createObjectURL(blob);
-  sendSheet(preview, async (caption) => {
-    const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption });
+  sendSheet(preview, async (caption, style) => {
+    const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption, style });
     urls.set(meme.id, preview);
     return meme;
   }, done);
@@ -229,23 +231,42 @@ export async function composeMeme(file, done) {
 
 // GIF із пошуку: на сервер іде лише посилання GIPHY
 export function composeGif(gif, done) {
-  sendSheet(gif.url, (caption) => send('memes', 'POST', { gif: { url: gif.url }, caption }), done);
+  sendSheet(gif.url, async (caption, style) => {
+    const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style });
+    rememberGif(gif);
+    return meme;
+  }, done, 'bottom');
 }
 
-// Шторка «що надсилаю»: прев'ю, підпис, «Отправить»; post(caption) повертає збережений мемчик
-function sendSheet(preview, post, done) {
+// Шторка «що надсилаю»: прев'ю, підпис і де він (під картинкою чи поверх), «Отправить».
+// post(caption, style) повертає збережений мемчик; style0 — де підпис спочатку (GIF — поверх знизу)
+function sendSheet(preview, post, done, style0 = null) {
+  let style = style0;
+  const over = h('span', { class: 'meme-over', 'aria-hidden': 'true' });
   const caption = h('input', {
     type: 'text',
     maxlength: '300',
     placeholder: 'Подпись (можно без)',
     'aria-label': 'Подпись',
   });
+  const paint = () => {
+    over.textContent = caption.value;
+    over.className = `meme-over is-${style || 'none'}`;
+    over.hidden = !style || !caption.value.trim();
+    place.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === String(style))));
+  };
+  const place = h('div', { class: 'mk-chips meme-place', role: 'radiogroup', 'aria-label': 'Где подпись' },
+    ...[['null', 'Под картинкой'], ['top', 'Сверху'], ['bottom', 'Снизу']].map(([v, label]) => h('button', {
+      type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
+      onclick: () => { style = v === 'null' ? null : v; paint(); },
+    }, label)));
+  caption.addEventListener('input', paint);
   const close = () => { sheet.remove(); backdrop.remove(); };
   const go = h('button', { type: 'button', class: 'btn btn-primary', html: `${ARROW}Отправить` });
   go.addEventListener('click', async () => {
     go.disabled = true;
     try {
-      const meme = await post(caption.value);
+      const meme = await post(caption.value, caption.value.trim() ? style : null);
       DATA.memes = [meme, ...(DATA.memes || [])];
       close();
       const key = pet();
@@ -260,10 +281,12 @@ function sendSheet(preview, post, done) {
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новый мемчик' },
     h('div', { class: 'sheet-inner' },
       h('h2', {}, 'Мемчик'),
-      Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }),
+      h('div', { class: 'meme-frame' }, Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }), over),
       caption,
+      place,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
         go)));
   document.body.append(backdrop, sheet);
+  paint();
 }

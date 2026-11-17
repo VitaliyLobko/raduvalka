@@ -44,6 +44,8 @@ const MIGRATIONS = [
   'ALTER TABLE letters ADD COLUMN chosen INTEGER',
   // Фото хотілки — назва в imgs
   'ALTER TABLE wishes ADD COLUMN img TEXT',
+  // Підпис мемчика поверх картинки: 'top' | 'bottom'; null — під картинкою, як раніше
+  'ALTER TABLE memes ADD COLUMN style TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -248,12 +250,13 @@ async function memesRoute(req, db, side, rest) {
       img: '',
       url: null,
       caption: String(body.caption || '').trim().slice(0, 300) || null,
+      style: ['top', 'bottom'].includes(body.style) ? body.style : null,
       created: Date.now(),
       reaction: null,
     };
     const insertMeme = () => db.prepare(
-      'INSERT INTO memes (id, src, dst, img, url, caption, created, reaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.created, null);
+      'INSERT INTO memes (id, src, dst, img, url, caption, style, created, reaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.created, null);
 
     // GIF із GIPHY — лише посилання, файл не зберігаємо
     if (body.gif) {
@@ -789,7 +792,9 @@ async function listMemes(db, side) {
 
 // Для телефона: mine — «я надіслав», без внутрішніх src/dst/img
 function view(r, side) {
-  return { id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, created: r.created, reaction: r.reaction };
+  return {
+    id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, created: r.created, reaction: r.reaction,
+  };
 }
 
 // Повзунок 0–100 → одна з трьох словесних смуг для промпту
@@ -808,11 +813,30 @@ async function memeIdeas(req, env, side) {
   let system;
   let user;
   if (b.kind === 'gif') {
-    system = 'You pick GIPHY search queries for a loving couple who send each other GIFs. '
-      + 'Reply ONLY with JSON {"queries": [three short English search queries, 2-4 words each]}. '
-      + 'No politics, no violence, nothing explicit.';
-    user = `Situation (Russian): ${situation}. Mood: ${funny}% funny (0 = cute), ${bold}% cheeky (0 = tender). `
-      + `Subjects: ${level(b.people) > 50 ? 'people, movie and cartoon characters' : 'animals, cats, dogs'}.`;
+    system = 'You pick GIPHY search queries for a loving couple who live apart for a while and send each other GIFs. '
+      + 'GIPHY works best with short, concrete, visual English queries: an emotion or action plus a subject '
+      + '(e.g. "sleepy cat hug", "dog waiting door", "happy dance minions", "forehead kiss"). '
+      + 'Reply ONLY with JSON {"queries": [{"label": "...", "q": "..."}, …6 items]}: '
+      + '"q" — the English query, 2-4 words; "label" — the same idea in natural Russian, 1-3 words, for a button. '
+      + 'Make the six different from each other: different emotions, subjects and angles of the situation. '
+      + 'No politics, no war, no violence, nothing explicit.';
+    user = `Situation (Russian): ${situation}. Mood: ${funny}% funny (0 = cute), ${bold}% cheeky (0 = tender), `
+      + `${level(b.absurd)}% absurd. `
+      + `Subjects: ${level(b.people) > 50 ? 'people, movie and cartoon characters, reactions' : 'animals — cats, dogs, cute creatures'}.`;
+  } else if (b.kind === 'photo') {
+    const desc = String(b.desc || '').trim().slice(0, 120);
+    system = 'Ты остроумный автор подписей к мемам и открыткам. Пара: муж надолго уехал далеко, жена ждёт дома. '
+      + 'Один отправляет другому своё фото с подписью. Подпись — от лица отправителя, обращение к любимому человеку на «ты», '
+      + 'с конкретной деталью и неожиданным поворотом, как в хороших мемах. Не банально: не «я скучаю», не «люблю тебя» в лоб. '
+      + 'Без пошлости, политики, войны, хэштегов. Никогда не используй слова «мама», «папа». '
+      + 'Ответь ТОЛЬКО JSON {"captions": [8 разных подписей]}.';
+    user = (side === 'vin' ? 'Фото от мужа жене. ' : 'Фото от жены мужу. ')
+      + (desc ? `На фото: ${desc}. ` : 'Что на фото — неизвестно, подпись должна подходить к любому снимку. ')
+      + `Повод: ${situation}. `
+      + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно), `
+      + `абсурдно на ${level(b.absurd)}%. `
+      + `Длина каждой подписи: ${pickBand(b.len, ['3–6 слов', '6–12 слов', '12–20 слов'])}. `
+      + `Эмодзи: ${pickBand(b.emoji, ['ни одного', 'не больше одного на подпись', 'одно-три к месту'])}.`;
   } else {
     const pet = b.pet || {};
     system = 'Ты остроумный автор подписей к мемам. Пара: муж надолго уехал далеко, жена ждёт дома, '
@@ -824,7 +848,7 @@ async function memeIdeas(req, env, side) {
       + 'Никогда не используй слова «мама», «папа», «хозяин», «хозяйка» — пара себя так не называет. '
       + 'Примеры стиля: «Охраняю твою половину кровати. Никого не пускаю, даже себя… почти»; '
       + '«Она сказала, что ты скоро. Я уже третий час смотрю на дверь». '
-      + 'Ответь ТОЛЬКО JSON {"captions": [5 разных подписей]}.';
+      + 'Ответь ТОЛЬКО JSON {"captions": [8 разных подписей]}.';
     user = `На фото: ${String(pet.name || 'питомец').slice(0, 30)} — ${String(pet.sp || 'питомец').slice(0, 60)}, `
       + `${pet.g === 'f' ? 'девочка (говорит в женском роде)' : 'мальчик (говорит в мужском роде)'}. `
       + (side === 'vin'
@@ -842,20 +866,58 @@ async function memeIdeas(req, env, side) {
 
   const out = await env.AI.run(AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    max_tokens: 400,
+    max_tokens: b.kind === 'gif' ? 400 : 700,
     temperature: 0.9,
   });
+  const parsed = parseJsonReply(out);
+  const list = (a) => (Array.isArray(a) ? a : []).map((x) => String(x).trim()).filter(Boolean);
+  // Запити GIF — { label російською, q англійською }; рядок замість об'єкта теж приймаємо
+  const queries = (Array.isArray(parsed.queries) ? parsed.queries : [])
+    .map((x) => (typeof x === 'string' ? { label: x, q: x } : { label: String(x?.label || x?.q || ''), q: String(x?.q || '') }))
+    .map((x) => ({ label: x.label.trim().slice(0, 40), q: x.q.trim().slice(0, 60) }))
+    .filter((x) => x.q && x.label);
+  if (b.kind === 'gif') return json({ queries: queries.slice(0, 6) });
+  // llama іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
+  const captions = [...new Set(list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)))];
+  return json({ captions: await bestCaptions(env, captions, situation) });
+}
+
+// Текст відповіді моделі → JSON-обʼєкт (або {})
+function parseJsonReply(out) {
   const text = typeof out?.response === 'string' ? out.response
     : (out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || '');
-  let parsed = {};
   try {
-    parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
-  } catch { /* модель відповіла не JSON — нижче віддамо порожньо */ }
-  const list = (a) => (Array.isArray(a) ? a : []).map((x) => String(x).trim()).filter(Boolean);
-  return json(b.kind === 'gif'
-    ? { queries: list(parsed.queries).slice(0, 3) }
-    // llama іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
-    : { captions: list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)).slice(0, 5) });
+    return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+  } catch {
+    return {};
+  }
+}
+
+// Другий прохід: модель-редактор обирає 5 найсмішніших і найтепліших із 8; не вийшло — перші 5
+async function bestCaptions(env, captions, situation) {
+  if (captions.length <= 5) return captions;
+  try {
+    const out = await env.AI.run(AI_MODEL, {
+      messages: [
+        {
+          role: 'system',
+          content: 'Ты строгий редактор мемов. Из пронумерованных подписей выбери 5 лучших: смешных, тёплых, '
+            + 'неожиданных, грамматически чистых, без банальностей и повторов друг друга. Лучшую — первой. '
+            + 'Ответь ТОЛЬКО JSON {"best": [номера]}.',
+        },
+        { role: 'user', content: `Повод: ${situation}.\n${captions.map((c, i) => `${i + 1}. ${c}`).join('\n')}` },
+      ],
+      max_tokens: 60,
+      temperature: 0.2,
+    });
+    const picked = [...new Set((parseJsonReply(out).best || []).map(Number))]
+      .filter((n) => Number.isInteger(n) && n >= 1 && n <= captions.length)
+      .map((n) => captions[n - 1]);
+    const rest = captions.filter((c) => !picked.includes(c));
+    return [...picked, ...rest].slice(0, 5);
+  } catch {
+    return captions.slice(0, 5);
+  }
 }
 
 // Відповідь моделі: текст із response або choices, з нього — JSON-обʼєкт
@@ -942,12 +1004,15 @@ async function letterIdeas(req, env, side) {
 // Пошук GIF через GIPHY: ключ лише тут, у Worker; «pg» — без 18+
 async function gifSearch(url, env) {
   if (!env.GIPHY_KEY) throw fail(503, 'nokey');
-  const q = (url.searchParams.get('q') || '').slice(0, 80);
+  const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
   const offset = Math.max(0, Math.min(200, Number(url.searchParams.get('offset')) || 0));
-  if (!q) return json([]);
-  const api = new URL('https://api.giphy.com/v1/gifs/search');
+  const trending = url.searchParams.get('trending') === '1';
+  if (!q && !trending) return json([]);
+  // Запит кирилицею GIPHY шукає російською, якщо сказати мову
+  const api = new URL(`https://api.giphy.com/v1/gifs/${trending ? 'trending' : 'search'}`);
   api.search = new URLSearchParams({
-    api_key: env.GIPHY_KEY, q, limit: '12', offset: String(offset), rating: 'pg', lang: 'en',
+    api_key: env.GIPHY_KEY, limit: '12', offset: String(offset), rating: 'pg',
+    ...(trending ? {} : { q, lang: /[а-яёіїєґ]/i.test(q) ? 'ru' : 'en' }),
   });
   const res = await fetch(api);
   if (!res.ok) throw fail(502, 'giphy');
