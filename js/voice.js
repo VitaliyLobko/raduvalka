@@ -9,7 +9,7 @@ const ERRORS = {
   'service-not-allowed': 'Разреши микрофон для Радовалки в настройках браузера',
   'audio-capture': 'Микрофон не найден',
   network: 'Голосом — только с интернетом',
-  'no-speech': 'Не расслышал — нажми 🎤 и говори',
+  'no-speech': 'Ничего не слышно. Нажми 🎤 и говори',
 };
 
 export const voiceSupported = !!SR;

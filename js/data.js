@@ -16,7 +16,7 @@ export const SIDES = {
   vona: {
     from: 'Твой',
     partner: 'он',
-    partnerWrites: 'Он уже пишет новое ✍️',
+    partnerKnows: 'Он узнает, что тут пусто ✍️',
     youOpened: 'открыла',
     toWhom: 'ему',
     partnerOpened: 'открыл',
@@ -24,7 +24,7 @@ export const SIDES = {
   vin: {
     from: 'Твоя',
     partner: 'она',
-    partnerWrites: 'Она уже пишет новое ✍️',
+    partnerKnows: 'Она узнает, что тут пусто ✍️',
     youOpened: 'открыл',
     toWhom: 'ей',
     partnerOpened: 'открыла',

@@ -1,6 +1,6 @@
 // «Відкрий, коли…»: полиця конвертів на різні випадки
 import { DATA, who } from './data.js';
-import { save } from './api.js';
+import { save, send } from './api.js';
 import { mascotImg, petName } from './icons.js';
 import { h, toast, cap, SAGITTARIUS, waxSeal, reduceMotion } from './ui.js';
 
@@ -64,7 +64,7 @@ export function renderEnvelopes(screen) {
       h('span', { class: 'me-seal', html: waxSeal('') }, h('span', { class: 'me-emoji' }, env.emoji))),
     h('span', { class: 'env-label' }, env.label),
     h('span', { class: 'env-meta' }, n ? `${n} ${plural(n)}` : 'пусто'),
-    env.signal ? h('span', { class: 'env-signal' }, `${cap(who().partner)} узнает, когда откроешь`) : null);
+    env.signal && DATA.partnerPush ? h('span', { class: 'env-signal' }, `${cap(who().partner)} узнает, когда откроешь`) : null);
     return card;
   });
 
@@ -86,11 +86,13 @@ function openCard(screen, env) {
   const close = () => { reader.cleanup(); reader.remove(); renderEnvelopes(screen); };
 
   if (!n) {
+    // Другому летить push «конверт порожній»; «узнает» — лише якщо йому справді є куди його надіслати
+    const text = h('p', { class: 'letter-text' }, 'Записок пока нет ✍️');
     reader = overlay(close,
       courier(env, 'Тут пока пусто.'),
-      h('div', { class: 'letter letter-empty' }, h('p', { class: 'letter-text' }, me.partnerWrites)),
+      h('div', { class: 'letter letter-empty' }, text),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Хорошо')));
-    toast(`${cap(me.partner)} получит напоминание дописать`);
+    send(`envelopes/${env.id}/empty`, 'POST').then((r) => { if (r?.reaches) text.textContent = me.partnerKnows; }).catch(() => {});
     return;
   }
 
@@ -112,7 +114,8 @@ function openCard(screen, env) {
       if (note.id) save(`letters/${note.id}`, { liked });
       heart.setAttribute('aria-pressed', String(liked));
       heart.replaceChildren(h('span', { class: 'heart', 'aria-hidden': 'true' }, liked ? '❤️' : '🤍'), liked ? 'Нравится' : 'Сердечко');
-      if (liked) toast(`${cap(me.partner)} увидит твоё ❤️`);
+      // Сердечко бачить лише записка, дописана в застосунку; заготовка його нікуди не передає
+      if (liked && note.id) toast(`${cap(me.partner)} увидит твоё ❤️`);
     },
   }, h('span', { class: 'heart', 'aria-hidden': 'true' }, '🤍'), 'Сердечко');
 
@@ -126,7 +129,12 @@ function openCard(screen, env) {
       heart,
       h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));
 
-  if (env.signal) toast(`${cap(me.partner)} узнает, что ты ${me.youOpened} этот конверт 💜`);
+  // Конверт-сигнал: другому push «відкрила»; тост — лише коли йому справді є куди його надіслати
+  if (env.signal) {
+    send(`envelopes/${env.id}/opened`, 'POST')
+      .then((r) => { if (r?.reaches) toast(`${cap(me.partner)} узнает, что ты ${me.youOpened} этот конверт 💜`); })
+      .catch(() => {});
+  }
 }
 
 // Закривається тапом будь-де поза самим листом, реплікою, улюбленцем і кнопками, а також Esc

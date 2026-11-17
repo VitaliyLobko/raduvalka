@@ -136,7 +136,7 @@ function renderLetter() {
     return;
   }
   if (!letter) {
-    renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'), 'guilty');
+    renderEmpty('Письмо', `Писем пока нет. Как только ${who().partner} напишет, я сразу принесу.`, petFor('push'), 'guilty');
     screen.append(pushAsk(), letterFeed(render));
     return;
   }
@@ -275,7 +275,7 @@ function render() {
   if (tab === 'letter') {
     renderLetter();
     // «Написать» — сургуч у куті вкладки «Письма» (раніше — посередині нижнього меню)
-    screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: openWrite },
+    screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: () => openWrite() },
       h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
   }
   else if (tab === 'envelopes') renderEnvelopes(screen);
@@ -323,10 +323,21 @@ initVoice();
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
 // Тап по сповіщенню при відкритій Радовалці — на «Письма», свіже дотягне visibilitychange
 const GO_TABS = ['letter', 'wish'];
+// «env:<id>» — сповіщення про порожній конверт: «Написать» одразу в цей конверт; «write» — відкрила конверт-сигнал
+function goTo(go) {
+  const envId = String(go || '').startsWith('env:') ? go.slice(4) : null;
+  if (envId || go === 'write') {
+    if (tab !== 'letter') selectTab('letter');
+    openWrite(envId ? { where: 'env', envId } : {});
+    return true;
+  }
+  if (!GO_TABS.includes(go)) return false;
+  if (tab !== go) selectTab(go);
+  return true;
+}
 navigator.serviceWorker?.addEventListener('message', (e) => {
-  if (!GO_TABS.includes(e.data?.go)) return;
-  if (tab !== e.data.go) selectTab(e.data.go);
-  if (!document.body.classList.contains('is-booting')) refreshAll();
+  if (document.body.classList.contains('is-booting')) return;
+  if (goTo(e.data?.go)) refreshAll();
 });
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці
 document.addEventListener('radovalka:fresh', markLetter);
@@ -335,8 +346,8 @@ document.addEventListener('radovalka:fresh', markLetter);
 // Забираємо лише після входу — якщо замок, картинка чекає в кеші
 async function takeShared() {
   const go = new URLSearchParams(location.search).get('go');
-  // Застосунок відкрили тапом по сповіщенню про хотілку
-  if (go === 'wish') { history.replaceState(null, '', location.pathname); selectTab('wish'); return; }
+  // Застосунок відкрили тапом по сповіщенню (хотілка, порожній конверт)
+  if (go && go !== 'shared') { history.replaceState(null, '', location.pathname); goTo(go); return; }
   if (go !== 'shared') return;
   history.replaceState(null, '', location.pathname);
   let file = null;

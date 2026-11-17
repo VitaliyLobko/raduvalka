@@ -413,7 +413,7 @@ function editWish(screen, w, sharedLink = '') {
       }
     } catch (e) {
       const code = e.code || '';
-      status.textContent = FILL_ERRORS[code] || (e.status ? 'Не получилось разобрать — заполни сам(а) или вставь текст страницы.' : 'Нет связи');
+      status.textContent = FILL_ERRORS[code] || (e.status ? 'Не получилось разобрать. Заполни вручную или вставь текст страницы.' : 'Нет связи');
       if (code === 'fetch' || code === 'empty' || code === 'ai') { pasted.hidden = false; pasted.focus(); }
     } finally {
       fillBtn.disabled = false;

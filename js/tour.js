@@ -2,6 +2,7 @@
 // Вкладок не перемикає — інакше з'їв би позначки «нове» в хотілках і планах
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, reduceMotion } from './ui.js';
+import { who } from './data.js';
 
 const KEY = 'radovalka:toured';
 
@@ -10,9 +11,9 @@ const STEPS = [
   { sel: '.envelope, article.letter', who: 'push', text: 'Здесь — последнее письмо тебе. Придёт новое — я принесу и постучу уведомлением 🐾' },
   { sel: '#write-btn', who: 'memes', text: 'А тут — написать в ответ: письмо, записку в конверт или мемчик. Мемчики ношу я 😹' },
   { sel: '.feed-row.is-theirs, .feed .archive-title', who: 'memes', text: 'Ниже — вся ваша переписка. Смахни влево — спрятать, вправо — ответить.' },
-  { sel: '.tab[data-tab=envelopes]', who: 'push', text: 'Конверты «Открой, когда…» — на грусть, на скуку и когда не спится.' },
-  { sel: '.tab[data-tab=plans]', who: 'memes', text: 'Планы: листайте идеи, куда пойти. Совпало у обоих — значит, идём!' },
-  { sel: '.tab[data-tab=wish]', who: 'push', text: 'Хотелки: свой список желаний — и подсказка, что подарить.' },
+  { sel: '.tab[data-tab=envelopes]', who: 'push', text: 'Конверты «Открой, когда…»: тяжёлый день, скучаешь, не спится. Открывай подходящий.' },
+  { sel: '.tab[data-tab=plans]', who: 'memes', text: 'Планы: листай идеи, куда пойти. Совпало у вас обоих — значит, идём!' },
+  { sel: '.tab[data-tab=wish]', who: 'push', text: () => `Хотелки: пиши, чего хочется, и подглядывай, что хочется ${who().toWhom}.` },
   { sel: '#together-chip', who: 'memes', text: 'Здесь — сколько вы вместе и сколько до встречи. Загляни, когда соскучишься 💞' },
 ];
 
@@ -91,7 +92,7 @@ export function startTour() {
     const name = petName(who);
     pet.innerHTML = who ? mascotImg(who, i === steps.length - 1 ? 'festive' : 'main') : '';
     pet.hidden = !who;
-    say.replaceChildren(...[name ? h('b', {}, `${name}: `) : null, s.text].filter(Boolean));
+    say.replaceChildren(...[name ? h('b', {}, `${name}: `) : null, typeof s.text === 'function' ? s.text() : s.text].filter(Boolean));
     // Улюбленці говорять по черзі з різних боків — і щоразу заново «застрибують»
     card.classList.toggle('is-right', i % 2 === 1);
     pet.classList.remove('is-hop');

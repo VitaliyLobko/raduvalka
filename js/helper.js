@@ -66,7 +66,7 @@ export function mountHelper(box, area) {
     class: 'help-words',
     maxlength: '400',
     rows: '2',
-    placeholder: 'Пара своих слов: что сказать или что вспомнить (можно пусто)',
+    placeholder: 'Пара своих слов: что сказать или что вспомнить (можно не заполнять)',
     'aria-label': 'Что обязательно сказать',
   });
   const focus = chips(FOCUS, '');

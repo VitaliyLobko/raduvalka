@@ -105,9 +105,9 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const mine = wins.find((w) => w.url.startsWith(self.registration.scope));
-    // Листи, мемчики й відповіді — «Письма»; нова хотілка — «Хотелки»
+    // Листи, мемчики й відповіді — «Письма»; нова хотілка — «Хотелки»; порожній конверт — «Написать» у нього
     const go = event.notification.data?.go || 'letter';
     if (mine) { mine.postMessage({ go }); return mine.focus(); }
-    return self.clients.openWindow(go === 'letter' ? url : new URL(`?go=${go}`, self.registration.scope).href);
+    return self.clients.openWindow(go === 'letter' ? url : new URL(`?go=${encodeURIComponent(go)}`, self.registration.scope).href);
   })());
 });

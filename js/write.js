@@ -30,11 +30,13 @@ const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', mi
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 
-export function openWrite() {
+// preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт
+export function openWrite(preset = {}) {
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
-  let where = 'now';
-  let envId = envs[0]?.id || null;
+  const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
+  let where = presetEnv ? 'env' : 'now';
+  let envId = presetEnv || envs[0]?.id || null;
   let pet = petFor('push');
 
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
@@ -207,7 +209,7 @@ async function pickFromWishes(box, rows) {
   // Хотілки кладемо лише в порожні рядки — вписане руками не чіпаємо; уже куплене не пропонуємо
   const free = rows.filter((r) => !r.title.value.trim());
   if (!free.length) {
-    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Все три варианта уже заполнены — очисти название, куда поставить хотелку.'));
+    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Все три варианта заняты. Сотри название в одном, и туда встанет хотелка.'));
     return;
   }
   const open = data.theirs.filter((w) => w.mark !== 'bought');

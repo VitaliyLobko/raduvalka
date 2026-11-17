@@ -143,6 +143,8 @@ async function route(req, env, ctx) {
       together: together || {},
       mine: mine || {},
       mascots: mascots || {},
+      // Чи дійде до другого push — від цього залежить, чи обіцяти «узнает»
+      partnerPush: await hasPush(env.DB, other(side)),
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
       imgs: await imgVersions(env.DB, mascots),
       memes,
@@ -154,6 +156,8 @@ async function route(req, env, ctx) {
     return json({ letter, gift });
   }
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
+  const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
+  if (m === 'POST' && envEvent) return envelopeEvent(env.DB, side, envEvent[1], envEvent[2], notify);
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify);
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7), notify);
@@ -762,6 +766,28 @@ function cleanGift(list) {
 
 // Конверти: записки із заготовки, а за ними — дописані в застосунку (лише додаються в кінець,
 // бо «прочитано» рахується позицією)
+// Події конверта — другому push. empty: відкрила, а читати нічого (що прочитано — знає лише її телефон), — дописати;
+// opened: відкрила конверт-сигнал («тяжёлый день», «скучаешь») — написати їй. Не частіше: порожній — раз на добу,
+// сигнал — раз на 6 год на конверт
+const ENV_EVENT_GAP = { empty: 24 * 3600 * 1000, opened: 6 * 3600 * 1000 };
+
+const hasPush = async (db, side) => !!(await db.prepare('SELECT 1 FROM push WHERE side = ? LIMIT 1').bind(side).first());
+
+async function envelopeEvent(db, side, id, what, notify) {
+  const e = ((await getDoc(db, `envelopes:${side}`)) || []).find((x) => x.id === id);
+  if (!e || (what === 'opened' && !e.signal)) throw fail(404, 'not found');
+  // reaches — у другого є куди слати push; ні — застосунок не обіцяє «узнает»
+  const reaches = await hasPush(db, other(side));
+  // Нема підписки — і лік не заводимо: щойно підпишеться, наступне відкриття дійде
+  if (!reaches) return json({ ok: true, sent: false, reaches });
+  const key = `env${what}:${side}:${id}`;
+  const last = await getDoc(db, key);
+  if (last && Date.now() - last < ENV_EVENT_GAP[what]) return json({ ok: true, sent: false, reaches });
+  await putDoc(db, key, Date.now());
+  notify.send(other(side), what === 'empty' ? envEmptyNote(side, e) : envOpenedNote(side, e));
+  return json({ ok: true, sent: true, reaches });
+}
+
 async function myEnvelopes(db, side) {
   const list = (await getDoc(db, `envelopes:${side}`)) || [];
   const { results } = await db.prepare(
@@ -1445,6 +1471,26 @@ function memeNote(from) {
   return { title: 'Тебе мемчик 😹', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
 // go — куди відкрити застосунок за тапом
+// Тап — «Написать» одразу в цей конверт
+function envEmptyNote(from, e) {
+  return {
+    title: `Конверт «${e.label}» пустой ${e.emoji || '✉'}`,
+    body: sender(from, 'Он открыл, а читать нечего — допиши записку', 'Она открыла, а читать нечего — допиши записку'),
+    tag: `env-${e.id}`,
+    go: `env:${e.id}`,
+  };
+}
+
+// Тап — «Написать» лист
+function envOpenedNote(from, e) {
+  return {
+    title: `${sender(from, 'Он открыл', 'Она открыла')} «${e.label}» ${e.emoji || '✉'}`,
+    body: sender(from, 'Напиши ему пару тёплых слов', 'Напиши ей пару тёплых слов'),
+    tag: `env-${e.id}`,
+    go: 'write',
+  };
+}
+
 function wishNote(from) {
   return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил, чего хочется', 'Она добавила, чего хочется'), tag: 'wish', go: 'wish' };
 }

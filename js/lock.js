@@ -38,7 +38,7 @@ export function showLock(reason, retry) {
       h('p', { class: 'welcome-hello' }, 'Радовалка'),
       offline
         ? h('p', { class: 'welcome-from' }, 'Нет связи с сервером. Проверь интернет и попробуй ещё раз.')
-        : h('p', { class: 'welcome-from' }, 'Открывается по личной ссылке. Открой ссылку, которую тебе прислали, или вставь её сюда.'),
+        : h('p', { class: 'welcome-from' }, 'Радовалка открывается по личной ссылке. Нажми на ту, что тебе прислали, или вставь её сюда.'),
       offline
         ? h('button', { type: 'button', class: 'btn btn-star', onclick: () => { root.remove(); retry(); } }, 'Ещё раз')
         : h('form', { class: 'lock-form', onsubmit: submit },

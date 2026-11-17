@@ -133,7 +133,7 @@ export function pushPanel() {
         btn('🔔 Проверить уведомление', async () => {
           try {
             const { status } = await testPush();
-            toast(status >= 200 && status < 300 ? 'Отправил — сейчас придёт' : 'Сервис уведомлений не принял — выключи и включи снова');
+            toast(status >= 200 && status < 300 ? 'Отправлено, сейчас придёт' : 'Сервис уведомлений не принял — выключи и включи снова');
           } catch (e) {
             toast(errText(e));
           }
