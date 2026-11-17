@@ -79,9 +79,6 @@ export function openWrite(preset = {}) {
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} — встанет наверху «Писем».`
-      : where === 'stock'
-        ? `Ляжет в запас. В день, когда от тебя не будет письма, утром ${me.partner} получит одно из запаса — как обычное письмо.`
-          + (DATA.mine.stockFrom ? '' : ' Сейчас запас на паузе — включить: «Переписка» → «📦 Запас».')
       : where === 'date'
         ? (dateAt() ? `Придёт ${dayMonth(dateAt())} в ${hhmm(dateAt())} — праздничным письмом, принесут все вместе 🎉` : 'Выбери день — день рождения, годовщину, праздник.')
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
@@ -100,14 +97,22 @@ export function openWrite(preset = {}) {
     return row;
   };
 
+  // Рідкісне («К дате», «Подарок») — за «Ещё…», щоб щоденний вибір був із трьох
+  const RARE = ['date', 'gift'];
   const whereRow = chips([
     { v: 'now', label: 'Сейчас' },
     { v: 'morning', label: 'На утро' },
-    { v: 'date', label: '🎂 К дате' },
     ...(envs.length ? [{ v: 'env', label: 'В конверт' }] : []),
+    { v: 'date', label: '🎂 К дате' },
     { v: 'gift', label: '🎁 Подарок' },
-    { v: 'stock', label: '📦 В запас' },
   ], where, (v) => { where = v; paintNote(); });
+  const rare = [...whereRow.querySelectorAll('button')].filter((b) => RARE.includes(b.dataset.v));
+  rare.forEach((b) => { b.hidden = true; });
+  const more = h('button', {
+    type: 'button', class: 'mk-chip write-more',
+    onclick: () => { rare.forEach((b) => { b.hidden = false; }); more.remove(); },
+  }, 'Ещё…');
+  whereRow.append(more);
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
   paintNote();
 
@@ -167,8 +172,7 @@ export function openWrite(preset = {}) {
       draft.set('');
       close();
       document.dispatchEvent(new CustomEvent('radovalka:sent'));
-      toast(where === 'stock' ? 'Письмо в запасе 📦'
-        : `${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
+      toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
     } catch {
       go.disabled = false;
       toast('Не отправилось — проверь интернет. Текст сохранён.');

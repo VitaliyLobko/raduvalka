@@ -8,7 +8,6 @@ const OWN = '✎ свой повод';
 const FOCUS = [
   { v: '', label: 'как пойдёт' },
   { v: 'today', label: 'про сегодня' },
-  { v: 'memory', label: 'вспомнить нас' },
   { v: 'future', label: 'мечты о встрече' },
 ];
 const FIXES = [
@@ -66,7 +65,7 @@ export function mountHelper(box, area) {
     class: 'help-words',
     maxlength: '400',
     rows: '2',
-    placeholder: 'Пара своих слов: что сказать или что вспомнить (можно не заполнять)',
+    placeholder: 'Пара своих слов: что обязательно сказать (можно не заполнять)',
     'aria-label': 'Что обязательно сказать',
   });
   const focus = chips(FOCUS, '');
