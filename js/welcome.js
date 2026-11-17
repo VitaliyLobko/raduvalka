@@ -34,8 +34,8 @@ function showWelcome() {
     const pet = petFor('push');
     root.replaceChildren(h('div', { class: 'welcome-step' },
       pet ? h('span', { class: 'mascot', html: mascotImg(pet, 'tilt') }) : null,
-      h('h2', {}, 'Чтобы письма приходили вовремя'),
-      h('p', {}, `Каждое утро ${petName(pet) || 'почтальон'} будет приносить письмо. Разреши уведомления, чтобы его не пропустить.`),
+      h('h2', {}, 'Чтобы не пропустить письмо'),
+      h('p', {}, `Придёт письмо — ${petName(pet) || 'почтальон'} сразу его принесёт. Разреши уведомления, и узнаешь, даже если Радовалка закрыта.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn', onclick: done }, 'Позже'),
         h('button', {

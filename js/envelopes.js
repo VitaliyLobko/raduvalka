@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { save } from './api.js';
 import { mascotImg, petName } from './icons.js';
-import { h, toast, cap, SAGITTARIUS } from './ui.js';
+import { h, toast, cap, SAGITTARIUS, waxSeal, reduceMotion } from './ui.js';
 
 // Скільки листів уже прочитано в кожному конверті: { hard: 1 } — зберігається на сервері
 const seen = () => (DATA.mine.seen ||= {});
@@ -28,21 +28,44 @@ function courier(env, line) {
     h('p', { class: 'bubble' }, h('b', {}, `${petName(l.mascot)}: `), line || l.line));
 }
 
+// Кишеня конверта: бічні й нижній клини зі згинами — як у великого конверта листа
+const POCKET = '<svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path class="me-pocket" d="M0 0 150 112 300 0V200H0z"/>'
+  + '<path class="me-fold" d="M0 200 132 122M300 200 168 122"/></svg>';
+// Три кольори паперу по черзі й легкий нахил — наче конверти розклали на столі
+// Клапан — SVG: свій край зі згином і тінь, щоб не зливався з кишенею
+const FLAP = '<svg viewBox="0 0 300 112" preserveAspectRatio="none" aria-hidden="true"><path class="me-flap-fill" d="M0 0H300L150 112Z"/>'
+  + '<path class="me-flap-edge" d="M0 1 150 111 300 1"/></svg>';
+const TINTS = ['--lavender', '--powder', '--cream'];
+const TILTS = [-2.5, 1.8, 1.2, -2];
+
 export function renderEnvelopes(screen) {
+  let opening = false;
   const cards = DATA.envelopes.map((env, i) => {
     const n = left(env);
-    return h('button', {
+    const card = h('button', {
       type: 'button',
       class: `env-card${n ? '' : ' is-empty'}`,
-      style: `--tint: var(${i % 2 ? '--powder' : '--lavender'})`,
+      style: `--tint: var(${TINTS[i % TINTS.length]}); --tilt: ${TILTS[i % TILTS.length]}deg`,
       'aria-label': `Открой, когда ${env.label}. ${n ? `Писем: ${n}` : 'Пусто'}`,
-      onclick: () => openCard(screen, env),
+      onclick: () => {
+        if (opening) return;
+        // Спершу конверт відкривається на полиці, тоді — читання
+        if (!n || reduceMotion) { openCard(screen, env); return; }
+        opening = true;
+        card.classList.add('is-opening');
+        setTimeout(() => openCard(screen, env), 520);
+      },
     },
     h('span', { class: 'mini-env', 'aria-hidden': 'true' },
-      h('span', { class: 'mini-seal' }, env.emoji)),
+      h('span', { class: 'me-back' }),
+      ...Array.from({ length: Math.min(n, 3) }, (_, k) => h('span', { class: 'me-paper', style: `--k: ${k}` })),
+      h('span', { class: 'me-front', html: POCKET }),
+      h('span', { class: 'me-flap', html: FLAP }),
+      h('span', { class: 'me-seal', html: waxSeal('') }, h('span', { class: 'me-emoji' }, env.emoji))),
     h('span', { class: 'env-label' }, env.label),
     h('span', { class: 'env-meta' }, n ? `${n} ${plural(n)}` : 'пусто'),
     env.signal ? h('span', { class: 'env-signal' }, `${cap(who().partner)} узнает, когда откроешь`) : null);
+    return card;
   });
 
   screen.replaceChildren(

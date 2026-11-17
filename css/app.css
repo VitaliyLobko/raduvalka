@@ -401,11 +401,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 @keyframes rise { from { transform: translateY(100%); } }
 
-/* «Відкрий, коли…»: полиця конвертів */
+/* «Відкрий, коли…»: конверти на столі — кишеня з клинами, клапан, сургуч; записки визирають згори */
 .env-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px 14px;
+  gap: 30px 16px;
+  padding-top: 16px;
 }
 
 .env-card {
@@ -423,44 +424,92 @@ button { font: inherit; color: inherit; cursor: pointer; }
   position: relative;
   display: block;
   aspect-ratio: 3 / 2;
-  margin-bottom: 8px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--tint) 55%, var(--paper));
-  box-shadow: 0 10px 22px -14px rgba(74, 37, 69, .6);
-  overflow: hidden;
-  transition: transform .2s;
+  margin-bottom: 10px;
+  perspective: 600px;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform .25s cubic-bezier(.3, 1.4, .5, 1);
+}
+.env-card:active .mini-env { transform: rotate(var(--tilt, 0deg)) scale(.96); }
+
+.me-back, .me-front, .me-flap { position: absolute; inset: 0; border-radius: 10px; }
+.me-back {
+  background: color-mix(in srgb, var(--tint) 80%, var(--plum));
+  box-shadow: 0 14px 26px -16px rgba(74, 37, 69, .7);
+}
+.me-front { z-index: 2; overflow: hidden; }
+.me-front svg { display: block; width: 100%; height: 100%; }
+.me-pocket { fill: color-mix(in srgb, var(--tint) 58%, var(--paper)); }
+.me-fold { fill: none; stroke: color-mix(in srgb, var(--tint) 70%, var(--plum)); stroke-width: 2.5; stroke-opacity: .35; }
+.me-flap {
+  z-index: 3;
+  height: 56%;
+  border-radius: 0;
+  transform-origin: top center;
+  filter: drop-shadow(0 3px 2px rgba(74, 37, 69, .22));
+  transition: transform .45s cubic-bezier(.5, 0, .3, 1);
+}
+.me-flap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.me-flap-fill { fill: color-mix(in srgb, var(--tint) 82%, var(--paper)); }
+.me-flap-edge { fill: none; stroke: color-mix(in srgb, var(--tint) 60%, var(--plum)); stroke-width: 2; stroke-opacity: .3; vector-effect: non-scaling-stroke; }
+
+/* Записки в лінійку: скільки лишилось (до трьох), стільки й визирає */
+.me-paper {
+  position: absolute;
+  z-index: 1;
+  left: calc(13% + var(--k) * 5%);
+  right: calc(13% + (2 - var(--k)) * 4%);
+  top: calc(-15% + var(--k) * 5%);
+  height: 62%;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 9px, color-mix(in srgb, var(--lavender) 70%, transparent) 9px 10px) 0 12px / 100% calc(100% - 12px) no-repeat,
+    var(--paper);
+  box-shadow: 0 1px 4px rgba(74, 37, 69, .22);
+  transform: rotate(calc((var(--k) - 1) * 3.5deg));
+  transition: transform .5s cubic-bezier(.3, .7, .3, 1) .12s;
 }
 
-/* Клапан */
-.mini-env::before {
-  content: '';
+.me-seal {
   position: absolute;
-  inset: 0 0 auto;
-  height: 60%;
-  background: color-mix(in srgb, var(--tint) 85%, var(--paper));
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-}
-
-.mini-seal {
-  position: absolute;
+  z-index: 4;
   left: 50%;
-  top: 60%;
-  width: 40px;
-  height: 40px;
-  margin: -20px 0 0 -20px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #c25b95, var(--wax) 60%, #7a2c5b);
-  box-shadow: 0 2px 0 #6d2650;
-  font-size: 1.15rem;
+  top: 56%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  filter: drop-shadow(0 2px 0 #5e1f45) drop-shadow(0 4px 6px rgba(74, 37, 69, .3));
+  transition: transform .3s, opacity .3s;
 }
+.me-seal svg { width: 100%; height: 100%; }
+.me-emoji { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.2rem; }
 
-.env-card:active .mini-env { transform: scale(.97); }
+/* Тап: клапан відкидається, сургуч відскакує, записка виїжджає — тоді вже читання */
+.env-card.is-opening .me-flap { transform: scaleY(-.5); z-index: 0; }
+.env-card.is-opening .me-seal { transform: scale(1.35); opacity: 0; }
+.env-card.is-opening .me-paper:last-of-type { transform: translateY(-45%) rotate(0deg); }
 
-/* На його нічній половині конверти приглушені під сливу */
-[data-side="vin"] .mini-env { background: color-mix(in srgb, var(--tint) 30%, var(--env)); }
-[data-side="vin"] .mini-env::before { background: color-mix(in srgb, var(--tint) 48%, var(--env)); }
+/* Порожній: клапан відкинуто, всередині нічого, замість сургучу — бліда позначка теми */
+.env-card.is-empty .me-flap { transform: scaleY(-.5); z-index: 0; filter: none; }
+.env-card.is-empty .me-flap-fill { fill: color-mix(in srgb, var(--tint) 70%, var(--paper)); }
+.env-card.is-empty .me-seal { top: 62%; filter: grayscale(.6); opacity: .6; }
+.env-card.is-empty .me-emoji { font-size: 1.6rem; }
+.env-card.is-empty .me-seal svg { display: none; }
+.env-card.is-empty .env-meta { font-style: italic; }
+.env-card.is-empty .env-label { opacity: .8; }
+
+/* На його нічній половині конверти приглушені під ніч */
+[data-side="vin"] .me-back { background: color-mix(in srgb, var(--tint) 16%, var(--env)); }
+[data-side="vin"] .me-pocket { fill: color-mix(in srgb, var(--tint) 32%, var(--env)); }
+[data-side="vin"] .me-flap-fill { fill: color-mix(in srgb, var(--tint) 46%, var(--env)); }
+[data-side="vin"] .me-flap-edge { stroke: var(--night); stroke-opacity: .5; }
+[data-side="vin"] .me-flap { filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .3)); }
+[data-side="vin"] .env-card.is-empty .me-flap-fill { fill: color-mix(in srgb, var(--tint) 30%, var(--env)); }
+[data-side="vin"] .me-fold { stroke: var(--night); }
+[data-side="vin"] .me-paper { background: repeating-linear-gradient(180deg, transparent 0 9px, rgba(11, 56, 75, .18) 9px 10px) 0 12px / 100% calc(100% - 12px) no-repeat, var(--cream); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-env, .me-flap, .me-paper, .me-seal { transition: none; }
+}
 
 .env-label {
   font-family: var(--hand);
@@ -473,8 +522,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .env-signal { font-size: .75rem; color: var(--ink-soft); opacity: .85; }
 
-
-.env-card.is-empty .env-label { opacity: .8; }
 
 /* Вікно читання листа з конверта */
 .reader {
@@ -1752,49 +1799,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .letter.is-compact .letter-sign { display: none; }
 .letter.is-compact + .actions { margin-top: 12px; }
 .letter.is-compact + .actions .btn { min-height: 42px; padding: 0 14px; }
-
-/* Порожній конверт: не прозорий, а розкритий — клапан відкинуто, всередині пунктир, замість сургучу кільце */
-.env-card { padding-top: 22px; }
-.env-grid { row-gap: 6px; }
-.env-card.is-empty .mini-env {
-  overflow: visible;
-  background: color-mix(in srgb, var(--tint) 22%, var(--paper));
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tint) 70%, var(--paper)), 0 10px 22px -16px rgba(74, 37, 69, .45);
-}
-.env-card.is-empty .mini-env::before {
-  inset: auto 0 100%;
-  height: 17%;
-  border-radius: 10px 10px 0 0;
-  background: color-mix(in srgb, var(--tint) 45%, var(--paper));
-  clip-path: polygon(0 100%, 100% 100%, 50% 0);
-}
-.env-card.is-empty .mini-env::after {
-  content: '';
-  position: absolute;
-  inset: 16% 12%;
-  border: 2px dashed color-mix(in srgb, var(--tint) 75%, var(--plum));
-  border-radius: 6px;
-  opacity: .55;
-}
-.env-card.is-empty .mini-seal {
-  z-index: 1;
-  top: 50%;
-  background: var(--paper);
-  border: 2px dashed color-mix(in srgb, var(--tint) 70%, var(--plum));
-  box-shadow: none;
-}
-.env-card.is-empty .mini-seal { filter: grayscale(.5); }
-.env-card.is-empty .env-meta { font-style: italic; }
-[data-side="vin"] .env-card.is-empty .mini-env {
-  background: color-mix(in srgb, var(--tint) 10%, var(--env));
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tint) 35%, var(--env)), 0 10px 22px -16px rgba(0, 0, 0, .6);
-}
-[data-side="vin"] .env-card.is-empty .mini-env::before { background: color-mix(in srgb, var(--tint) 22%, var(--env)); }
-[data-side="vin"] .env-card.is-empty .mini-env::after { border-color: color-mix(in srgb, var(--tint) 55%, var(--env)); }
-[data-side="vin"] .env-card.is-empty .mini-seal {
-  background: var(--env);
-  border-color: color-mix(in srgb, var(--tint) 55%, var(--env));
-}
 
 /* «В пути N дн.» на її рожевому фоні губилось — плотний папірець з обводкою */
 [data-side="vona"] .together-chip {

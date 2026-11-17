@@ -7,7 +7,7 @@ const KEY = 'radovalka:toured';
 
 // sel — що підсвітити (перше видиме), who — роль улюбленця; кого немає на екрані — крок пропускаємо
 const STEPS = [
-  { sel: '.envelope, article.letter', who: 'push', text: 'Каждый день здесь новое письмо. Я приношу его по утрам 🐾' },
+  { sel: '.envelope, article.letter', who: 'push', text: 'Здесь — последнее письмо тебе. Придёт новое — я принесу и постучу уведомлением 🐾' },
   { sel: '#write-btn', who: 'memes', text: 'А тут — написать в ответ: письмо, записку в конверт или мемчик. Мемчики ношу я 😹' },
   { sel: '.feed-row.is-theirs, .feed .archive-title', who: 'memes', text: 'Ниже — вся ваша переписка. Смахни влево — спрятать, вправо — ответить.' },
   { sel: '.tab[data-tab=envelopes]', who: 'push', text: 'Конверты «Открой, когда…» — на грусть, на скуку и когда не спится.' },
