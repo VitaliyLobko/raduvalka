@@ -215,6 +215,8 @@
   font-size: .6875rem;
   font-weight: 500;
 }
+/* «Идём!» з колеса — зліва, щоб не накрити «новое» */
+.plan-new.plan-go { right: auto; left: 14px; background: var(--plum); }
 
 /* Колесо */
 .plan-filter { margin: 0 0 6px; }

@@ -161,7 +161,7 @@ async function route(req, env, ctx) {
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify);
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7), notify);
-  if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6));
+  if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6), notify);
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify);
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
@@ -1236,7 +1236,7 @@ async function migrateWishes(db) {
 
 // deck — чого я ще не оцінив(ла); ours — збіги; mine — мої ❤️ без збігу.
 // mine однаковий і коли другий натиснув ✕, і коли ще не дивився — так і задумано
-async function plansRoute(req, db, side, rest) {
+async function plansRoute(req, db, side, rest, notify) {
   const m = req.method;
   await migrateWishes(db);
   const me = VOTE_COL[side];
@@ -1247,6 +1247,8 @@ async function plansRoute(req, db, side, rest) {
       deck: results.filter((r) => r[me] == null).reverse().map((r) => ideaView(r, side)),
       ours: results.filter(bothLike).sort((a, b) => b.matched - a.matched).map((r) => matchView(r, side)),
       mine: results.filter((r) => r[me] === 1 && !bothLike(r)).map((r) => ideaView(r, side)),
+      // «Идём!» з колеса — лише поки план спільний і не зроблений
+      next: await planNext(db, results),
     });
   }
 
@@ -1275,6 +1277,18 @@ async function plansRoute(req, db, side, rest) {
       const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
       // Без збігу — лише false: ні «ще не дивився», ні «✕» назовні не виходить
       return json(after && bothLike(after) ? { match: true, idea: matchView(after, side) } : { match: false });
+    }
+    // «Идём!» з колеса: план — у «Наших планах» у обох, другому push (той самий план — не частіше раз на 6 год)
+    if (b.go === true) {
+      if (!bothLike(r) || r.done) throw fail(409, 'match');
+      await putDoc(db, 'plan-next', { id: r.id, by: side, at: Date.now() });
+      const reaches = await hasPush(db, other(side));
+      const last = await getDoc(db, `plango:${r.id}`);
+      if (reaches && !(last && Date.now() - last < 6 * 3600 * 1000)) {
+        await putDoc(db, `plango:${r.id}`, Date.now());
+        notify.send(other(side), planGoNote(side, r.title));
+      }
+      return json({ ok: true, reaches });
     }
     if ('done' in b) {
       if (!bothLike(r)) throw fail(409, 'match');
@@ -1498,6 +1512,22 @@ function envOpenedNote(from, e) {
 
 function wishNote(from) {
   return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил, чего хочется', 'Она добавила, чего хочется'), tag: 'wish', go: 'wish' };
+}
+
+async function planNext(db, rows) {
+  const n = await getDoc(db, 'plan-next');
+  const r = n && rows.find((x) => x.id === n.id);
+  return r && bothLike(r) && !r.done ? n : null;
+}
+
+// Тап — «Наши планы», де цей план угорі
+function planGoNote(from, title) {
+  return {
+    title: 'Колесо выбрало 🎡',
+    body: `${sender(from, 'Он', 'Она')} зовёт: «${title}»`,
+    tag: 'plan-go',
+    go: 'plans',
+  };
 }
 
 // Тап — «Письма», де в надісланих видно ❤️

@@ -10,7 +10,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFres
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
-import { loadPlans, markPlans, renderPlans } from './plans.js';
+import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
 import { composeMeme, memesFresh } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
@@ -334,7 +334,7 @@ initVoice();
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
 // Тап по сповіщенню при відкритій Радовалці — на «Письма», свіже дотягне visibilitychange
-const GO_TABS = ['letter', 'wish'];
+const GO_TABS = ['letter', 'wish', 'plans'];
 // «env:<id>» — сповіщення про порожній конверт: «Написать» одразу в цей конверт; «write» — відкрила конверт-сигнал
 function goTo(go) {
   const envId = String(go || '').startsWith('env:') ? go.slice(4) : null;
@@ -344,7 +344,10 @@ function goTo(go) {
     return true;
   }
   if (!GO_TABS.includes(go)) return false;
+  // «Колесо выбрало» — у «Планах» одразу «Наши планы»
+  if (go === 'plans') showOurs();
   if (tab !== go) selectTab(go);
+  else if (go === 'plans') render();
   return true;
 }
 navigator.serviceWorker?.addEventListener('message', (e) => {

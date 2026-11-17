@@ -343,7 +343,9 @@ async function removeIdea(screen, p) {
 function oursView(screen, me, pet) {
   const fresh = new Set(freshMatches().map((p) => p.id));
   markSeen(data.ours.map((p) => p.id));
-  const open = data.ours.filter((p) => !p.done);
+  // Обраний колесом («Идём!») — угорі
+  const nextId = data.next?.id;
+  const open = data.ours.filter((p) => !p.done).sort((a, b) => (b.id === nextId) - (a.id === nextId));
   const done = data.ours.filter((p) => p.done);
   const doneBtn = (p) => h('button', {
     type: 'button', class: 'plan-done', 'aria-pressed': String(p.done), onclick: () => setDone(screen, p, !p.done),
@@ -359,6 +361,7 @@ function oursView(screen, me, pet) {
       ? h('ul', { class: 'plan-list' }, ...open.map((p) => {
         const row = swipeRow(screen, p, doneBtn(p));
         if (fresh.has(p.id)) row.firstChild.append(h('span', { class: 'plan-new' }, 'новое'));
+        if (p.id === nextId) row.firstChild.append(h('span', { class: 'plan-new plan-go' }, '🎡 идём'));
         return row;
       }))
       : h('p', { class: 'mk-wait' }, 'Всё, что совпало, уже сделано 🎉 Листай дальше — найдутся новые.'),
@@ -458,10 +461,29 @@ function wheelView(screen, me, pet) {
 
 function showPick(box, p) {
   const pet = p.cat === 'pets' ? pick(Object.keys(DATA.mascots)) || petFor('box') : petFor('box');
+  // Покрутити просто так — тихо; «Идём!» — другому push і позначка в «Наших планах» у обох
+  const go = h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => goPlan(go, p) }, 'Идём! 🎡');
   box.replaceChildren(
     cardBody(p, 'plan-pick-card'),
-    courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)));
+    courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)),
+    go);
 }
+
+async function goPlan(btn, p) {
+  btn.disabled = true;
+  try {
+    const r = await mutate(`plans/${p.id}`, 'PUT', { go: true });
+    data.next = { id: p.id, by: DATA.side, at: Date.now() };
+    btn.textContent = 'Идём ✓';
+    toast(r?.reaches ? `${cap(who().partner)} узнает 💜` : 'Отмечено в «Наших планах»');
+  } catch {
+    btn.disabled = false;
+    toast('Не сохранилось — нет связи');
+  }
+}
+
+// Тап по сповіщенню «Колесо выбрало» — одразу «Наши планы»
+export function showOurs() { view = 'ours'; }
 
 // Колесо в SVG: сектори за годинниковою стрілкою від верху, підписи вздовж радіуса
 function wheelSvg(slots) {
