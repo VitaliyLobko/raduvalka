@@ -1,6 +1,6 @@
 // «✍️ Написать»: лист зараз, на ранок або записка в її/його конверт; нижче — що вже надіслано
 import { DATA, who } from './data.js';
-import { send } from './api.js';
+import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { mountHelper } from './helper.js';
@@ -161,7 +161,7 @@ export function openWrite(preset = {}) {
     if (where === 'date' && !dateAt()) { toast('Выбери дату'); dateInput.focus(); return; }
     go.disabled = true;
     try {
-      await send('letters', 'POST', {
+      const r = await deliver('letter', 'letters', {
         kind: where,
         text,
         mascot: pet,
@@ -171,11 +171,16 @@ export function openWrite(preset = {}) {
       });
       draft.set('');
       close();
+      // Без зв'язку лист лежить у черзі телефона — чесно кажемо, коли він піде
+      if (r.queued) {
+        toast(`Нет связи. ${gift ? 'Подарок ждёт' : 'Письмо ждёт'} в телефоне и уйдёт само, когда Радовалка будет открыта с интернетом 📮`);
+        return;
+      }
       document.dispatchEvent(new CustomEvent('radovalka:sent'));
       toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
     } catch {
       go.disabled = false;
-      toast('Не отправилось — проверь интернет. Текст сохранён.');
+      toast('Не отправилось. Текст сохранён — попробуй ещё раз.');
     }
   });
 

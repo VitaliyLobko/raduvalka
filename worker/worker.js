@@ -49,6 +49,12 @@ const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date', 'stock'];
 const MORNING_HOUR = 8;
 const STOCK_TZ = 'Europe/Kyiv';
 const MAX_LETTER = 4000;
+// id листа, придуманий телефоном (черга без зв'язку): лише малі латинські й цифри
+const CID = /^[a-z0-9]{16,32}$/;
+// «Я в порядке»: старіше доби не приймаємо; push — якщо відмітка не старша 12 год і не частіше раз на 20 хв
+const CHECKIN_MAX_AGE = 24 * 3600 * 1000;
+const CHECKIN_PUSH_AGE = 12 * 3600 * 1000;
+const CHECKIN_PUSH_GAP = 20 * 60 * 1000;
 const MAX_AHEAD = 3 * 24 * 3600 * 1000;
 const MAX_DATE_AHEAD = 400 * 24 * 3600 * 1000; // «К дате» — до року вперед
 
@@ -123,7 +129,7 @@ async function route(req, env, ctx) {
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
 
   if (m === 'GET' && path === 'boot') {
-    const [letter, gift, envelopes, partnerEnvelopes, together, mine, mascots, memes] = await Promise.all([
+    const [letter, gift, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins] = await Promise.all([
       dayLetter(env.DB, side),
       pendingGift(env.DB, side),
       myEnvelopes(env.DB, side),
@@ -132,9 +138,11 @@ async function route(req, env, ctx) {
       getDoc(env.DB, `mine:${side}`),
       getDoc(env.DB, 'mascots'),
       listMemes(env.DB, side),
+      checkinsOf(env.DB, side),
     ]);
     return json({
       side,
+      checkins,
       letter,
       gift,
       envelopes,
@@ -152,9 +160,10 @@ async function route(req, env, ctx) {
   }
 
   if (m === 'GET' && path === 'letter') {
-    const [letter, gift] = await Promise.all([dayLetter(env.DB, side), pendingGift(env.DB, side)]);
-    return json({ letter, gift });
+    const [letter, gift, checkins] = await Promise.all([dayLetter(env.DB, side), pendingGift(env.DB, side), checkinsOf(env.DB, side)]);
+    return json({ letter, gift, checkins });
   }
+  if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
   if (m === 'POST' && envEvent) return envelopeEvent(env.DB, side, envEvent[1], envEvent[2], notify);
@@ -851,7 +860,19 @@ async function lettersRoute(req, db, side, rest, notify) {
     }
     const mascots = (await getDoc(db, 'mascots')) || {};
     const mascot = mascots[b.mascot] ? String(b.mascot) : null;
-    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    // id від телефона (cid): повтор після втраченої відповіді віддає той самий лист — без другого листа й другого push
+    const cid = typeof b.cid === 'string' && CID.test(b.cid) ? b.cid : null;
+    if (cid) {
+      const dup = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(cid).first();
+      if (dup) {
+        if (dup.src !== side) throw fail(409, 'cid');
+        return json({
+          id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, at: dup.at, created: dup.created,
+          opened: !!dup.opened, liked: !!dup.liked, reply: dup.reply, gift: dup.gift && JSON.parse(dup.gift), chosen: dup.chosen, again: true,
+        });
+      }
+    }
+    const id = cid || crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     const stocked = kind === 'stock' ? now : null;
     // «Сейчас» і подарунок — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
     const later = (kind === 'morning' || kind === 'date') && notify.on;
@@ -1633,6 +1654,39 @@ function planGoNote(from, title) {
     body: `${sender(from, 'Он покрутил', 'Она покрутила')} колесо: «${title}». Идём!`,
     tag: 'plan-go',
     go: 'plans',
+  };
+}
+
+// «Я в порядке»: час — коли натиснули (з черги без зв'язку відмітка може дійти пізніше), не коли дійшла
+async function checkinsOf(db, side) {
+  const [mine, theirs] = await Promise.all([getDoc(db, `checkin:${side}`), getDoc(db, `checkin:${other(side)}`)]);
+  return { mine: mine?.at || null, theirs: theirs?.at || null };
+}
+
+async function checkin(req, db, side, notify) {
+  const b = await readJson(req);
+  const now = Date.now();
+  const at = Math.min(now, Number(b.at) || now);
+  if (at < now - CHECKIN_MAX_AGE) throw fail(400, 'old');
+  const prev = await getDoc(db, `checkin:${side}`);
+  const reaches = await hasPush(db, other(side));
+  // Старіша за вже записану (повтор із черги) — нічого не міняє
+  if (prev?.at >= at) return json({ at: prev.at, reaches, sent: false });
+  const push = reaches && now - at < CHECKIN_PUSH_AGE && !(prev?.pushed && now - prev.pushed < CHECKIN_PUSH_GAP);
+  await putDoc(db, `checkin:${side}`, { at, pushed: push ? now : prev?.pushed || null });
+  if (push) notify.send(other(side), checkinNote(side, at, now));
+  return json({ at, reaches, sent: push });
+}
+
+// Час відмітки — у тексті, якщо вона дійшла із запізненням: давню «всё хорошо» не видаємо за свіжу
+function checkinNote(from, at, now) {
+  const late = now - at > 15 * 60 * 1000;
+  const time = new Intl.DateTimeFormat('ru', { timeZone: STOCK_TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(at));
+  return {
+    title: `${sender(from, 'Он отметился', 'Она отметилась')} 💚`,
+    body: late ? `В ${time}: всё хорошо` : 'Всё хорошо',
+    tag: 'checkin',
+    go: 'letter',
   };
 }
 

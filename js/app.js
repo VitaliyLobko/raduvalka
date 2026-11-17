@@ -1,6 +1,6 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, send, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide } from './api.js';
+import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
@@ -18,6 +18,8 @@ import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
+import { deliver, startOutbox } from './outbox.js';
+import { checkinRow, paint as paintCheckin } from './checkin.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -75,7 +77,11 @@ function markLetter() {
 // Push ще нема: свіжий лист і мемчики дотягуємо при поверненні в застосунок
 async function refreshLetter() {
   try {
-    const { letter, gift } = await get('letter');
+    const { letter, gift, checkins } = await get('letter');
+    if (checkins && JSON.stringify(checkins) !== JSON.stringify(DATA.checkins)) {
+      DATA.checkins = checkins;
+      paintCheckin();
+    }
     // Підарунок на екрані вже обирають — не перемальовуємо з-під пальця
     const giftChanged = gift?.id !== DATA.gift?.id && !document.querySelector('.gift-card.is-chosen');
     if (giftChanged) DATA.gift = gift;
@@ -250,11 +256,12 @@ function openReply() {
     const text = area.value.trim();
     if (!text) { area.focus(); return; }
     // Заготовка — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
+    let queued = false;
     if (!DATA.letter.id) {
       try {
-        await send('letters', 'POST', { kind: 'now', text });
+        queued = !!(await deliver('letter', 'letters', { kind: 'now', text })).queued;
       } catch {
-        toast('Не отправилось — нет связи');
+        toast('Не отправилось — попробуй ещё раз');
         return;
       }
       invalidateFeed();
@@ -262,7 +269,7 @@ function openReply() {
     setLetterState({ reply: text });
     close();
     render();
-    toast('Отправлено ➶');
+    toast(queued ? 'Нет связи. Ответ ждёт в телефоне и уйдёт сам, когда Радовалка будет открыта с интернетом 📮' : 'Отправлено ➶');
   };
   const backdrop = h('div', { class: 'backdrop', onclick: close });
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'reply-title' },
@@ -289,6 +296,10 @@ function render() {
     // «Написать» — сургуч у куті вкладки «Письма» (раніше — посередині нижнього меню)
     screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: () => openWrite() },
       h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
+    // «Я в порядке» — під заголовком (у подарунка й порожнього екрана теж є h2)
+    const title = screen.querySelector('h2');
+    if (title) title.after(checkinRow());
+    else screen.append(checkinRow());
   }
   else if (tab === 'envelopes') renderEnvelopes(screen);
   else if (tab === 'plans') {
@@ -593,6 +604,7 @@ async function start() {
   maybeWelcome();
   takeShared();
   syncPush();
+  startOutbox();
   noteUpdated();
   checkUpdate();
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли

@@ -89,14 +89,22 @@ async function request(path, init = {}) {
 
 export const get = async (path) => (await request(path)).json();
 
-// Запит, результат якого потрібен одразу (надіслати, видалити): помилку ловить той, хто кличе
-export async function send(path, method, body) {
-  const res = await request(path, {
-    method,
-    headers: body === undefined ? {} : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  return res.json();
+// Запит, результат якого потрібен одразу (надіслати, видалити): помилку ловить той, хто кличе.
+// timeout — для черги без зв'язку: на слабкому сигналі fetch висить хвилинами, обрив = «нема зв'язку» (без status)
+export async function send(path, method, body, { timeout } = {}) {
+  const ctl = timeout ? new AbortController() : null;
+  const timer = ctl && setTimeout(() => ctl.abort(), timeout);
+  try {
+    const res = await request(path, {
+      method,
+      headers: body === undefined ? {} : { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      ...(ctl ? { signal: ctl.signal } : {}),
+    });
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Запис — у фоні: інтерфейс уже показав зміну, сервер лише наздоганяє
