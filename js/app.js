@@ -16,6 +16,7 @@ import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { initBack, tabChanged, leave } from './back.js';
+import { initVoice } from './voice.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -232,7 +233,7 @@ function toggleHeart() {
 }
 
 function openReply() {
-  const area = h('textarea', { id: 'reply-text', 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
+  const area = h('textarea', { id: 'reply-text', 'data-voice': true, 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
   const close = () => { sheet.remove(); backdrop.remove(); };
   const send = () => {
     const text = area.value.trim();
@@ -306,6 +307,8 @@ function selectTab(name, fromBack = false) {
 
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => selectTab(t.dataset.tab)));
 initBack((name) => selectTab(name, true));
+// 🎤 біля полів з data-voice — у шторках, що з'являються пізніше, теж
+initVoice();
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці

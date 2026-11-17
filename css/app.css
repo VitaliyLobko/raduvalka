@@ -2167,3 +2167,35 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .write-meme { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 10px; color: #7a5a78; font-size: .875rem; }
 .write-meme label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
 .write-meme .mk-chip { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Голосовий ввід: 🎤 у кутку поля; у полі місце під кнопку, щоб текст не заходив під неї */
+.voice-wrap { position: relative; display: block; flex: 1 1 auto; min-width: 0; }
+.voice-wrap:has(> [hidden]) { display: none; }
+.voice-wrap > [data-voice] { width: 100%; }
+.voice-wrap > [data-voice],
+.sheet .voice-wrap > [data-voice] { padding-right: 50px; }
+.voice-btn {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(74, 37, 69, .08);
+  color: var(--plum);
+  transform: translateY(-50%);
+}
+.voice-btn svg { width: 20px; height: 20px; }
+.voice-wrap.is-area .voice-btn { top: 8px; right: 8px; transform: none; }
+.voice-btn.is-listening { background: var(--wax); color: #fff; animation: voice-pulse 1.1s ease-in-out infinite; }
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(156, 61, 116, .45); }
+  50% { box-shadow: 0 0 0 9px rgba(156, 61, 116, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .voice-btn.is-listening { animation: none; } }
+/* Ті самі відступи для обгорнутих полів */
+.mk-chips + .voice-wrap, .mk-group > .voice-wrap { margin-top: 8px; }

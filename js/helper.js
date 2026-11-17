@@ -62,6 +62,7 @@ export function mountHelper(box, area) {
     if (!own.hidden) own.focus();
   });
   const words = h('textarea', {
+    'data-voice': true,
     class: 'help-words',
     maxlength: '400',
     rows: '2',

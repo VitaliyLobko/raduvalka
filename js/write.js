@@ -38,7 +38,7 @@ export function openWrite() {
   let pet = petFor('push');
 
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
-  const area = h('textarea', { class: 'write-text', 'aria-label': 'Текст письма', placeholder: said });
+  const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': 'Текст письма', placeholder: said });
   area.value = draft.get();
   area.addEventListener('input', () => draft.set(area.value));
 

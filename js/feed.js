@@ -410,7 +410,7 @@ function openReplyFor(it) {
 
 // Шторка відповіді: цитата, поле, «Отправить»; onSend кидає помилку — шторка лишається з текстом
 function replySheet(quote, onSend) {
-  const area = h('textarea', { 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
+  const area = h('textarea', { 'data-voice': true, 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
   const close = () => { sheet.remove(); backdrop.remove(); };
   const go = h('button', { type: 'button', class: 'btn btn-primary', html: `${ARROW}Отправить` });
   go.addEventListener('click', async () => {

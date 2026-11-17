@@ -106,6 +106,7 @@ function sendSheet(preview, post, done, style0 = null, about = '') {
   const over = h('span', { class: 'meme-over', 'aria-hidden': 'true' });
   const caption = h('input', {
     type: 'text',
+    'data-voice': true,
     maxlength: '300',
     placeholder: 'Подпись (можно без)',
     'aria-label': 'Подпись',
