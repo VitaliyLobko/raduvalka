@@ -376,7 +376,7 @@ function openTogether() {
     body);
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
-  renderTogether(body, { onPlans: () => { close(); selectTab('plans'); }, onRender: markPlans });
+  renderTogether(body);
 }
 
 chip.addEventListener('click', openTogether);

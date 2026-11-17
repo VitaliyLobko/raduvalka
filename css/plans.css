@@ -350,17 +350,3 @@
 /* Шторка «Планы», якщо вхід — кнопкою, а не вкладкою */
 .plan-sheet .plan-screen .title { margin-top: 0; }
 
-/* Крапка «є що оцінити» на значку «Вместе» чи на кнопці входу */
-[data-plans-entry].plan-has-new { position: relative; }
-[data-plans-entry].plan-has-new::after {
-  content: '';
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--wax);
-  box-shadow: 0 0 0 2px var(--paper);
-}
-[data-side="vin"] [data-plans-entry].plan-has-new::after { background: var(--powder); box-shadow: 0 0 0 2px var(--night); }

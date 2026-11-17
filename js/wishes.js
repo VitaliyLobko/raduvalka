@@ -4,6 +4,7 @@ import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, showPhoto } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
+import { swipeable } from './feed.js';
 
 export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
 const PHOTO_SIDE = 720;
@@ -100,6 +101,9 @@ let budget = ANY_BUDGET;
 const soon = (w) => (w.due && daysTo(w.due) >= 0 ? daysTo(w.due) : Infinity);
 const byDue = (list) => [...list].sort((a, b) => (b.hot - a.hot) || (soon(a) - soon(b)));
 const photos = new Map();
+// Свої хотілки, змахнуті вліво: 5 с можна «Вернуть», потім — видалення на сервері
+const removing = new Map();
+const UNDO_MS = 5000;
 
 // Відповідь сервера могла прийти, коли вже відкрита інша вкладка, — тоді не малюємо
 const onWishTab = () => !!document.querySelector('.tab[data-tab="wish"].is-active');
@@ -160,8 +164,9 @@ export function renderWishes(screen) {
   if (view === 'mine') {
     body = [
       h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '＋ Хочу'),
+      data.mine.length ? h('p', { class: 'hint want-swipe-hint' }, 'Тап — изменить. Перехотелось — смахни влево.') : null,
       data.mine.length
-        ? h('ul', { class: 'want-list' }, ...data.mine.map((w) => wishCard(w, { onclick: () => editWish(screen, w) })))
+        ? h('ul', { class: 'want-list' }, ...data.mine.map((w) => mineCard(screen, w)))
         : h('p', { class: 'mk-wait' }, `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
     ];
   } else {
@@ -195,7 +200,7 @@ export function renderWishes(screen) {
       h('p', { class: 'hint' }, `Твои отметки ${me.partner} не видит.`),
     ].filter(Boolean);
   }
-  screen.replaceChildren(...head.filter(Boolean), ...body);
+  screen.replaceChildren(...head.filter(Boolean), ...body.filter(Boolean));
 }
 
 // Фото хотілки з сервера — один раз за сеанс, далі з пам'яті
@@ -225,6 +230,43 @@ function wishCard(w, { onclick, actions, open } = {}) {
   return h('li', { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}` },
     body,
     link || actions ? h('div', { class: 'want-foot' }, link, actions) : null);
+}
+
+// Своя хотілка: тап — форма, змах уліво — прибрати (з «Вернуть»)
+function mineCard(screen, w) {
+  if (removing.has(w.id)) return undoRow(screen, w);
+  const li = wishCard(w, { onclick: () => editWish(screen, w) });
+  swipeable(li, li, {
+    canRight: () => false,
+    onLeft: () => {
+      const timer = setTimeout(async () => {
+        try {
+          await send(`wishes/${w.id}`, 'DELETE');
+          await loadWishes();
+        } catch {
+          toast('Не удалилось — нет связи');
+        }
+        removing.delete(w.id);
+        if (onWishTab()) renderWishes(screen);
+      }, UNDO_MS);
+      removing.set(w.id, timer);
+      li.replaceWith(undoRow(screen, w));
+    },
+  });
+  return li;
+}
+
+function undoRow(screen, w) {
+  return h('li', { class: 'want-undo' },
+    h('span', {}, `Убрано: ${w.title}`),
+    h('button', {
+      type: 'button', class: 'sent-take',
+      onclick: () => {
+        clearTimeout(removing.get(w.id));
+        removing.delete(w.id);
+        if (onWishTab()) renderWishes(screen);
+      },
+    }, 'Вернуть'));
 }
 
 function markBtn(screen, w, mark, label) {

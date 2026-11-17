@@ -2199,3 +2199,20 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 @media (prefers-reduced-motion: reduce) { .voice-btn.is-listening { animation: none; } }
 /* Ті самі відступи для обгорнутих полів */
 .mk-chips + .voice-wrap, .mk-group > .voice-wrap { margin-top: 8px; }
+
+/* Хотілки: змах своєї вліво — прибрати; на її місці рядок «Вернуть» */
+.want-list > .want { transition: transform .2s ease-out; }
+.want-list > .want.is-drag { transition: none; }
+.want-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1.5px dashed var(--lavender);
+  border-radius: 16px;
+  color: var(--ink-soft);
+  font-size: .9375rem;
+}
+.want-undo span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.want-swipe-hint { margin: 2px 0 10px; }

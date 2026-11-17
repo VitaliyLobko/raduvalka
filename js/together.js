@@ -47,9 +47,8 @@ export function chipLabel(now = today()) {
   return 'Вместе';
 }
 
-// onPlans — відкрити «Планы» (кнопка на місці колишнього списку «Куда пойдём»); onRender — після кожного малювання
-export function renderTogether(screen, opts = {}) {
-  const { onPlans, onRender } = opts;
+// «Планы» — своя вкладка внизу, звідси вхід не потрібен
+export function renderTogether(screen) {
   const T = DATA.together;
   const { side } = DATA;
   const now = today();
@@ -77,7 +76,7 @@ export function renderTogether(screen, opts = {}) {
     onchange: (e) => {
       T.meet = e.target.value || null;
       save('together', { meet: T.meet });
-      renderTogether(screen, opts);
+      renderTogether(screen);
     },
   });
 
@@ -100,18 +99,11 @@ export function renderTogether(screen, opts = {}) {
     h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'), meetInput),
     h('div', { class: 'bday-row' }, bday(mine[0], '🎂 Твой ДР'), bday(mine[1], side === 'vona' ? '🎂 Его ДР' : '🎂 Её ДР')),
     togetherDays(now, T.since),
-    onPlans ? h('button', {
-      type: 'button',
-      class: 'btn btn-primary plan-wide',
-      'data-plans-entry': '',
-      onclick: onPlans,
-    }, '💞 Планы: куда пойдём и что сделаем') : null,
   ].filter(Boolean));
 
   flyHeart(card, heart, trip.progress);
   // ponytail: на планеті поки лише пульс планети; ролики для Юпітера й Землі — передати сюди onPlanet
   dragHeart(card, heart, trip.progress);
-  onRender?.();
 }
 
 // «N дней вместе» з датою початку; без дати рядка немає

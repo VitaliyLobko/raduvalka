@@ -99,7 +99,6 @@ function addMine(list) {
 export function markPlans() {
   const fresh = !!data && (data.deck.length > 0 || freshMatches().length > 0);
   document.querySelector('.tab[data-tab="plans"]')?.classList.toggle('has-new', fresh);
-  document.querySelectorAll('[data-plans-entry]').forEach((el) => el.classList.toggle('plan-has-new', fresh));
 }
 
 export function renderPlans(screen) {
