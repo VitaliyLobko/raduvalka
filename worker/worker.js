@@ -17,6 +17,11 @@ const SCHEMA = [
   // «Хотелки»: список бажань кожного; mark — позначка другого («присмотрел»/«куплено»), власнику не видно
   'CREATE TABLE IF NOT EXISTS wishes (id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, '
     + 'price INTEGER, link TEXT, note TEXT, hot INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, mark TEXT)',
+  // «Планы»: ідеї «куди підемо»; vote_vona / vote_vin: 1 — ❤️, 0 — ✕, NULL — ще не дивився(лась).
+  // Чужий голос назовні не віддаємо; matched — коли обоє ❤️
+  'CREATE TABLE IF NOT EXISTS ideas (id TEXT PRIMARY KEY, author TEXT NOT NULL, cat TEXT NOT NULL, '
+    + 'title TEXT NOT NULL, note TEXT, vote_vona INTEGER, vote_vin INTEGER, done INTEGER NOT NULL DEFAULT 0, '
+    + 'matched INTEGER, ai INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)',
 ];
 
 const SIDES = ['vona', 'vin'];
@@ -113,6 +118,8 @@ async function route(req, env) {
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8));
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7));
+  if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6));
+  if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6));
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
   if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
@@ -927,13 +934,7 @@ async function askAI(env, system, user, maxTokens, temperature = 0.9) {
     max_tokens: maxTokens,
     temperature,
   });
-  const text = typeof out?.response === 'string' ? out.response
-    : (out?.response ? JSON.stringify(out.response) : out?.choices?.[0]?.message?.content || '');
-  try {
-    return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
-  } catch {
-    return {};
-  }
+  return parseJsonReply(out);
 }
 
 const LATIN_WORD = /[a-z]{3,}/i;
@@ -1055,4 +1056,189 @@ function json(data, status = 200, headers = {}) {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
   });
+}
+
+// ---- «Планы»: колода ідей, збіги, колесо (клієнт — js/plans.js)
+const PLAN_CATS = ['date', 'trip', 'home', 'pets', 'other'];
+// Стовпець голосу — лише з цієї мапи за вже перевіреною стороною, ніколи з запиту
+const VOTE_COL = { vona: 'vote_vona', vin: 'vote_vin' };
+const PLAN_ID = /^[a-z0-9]{1,32}$/;
+const PLAN_WORDS = /(?:^|[^а-яё])(?:мам|пап)(?:а|е|у|ы|ой)?(?=[^а-яё]|$)|хозя(?:ин|йк)/i;
+
+let plansMigrated = false;
+
+const newId = () => crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+const bothLike = (r) => r.vote_vona === 1 && r.vote_vin === 1;
+
+function ideaFields(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) throw fail(400, 'json');
+  return {
+    title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+    note: String(b.note || '').trim().slice(0, 300) || null,
+    cat: PLAN_CATS.includes(b.cat) ? b.cat : 'other',
+  };
+}
+
+// Для телефона: без author і без голосів — лише own (моя ідея) і done
+function ideaView(r, side) {
+  return {
+    id: r.id, cat: r.cat, title: r.title, note: r.note, own: r.author === side, ai: !!r.ai,
+    done: !!r.done, created: r.created,
+  };
+}
+
+const matchView = (r, side) => ({ ...ideaView(r, side), matched: r.matched });
+
+function ideaInsert(db, side, f, ai, created) {
+  const id = newId();
+  const col = VOTE_COL[side];
+  return {
+    row: { id, author: side, ...f, ai, done: 0, created },
+    stmt: db.prepare(`INSERT INTO ideas (id, author, cat, title, note, ${col}, ai, created) VALUES (?, ?, ?, ?, ?, 1, ?, ?)`)
+      .bind(id, side, f.cat, f.title, f.note, ai, created),
+  };
+}
+
+// Разовий перенос старого списку «Куда пойдём» (together.wishes): автор ❤️, done як було.
+// Позначка в docs — у тій самій пачці; id сталі, INSERT OR IGNORE — два одночасні запити не задвоять
+async function migrateWishes(db) {
+  if (plansMigrated) return;
+  if (await getDoc(db, 'plans-migrated')) {
+    plansMigrated = true;
+    return;
+  }
+  const list = ((await getDoc(db, 'together')) || {}).wishes;
+  const items = (Array.isArray(list) ? list : []).filter((w) => w && String(w.text || '').trim());
+  const now = Date.now();
+  await db.batch([
+    ...items.map((w, i) => {
+      const by = SIDES.includes(w.by) ? w.by : 'vona';
+      // Список дописували згори (unshift), тож перший — найновіший
+      return db.prepare(`INSERT OR IGNORE INTO ideas (id, author, cat, title, note, ${VOTE_COL[by]}, done, created) `
+        + 'VALUES (?, ?, ?, ?, NULL, 1, ?, ?)')
+        .bind(`wish${i}`, by, 'other', String(w.text).replace(/\s+/g, ' ').trim().slice(0, 120), w.done ? 1 : 0, now - i);
+    }),
+    db.prepare('INSERT INTO docs (k, v, updated) VALUES (?, ?, ?) '
+      + 'ON CONFLICT (k) DO UPDATE SET v = excluded.v, updated = excluded.updated')
+      .bind('plans-migrated', 'true', now),
+  ]);
+  plansMigrated = true;
+}
+
+// deck — чого я ще не оцінив(ла); ours — збіги; mine — мої ❤️ без збігу.
+// mine однаковий і коли другий натиснув ✕, і коли ще не дивився — так і задумано
+async function plansRoute(req, db, side, rest) {
+  const m = req.method;
+  await migrateWishes(db);
+  const me = VOTE_COL[side];
+
+  if (m === 'GET' && !rest) {
+    const { results } = await db.prepare('SELECT * FROM ideas ORDER BY created DESC, id').all();
+    return json({
+      deck: results.filter((r) => r[me] == null).reverse().map((r) => ideaView(r, side)),
+      ours: results.filter(bothLike).sort((a, b) => b.matched - a.matched).map((r) => matchView(r, side)),
+      mine: results.filter((r) => r[me] === 1 && !bothLike(r)).map((r) => ideaView(r, side)),
+    });
+  }
+
+  if (m === 'POST' && !rest) {
+    const f = ideaFields(await readJson(req));
+    if (!f.title) throw fail(400, 'title');
+    const { row, stmt } = ideaInsert(db, side, f, 0, Date.now());
+    await stmt.run();
+    return json(ideaView(row, side), 201);
+  }
+
+  if (!PLAN_ID.test(rest)) throw fail(404, 'not found');
+  const r = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(rest).first();
+  if (!r) throw fail(404, 'not found');
+  const them = VOTE_COL[other(side)];
+
+  if (m === 'PUT') {
+    const b = await readJson(req);
+    if (!b || typeof b !== 'object' || Array.isArray(b)) throw fail(400, 'json');
+    if ('vote' in b) {
+      if (b.vote !== 0 && b.vote !== 1) throw fail(400, 'vote');
+      // Голос — один раз; збіг фіксуємо тим самим запитом, щоб два одночасні ❤️ не розминулись
+      await db.prepare(`UPDATE ideas SET ${me} = ?, `
+        + `matched = CASE WHEN ? = 1 AND ${them} = 1 THEN ? ELSE matched END WHERE id = ? AND ${me} IS NULL`)
+        .bind(b.vote, b.vote, Date.now(), r.id).run();
+      const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
+      // Без збігу — лише false: ні «ще не дивився», ні «✕» назовні не виходить
+      return json(after && bothLike(after) ? { match: true, idea: matchView(after, side) } : { match: false });
+    }
+    if ('done' in b) {
+      if (!bothLike(r)) throw fail(409, 'match');
+      const done = b.done ? 1 : 0;
+      await db.prepare('UPDATE ideas SET done = ? WHERE id = ?').bind(done, r.id).run();
+      return json({ ok: true, done: !!done });
+    }
+    throw fail(400, 'json');
+  }
+
+  if (m === 'DELETE') {
+    if (r.author !== side) throw fail(403, 'forbidden');
+    // Умова в самому DELETE: другий міг щойно поставити ❤️ — спільний план уже не прибрати.
+    // COALESCE: без нього NULL (ще не дивився) дав би NULL замість «так» і видав би різницю з ✕
+    const res = await db.prepare('DELETE FROM ideas WHERE id = ? '
+      + 'AND NOT (COALESCE(vote_vona, 0) = 1 AND COALESCE(vote_vin, 0) = 1)').bind(r.id).run();
+    if (!res.meta?.changes) throw fail(409, 'match');
+    return json({ ok: true });
+  }
+
+  throw fail(405, 'method');
+}
+
+const PLAN_TOPICS = {
+  date: 'свидание вдвоём вне дома: прогулка, кафе, кино, концерт, необычное место в городе',
+  trip: 'поездка вдвоём: на выходные недалеко или в отпуск, с конкретным местом и занятием',
+  home: 'вечер или выходной дома вдвоём: готовить, играть, смотреть, мастерить, устроить уют',
+  pets: 'время вдвоём вместе с питомцами',
+  other: 'что-то новое вдвоём: научиться, попробовать, сделать своими руками, завести маленькую традицию',
+};
+
+// «✨ Подкинуть идеи»: ~6 свіжих ідей на тему; кладемо їх як звичайні ідеї того, хто попросив (його ❤️).
+// Особисте (питомці) — лише з бази, не з коду
+async function planIdeas(req, env, side) {
+  if (!env.AI) throw fail(503, 'ai');
+  const b = await readJson(req);
+  const cat = PLAN_CATS.includes(b?.cat) ? b.cat : 'other';
+  const hint = String(b?.hint || '').trim().slice(0, 120);
+  await migrateWishes(env.DB);
+  const [mascots, recent] = await Promise.all([
+    getDoc(env.DB, 'mascots'),
+    env.DB.prepare('SELECT title FROM ideas WHERE cat = ? ORDER BY created DESC LIMIT 40').bind(cat).all(),
+  ]);
+  const pets = Object.values(mascots || {}).map((x) => `${String(x.name || '').slice(0, 30)} (${String(x.sp || 'питомец').slice(0, 60)})`).join(', ');
+  const known = (recent.results || []).map((r) => r.title);
+
+  const system = 'Ты придумываешь для пары, куда пойти, куда поехать и как провести время вдвоём. '
+    + 'Он сейчас далеко и надолго, она ждёт дома с питомцами; идеи — на то время, когда он вернётся домой. '
+    + 'Каждая идея конкретная и выполнимая, с живой деталью: что именно делать, что взять, когда лучше. '
+    + 'Без банальностей вроде «сходить в кино» или «погулять в парке» без изюминки. '
+    + 'Учитывай, какие у них питомцы: кого можно взять с собой на прогулку или в поездку, а кто останется дома. '
+    + 'Никаких слов «мама», «папа», «хозяин», «хозяйка». Без политики, войны, пошлости. '
+    + 'Только русский язык, без латиницы и английских слов. '
+    + 'Название — 3–8 слов, с большой буквы, без точки в конце; пояснение — одно короткое предложение. '
+    + 'Ответь ТОЛЬКО JSON {"ideas": [{"title": "...", "note": "..."}]} — шесть заметно разных идей.';
+  const user = `Тема: ${PLAN_TOPICS[cat]}. Питомцы дома: ${pets || 'нет'}. `
+    + `${hint ? `Пожелание: ${hint}. ` : ''}`
+    + `${known.length ? `Уже придумано, не повторяй: ${known.map((t) => `«${t}»`).join(', ')}.` : ''}`;
+  const out = await askAI(env, system, user, 900, 0.95);
+
+  const seen = new Set(known.map((t) => t.toLowerCase()));
+  const fresh = [];
+  for (const x of Array.isArray(out.ideas) ? out.ideas : []) {
+    const f = ideaFields({ title: x?.title, note: x?.note, cat });
+    f.title = f.title.replace(/^["«]|["».]$/g, '');
+    const all = `${f.title} ${f.note || ''}`;
+    if (!f.title || LATIN_WORD.test(all) || PLAN_WORDS.test(all) || seen.has(f.title.toLowerCase())) continue;
+    seen.add(f.title.toLowerCase());
+    fresh.push(f);
+  }
+  if (!fresh.length) throw fail(502, 'ai');
+  const now = Date.now();
+  const rows = fresh.slice(0, 6).map((f, i) => ideaInsert(env.DB, side, f, 1, now + i));
+  await env.DB.batch(rows.map((x) => x.stmt));
+  return json({ added: rows.map((x) => ideaView(x.row, side)) }, 201);
 }

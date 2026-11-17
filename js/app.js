@@ -10,6 +10,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './w
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
+import { loadPlans, markPlans, openPlans } from './plans.js';
 import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
@@ -299,6 +300,7 @@ function drawChip() {
   chip.querySelector('.chip-text').textContent = chipLabel();
   chip.setAttribute('aria-label', `Вместе: ${chipLabel()}`);
   chip.hidden = false;
+  markPlans();
 }
 
 function openTogether() {
@@ -317,7 +319,7 @@ function openTogether() {
     body);
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
-  renderTogether(body);
+  renderTogether(body, { onPlans: () => { close(); openPlans(drawChip); } });
 }
 
 chip.addEventListener('click', openTogether);
@@ -374,6 +376,7 @@ document.addEventListener('visibilitychange', () => {
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
   get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
   if (tab !== 'wish') loadWishes().then(markWishes).catch(() => {});
+  loadPlans().then(markPlans).catch(() => {});
   refreshMemes().then((changed) => {
     markBadge();
     if (changed && tab === 'memes') renderMemes(screen);
@@ -433,6 +436,7 @@ async function start() {
   drawChip();
   markBadge();
   loadWishes().then(markWishes).catch(() => {});
+  loadPlans().then(markPlans).catch(() => {});
   markLetter();
   render();
   maybeWelcome();

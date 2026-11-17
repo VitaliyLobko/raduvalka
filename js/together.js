@@ -47,7 +47,8 @@ export function chipLabel(now = today()) {
   return 'Вместе';
 }
 
-export function renderTogether(screen) {
+// onPlans — відкрити «Планы» (кнопка на місці колишнього списку «Куда пойдём»)
+export function renderTogether(screen, { onPlans } = {}) {
   const T = DATA.together;
   const { side } = DATA;
   const now = today();
@@ -75,34 +76,9 @@ export function renderTogether(screen) {
     onchange: (e) => {
       T.meet = e.target.value || null;
       save('together', { meet: T.meet });
-      renderTogether(screen);
+      renderTogether(screen, { onPlans });
     },
   });
-
-  T.wishes ||= [];
-  const saveWishes = () => save('together', { wishes: T.wishes });
-  const wishList = h('ul', { class: 'wishes' });
-  const drawWishes = () => wishList.replaceChildren(...T.wishes.map((w) => h('li', {},
-    h('label', { class: `wish${w.done ? ' is-done' : ''}` },
-      h('input', {
-        type: 'checkbox',
-        checked: w.done,
-        onchange: (e) => { w.done = e.target.checked; drawWishes(); saveWishes(); },
-      }),
-      h('span', {}, w.text),
-      h('small', {}, w.by === side ? 'ты' : (side === 'vona' ? 'он' : 'она'))))));
-  drawWishes();
-
-  const input = h('input', { type: 'text', placeholder: 'Ещё куда-нибудь…', 'aria-label': 'Новое место' });
-  const add = (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    T.wishes.unshift({ text, done: false, by: side });
-    input.value = '';
-    drawWishes();
-    saveWishes();
-  };
 
   // replaceChildren не пропускає null, на відміну від h()
   screen.replaceChildren(...[
@@ -110,10 +86,12 @@ export function renderTogether(screen) {
     card,
     h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'), meetInput),
     togetherDays(now, T.since),
-    h('section', { class: 'wish-box' },
-      h('h3', {}, side === 'vona' ? 'Куда пойдём, когда вернёшься' : 'Куда пойдём, когда вернусь'),
-      h('form', { class: 'wish-add', onsubmit: add }, input, h('button', { type: 'submit', class: 'btn btn-primary' }, 'Добавить')),
-      wishList),
+    onPlans ? h('button', {
+      type: 'button',
+      class: 'btn btn-primary plan-wide',
+      'data-plans-entry': '',
+      onclick: onPlans,
+    }, '💞 Планы: куда пойдём и что сделаем') : null,
   ].filter(Boolean));
 
   flyHeart(card, heart, trip.progress);
