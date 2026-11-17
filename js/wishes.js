@@ -5,13 +5,57 @@ import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, showPhoto } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 
-export const BUDGETS = [0, 500, 1000, 3000, 10000];
 export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
-const budgetLabel = (b) => (b ? `до ${b.toLocaleString('ru')}` : 'любой');
 const PHOTO_SIDE = 720;
+
+// Кроки повзунка бюджету; 0 — «любой», завжди крайній праворуч
+const STEPS = [300, 500, 700, 1000, 1500, 2000, 3000, 5000, 7000, 10000, 15000, 20000, 30000, 50000];
+
+// Повзунок бюджету: кроки лише до найдорожчої хотілки. onInput(budget) — на кожен рух, без перемальовки самого повзунка
+export function budgetSlider(prices, value, onInput) {
+  const top = Math.max(0, ...prices.filter(Boolean));
+  const steps = [...STEPS.filter((x) => x < top), 0];
+  if (steps.length < 2) return null;
+  const at = steps.indexOf(value);
+  const out = h('output', { class: 'want-budget-val' });
+  const input = h('input', { type: 'range', min: '0', max: String(steps.length - 1), step: '1', 'aria-label': 'Бюджет' });
+  input.value = String(at < 0 ? steps.length - 1 : at);
+  const show = () => {
+    const b = steps[Number(input.value)];
+    out.textContent = b ? `до ${b.toLocaleString('ru')} ₴` : 'любой';
+    input.setAttribute('aria-valuetext', out.textContent);
+    return b;
+  };
+  input.addEventListener('input', () => onInput(show()));
+  show();
+  return h('div', { class: 'want-budget' },
+    h('div', { class: 'want-budget-head' }, h('span', { class: 'mk-label' }, 'Бюджет'), out),
+    input);
+}
+
+// «К дате»: свята за днем і місяцем — назвою, решта — датою; минула дата вже не показується
+const HOLIDAYS = { '12-31': 'Новому году', '01-01': 'Новому году', '02-14': '14 февраля', '03-08': '8 марта' };
+const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const daysTo = (due) => Math.round((new Date(`${due}T00:00:00`) - today()) / 864e5);
+export function dueText(due) {
+  if (!due) return '';
+  const days = daysTo(due);
+  if (days < 0) return '';
+  const name = HOLIDAYS[due.slice(5)] || new Date(`${due}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
+  return `🎁 к ${name}${days > 1 ? ` · через ${days} дн.` : days === 1 ? ' · завтра' : ' · сегодня'}`;
+}
+// Найближчий такий день: цього року, а якщо вже минув — наступного
+const nextDay = (mmdd) => {
+  const y = today().getFullYear();
+  const d = `${y}-${mmdd}`;
+  return daysTo(d) >= 0 ? d : `${y + 1}-${mmdd}`;
+};
 
 let view = 'theirs';
 let budget = 0;
+// Його/її список: спершу «очень хочу», далі — до найближчої дати
+const soon = (w) => (w.due && daysTo(w.due) >= 0 ? daysTo(w.due) : Infinity);
+const byDue = (list) => [...list].sort((a, b) => (b.hot - a.hot) || (soon(a) - soon(b)));
 const photos = new Map();
 
 // Відповідь сервера могла прийти, коли вже відкрита інша вкладка, — тоді не малюємо
@@ -77,29 +121,31 @@ export function renderWishes(screen) {
         : h('p', { class: 'mk-wait' }, `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
     ];
   } else {
-    const list = data.theirs.filter((w) => fitsBudget(w, budget));
     const newest = newestTheirs();
     if (newest > (DATA.mine.wishesSeen || 0)) {
       DATA.mine.wishesSeen = newest;
       save('mine', { wishesSeen: newest });
     }
     markWishes();
-    body = [
-      h('div', { class: 'want-budget' }, h('span', { class: 'mk-label' }, 'Бюджет'),
-        h('div', { class: 'mk-chips' }, ...BUDGETS.map((b) => h('button', {
-          type: 'button', class: 'mk-chip', 'aria-checked': String(budget === b),
-          onclick: () => { budget = b; renderWishes(screen); },
-        }, budgetLabel(b))))),
-      list.length
+    // Повзунок перемальовує лише список під собою — інакше палець зірвався б із нього посеред руху
+    const listBox = h('div', { class: 'want-theirs' });
+    const drawList = () => {
+      const list = byDue(data.theirs).filter((w) => fitsBudget(w, budget));
+      listBox.replaceChildren(list.length
         ? h('ul', { class: 'want-list' }, ...list.map((w) => wishCard(w, {
           open: true,
           actions: h('span', { class: 'want-marks' },
             markBtn(screen, w, 'eye', `🤫 ${iMark}`),
             markBtn(screen, w, 'bought', '✓ куплено')),
         })))
-        : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь фильтр.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`),
+        : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь бегунок.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`));
+    };
+    drawList();
+    body = [
+      budgetSlider(data.theirs.map((w) => w.price), budget, (b) => { budget = b; drawList(); }),
+      listBox,
       h('p', { class: 'hint' }, `Твои отметки ${me.partner} не видит.`),
-    ];
+    ].filter(Boolean);
   }
   screen.replaceChildren(...head.filter(Boolean), ...body);
 }
@@ -120,6 +166,7 @@ function wishCard(w, { onclick, actions, open } = {}) {
     h('span', { class: 'want-text' },
       h('span', { class: 'want-title' }, `${w.hot ? '🔥 ' : ''}${w.title}`),
       h('span', { class: 'want-meta' }, `${w.price ? money(w.price) : 'цена не указана'}${toShop ? ' · в магазин ↗' : ''}`),
+      dueText(w.due) ? h('span', { class: 'want-due' }, dueText(w.due)) : null,
       w.note ? h('span', { class: 'want-note' }, w.note) : null),
   ];
   const ext = { href: w.link, target: '_blank', rel: 'noopener noreferrer' };
@@ -176,6 +223,35 @@ function editWish(screen, w, sharedLink = '') {
   const price = field({ type: 'number', inputmode: 'numeric', min: '0', step: '50', placeholder: 'Примерно сколько стоит, ₴', 'aria-label': 'Цена' }, w?.price);
   const note = field({ type: 'text', maxlength: '500', placeholder: 'Размер, цвет, подробности', 'aria-label': 'Подробности' }, w?.note);
   let hot = !!w?.hot;
+  // «К дате»: свято одним дотиком (найближче), своя дата — календарем; ще дотик — без дати
+  let due = w?.due || null;
+  const dueIn = h('input', { type: 'date', class: 'want-due-in', 'aria-label': 'К какой дате', hidden: true });
+  const dueChips = h('div', { class: 'mk-chips mk-row want-due-row', role: 'radiogroup', 'aria-label': 'К дате' });
+  const PRESETS = [['12-31', '🎄 Новый год'], ['02-14', '💘 14 февраля'], ['03-08', '💐 8 марта']];
+  const drawDue = () => {
+    const preset = due && PRESETS.find(([md]) => due.slice(5) === md);
+    const own = !!due && !preset;
+    dueIn.hidden = !own;
+    if (own) dueIn.value = due;
+    // Своя дата (день народження, річниця) — першою, вона потрібна найчастіше; свята — далі в рядку
+    dueChips.replaceChildren(
+      h('button', {
+        type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(own),
+        onclick: () => {
+          if (own) { due = null; drawDue(); return; }
+          dueIn.hidden = false;
+          dueIn.focus();
+          dueIn.showPicker?.();
+        },
+      }, own ? `📅 ${new Date(`${due}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'short' })}` : '📅 Дата'),
+      ...PRESETS.map(([md, label]) => h('button', {
+        type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(preset?.[0] === md),
+        onclick: () => { due = preset?.[0] === md ? null : nextDay(md); drawDue(); },
+      }, label)));
+  };
+  dueIn.min = today().toLocaleDateString('sv');
+  dueIn.addEventListener('change', () => { due = dueIn.value || null; drawDue(); });
+  drawDue();
   const hotBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-checked': String(hot), onclick: () => { hot = !hot; hotBtn.setAttribute('aria-checked', String(hot)); } }, '🔥 очень хочу');
 
   // Фото: undefined — не чіпали, null — прибрали, Blob — нове
@@ -242,7 +318,7 @@ function editWish(screen, w, sharedLink = '') {
   const save = async () => {
     if (!title.value.trim()) { title.focus(); return; }
     saveBtn.disabled = true;
-    const body = { title: title.value, price: price.value, link: linkIn(link.value), note: note.value, hot };
+    const body = { title: title.value, price: price.value, link: linkIn(link.value), note: note.value, hot, due };
     try {
       if (pic instanceof Blob) body.img = { type: pic.type, data: await toBase64(pic) };
       else if (pic === null) body.img = null;
@@ -286,6 +362,8 @@ function editWish(screen, w, sharedLink = '') {
       picBox, fileIn,
       title, price, note,
       h('div', { class: 'mk-chips' }, hotBtn),
+      h('span', { class: 'mk-label want-due-label' }, 'К дате'),
+      dueChips, dueIn,
       h('div', { class: 'sheet-actions' },
         w ? h('button', { type: 'button', class: 'btn want-remove', onclick: remove }, 'Уже не хочу') : null,
         saveBtn)));

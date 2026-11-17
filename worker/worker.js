@@ -58,6 +58,8 @@ const MIGRATIONS = [
   'ALTER TABLE memes ADD COLUMN style TEXT',
   // Коли надіслано push про лист: NULL — ще ні (cron підбере «На утро» і «К дате»), 0 — не слати
   'ALTER TABLE letters ADD COLUMN pushed INTEGER',
+  // Хотілка «к дате»: 'YYYY-MM-DD' або NULL
+  'ALTER TABLE wishes ADD COLUMN due TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -351,6 +353,8 @@ function wishFields(b) {
     link: /^https?:\/\/\S+$/i.test(link) ? link : null,
     note: String(b.note || '').trim().slice(0, 500) || null,
     hot: b.hot ? 1 : 0,
+    // Справжня календарна дата, інакше — без дати
+    due: /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) && !Number.isNaN(Date.parse(b.due)) ? String(b.due) : null,
   };
 }
 
@@ -373,7 +377,7 @@ async function wishesRoute(req, db, side, rest) {
   if (m === 'GET' && !rest) {
     const { results } = await db.prepare('SELECT * FROM wishes ORDER BY hot DESC, created DESC').all();
     const view = (r, withMark) => ({
-      id: r.id, title: r.title, price: r.price, link: r.link, note: r.note, hot: !!r.hot, img: r.img || null, created: r.created,
+      id: r.id, title: r.title, price: r.price, link: r.link, note: r.note, hot: !!r.hot, due: r.due || null, img: r.img || null, created: r.created,
       ...(withMark ? { mark: r.mark } : {}),
     });
     return json({
@@ -390,8 +394,8 @@ async function wishesRoute(req, db, side, rest) {
     const img = wishImg(db, b.img);
     await db.batch([
       ...(img ? [img.stmt] : []),
-      db.prepare('INSERT INTO wishes (id, owner, title, price, link, note, hot, created, img) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, side, f.title, f.price, f.link, f.note, f.hot, created, img?.name ?? null),
+      db.prepare('INSERT INTO wishes (id, owner, title, price, link, note, hot, created, img, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, side, f.title, f.price, f.link, f.note, f.hot, created, img?.name ?? null, f.due),
     ]);
     return json({ id, ...f, hot: !!f.hot, img: img?.name ?? null, created }, 201);
   }
@@ -408,8 +412,8 @@ async function wishesRoute(req, db, side, rest) {
       const imgName = 'img' in b ? (img?.name ?? null) : r.img;
       await db.batch([
         ...(img ? [img.stmt] : []),
-        db.prepare('UPDATE wishes SET title = ?, price = ?, link = ?, note = ?, hot = ?, img = ? WHERE id = ?')
-          .bind(f.title, f.price, f.link, f.note, f.hot, imgName, r.id),
+        db.prepare('UPDATE wishes SET title = ?, price = ?, link = ?, note = ?, hot = ?, img = ?, due = ? WHERE id = ?')
+          .bind(f.title, f.price, f.link, f.note, f.hot, imgName, f.due, r.id),
         ...(r.img && r.img !== imgName ? [dropImg(db, r.img)] : []),
       ]);
       return json({ ok: true, img: imgName });

@@ -1471,9 +1471,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .want-add { display: flex; justify-content: center; width: 100%; margin: 14px 0 12px; }
 .want-budget { display: grid; gap: 6px; margin: 14px 0 10px; }
 .want-budget .mk-label { margin: 0; color: var(--ink-soft); }
-.want-budget .mk-chip { background: var(--paper); }
-.want-budget .mk-chip[aria-checked="true"] { background: var(--plum); color: #fff; }
-[data-side="vin"] .want-budget .mk-chip[aria-checked="true"] { background: var(--star); border-color: var(--star); color: var(--night); }
 
 .want-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 
@@ -1861,12 +1858,12 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .write-seal ~ :is(.title, .day, h2) { padding-right: 72px; }
 
 /* Його половина: перемикачі й порожні стани на нічному небі читаються, як у «Планах» */
-[data-side="vin"] .screen :is(.archive-seg, .mk-kind, .want-budget) .mk-chip {
+[data-side="vin"] .screen :is(.archive-seg, .mk-kind) .mk-chip {
   background: color-mix(in srgb, var(--night) 88%, #fff);
   border-color: rgba(244, 230, 196, .3);
   color: var(--cream);
 }
-[data-side="vin"] .screen :is(.archive-seg, .mk-kind, .want-budget) .mk-chip[aria-checked="true"] {
+[data-side="vin"] .screen :is(.archive-seg, .mk-kind) .mk-chip[aria-checked="true"] {
   background: var(--star);
   border-color: var(--star);
   color: var(--night);
@@ -1910,10 +1907,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 /* Світлі шторки на його половині: кружок під ✕ видно */
 .sheet-maker .sheet-close { background: rgba(74, 37, 69, .08); }
 
-/* Хотелки: бюджет — одним рядком, підказка по центру, як і порожній стан */
-.want-budget .mk-chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; }
-.want-budget .mk-chips::-webkit-scrollbar { display: none; }
-.want-budget .mk-chip { flex: none; }
+/* Хотелки: підказка по центру, як і порожній стан */
 .want-budget ~ .hint { text-align: center; }
 
 /* Push: одноразова пропозиція на «Письмах» і блок у «О Радовалке» */
@@ -1937,3 +1931,17 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .push-panel .btn { width: 100%; justify-content: center; }
 .push-panel .hint { margin: 0; }
 [data-side="vin"] .push-panel .btn-primary { background: var(--star); border-color: var(--star); color: var(--night); }
+
+/* Хотелки: бюджет повзунком, «к дате» — у картці й у формі */
+.want-budget-head { display: flex; align-items: baseline; justify-content: space-between; }
+.want-budget-val { font-weight: 500; color: var(--ink); }
+.want-budget input[type="range"] { width: 100%; min-height: 32px; margin: 0; accent-color: var(--wax); }
+[data-side="vin"] .want-budget input[type="range"] { accent-color: var(--star); }
+.want-due { font-size: .8125rem; font-weight: 500; color: #8a3a66; }
+.want-due-label { display: block; margin: 10px 0 4px; }
+.want-due-row { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; }
+.want-due-row::-webkit-scrollbar { display: none; }
+.want-due-row .mk-chip { flex: none; }
+.want-due-in { margin-top: 8px; }
+.gift-wish-box { margin-top: 6px; }
+.want-due-row { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }

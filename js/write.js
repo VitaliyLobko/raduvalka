@@ -4,7 +4,7 @@ import { get, send } from './api.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { mountHelper } from './helper.js';
-import { loadWishes, fitsBudget, money, BUDGETS } from './wishes.js';
+import { loadWishes, fitsBudget, money, budgetSlider } from './wishes.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -237,13 +237,13 @@ async function pickFromWishes(box, rows) {
     return;
   }
   const open = data.theirs.filter((w) => w.mark !== 'bought');
+  // Повзунок створюємо раз і поза draw — перемальовується лише список під ним
+  const slider = budgetSlider(open.map((w) => w.price), budget, (b) => { budget = b; draw(); });
+  const listBox = h('div', { class: 'gift-wish-box' });
+  box.replaceChildren(...[slider, listBox].filter(Boolean));
   const draw = () => {
     const list = open.filter((w) => fitsBudget(w, budget));
-    box.replaceChildren(
-      h('div', { class: 'mk-chips' }, ...BUDGETS.map((b) => h('button', {
-        type: 'button', class: 'mk-chip', 'aria-checked': String(budget === b),
-        onclick: () => { budget = b; draw(); },
-      }, b ? `до ${b.toLocaleString('ru')}` : 'любой бюджет'))),
+    listBox.replaceChildren(
       list.length ? h('div', { class: 'gift-wish-list' }, ...list.map((w) => h('button', {
         type: 'button', class: 'mk-chip gift-wish', 'aria-checked': String(picked.has(w.id)),
         onclick: () => {
