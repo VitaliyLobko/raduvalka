@@ -4,9 +4,9 @@ import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, remembe
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
-import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable } from './feed.js';
+import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable, dayInFeed, pinDay } from './feed.js';
 import { renderGift } from './gift.js';
-import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './wishes.js';
+import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
@@ -55,11 +55,10 @@ let expanded = null;
 const setExpanded = (on) => { expanded = on ? letterKey() : null; render(); };
 
 // Лист із застосунку: дата — з часу показу за годинником телефона, репліка кур'єра — за родом
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 function prepLetter(l) {
-  if (l?.at) {
-    const d = new Date(l.at);
-    l.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
+  if (l?.at) l.date = isoDay(new Date(l.at));
   if (l?.mascot && !l.mascotLine && DATA.mascots[l.mascot]) {
     l.mascotLine = DATA.mascots[l.mascot].g === 'f' ? 'Принесла тебе письмо. Бежала со всех лап 💌' : 'Принёс тебе письмо. Нёс бережно 💌';
   }
@@ -94,6 +93,11 @@ function dayLabel(iso) {
   return s[0].toUpperCase() + s.slice(1);
 }
 
+// Над листом — день і час, коли він прийшов (у заготовки з бази часу нема)
+const letterWhen = (l) => (l.at
+  ? `${dayLabel(l.date)} · ${new Date(l.at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}`
+  : dayLabel(l.date));
+
 function courier(letter) {
   // Лист до особливої дати несуть усі разом, у святкових позах (де вони є)
   if (letter.special) {
@@ -125,9 +129,10 @@ function renderLetter() {
     return;
   }
   const { letter } = DATA;
-  // Лист дня сховано свайпом — лишається переписка; повернути — у «Спрятанные»
-  if (letter && isHidden(dayKey())) {
-    screen.replaceChildren(h('p', { class: 'day' }, dayLabel(letter.date)), h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(render));
+  // Лист дня сховано свайпом (повернути — у «Спрятанные») або прочитано, а в переписці вже є новіше —
+  // тоді лише переписка, найновіше нагорі
+  if (letter && (isHidden(dayKey()) || dayInFeed())) {
+    screen.replaceChildren(h('p', { class: 'day' }, dayLabel(isoDay(new Date()))), h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(render));
     return;
   }
   if (!letter) {
@@ -139,7 +144,7 @@ function renderLetter() {
   const full = expanded === letterKey();
 
   const head = [
-    h('p', { class: 'day' }, dayLabel(letter.date)),
+    h('p', { class: 'day' }, letterWhen(letter)),
     h('h2', { class: 'title' }, letter.special ? 'Праздничное письмо 🎉' : st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
   ];
 
@@ -218,6 +223,8 @@ function renderLetter() {
 function openEnvelope(env) {
   const done = () => {
     expanded = letterKey();
+    // Щойно відкритий лишається нагорі до наступного заходу, навіть якщо в переписці є новіше
+    pinDay(DATA.letter.id);
     setLetterState({ opened: true });
     render();
   };
@@ -296,6 +303,7 @@ function applySide() {
 // fromBack — вкладку повернула кнопка «Назад»: історію вже зсунув телефон
 function selectTab(name, fromBack = false) {
   if (!fromBack) tabChanged(tab, name);
+  if (tab === 'wish' && name !== 'wish') forgetFreshWishes();
   tab = name;
   if (name === 'letter') { refreshLetter(); invalidateFeed(); }
   document.querySelectorAll('.tab').forEach((x) => {
@@ -314,14 +322,18 @@ initVoice();
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
 // Тап по сповіщенню при відкритій Радовалці — на «Письма», свіже дотягне visibilitychange
-navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.go === 'letter' && tab !== 'letter') selectTab('letter'); });
+const GO_TABS = ['letter', 'wish'];
+navigator.serviceWorker?.addEventListener('message', (e) => { if (GO_TABS.includes(e.data?.go) && tab !== e.data.go) selectTab(e.data.go); });
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці
 document.addEventListener('radovalka:fresh', markLetter);
 
 // «Поделиться → Радовалка»: service worker поклав картинку в кеш і відкрив ?go=shared.
 // Забираємо лише після входу — якщо замок, картинка чекає в кеші
 async function takeShared() {
-  if (new URLSearchParams(location.search).get('go') !== 'shared') return;
+  const go = new URLSearchParams(location.search).get('go');
+  // Застосунок відкрили тапом по сповіщенню про хотілку
+  if (go === 'wish') { history.replaceState(null, '', location.pathname); selectTab('wish'); return; }
+  if (go !== 'shared') return;
   history.replaceState(null, '', location.pathname);
   let file = null;
   let none = false;

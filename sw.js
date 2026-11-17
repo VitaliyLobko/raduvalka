@@ -45,7 +45,7 @@ self.addEventListener('push', (event) => {
     renotify: true,
     silent: !!note.silent,
     icon: new URL('icons/icon-192.png', scope).href,
-    data: { url: scope },
+    data: { url: scope, go: note.go || 'letter' },
   }));
 });
 
@@ -56,8 +56,9 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const mine = wins.find((w) => w.url.startsWith(self.registration.scope));
-    // Усі сповіщення — про листи, мемчики й відповіді: вони на вкладці «Письма»
-    if (mine) { mine.postMessage({ go: 'letter' }); return mine.focus(); }
-    return self.clients.openWindow(url);
+    // Листи, мемчики й відповіді — «Письма»; нова хотілка — «Хотелки»
+    const go = event.notification.data?.go || 'letter';
+    if (mine) { mine.postMessage({ go }); return mine.focus(); }
+    return self.clients.openWindow(go === 'letter' ? url : new URL(`?go=${go}`, self.registration.scope).href);
   })());
 });

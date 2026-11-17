@@ -24,6 +24,9 @@ let loading = null;
 let seenAt = { memes: 0, replies: 0 };
 let box = null;
 let redrawAll = null;
+// Лист дня, відкритий за цей захід, лишається нагорі; drawnInFeed — де він був при малюванні екрана
+let pinned = null;
+let drawnInFeed = false;
 
 const hiddenKey = () => `radovalka:hidden:${DATA.side}`;
 
@@ -55,7 +58,7 @@ export function invalidateFeed() { stale = true; }
 // Тихо дотягнути свіже: перемальовується лише стрічка (якщо на екрані) і крапка на марці
 export function refreshFeed() {
   stale = true;
-  return load().then(() => { draw(); fresh(); }).catch(() => {});
+  return load().then(settle).catch(() => {});
 }
 
 const repliesSeen = () => DATA.mine.repliesSeen || 0;
@@ -72,7 +75,22 @@ export function feedFresh() {
   return n;
 }
 
-const dayId = () => (isHidden(dayKey()) ? null : DATA.letter?.id);
+export function pinDay(id) { pinned = id; }
+
+// Прочитаний лист дня, новіший за який у переписці вже щось є, стає звичайним рядком — нагорі найновіше.
+// Свято й заготовка з бази (без id, у стрічці її нема) лишаються карткою
+export function dayInFeed() {
+  const l = DATA.letter;
+  if (!cache || !l?.id || !l.at || !l.opened || l.special || l.id === pinned || isHidden(dayKey())) return false;
+  const now = Date.now();
+  const hidden = readHidden();
+  const newer = (key, at) => at > l.at && at <= now && !hidden.has(key);
+  return cache.inbox.some((x) => x.id !== l.id && newer(`l:${x.id}`, x.at))
+    || cache.sent.some((x) => newer(`l:${x.id}`, x.kind === 'env' ? x.created : (x.at || x.created)))
+    || (DATA.memes || []).some((m) => newer(`m:${m.id}`, m.created));
+}
+
+const dayId = () => (isHidden(dayKey()) || dayInFeed() ? null : DATA.letter?.id);
 export const dayKey = () => (DATA.letter ? `day:${DATA.letter.id || DATA.letter.date}` : '');
 
 function load() {
@@ -92,6 +110,7 @@ function load() {
 // Стрічка під листом дня. rerender — перемалювати весь екран «Письма» (для повернення листа дня)
 export function letterFeed(rerender) {
   redrawAll = rerender;
+  drawnInFeed = dayInFeed();
   box = h('div', { class: 'feed-box' });
   const section = h('section', { class: 'feed', 'aria-label': 'Переписка' },
     h('h3', { class: 'archive-title' }, 'Переписка'), box);
@@ -99,7 +118,7 @@ export function letterFeed(rerender) {
   if (cache) draw(true);
   else box.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
   if (stale || !cache) {
-    load().then(() => { draw(); fresh(); }).catch(() => {
+    load().then(settle).catch(() => {
       if (!cache && box.isConnected) box.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
     });
   }
@@ -107,6 +126,13 @@ export function letterFeed(rerender) {
 }
 
 const fresh = () => document.dispatchEvent(new CustomEvent('radovalka:fresh'));
+
+// Дотягнули свіже: лист дня переїхав у стрічку чи назад — перемальовуємо весь екран, інакше лише стрічку
+function settle() {
+  if (box?.isConnected && redrawAll && dayInFeed() !== drawnInFeed) redrawAll();
+  else draw();
+  fresh();
+}
 
 // Фонове оновлення підміняє кеш — зміну пишемо в актуальний об'єкт за id, а не в той, що був при малюванні
 const liveLetter = (l) => cache?.inbox.find((x) => x.id === l.id) || l;
@@ -362,8 +388,8 @@ function outBubble(l, later) {
   const e = (DATA.partnerEnvelopes || []).find((x) => x.id === l.env);
   const chose = me.partner === 'она' ? 'выбрала' : 'выбрал';
   const where = l.kind === 'gift'
-    ? `🎁 ${(l.gift || []).map((o) => `${o.emoji} ${o.title}`).join(' / ')}`
-    : l.kind === 'env' ? `${e ? e.emoji : '✉'} в конверт «${e ? e.label : '…'}»`
+    ? `🎁 ${hhmm(l.at || l.created)} · ${(l.gift || []).map((o) => `${o.emoji} ${o.title}`).join(' / ')}`
+    : l.kind === 'env' ? `${e ? e.emoji : '✉'} ${hhmm(l.created)} · в конверт «${e ? e.label : '…'}»`
       : `${l.stocked ? '📦 из запаса ·' : '➶'} ${hhmm(later ? l.created : l.at)}`;
   let state;
   if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
@@ -599,8 +625,8 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true,
       bubble.setPointerCapture(e.pointerId);
       bubble.classList.add('is-drag');
     }
-    // Вправо без можливості відповісти — лише пружинить
-    const d = dx > 0 && !canRight() ? Math.min(dx, 60) * 0.35 : dx;
+    // У бік без дії — лише пружинить
+    const d = dx > 0 && !canRight() ? Math.min(dx, 60) * 0.35 : dx < 0 && !onLeft ? -Math.min(-dx, 60) * 0.35 : dx;
     bubble.style.transform = `translateX(${d}px)`;
     row.dataset.swipe = d < -SWIPE ? 'hide' : d > SWIPE ? 'reply' : d < -20 ? 'hide-soon' : d > 20 ? 'reply-soon' : '';
   });
@@ -612,9 +638,9 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true,
     const stop = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
     bubble.addEventListener('click', stop, { capture: true, once: true });
     setTimeout(() => bubble.removeEventListener('click', stop, { capture: true }), 300);
-    const go = dx < -SWIPE ? onLeft : dx > SWIPE && canRight() ? onRight : null;
+    const go = dx < -SWIPE && onLeft ? onLeft : dx > SWIPE && onRight && canRight() ? onRight : null;
     if (go && place) learn(place);
-    if (go === onLeft) {
+    if (go && go === onLeft) {
       // Відлітає з того місця, де відпустили, рядок згортається — і лише тоді зникає зі списку
       const from = bubble.style.transform;
       bubble.classList.remove('is-drag');

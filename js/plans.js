@@ -6,6 +6,7 @@ import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { burst } from './fx.js';
+import { swipeable } from './feed.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -313,9 +314,9 @@ function waitingList(screen, me) {
     }, '✕') : null))));
 }
 
-function planRow(p, action) {
+function planRow(p, action, tag = 'li') {
   const [, emoji] = catOf(p.cat);
-  return h('li', { class: `plan-row${p.done ? ' is-done' : ''}` },
+  return h(tag, { class: `plan-row${p.done ? ' is-done' : ''}` },
     h('span', { class: 'plan-row-emoji', 'aria-hidden': 'true' }, emoji),
     h('span', { class: 'plan-row-text' },
       h('span', { class: 'plan-row-title' }, p.title),
@@ -356,15 +357,25 @@ function oursView(screen, me, pet) {
     open.length >= 2 ? h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'wheel'; renderPlans(screen); } }, '🎡 Что сегодня? Крутить колесо') : null,
     open.length
       ? h('ul', { class: 'plan-list' }, ...open.map((p) => {
-        const row = planRow(p, doneBtn(p));
-        if (fresh.has(p.id)) row.append(h('span', { class: 'plan-new' }, 'новое'));
+        const row = swipeRow(screen, p, doneBtn(p));
+        if (fresh.has(p.id)) row.firstChild.append(h('span', { class: 'plan-new' }, 'новое'));
         return row;
       }))
       : h('p', { class: 'mk-wait' }, 'Всё, что совпало, уже сделано 🎉 Листай дальше — найдутся новые.'),
     done.length ? fold('done', `Сделали · ${done.length}`,
-      h('ul', { class: 'plan-list' }, ...done.map((p) => planRow(p, doneBtn(p))))) : null,
+      h('ul', { class: 'plan-list' }, ...done.map((p) => swipeRow(screen, p, doneBtn(p))))) : null,
     h('p', { class: 'hint' }, `Здесь только то, что вы оба отметили ❤️. «Сделали» видите и ты, и ${me.partner}.`),
   ];
+}
+
+// Спільний план: змах вправо — «сделали» (з конфеті), у «Сделали» змах уліво — повернути
+function swipeRow(screen, p, action) {
+  const row = planRow(p, action, 'div');
+  const li = h('li', { class: 'plan-swipe' }, row);
+  swipeable(li, row, p.done
+    ? { canRight: () => false, fold: false, onLeft: () => setDone(screen, p, false) }
+    : { onRight: () => { burst(row, '🎉', 8); setDone(screen, p, true); } });
+  return li;
 }
 
 async function setDone(screen, p, done) {

@@ -2323,3 +2323,10 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   .is-spring { transition: none !important; }
   .plan-card.is-next, .want-undo { animation: none; }
 }
+
+/* Хотелки: нова від другого — обвідка й «новое», поки на вкладці */
+.want.is-fresh { box-shadow: 0 0 0 2px var(--wax), 0 10px 22px -14px rgba(74, 37, 69, .6); animation: want-fresh .6s cubic-bezier(.3, 1.5, .5, 1); }
+[data-side="vin"] .want.is-fresh { box-shadow: 0 0 0 2px var(--star), 0 10px 22px -14px rgba(0, 0, 0, .6); }
+.want-new { margin-left: 8px; font: 600 .75rem/1.6 var(--ui); vertical-align: middle; }
+@keyframes want-fresh { from { transform: scale(.94); } }
+@media (prefers-reduced-motion: reduce) { .want.is-fresh { animation: none; } }

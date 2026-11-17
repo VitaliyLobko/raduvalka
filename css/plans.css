@@ -354,3 +354,33 @@
 /* Улюбленець-наліпка в куті картки колоди */
 .plan-card-pet { position: absolute; top: 14px; right: 16px; width: 68px; height: 68px; pointer-events: none; }
 .plan-card-pet img { border-width: 3px; }
+
+/* «Наши планы»: рядок їде за пальцем, під ним — що станеться */
+.plan-swipe { position: relative; }
+.plan-swipe > .plan-row { touch-action: pan-y; transition: transform .2s ease-out; }
+.plan-swipe > .plan-row.is-drag { transition: none; }
+.plan-swipe::before {
+  position: absolute;
+  top: 50%;
+  color: var(--ink-soft);
+  font-size: .875rem;
+  font-weight: 600;
+  opacity: .5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.plan-swipe[data-swipe^="reply"]::before { content: '✓ Сделали'; left: 14px; }
+.plan-swipe[data-swipe^="hide"]::before { content: '↺ Вернуть'; right: 14px; }
+.plan-swipe:is([data-swipe="hide"], [data-swipe="reply"])::before { opacity: 1; }
+
+/* Колесо: теми в один рядок, гортаються вбік */
+.plan-filter {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 2px 0;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+.plan-filter::-webkit-scrollbar { display: none; }
+.plan-filter .mk-chip { flex: none; white-space: nowrap; }

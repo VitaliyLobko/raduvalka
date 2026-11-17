@@ -115,6 +115,10 @@ export async function loadWishes() {
 
 // Точка на вкладці: другий додав хотілку, якої ти ще не бачив(ла) у його/її списку
 const newestTheirs = () => Math.max(0, ...(DATA.wishes?.theirs || []).map((w) => w.created || 0));
+// Нові хотілки підсвічені, поки людина на вкладці: межа — «бачила» до цього заходу. Пішла — гаснуть
+let freshFrom = null;
+export function forgetFreshWishes() { freshFrom = null; }
+
 export function markWishes() {
   document.querySelector('.tab[data-tab="wish"]')?.classList.toggle('has-new', newestTheirs() > (DATA.mine.wishesSeen || 0));
 }
@@ -124,6 +128,8 @@ export const fitsBudget = (w, b) => !w.price || (w.price >= b.min && w.price <= 
 
 export function renderWishes(screen) {
   const me = who();
+  // Є нове від другого — відкриваємо одразу його список
+  if (freshFrom == null && newestTheirs() > (DATA.mine.wishesSeen || 0)) view = 'theirs';
   const theirsName = me.partner === 'она' ? 'Её' : 'Его';
   const data = DATA.wishes;
   const pet = petFor('box');
@@ -171,6 +177,7 @@ export function renderWishes(screen) {
   } else {
     const newest = newestTheirs();
     if (newest > (DATA.mine.wishesSeen || 0)) {
+      freshFrom ??= DATA.mine.wishesSeen || 0;
       DATA.mine.wishesSeen = newest;
       save('mine', { wishesSeen: newest });
     }
@@ -182,6 +189,7 @@ export function renderWishes(screen) {
       listBox.replaceChildren(list.length
         ? h('ul', { class: 'want-list' }, ...list.map((w) => wishCard(w, {
           open: true,
+          fresh: freshFrom != null && w.created > freshFrom,
           actions: h('span', { class: 'want-marks' },
             markBtn(screen, w, 'eye', `🤫 ${iMark}`),
             markBtn(screen, w, 'bought', '✓ куплено')),
@@ -211,12 +219,12 @@ function photo(name, alt = '') {
 }
 
 // open — уся картка веде в магазин (чужі хотілки); onclick — відкриває форму (свої)
-function wishCard(w, { onclick, actions, open } = {}) {
+function wishCard(w, { onclick, actions, open, fresh } = {}) {
   const toShop = open && w.link;
   const inner = [
     w.img ? photo(w.img) : null,
     h('span', { class: 'want-text' },
-      h('span', { class: 'want-title' }, `${w.hot ? '🔥 ' : ''}${w.title}`),
+      h('span', { class: 'want-title' }, `${w.hot ? '🔥 ' : ''}${w.title}`, fresh ? h('span', { class: 'inbox-new want-new' }, 'новое') : null),
       h('span', { class: 'want-meta' }, `${w.price ? money(w.price) : 'цена не указана'}${toShop ? ' · в магазин ↗' : ''}`),
       dueText(w.due) ? h('span', { class: 'want-due' }, dueText(w.due)) : null,
       w.note ? h('span', { class: 'want-note' }, w.note) : null),
@@ -226,7 +234,7 @@ function wishCard(w, { onclick, actions, open } = {}) {
   const body = toShop ? h('a', { class: 'want-body', ...ext, 'aria-label': `${w.title} — открыть в магазине` }, ...inner)
     : onclick ? h('button', { type: 'button', class: 'want-body', onclick }, ...inner)
     : h('div', { class: 'want-body' }, ...inner);
-  return h('li', { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}` },
+  return h('li', { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}${fresh ? ' is-fresh' : ''}` },
     body,
     link || actions ? h('div', { class: 'want-foot' }, link, actions) : null);
 }

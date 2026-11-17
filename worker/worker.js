@@ -151,7 +151,7 @@ async function route(req, env, ctx) {
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify);
 
-  if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7));
+  if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7), notify);
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6));
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify);
@@ -404,7 +404,7 @@ function wishImg(db, b) {
 const dropImg = (db, name) => db.prepare('DELETE FROM imgs WHERE name = ?').bind(name);
 
 // Свої — без позначок другого (сюрприз), чужі — з позначками
-async function wishesRoute(req, db, side, rest) {
+async function wishesRoute(req, db, side, rest, notify) {
   const m = req.method;
   if (m === 'GET' && !rest) {
     const { results } = await db.prepare('SELECT * FROM wishes ORDER BY hot DESC, created DESC').all();
@@ -429,6 +429,7 @@ async function wishesRoute(req, db, side, rest) {
       db.prepare('INSERT INTO wishes (id, owner, title, price, link, note, hot, created, img, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
         .bind(id, side, f.title, f.price, f.link, f.note, f.hot, created, img?.name ?? null, f.due),
     ]);
+    notify.send(other(side), wishNote(side));
     return json({ id, ...f, hot: !!f.hot, img: img?.name ?? null, created }, 201);
   }
   const r = await db.prepare('SELECT * FROM wishes WHERE id = ?').bind(rest).first();
@@ -1420,6 +1421,11 @@ const sender = (side, he, she) => (side === 'vin' ? he : she);
 function memeNote(from) {
   return { title: 'Тебе мемчик 😹', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
+// go — куди відкрити застосунок за тапом
+function wishNote(from) {
+  return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил, чего хочется', 'Она добавила, чего хочется'), tag: 'wish', go: 'wish' };
+}
+
 function replyNote(from, on) {
   return {
     title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
