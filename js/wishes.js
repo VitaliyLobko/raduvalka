@@ -8,29 +8,55 @@ import { prepare, toBase64 } from './memes.js';
 export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
 const PHOTO_SIDE = 720;
 
-// Кроки повзунка бюджету; 0 — «любой», завжди крайній праворуч
+// Кроки бюджету «от — до»: ліворуч 0, праворуч ∞ («без верхней границы»), між ними — лише до найдорожчої хотілки
 const STEPS = [300, 500, 700, 1000, 1500, 2000, 3000, 5000, 7000, 10000, 15000, 20000, 30000, 50000];
+export const ANY_BUDGET = { min: 0, max: Infinity };
+const rub = (n) => `${n.toLocaleString('ru')} ₴`;
 
-// Повзунок бюджету: кроки лише до найдорожчої хотілки. onInput(budget) — на кожен рух, без перемальовки самого повзунка
+// Два повзунки на одній смузі. onInput({ min, max }) — на кожен рух, без перемальовки самого повзунка
 export function budgetSlider(prices, value, onInput) {
   const top = Math.max(0, ...prices.filter(Boolean));
-  const steps = [...STEPS.filter((x) => x < top), 0];
-  if (steps.length < 2) return null;
-  const at = steps.indexOf(value);
-  const out = h('output', { class: 'want-budget-val' });
-  const input = h('input', { type: 'range', min: '0', max: String(steps.length - 1), step: '1', 'aria-label': 'Бюджет' });
-  input.value = String(at < 0 ? steps.length - 1 : at);
-  const show = () => {
-    const b = steps[Number(input.value)];
-    out.textContent = b ? `до ${b.toLocaleString('ru')} ₴` : 'любой';
-    input.setAttribute('aria-valuetext', out.textContent);
-    return b;
+  const steps = [0, ...STEPS.filter((x) => x < top), Infinity];
+  if (steps.length < 3) return null;
+  const last = steps.length - 1;
+  const at = (v, fallback) => { const i = steps.indexOf(v); return i < 0 ? fallback : i; };
+  const thumb = (label, i) => {
+    const el = h('input', { type: 'range', min: '0', max: String(last), step: '1', 'aria-label': label });
+    el.value = String(i);
+    return el;
   };
-  input.addEventListener('input', () => onInput(show()));
+  const lo = thumb('Бюджет от', at(value.min, 0));
+  const hi = thumb('Бюджет до', at(value.max, last));
+  const out = h('output', { class: 'want-budget-val' });
+  const bar = h('div', { class: 'want-range' }, h('span', { class: 'want-range-fill' }), lo, hi);
+  const show = () => {
+    const min = steps[Number(lo.value)];
+    const max = steps[Number(hi.value)];
+    out.textContent = !min && max === Infinity ? 'любой'
+      : !min ? `до ${rub(max)}`
+      : max === Infinity ? `от ${rub(min)}`
+      : `${min.toLocaleString('ru')} – ${rub(max)}`;
+    lo.setAttribute('aria-valuetext', min ? `от ${rub(min)}` : 'от нуля');
+    hi.setAttribute('aria-valuetext', max === Infinity ? 'без верхней границы' : `до ${rub(max)}`);
+    bar.style.setProperty('--lo', String(Number(lo.value) / last));
+    bar.style.setProperty('--hi', String(Number(hi.value) / last));
+    // Обидва біля правого краю — лівий зверху, інакше його не вхопити з-під правого
+    lo.style.zIndex = Number(lo.value) > last / 2 ? '3' : '1';
+    return { min, max };
+  };
+  // Не перехрещуються: між ними щонайменше один крок
+  lo.addEventListener('input', () => {
+    if (Number(lo.value) >= Number(hi.value)) lo.value = String(Number(hi.value) - 1);
+    onInput(show());
+  });
+  hi.addEventListener('input', () => {
+    if (Number(hi.value) <= Number(lo.value)) hi.value = String(Number(lo.value) + 1);
+    onInput(show());
+  });
   show();
   return h('div', { class: 'want-budget' },
     h('div', { class: 'want-budget-head' }, h('span', { class: 'mk-label' }, 'Бюджет'), out),
-    input);
+    bar);
 }
 
 // «К дате»: свята за днем і місяцем — назвою, решта — датою; минула дата вже не показується
@@ -52,7 +78,7 @@ const nextDay = (mmdd) => {
 };
 
 let view = 'theirs';
-let budget = 0;
+let budget = ANY_BUDGET;
 // Його/її список: спершу «очень хочу», далі — до найближчої дати
 const soon = (w) => (w.due && daysTo(w.due) >= 0 ? daysTo(w.due) : Infinity);
 const byDue = (list) => [...list].sort((a, b) => (b.hot - a.hot) || (soon(a) - soon(b)));
@@ -72,7 +98,8 @@ export function markWishes() {
   document.querySelector('.tab[data-tab="wish"]')?.classList.toggle('has-new', newestTheirs() > (DATA.mine.wishesSeen || 0));
 }
 
-export const fitsBudget = (w, b) => !b || !w.price || w.price <= b;
+// Без ціни — завжди в списку: невідомо, скільки коштує
+export const fitsBudget = (w, b) => !w.price || (w.price >= b.min && w.price <= b.max);
 
 export function renderWishes(screen) {
   const me = who();
@@ -89,7 +116,7 @@ export function renderWishes(screen) {
 
   const head = [
     h('h2', { class: 'title' }, 'Хотелки'),
-    pet ? h('div', { class: 'courier' },
+    pet ? h('div', { class: 'courier want-courier' },
       h('span', { class: 'mascot', html: mascotImg(pet, 'festive') }),
       h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `),
         view === 'mine' ? `Пиши, чего хочется. ${cap(me.partner)} подглядит 😉` : 'Тсс. Что ты тут отметишь — останется между нами.')) : null,
@@ -138,7 +165,7 @@ export function renderWishes(screen) {
             markBtn(screen, w, 'eye', `🤫 ${iMark}`),
             markBtn(screen, w, 'bought', '✓ куплено')),
         })))
-        : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь бегунок.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`));
+        : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь бегунки.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`));
     };
     drawList();
     body = [

@@ -4,7 +4,7 @@ import { get, send } from './api.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { mountHelper } from './helper.js';
-import { loadWishes, fitsBudget, money, budgetSlider } from './wishes.js';
+import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -229,7 +229,7 @@ async function pickFromWishes(box, rows) {
     return;
   }
   const picked = new Set();
-  let budget = 0;
+  let budget = ANY_BUDGET;
   // Хотілки кладемо лише в порожні рядки — вписане руками не чіпаємо; уже куплене не пропонуємо
   const free = rows.filter((r) => !r.title.value.trim());
   if (!free.length) {

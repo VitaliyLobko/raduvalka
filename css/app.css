@@ -1901,7 +1901,9 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 
 /* «Вместе»: кнопка «Планы» в межах екрана; календар видно на його половині */
 .sheet-together .meet-row { margin-top: 8px; }
-.sheet-together .together-days { margin-top: 8px; }
+.sheet-together .together-days { margin: 8px 0 14px; }
+/* Листівка 3:4 не вища за те, що лишається від шторки (решта ≈ 17.5rem — росте разом зі шрифтом телефона) */
+.sheet-together .space { width: min(100%, calc((92dvh - 18.5rem) * .75)); margin-inline: auto; }
 [data-side="vin"] .meet-row input { color-scheme: light; }
 
 /* Світлі шторки на його половині: кружок під ✕ видно */
@@ -1935,8 +1937,65 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 /* Хотелки: бюджет повзунком, «к дате» — у картці й у формі */
 .want-budget-head { display: flex; align-items: baseline; justify-content: space-between; }
 .want-budget-val { font-weight: 500; color: var(--ink); }
-.want-budget input[type="range"] { width: 100%; min-height: 32px; margin: 0; accent-color: var(--wax); }
-[data-side="vin"] .want-budget input[type="range"] { accent-color: var(--star); }
+/* Бюджет «от — до»: два повзунки на одній смузі; ловляться лише кружечки, смуга між ними зафарбована */
+.want-range { --t: 28px; --c: var(--wax); position: relative; height: 40px; }
+[data-side="vin"] .want-range { --c: var(--star); }
+.want-range::before,
+.want-range-fill {
+  content: '';
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 3px;
+}
+.want-range::before { left: calc(var(--t) / 2); right: calc(var(--t) / 2); background: var(--chip); }
+.want-range-fill {
+  left: calc(var(--t) / 2 + (100% - var(--t)) * var(--lo, 0));
+  right: calc(var(--t) / 2 + (100% - var(--t)) * (1 - var(--hi, 1)));
+  background: var(--c);
+}
+.want-range input {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: var(--t);
+  margin: calc(var(--t) / -2) 0 0;
+  background: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.want-range input::-webkit-slider-runnable-track { height: var(--t); background: none; }
+.want-range input::-moz-range-track { height: var(--t); background: none; }
+.want-range input::-webkit-slider-thumb {
+  width: var(--t);
+  height: var(--t);
+  border: 3px solid var(--c);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 2px 6px rgba(42, 23, 48, .3);
+  pointer-events: auto;
+  cursor: grab;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.want-range input::-moz-range-thumb {
+  width: var(--t);
+  height: var(--t);
+  box-sizing: border-box;
+  border: 3px solid var(--c);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 2px 6px rgba(42, 23, 48, .3);
+  pointer-events: auto;
+  cursor: grab;
+}
+.want-range input:focus-visible { outline: none; }
+.want-range input:focus-visible::-webkit-slider-thumb { outline: 3px solid var(--c); outline-offset: 2px; }
+.want-range input:focus-visible::-moz-range-thumb { outline: 3px solid var(--c); outline-offset: 2px; }
 .want-due { font-size: .8125rem; font-weight: 500; color: #8a3a66; }
 .want-due-label { display: block; margin: 10px 0 4px; }
 .want-due-row { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; }
@@ -1945,3 +2004,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .want-due-in { margin-top: 8px; }
 .gift-wish-box { margin-top: 6px; }
 .want-due-row { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+
+/* Хотелки: нахилене фото кур'єра не лягає кутом на «Её хотелки / Мои» */
+.want-courier { margin-bottom: 16px; }
