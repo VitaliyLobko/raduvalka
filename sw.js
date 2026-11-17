@@ -56,7 +56,8 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const mine = wins.find((w) => w.url.startsWith(self.registration.scope));
-    if (mine) return mine.focus();
+    // Усі сповіщення — про листи, мемчики й відповіді: вони на вкладці «Письма»
+    if (mine) { mine.postMessage({ go: 'letter' }); return mine.focus(); }
     return self.clients.openWindow(url);
   })());
 });

@@ -311,6 +311,8 @@ initBack((name) => selectTab(name, true));
 initVoice();
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
+// Тап по сповіщенню при відкритій Радовалці — на «Письма», свіже дотягне visibilitychange
+navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.go === 'letter' && tab !== 'letter') selectTab('letter'); });
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці
 document.addEventListener('radovalka:fresh', markLetter);
 

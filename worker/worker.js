@@ -142,7 +142,7 @@ async function route(req, env, ctx) {
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7));
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6));
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
-  if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6));
+  if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify);
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
   if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
   if (m === 'POST' && path === 'wish-from-url') return wishFromUrl(req, env);
@@ -267,7 +267,7 @@ async function putImg(db, name, req) {
 }
 
 // Мемчики: картинку завантажують обоє, але тільки сюди — PUT img/* лишається за його ключем
-async function memesRoute(req, db, side, rest) {
+async function memesRoute(req, db, side, rest, notify) {
   const m = req.method;
   if (m === 'GET' && !rest) return json(await listMemes(db, side));
 
@@ -295,6 +295,7 @@ async function memesRoute(req, db, side, rest) {
       if (!GIF_URL.test(gifUrl)) throw fail(400, 'gif');
       meme.url = gifUrl;
       await insertMeme().run();
+      notify.send(meme.dst, memeNote(side));
       return json(view(meme, side), 201);
     }
 
@@ -308,6 +309,7 @@ async function memesRoute(req, db, side, rest) {
         .bind(meme.img, type, data, meme.created),
       insertMeme(),
     ]);
+    notify.send(meme.dst, memeNote(side));
     return json(view(meme, side), 201);
   }
 
@@ -340,6 +342,7 @@ async function memesRoute(req, db, side, rest) {
     }
     await db.prepare('UPDATE memes SET reaction = ?, reply = ?, replied = ? WHERE id = ?')
       .bind(next.reaction ?? null, next.reply ?? null, next.replied ?? null, id).run();
+    if (next.reply && next.reply !== meme.reply) notify.send(meme.src, replyNote(side, 'meme'));
     return json(view(next, side));
   }
 
@@ -819,6 +822,7 @@ async function lettersRoute(req, db, side, rest, notify) {
       args.push(reply, reply ? Date.now() : null);
       // Відповідь — значить, лист прочитано
       if (reply && !b.opened) { sets.push('opened = COALESCE(opened, ?)'); args.push(Date.now()); }
+      if (reply && reply !== r.reply) notify.send(r.src, replyNote(side, 'letter'));
     }
     if (sets.length) await db.prepare(`UPDATE letters SET ${sets.join(', ')} WHERE id = ?`).bind(...args, r.id).run();
     return json({ ok: true });
@@ -1386,6 +1390,19 @@ function letterNote(kind, pet) {
   if (kind === 'date') return { title: 'Письмо к особому дню 💌', body: brought ? `${brought} письмо` : 'Открой, пока тёплое', tag: 'letter' };
   if (kind === 'morning') return { title: 'Письмо на сегодня 💌', body: brought ? `${brought} письмо дня` : 'Открой, пока тёплое', tag: 'letter' };
   return { title: 'Тебе письмо 💌', body: brought ? `${brought} письмо` : 'Открой, пока тёплое', tag: 'letter' };
+}
+
+// Мемчик і відповідь: хто й на що, без самого тексту — сповіщення видно на заблокованому екрані
+const sender = (side, he, she) => (side === 'vin' ? he : she);
+function memeNote(from) {
+  return { title: 'Тебе мемчик 😹', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
+}
+function replyNote(from, on) {
+  return {
+    title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
+    body: on === 'meme' ? 'на твой мемчик' : 'на твоё письмо',
+    tag: 'reply',
+  };
 }
 
 async function pushRoute(req, env, side, path) {
