@@ -30,7 +30,8 @@ const SCHEMA = [
 
 const SIDES = ['vona', 'vin'];
 // wishes більше не приймаємо: старий список «Куда пойдём» перенесено в «Планы» разово
-const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase'];
+const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'bdayVona', 'bdayVin'];
+const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
 const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
@@ -146,6 +147,8 @@ async function route(req, env, ctx) {
 
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
+    // Дні народження — лише дата або null (стерли)
+    for (const k of ['bdayVona', 'bdayVin']) if (k in patch && patch[k] !== null && !DATE_FIELD.test(String(patch[k]))) delete patch[k];
     const next = { ...((await getDoc(env.DB, 'together')) || {}), ...patch };
     await putDoc(env.DB, 'together', next);
     return json(next);
@@ -999,11 +1002,13 @@ async function gifSearch(url, env) {
   const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
   const offset = Math.max(0, Math.min(200, Number(url.searchParams.get('offset')) || 0));
   const trending = url.searchParams.get('trending') === '1';
+  // Суміш настрою просить по 4 з кількох пошуків; звичайна сторінка — 12
+  const limit = Math.max(4, Math.min(12, Number(url.searchParams.get('limit')) || 12));
   if (!q && !trending) return json([]);
   // Запит кирилицею GIPHY шукає російською, якщо сказати мову
   const api = new URL(`https://api.giphy.com/v1/gifs/${trending ? 'trending' : 'search'}`);
   api.search = new URLSearchParams({
-    api_key: env.GIPHY_KEY, limit: '12', offset: String(offset), rating: 'pg',
+    api_key: env.GIPHY_KEY, limit: String(limit), offset: String(offset), rating: 'pg',
     ...(trending ? {} : { q, lang: /[а-яёіїєґ]/i.test(q) ? 'ru' : 'en' }),
   });
   const res = await fetch(api);

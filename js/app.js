@@ -104,6 +104,17 @@ function courier(letter) {
     h('p', { class: 'bubble' }, h('b', {}, `${petName(letter.mascot)}: `), letter.mascotLine));
 }
 
+// Відкритий лист: кур'єр лишається поруч, менший; без кур'єра в листі — той, хто зазвичай приносить
+const READ_LINES = ['Ответишь? Я отнесу 💌', 'Я рядом, пока читаешь.', 'Перечитывай сколько хочешь.'];
+function readCourier(letter) {
+  const pet = DATA.mascots[letter.mascot] ? letter.mascot : petFor('push');
+  if (!pet) return null;
+  const line = READ_LINES[new Date().getDate() % READ_LINES.length];
+  return h('div', { class: 'courier courier-read' },
+    h('span', { class: 'mascot', html: mascotImg(pet) }),
+    h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), line));
+}
+
 function renderLetter() {
   // Подарунок, що чекає вибору, — першим; після «Ура!» видно звичайний лист дня
   if (DATA.gift) {
@@ -174,6 +185,7 @@ function renderLetter() {
         onclick: () => { setExpanded(!full); if (full) window.scrollTo({ top: 0 }); },
       }, full ? '▴ Свернуть' : '▾ Целиком')),
     st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
+    letter.special ? null : readCourier(letter),
     pushAsk(),
     letterArchive(render),
   ].filter(Boolean));

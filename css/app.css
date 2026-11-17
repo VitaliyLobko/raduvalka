@@ -2022,3 +2022,19 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .sheet-full .sheet-inner > .space { margin-top: auto; }
 .sheet-full .sheet-inner > :last-child { margin-bottom: auto; }
 .sheet-full .space { width: min(100%, calc((100dvh - 19rem) * .75)); }
+
+/* Гифки: настрої плиткою 3×3 — один тап, і вже підбірка */
+.mk-moods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.mk-moods .mk-mood-tile { justify-content: center; min-height: 40px; padding: 4px 6px; font-size: .875rem; white-space: nowrap; }
+.mk-ai-more { flex: none; border-style: dashed; }
+
+/* «Вместе»: дні народження — два поля в один рядок */
+.bday-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.bday { display: grid; gap: 2px; padding: 6px 10px 8px; border-radius: 16px; background: var(--chip); font-size: .8125rem; color: var(--ink-soft); }
+.bday input { width: 100%; min-height: 34px; padding: 0 8px; border: 0; border-radius: 999px; background: var(--paper); color: var(--plum); font: inherit; font-size: .875rem; }
+[data-side="vin"] .bday input { color-scheme: light; }
+.sheet-full .space { width: min(100%, calc((100dvh - 24rem) * .75)); }
+
+/* Відкритий лист: кур'єр поруч, але менший за конверт */
+.courier-read { margin-top: 14px; }
+.courier-read .mascot { width: 72px; height: 72px; }

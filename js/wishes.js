@@ -63,11 +63,23 @@ export function budgetSlider(prices, value, onInput) {
 const HOLIDAYS = { '12-31': 'Новому году', '01-01': 'Новому году', '02-14': '14 февраля', '03-08': '8 марта' };
 const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 const daysTo = (due) => Math.round((new Date(`${due}T00:00:00`) - today()) / 864e5);
+// Дні народження й річниця — з «Вместе» (лише на сервері); { 'MM-DD': назва для «к …» } очима того, хто дивиться
+function ourDays() {
+  const T = DATA.together || {};
+  const out = {};
+  if (T.since) out[T.since.slice(5)] = 'годовщине';
+  [['vona', 'её'], ['vin', 'его']].forEach(([side, whose]) => {
+    const d = T[side === 'vona' ? 'bdayVona' : 'bdayVin'];
+    if (d) out[d.slice(5)] = `${side === DATA.side ? 'твоему' : whose} дню рождения`;
+  });
+  return out;
+}
 export function dueText(due) {
   if (!due) return '';
   const days = daysTo(due);
   if (days < 0) return '';
-  const name = HOLIDAYS[due.slice(5)] || new Date(`${due}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
+  const name = ourDays()[due.slice(5)] || HOLIDAYS[due.slice(5)]
+    || new Date(`${due}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
   return `🎁 к ${name}${days > 1 ? ` · через ${days} дн.` : days === 1 ? ' · завтра' : ' · сегодня'}`;
 }
 // Найближчий такий день: цього року, а якщо вже минув — наступного
@@ -254,7 +266,14 @@ function editWish(screen, w, sharedLink = '') {
   let due = w?.due || null;
   const dueIn = h('input', { type: 'date', class: 'want-due-in', 'aria-label': 'К какой дате', hidden: true });
   const dueChips = h('div', { class: 'mk-chips mk-row want-due-row', role: 'radiogroup', 'aria-label': 'К дате' });
-  const PRESETS = [['12-31', '🎄 Новый год'], ['02-14', '💘 14 февраля'], ['03-08', '💐 8 марта']];
+  // Свій день народження (хотілка — подарунок мені) і річниця — якщо дати вписані у «Вместе»
+  const T = DATA.together || {};
+  const myBday = T[DATA.side === 'vona' ? 'bdayVona' : 'bdayVin'];
+  const PRESETS = [
+    ...(myBday ? [[myBday.slice(5), '🎂 Мой ДР']] : []),
+    ...(T.since ? [[T.since.slice(5), '💞 Годовщина']] : []),
+    ['12-31', '🎄 Новый год'], ['02-14', '💘 14 февраля'], ['03-08', '💐 8 марта'],
+  ];
   const drawDue = () => {
     const preset = due && PRESETS.find(([md]) => due.slice(5) === md);
     const own = !!due && !preset;

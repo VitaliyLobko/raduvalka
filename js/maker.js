@@ -6,13 +6,6 @@ import { h, toast } from './ui.js';
 const SITUATIONS = ['просто так', 'скучаю', 'доброе утро', 'тяжёлый день', 'поддержать', 'подразнить', 'спокойной ночи'];
 const OWN = '✎ своё';
 
-const GIF_PRESETS = [
-  ['Скучаю', 'miss you'], ['Обнимаю', 'hug'], ['Люблю', 'i love you'], ['Целую', 'kiss'],
-  ['Доброе утро', 'good morning'], ['Спокойной ночи', 'good night'], ['Держись', 'you got this'],
-  ['Жду тебя', 'waiting for you'], ['Ура', 'yay celebration'], ['Смешное', 'funny animals'],
-  ['Котики', 'cute cats'], ['Собачки', 'cute dogs'], ['Танцую', 'happy dance'], ['Устал(а)', 'so tired'],
-];
-
 const RECENT_KEY = 'radovalka:gifs-recent';
 const recentGifs = () => {
   try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch { return []; }
@@ -99,67 +92,105 @@ export function captionHelper(field, context, onPick) {
 export function openGifs(onGif) {
   const close = () => { sheet.remove(); backdrop.remove(); };
   const panel = gifPanel((g) => { close(); onGif(g); });
-  const m = mood();
-  const aiGo = h('button', { type: 'button', class: 'btn btn-primary mk-go' }, '✨ Подобрать гифки');
-  const aiBox = h('details', { class: 'mk-ai' }, h('summary', {}, '✨ Подобрать под настроение'), m.el, aiGo);
-  aiGo.addEventListener('click', async () => {
-    aiGo.disabled = true;
-    aiGo.textContent = 'Подбираю…';
-    try {
-      const { queries } = await send('meme-ideas', 'POST', { ...m.ask(), kind: 'gif' });
-      if (!queries?.length) throw new Error('empty');
-      panel.addAi(queries);
-      aiBox.open = false;
-    } catch {
-      toast('Не получилось подобрать — попробуй ещё раз');
-    }
-    aiGo.disabled = false;
-    aiGo.textContent = '✨ Подобрать гифки';
-  });
   const backdrop = h('div', { class: 'backdrop', onclick: close });
   const sheet = h('div', { class: 'sheet sheet-maker', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Гифка' },
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
-    h('div', { class: 'sheet-inner' }, h('h2', {}, 'Гифка'), aiBox, panel.el));
+    h('div', { class: 'sheet-inner' }, h('h2', {}, 'Гифка'), panel.el));
   document.body.append(backdrop, sheet);
   panel.start();
 }
 
-// Сітка гифок: одразу «Скучаю»; пошук російською, популярне, недавні, теми й підібрані ШІ
+// Настрій → одразу суміш із трьох різних пошуків (без очікування ШІ); ШІ — лише за «✨ Ещё идеи»
+const MOODS = [
+  { key: 'laugh', label: '😂 Посмеяться', qs: ['funny cat fail', 'dog funny face', 'animal lol reaction'], funny: 90, bold: 40 },
+  { key: 'tender', label: '🥰 Нежность', qs: ['cute cat cuddle', 'puppy love', 'forehead kiss'], funny: 15, bold: 5 },
+  { key: 'miss', label: '🥺 Скучаю', qs: ['miss you', 'dog waiting door', 'sad cat window'], funny: 25, bold: 10 },
+  { key: 'hug', label: '🤗 Обнимаю', qs: ['hug', 'cat hug', 'bear hug cute'], funny: 30, bold: 10 },
+  { key: 'morning', label: '☀️ Утро', qs: ['good morning', 'sleepy cat wake up', 'coffee morning cute'], funny: 45, bold: 15 },
+  { key: 'night', label: '🌙 Ночь', qs: ['good night', 'sleepy puppy', 'cat sleeping cute'], funny: 20, bold: 5 },
+  { key: 'cheer', label: '💪 Держись', qs: ['you got this', 'cheer up', 'dog high five'], funny: 40, bold: 20 },
+  { key: 'tease', label: '😏 Подразнить', qs: ['sassy cat', 'cheeky wink', 'dog side eye'], funny: 70, bold: 80 },
+  { key: 'yay', label: '🎉 Ура', qs: ['yay celebration', 'happy dance', 'excited dog'], funny: 65, bold: 30 },
+];
+const PER = 4; // з кожного пошуку суміші — по 4, разом 12
+const gifCache = new Map();
+async function gifPage(params) {
+  const key = new URLSearchParams(params).toString();
+  if (!gifCache.has(key)) gifCache.set(key, get(`gifs?${key}`).catch((e) => { gifCache.delete(key); throw e; }));
+  return gifCache.get(key);
+}
+// Почергово з кількох списків, без повторів: кіт, собака, реакція, кіт…
+function mix(lists) {
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < Math.max(0, ...lists.map((l) => l.length)); i += 1) {
+    lists.forEach((l) => { const g = l[i]; if (g && !seen.has(g.id)) { seen.add(g.id); out.push(g); } });
+  }
+  return out;
+}
+
+// Сітка гифок: настрої плиткою, пошук російською, недавні, популярне, ідеї ШІ під настрій
 function gifPanel(done) {
-  let active = 'q:miss you';
-  let source = { q: 'miss you' };
+  let source = { mood: MOODS[2] };
+  // Під який настрій просити ШІ: останній обраний; пошук своїми словами — під ці слова
+  let moodFor = MOODS[2];
   let offset = 0;
   let ai = [];
   const grid = h('div', { class: 'mk-gifs' });
   const more = h('button', { type: 'button', class: 'btn mk-more', hidden: true }, 'Ещё гифки');
-  const chips = h('div', { class: 'mk-chips mk-gif-chips', role: 'radiogroup', 'aria-label': 'Темы гифок' });
-  const input = h('input', { type: 'search', maxlength: '80', placeholder: 'Найти гифку — можно по-русски', 'aria-label': 'Найти гифку', enterkeyhint: 'search' });
+  const moods = h('div', { class: 'mk-moods', role: 'radiogroup', 'aria-label': 'Настроение' });
+  const chips = h('div', { class: 'mk-chips mk-gif-chips', role: 'radiogroup', 'aria-label': 'Ещё гифки' });
+  const input = h('input', { type: 'search', maxlength: '80', placeholder: 'Найти своими словами', 'aria-label': 'Найти гифку', enterkeyhint: 'search' });
   const form = h('form', { class: 'mk-gif-search', role: 'search' }, input, h('button', { type: 'submit', class: 'btn', 'aria-label': 'Искать' }, '🔎'));
+  const aiGo = h('button', { type: 'button', class: 'mk-chip mk-ai-more' }, '✨ Ещё идеи');
 
-  const pick = (key, src) => {
-    active = key;
+  const keyOf = (s) => (s.mood ? `m:${s.mood.key}` : s.recent ? 'recent' : s.trending ? 'trending' : `q:${s.q}`);
+  const pick = (src) => {
     source = src;
     offset = 0;
-    drawChips();
+    if (src.fromChip || !src.q) input.value = '';
+    draw();
     load(false);
   };
-  const drawChips = () => {
+  const draw = () => {
+    const now = keyOf(source);
+    moods.replaceChildren(...MOODS.map((m) => h('button', {
+      type: 'button', role: 'radio', class: 'mk-chip mk-mood-tile', 'aria-checked': String(now === `m:${m.key}`),
+      onclick: () => { ai = []; moodFor = m; pick({ mood: m }); },
+    }, m.label)));
     const list = [
-      ...(recentGifs().length ? [{ key: 'recent', label: '🕘 Недавние', src: { recent: true } }] : []),
-      { key: 'trending', label: '🔥 Популярное', src: { trending: true } },
-      ...ai.map((x) => ({ key: `ai:${x.q}`, label: `✨ ${x.label}`, src: { q: x.q } })),
-      ...GIF_PRESETS.map(([label, q]) => ({ key: `q:${q}`, label, src: { q } })),
+      ...(recentGifs().length ? [{ label: '🕘 Недавние', src: { recent: true } }] : []),
+      { label: '🔥 Популярное', src: { trending: true } },
+      ...ai.map((x) => ({ label: `✨ ${x.label}`, src: { q: x.q, fromChip: true, ai: true } })),
     ];
     chips.replaceChildren(...list.map((c) => h('button', {
-      type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(c.key === active),
-      onclick: () => { input.value = ''; pick(c.key, c.src); },
-    }, c.label)));
+      type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(now === keyOf(c.src)),
+      onclick: () => pick(c.src),
+    }, c.label)), aiGo);
   };
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = input.value.trim();
-    if (q) pick('search', { q });
+    if (q) { moodFor = null; pick({ q }); }
     input.blur();
+  });
+  // ШІ: 6 інших запитів саме під обраний настрій (чи під пошук своїми словами)
+  aiGo.addEventListener('click', async () => {
+    const m = moodFor;
+    const situation = m ? m.label.replace(/^\S+\s/, '') : input.value.trim() || 'просто так, порадовать';
+    aiGo.disabled = true;
+    aiGo.textContent = 'Подбираю…';
+    try {
+      const { queries } = await send('meme-ideas', 'POST', { kind: 'gif', situation, funny: m?.funny ?? 50, bold: m?.bold ?? 20 });
+      if (!queries?.length) throw new Error('empty');
+      ai = queries.slice(0, 6);
+      pick({ q: ai[0].q, fromChip: true, ai: true });
+      chips.scrollLeft = 0;
+    } catch {
+      toast('Не получилось подобрать — попробуй ещё раз');
+    }
+    aiGo.disabled = false;
+    aiGo.textContent = '✨ Ещё идеи';
   });
 
   let seq = 0;
@@ -169,10 +200,18 @@ function gifPanel(done) {
     more.hidden = true;
     if (!append) grid.replaceChildren(h('p', { class: 'mk-wait' }, 'Ищу гифки…'));
     let list;
+    let full;
     try {
-      if (source.recent) list = offset ? [] : recentGifs();
-      else if (source.trending) list = await get(`gifs?trending=1&offset=${offset}`);
-      else list = await get(`gifs?q=${encodeURIComponent(source.q)}&offset=${offset}`);
+      if (source.recent) { list = offset ? [] : recentGifs(); full = false; }
+      else if (source.mood) {
+        const pages = await Promise.all(source.mood.qs.map((q) => gifPage({ q, offset: offset / 3, limit: PER }).catch(() => [])));
+        if (!pages.some((p) => p.length) && !offset) throw Object.assign(new Error('none'), { status: 0 });
+        list = mix(pages);
+        full = pages.some((p) => p.length === PER);
+      } else {
+        list = await gifPage(source.trending ? { trending: 1, offset } : { q: source.q, offset });
+        full = list.length === 12;
+      }
     } catch (e) {
       if (my !== seq) return;
       if (append) {
@@ -185,7 +224,6 @@ function gifPanel(done) {
       grid.replaceChildren(h('p', { class: 'mk-wait' }, e.status === 503
         ? 'Поиск гифок ещё не подключён — можно прислать картинку из галереи.'
         : 'Гифки не загрузились — попробуй ещё раз.'));
-      more.hidden = true;
       return;
     }
     if (my !== seq) return;
@@ -194,18 +232,13 @@ function gifPanel(done) {
     }, h('img', { src: g.preview, alt: '', loading: 'lazy', decoding: 'async' })));
     if (append) grid.append(...tiles);
     else grid.replaceChildren(...tiles);
-    more.hidden = source.recent || list.length < 12;
+    more.hidden = !full;
     if (!list.length && !append) grid.replaceChildren(h('p', { class: 'mk-wait' }, 'Ничего не нашлось — попробуй другое слово.'));
   };
   more.addEventListener('click', () => { offset += 12; load(true); });
 
   return {
-    el: h('div', { class: 'mk-gif-panel' }, form, chips, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY')),
-    start() { drawChips(); load(false); },
-    addAi(list) {
-      ai = list.slice(0, 6);
-      pick(`ai:${ai[0].q}`, { q: ai[0].q });
-      chips.scrollLeft = 0;
-    },
+    el: h('div', { class: 'mk-gif-panel' }, moods, form, chips, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY')),
+    start() { draw(); load(false); },
   };
 }

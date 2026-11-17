@@ -81,11 +81,24 @@ export function renderTogether(screen, opts = {}) {
     },
   });
 
+  // Дні народження — для «🎂 Мой ДР» у хотілках; свій і другого вписує будь-хто
+  const bday = (side, label) => {
+    const key = side === 'vona' ? 'bdayVona' : 'bdayVin';
+    return h('label', { class: 'bday' }, h('span', {}, label), h('input', {
+      type: 'date',
+      value: T[key] || '',
+      'aria-label': `День рождения: ${label}`,
+      onchange: (e) => { T[key] = e.target.value || null; save('together', { [key]: T[key] }); },
+    }));
+  };
+  const mine = side === 'vona' ? ['vona', 'vin'] : ['vin', 'vona'];
+
   // replaceChildren не пропускає null, на відміну від h()
   screen.replaceChildren(...[
     h('h2', { class: 'title' }, 'Вместе'),
     card,
     h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'), meetInput),
+    h('div', { class: 'bday-row' }, bday(mine[0], '🎂 Твой ДР'), bday(mine[1], side === 'vona' ? '🎂 Его ДР' : '🎂 Её ДР')),
     togetherDays(now, T.since),
     onPlans ? h('button', {
       type: 'button',
