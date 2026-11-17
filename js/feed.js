@@ -654,7 +654,9 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true,
     // У бік без дії — лише пружинить
     const d = dx > 0 && !canRight() ? Math.min(dx, 60) * 0.35 : dx < 0 && !onLeft ? -Math.min(-dx, 60) * 0.35 : dx;
     bubble.style.transform = `translateX(${d}px)`;
-    row.dataset.swipe = d < -SWIPE ? 'hide' : d > SWIPE ? 'reply' : d < -20 ? 'hide-soon' : d > 20 ? 'reply-soon' : '';
+    // Підпис — лише в бік, де змах справді щось зробить
+    row.dataset.swipe = !onLeft && d < 0 ? '' : !canRight() && d > 0 ? ''
+      : d < -SWIPE ? 'hide' : d > SWIPE ? 'reply' : d < -20 ? 'hide-soon' : d > 20 ? 'reply-soon' : '';
   });
   const end = () => {
     if (x0 == null) return;

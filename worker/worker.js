@@ -889,6 +889,11 @@ async function lettersRoute(req, db, side, rest, notify) {
     const args = [];
     if (b.opened) { sets.push('opened = COALESCE(opened, ?)'); args.push(Date.now()); }
     if ('liked' in b) { sets.push('liked = ?'); args.push(b.liked ? 1 : 0); }
+    // ❤️ — відправнику push, але раз на лист: зняла й поставила знову — без повтору
+    if (b.liked && !r.liked && !(await getDoc(db, `likepush:${r.id}`))) {
+      await putDoc(db, `likepush:${r.id}`, Date.now());
+      notify.send(r.src, likeNote(side, r.kind));
+    }
     if ('reply' in b) {
       const reply = String(b.reply || '').trim().slice(0, MAX_LETTER) || null;
       sets.push('reply = ?', 'replied = ?');
@@ -1493,6 +1498,16 @@ function envOpenedNote(from, e) {
 
 function wishNote(from) {
   return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил, чего хочется', 'Она добавила, чего хочется'), tag: 'wish', go: 'wish' };
+}
+
+// Тап — «Письма», де в надісланих видно ❤️
+function likeNote(from, kind) {
+  return {
+    title: `${sender(from, 'Ему понравилось', 'Ей понравилось')} ❤️`,
+    body: kind === 'env' ? 'твоя записка в конверте' : 'твоё письмо',
+    tag: 'like',
+    go: 'letter',
+  };
 }
 
 function replyNote(from, on) {

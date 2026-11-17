@@ -1797,8 +1797,25 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   mask-image: linear-gradient(180deg, #000 60%, transparent);
 }
 .letter.is-compact .letter-sign { display: none; }
-.letter.is-compact + .actions { margin-top: 12px; }
-.letter.is-compact + .actions .btn { min-height: 42px; padding: 0 14px; }
+.letter-swipe.is-compact + .actions { margin-top: 12px; }
+.letter-swipe.is-compact + .actions .btn { min-height: 42px; padding: 0 14px; }
+
+/* Лист дня: під ним, поки тягнеш, — що станеться (як у стрічці) */
+.letter-swipe { position: relative; }
+.letter-swipe > .letter { z-index: 1; }
+.letter-swipe::before {
+  position: absolute;
+  top: 50%;
+  color: var(--ink-soft);
+  font-size: .875rem;
+  font-weight: 600;
+  opacity: .5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.letter-swipe[data-swipe^="hide"]::before { content: '🙈 Спрятать'; right: 12px; }
+.letter-swipe[data-swipe^="reply"]::before { content: '↩ Ответить'; left: 12px; }
+.letter-swipe:is([data-swipe="hide"], [data-swipe="reply"])::before { opacity: 1; }
 
 /* «В пути N дн.» на її рожевому фоні губилось — плотний папірець з обводкою */
 [data-side="vona"] .together-chip {

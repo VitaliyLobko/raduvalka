@@ -1,6 +1,6 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide } from './api.js';
+import { get, save, send, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
@@ -170,7 +170,8 @@ function renderLetter() {
   // replaceChildren не пропускає null, на відміну від h()
   screen.replaceChildren(...[
     ...head,
-    h('article', {
+    // Обгортка — підкладка з підписом, що станеться від змаху (як у стрічці)
+    h('div', { class: `letter-swipe${full ? '' : ' is-compact'}` }, h('article', {
       class: `letter${letter.special ? ' is-special' : ''}${full ? '' : ' is-compact'}`,
       ...(full ? {} : {
         role: 'button',
@@ -181,7 +182,7 @@ function renderLetter() {
       }),
     },
       h('p', { class: 'letter-text' }, letter.text),
-      h('p', { class: 'letter-sign', html: `${who().from} <span class="sign-arrow">${SAGITTARIUS}</span>` })),
+      h('p', { class: 'letter-sign', html: `${who().from} <span class="sign-arrow">${SAGITTARIUS}</span>` }))),
     h('div', { class: 'actions' },
       h('button', {
         type: 'button',
@@ -204,7 +205,7 @@ function renderLetter() {
   ].filter(Boolean));
   // Свайп листа дня: вліво — сховати (лишиться в стрічці), вправо — відповісти
   const card = screen.querySelector('article.letter');
-  swipeable(card, card, {
+  swipeable(card.parentElement, card, {
     place: 'feed',
     canRight: () => !letterState().reply,
     onLeft: () => {
@@ -238,15 +239,26 @@ function toggleHeart() {
   const liked = !letterState().liked;
   setLetterState({ liked });
   render();
-  if (liked) toast(`${cap(who().partner)} увидит твоё ❤️`);
+  // Заготовка — без відправника, ❤️ лишається на цьому телефоні; «увидит» — лише справжньому листу
+  if (liked && DATA.letter.id) toast(`${cap(who().partner)} увидит твоё ❤️`);
 }
 
 function openReply() {
   const area = h('textarea', { id: 'reply-text', 'data-voice': true, 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
   const close = () => { sheet.remove(); backdrop.remove(); };
-  const send = () => {
+  const submit = async () => {
     const text = area.value.trim();
     if (!text) { area.focus(); return; }
+    // Заготовка — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
+    if (!DATA.letter.id) {
+      try {
+        await send('letters', 'POST', { kind: 'now', text });
+      } catch {
+        toast('Не отправилось — нет связи');
+        return;
+      }
+      invalidateFeed();
+    }
     setLetterState({ reply: text });
     close();
     render();
@@ -259,7 +271,7 @@ function openReply() {
       area,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
-        h('button', { type: 'button', class: 'btn btn-primary', onclick: send, html: `${ARROW}Отправить` }))));
+        h('button', { type: 'button', class: 'btn btn-primary', onclick: submit, html: `${ARROW}Отправить` }))));
   document.body.append(backdrop, sheet);
   area.focus();
 }
