@@ -11,7 +11,7 @@ import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_G
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans } from './plans.js';
-import { composeMeme } from './memes.js';
+import { composeMeme, memesFresh } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
 import { showLock } from './lock.js';
@@ -323,7 +323,11 @@ initVoice();
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
 // Тап по сповіщенню при відкритій Радовалці — на «Письма», свіже дотягне visibilitychange
 const GO_TABS = ['letter', 'wish'];
-navigator.serviceWorker?.addEventListener('message', (e) => { if (GO_TABS.includes(e.data?.go) && tab !== e.data.go) selectTab(e.data.go); });
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  if (!GO_TABS.includes(e.data?.go)) return;
+  if (tab !== e.data.go) selectTab(e.data.go);
+  if (!document.body.classList.contains('is-booting')) refreshAll();
+});
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці
 document.addEventListener('radovalka:fresh', markLetter);
 
@@ -415,31 +419,68 @@ function noteUpdated() {
   if (seen && seen !== VERSION) pill(`✨ Радовалка обновилась до ${VERSION} — что нового?`, openAbout);
 }
 
-// Оновитись насправді: GitHub Pages дозволяє браузеру тримати модулі 10 хв, і звичайний reload
-// бере старі з кешу. Тож спершу перекачуємо з мережі сторінку й усі свої скрипти та стилі
-// (cache: 'reload' заодно оновлює кеш браузера), а тоді перезавантажуємо
-async function hardReload() {
-  const own = performance.getEntriesByType('resource').map((e) => e.name)
-    .filter((u) => u.startsWith(location.origin) && /\.(js|css|html)(\?|$)/.test(u));
-  const urls = [...new Set([location.href.split('#')[0], ...own])];
-  await Promise.race([
-    Promise.allSettled(urls.map((u) => fetch(u, { cache: 'reload' }))),
-    new Promise((ok) => setTimeout(ok, 8000)),
-  ]);
+// Свої файли, які завантажила ця сторінка: скрипти, стилі, шрифти
+const ownFiles = () => [...new Set(performance.getEntriesByType('resource').map((e) => e.name.split('#')[0])
+  .filter((u) => u.startsWith(location.origin) && /\.(js|css|woff2)(\?|$)/.test(u)))];
+
+// Оболонку тримає service worker: v — версія, яку він перекачує цілком і кладе разом;
+// у radovalka:shell — яка версія вже лежить у кеші телефона.
+// Без нього (перший запуск, старий браузер) — як раніше: перекачати в кеш браузера (GitHub Pages тримає модулі 10 хв)
+const SHELL_MARK = 'radovalka:shell';
+const shellMark = () => { try { return localStorage.getItem(SHELL_MARK); } catch { return null; } };
+let shellUpdate = null;
+function updateShell(v) {
+  const sw = navigator.serviceWorker?.controller;
+  if (!sw) {
+    return Promise.race([
+      Promise.allSettled([location.href.split('#')[0], ...ownFiles()].map((u) => fetch(u, { cache: 'reload' }))),
+      new Promise((ok) => { setTimeout(ok, 8000); }),
+    ]).then(() => true);
+  }
+  // Та сама версія вже качається — чекаємо її, а не качаємо вдруге
+  if (shellUpdate?.v !== v) {
+    const done = new Promise((ok) => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (e) => ok(!!e.data);
+      sw.postMessage({ type: 'update-shell', urls: ownFiles() }, [ch.port2]);
+      setTimeout(() => ok(false), 20000);
+    }).then((ok) => {
+      if (ok) { try { localStorage.setItem(SHELL_MARK, v); } catch { /* наступного разу перекачає ще раз */ } }
+      else if (shellUpdate?.done === done) shellUpdate = null;
+      return ok;
+    });
+    shellUpdate = { v, done };
+  }
+  return shellUpdate.done;
+}
+
+// Перший запуск під service worker'ом (чи кеш оболонки порожній) — кладемо в нього поточну версію
+function primeShell() {
+  // Уже качається нова версія (checkUpdate) — вона й ляже
+  if (navigator.serviceWorker?.controller && shellMark() !== VERSION && !shellUpdate) updateShell(VERSION);
+}
+
+async function hardReload(v) {
+  if (!(await updateShell(v))) { toast('Не получилось обновить — нет связи'); return; }
   leave(() => location.reload());
 }
 
-// Застосунок довго відкритий у фоні: при поверненні дивимось, чи не вийшла нова версія
+// Чи не вийшла нова версія: перевіряємо при старті й поверненні. Нову оболонку одразу тягнемо у фоні —
+// не натисне «обновить», то наступне відкриття вже буде новим
 async function checkUpdate() {
   try {
     const text = await (await fetch('js/version.js', { cache: 'no-store' })).text();
     const v = text.match(/VERSION = '([^']+)'/)?.[1];
-    if (v && v !== VERSION) pill(`Есть новая версия ${v} — обновить`, hardReload);
+    if (!v || v === VERSION) return;
+    if (navigator.serviceWorker?.controller) updateShell(v);
+    pill(`Есть новая версия ${v} — обновить`, () => hardReload(v));
   } catch { /* немає звʼязку — перевіримо наступного разу */ }
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !getKey() || document.body.classList.contains('is-booting')) return;
+// Повернулась у застосунок: дотягуємо свіже. Відволіклась на пів хвилини — нічого не перепитуємо,
+// а тап по сповіщенню (повідомлення від service worker) оновлює завжди
+let hiddenAt = 0;
+function refreshAll() {
   checkUpdate();
   refreshLetter();
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
@@ -448,6 +489,13 @@ document.addEventListener('visibilitychange', () => {
   loadPlans().then(markPlans).catch(() => {});
   // Стрічка перемальовує лише себе — відкритий лист дня не зсувається
   refreshFeed();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') { hiddenAt = Date.now(); return; }
+  if (!getKey() || document.body.classList.contains('is-booting')) return;
+  if (Date.now() - hiddenAt < 30000) return;
+  refreshAll();
 });
 
 const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
@@ -499,9 +547,11 @@ async function start() {
     showLock(null, start);
     return;
   }
+  let restPets = null;
   try {
     Object.assign(DATA, await get('boot'));
-    await loadPets();
+    memesFresh();
+    restPets = await loadPets();
   } catch (e) {
     showLock(e.status === 401 ? 'bad' : 'offline', start);
     return;
@@ -519,6 +569,9 @@ async function start() {
   syncPush();
   noteUpdated();
   checkUpdate();
+  // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли
+  setTimeout(restPets, 1500);
+  setTimeout(primeShell, 3000);
 }
 
 registerWorker();

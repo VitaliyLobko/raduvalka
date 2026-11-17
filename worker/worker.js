@@ -79,6 +79,9 @@ const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 
 let schemaReady = false;
+// Підпис схеми: змінились CREATE чи міграції — інший підпис, і схема прокрутиться ще раз
+const SCHEMA_SIG = [...SCHEMA, ...MIGRATIONS].join(';').split('')
+  .reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0).toString(36);
 
 export default {
   async fetch(req, env, ctx) {
@@ -140,6 +143,8 @@ async function route(req, env, ctx) {
       together: together || {},
       mine: mine || {},
       mascots: mascots || {},
+      // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
+      imgs: await imgVersions(env.DB, mascots),
       memes,
     });
   }
@@ -189,7 +194,7 @@ async function route(req, env, ctx) {
   if (path.startsWith('img/')) {
     const name = path.slice(4);
     if (!IMG_NAME.test(name)) throw fail(404, 'not found');
-    if (m === 'GET') return getImg(env.DB, name);
+    if (m === 'GET') return getImg(env.DB, name, url.searchParams.has('v'));
     if (m === 'PUT') {
       if (side !== 'vin') throw fail(403, 'forbidden');
       return putImg(env.DB, name, req);
@@ -234,15 +239,32 @@ function sameBytes(a, b) {
   return diff === 0;
 }
 
+// Свіжий ізолят: один запит, якщо схема вже ця; інакше — усі CREATE і міграції, і запамʼятати підпис
 async function ensureSchema(db) {
   if (schemaReady) return;
-  await db.batch(SCHEMA.map((q) => db.prepare(q)));
-  for (const q of MIGRATIONS) {
-    try {
-      await db.prepare(q).run();
-    } catch { /* колонка вже є */ }
+  const done = await getDoc(db, 'schema').catch(() => null);
+  if (done !== SCHEMA_SIG) {
+    await db.batch(SCHEMA.map((q) => db.prepare(q)));
+    let failed = false;
+    for (const q of MIGRATIONS) {
+      try {
+        await db.prepare(q).run();
+      } catch (e) {
+        // Колонка вже є — це норма; інша помилка — підпис не пишемо, наступний ізолят спробує ще
+        if (!/duplicate column|already exists/i.test(String(e?.message || e))) failed = true;
+      }
+    }
+    if (!failed) await putDoc(db, 'schema', SCHEMA_SIG);
   }
   schemaReady = true;
+}
+
+async function imgVersions(db, mascots) {
+  const names = [...new Set(Object.values(mascots || {}).flatMap((x) => Object.values(x.poses || {})))].slice(0, 90);
+  if (!names.length) return {};
+  const { results } = await db.prepare(`SELECT name, updated FROM imgs WHERE name IN (${names.map(() => '?').join(', ')})`)
+    .bind(...names).all();
+  return Object.fromEntries(results.map((r) => [r.name, r.updated]));
 }
 
 async function getDoc(db, k) {
@@ -256,12 +278,13 @@ async function putDoc(db, k, value) {
     .bind(k, JSON.stringify(value), Date.now()).run();
 }
 
-async function getImg(db, name) {
+// versioned — у запиті ?v= (час заливки): такий файл уже ніколи не зміниться
+async function getImg(db, name, versioned) {
   const row = await db.prepare('SELECT type, data FROM imgs WHERE name = ?').bind(name).first();
   if (!row) throw fail(404, 'not found');
   const bin = Uint8Array.from(atob(row.data), (c) => c.charCodeAt(0));
   return new Response(bin, {
-    headers: { 'content-type': row.type, 'cache-control': 'private, max-age=86400' },
+    headers: { 'content-type': row.type, 'cache-control': versioned ? 'private, max-age=31536000, immutable' : 'private, max-age=86400' },
   });
 }
 

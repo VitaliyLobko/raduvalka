@@ -1,15 +1,64 @@
-// Service worker Радовалки: приймає «Поделиться → Радовалка» і показує push-сповіщення.
-// Оболонку НЕ кешує — оновлення приходять самі, як і без нього
+// Service worker Радовалки: тримає оболонку на телефоні, приймає «Поделиться → Радовалка», показує push.
+// Оболонка (сторінка, скрипти, стилі, шрифти) — з кешу: старт без мережі й без хвиль перевірок.
+// Нову версію застосунок помічає сам (version.js без кешу) і просить updateShell перекачати її цілком
 const SHARE_CACHE = 'shared-radovalka';
+// Назви — не з префіксів інших застосунків на цьому сайті, їх activate їх не прибере.
+// Аварійний вихід, якщо в кеш потрапило зламане: змінити номер — activate прибере старий
+const SHELL = 'shell-radovalka-1';
+const scope = () => self.registration.scope;
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (event) => event.waitUntil((async () => {
+  const keys = await caches.keys();
+  await Promise.all(keys.filter((k) => k.startsWith('shell-radovalka') && k !== SHELL).map((k) => caches.delete(k)));
+  await self.clients.claim();
+})()));
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  if (event.request.method === 'POST' && url.searchParams.get('go') === 'shared') {
-    event.respondWith(receiveShare(event.request));
+  const req = event.request;
+  const url = new URL(req.url);
+  if (req.method === 'POST' && url.searchParams.get('go') === 'shared') {
+    event.respondWith(receiveShare(req));
+    return;
   }
+  // no-store / reload — свідомо з мережі (перевірка версії); чуже (сервер, гифки) — повз кеш
+  if (req.method !== 'GET' || !req.url.startsWith(scope()) || req.cache === 'no-store' || req.cache === 'reload') return;
+  // Лише те, що кладе updateShell: сторінка, скрипти, стилі, шрифти (іконки й маніфест — як завжди)
+  const navigate = req.mode === 'navigate';
+  if (!navigate && !/\.(js|css|woff2)$/.test(url.pathname)) return;
+  if (url.pathname.endsWith('/sw.js')) return;
+  // Будь-яке відкриття (?go=…, ?hello) — та сама сторінка
+  event.respondWith(fromShell(req, navigate ? scope() : url.href.split('#')[0]));
+});
+
+// Промах — просто мережа, у кеш НЕ кладемо: дописані поодинці файли могли б змішати версії
+// (кеш браузера тримає старі ще 10 хв). Пише в кеш лише updateShell — усю оболонку разом
+async function fromShell(req, key) {
+  const hit = await (await caches.open(SHELL)).match(key);
+  return hit || fetch(req);
+}
+
+// Нова версія: спершу качаємо все, і лише коли кожен файл прийшов — кладемо разом.
+// Обірвалось — лишається стара оболонка цілою, без суміші старих і нових модулів
+async function updateShell(urls) {
+  try {
+    const all = [...new Set([scope(), ...urls.filter((u) => u.startsWith(scope()) && !u.endsWith('/sw.js'))])];
+    const got = await Promise.all(all.map(async (u) => {
+      const res = await fetch(u, { cache: 'reload' });
+      if (!res.ok) throw new Error(u);
+      return [u, res];
+    }));
+    const cache = await caches.open(SHELL);
+    await Promise.all(got.map(([u, res]) => cache.put(u, res)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type !== 'update-shell') return;
+  event.waitUntil(updateShell(event.data.urls || []).then((ok) => event.ports[0]?.postMessage(ok)));
 });
 
 // Картинку чи посилання — у свій кеш (назва не з префіксів інших застосунків на цьому ж сайті, їх activate її не зачепить),

@@ -108,8 +108,39 @@ export function save(path, body) {
   }).catch(() => toast('Не сохранилось — нет связи'));
 }
 
-export async function imageUrl(name) {
-  return URL.createObjectURL(await (await request(`img/${name}`)).blob());
+// Фото з версією (час заливки) живуть у кеші телефона: та сама версія — без мережі й без перевірок.
+// Назва кешу — не з префіксів інших застосунків на цьому сайті, їх activate її не прибере
+const IMG_CACHE = 'img-radovalka';
+const imgKey = (name, v) => `${API}/api/img/${name}?v=${v}`;
+
+export async function imageUrl(name, v) {
+  if (!v || !self.caches) return URL.createObjectURL(await (await request(`img/${name}`)).blob());
+  const cache = await caches.open(IMG_CACHE).catch(() => null);
+  const hit = await cache?.match(imgKey(name, v)).catch(() => null);
+  if (hit) return URL.createObjectURL(await hit.blob());
+  const blob = await (await request(`img/${name}?v=${v}`)).blob();
+  cache?.put(imgKey(name, v), new Response(blob, { headers: { 'content-type': blob.type } })).catch(() => {});
+  return URL.createObjectURL(blob);
+}
+
+// Лише з кешу телефона, без мережі: нема — null
+export async function cachedImageUrl(name, v) {
+  if (!v || !self.caches) return null;
+  try {
+    const hit = await (await caches.open(IMG_CACHE)).match(imgKey(name, v));
+    return hit ? URL.createObjectURL(await hit.blob()) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Прибрати з кешу старі версії: keep — пари [імʼя, версія], які зараз потрібні
+export async function dropStaleImages(keep) {
+  try {
+    const want = new Set(keep.filter(([, v]) => v).map(([n, v]) => imgKey(n, v)));
+    const cache = await caches.open(IMG_CACHE);
+    for (const req of await cache.keys()) if (!want.has(req.url)) await cache.delete(req);
+  } catch { /* кеш недоступний — нічого прибирати */ }
 }
 
 // POST, відповідь якого — файл (фото товару через Worker)

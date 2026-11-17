@@ -14,6 +14,9 @@ const SWIPE = 70;
 const EDGE = 24;
 
 let filter = 'all';
+// Скільки рядків на екрані: стрічку перемальовує кожна дія, сотні мемчиків гальмували б телефон
+const PAGE = 30;
+let limit = PAGE;
 let showHidden = false;
 let showStock = false;
 // Листи з сервера; мемчики — у DATA.memes. stale — перечитати при наступному показі
@@ -166,25 +169,41 @@ function draw(force = false) {
   const seg = h('div', { class: 'mk-chips mk-kind archive-seg', role: 'radiogroup', 'aria-label': 'Что показать' },
     ...FILTERS.map(([v, label]) => h('button', {
       type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(filter === v),
-      onclick: () => { filter = v; draw(); },
+      onclick: () => { filter = v; limit = PAGE; draw(); },
     }, label)));
 
   const list = h('ol', { class: 'feed-list' });
   let lastDay = '';
-  for (const it of shown) {
-    const d = dayTitle(it.at);
-    if (d !== lastDay) {
-      list.append(h('li', { class: 'feed-day' }, d));
-      lastDay = d;
+  // Решта — кнопкою «Показать ещё»: дописуємо рядки в кінець, не чіпаючи вже показані
+  const put = (part) => {
+    for (const it of part) {
+      const d = dayTitle(it.at);
+      if (d !== lastDay) {
+        list.append(h('li', { class: 'feed-day' }, d));
+        lastDay = d;
+      }
+      list.append(row(it));
     }
-    list.append(row(it));
-  }
+  };
+  put(shown.slice(0, limit));
+  const more = h('button', { type: 'button', class: 'feed-hidden-toggle feed-more' });
+  const showMore = () => {
+    const from = list.children.length;
+    put(shown.slice(limit, limit + PAGE));
+    limit += PAGE;
+    watchFresh(list, from);
+    if (shown.length <= limit) more.remove();
+    else more.textContent = `Показать ещё · ${shown.length - limit}`;
+  };
+  more.addEventListener('click', showMore);
+  more.textContent = `Показать ещё · ${shown.length - limit}`;
 
   const nHidden = hiddenItems.length + (dayHidden ? 1 : 0);
   box.replaceChildren(...[
     seg,
     shown.length && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
     shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
+    shown.length > limit ? more : null,
     nHidden ? h('button', {
       type: 'button', class: 'feed-hidden-toggle', 'aria-expanded': String(showHidden),
       onclick: () => { showHidden = !showHidden; draw(); },
@@ -368,10 +387,12 @@ function inBubble(l) {
       const cur = liveLetter(l);
       const prev = cur.liked;
       cur.liked = !prev;
-      draw();
+      // Міняємо лише саму кнопку — перебудова всієї стрічки на кожне ❤️ гальмувала б
+      const paint = (on) => { like.textContent = on ? '❤️' : '🤍'; like.setAttribute('aria-pressed', String(!!on)); };
+      paint(cur.liked);
       try { await send(`letters/${l.id}`, 'PUT', { liked: cur.liked, opened: true }); liveLetter(l).opened = true; } catch {
         liveLetter(l).liked = prev;
-        draw();
+        paint(prev);
         toast('Не сохранилось — нет связи');
       }
     },
@@ -442,7 +463,7 @@ function memeBubble(m) {
     acts = [
       ...REACTIONS.map((r) => h('button', {
         type: 'button', class: 'feed-act', 'aria-pressed': String(m.reaction === r),
-        'aria-label': r === '😂' ? 'Смешно' : 'Нравится', onclick: () => react(m, r),
+        'aria-label': r === '😂' ? 'Смешно' : 'Нравится', onclick: (e) => react(m, r, e.currentTarget.parentElement),
       }, r)),
       m.reply ? null : replyBtn(it),
     ];
@@ -460,16 +481,18 @@ function memeBubble(m) {
       ...acts, hideBtn(it.key)));
 }
 
-async function react(m0, r) {
+// acts — рядок кнопок цього мемчика: позначаємо натиснуту в ньому, стрічку не перебудовуємо
+async function react(m0, r, acts) {
   const m = liveMeme(m0);
   const prev = m.reaction;
   m.reaction = prev === r ? null : r;
-  draw();
+  const paint = (cur) => acts.querySelectorAll('[aria-pressed]').forEach((b) => b.setAttribute('aria-pressed', String(b.textContent === cur)));
+  paint(m.reaction);
   try {
     await send(`memes/${m.id}`, 'PUT', { reaction: m.reaction });
   } catch {
     liveMeme(m0).reaction = prev;
-    draw();
+    paint(prev);
     toast('Не сохранилось — нет связи');
   }
 }
@@ -547,8 +570,11 @@ function showMeme(m, pic) {
   view.querySelector('.photo-view-close').focus();
 }
 
-// Картинки тягнемо, коли пузир під'їжджає до екрана; нове гасне, коли його справді побачили
-function watchFresh(list) {
+// Картинки тягнемо, коли пузир під'їжджає до екрана; нове гасне, коли його справді побачили.
+// from — з якого рядка дивитись (після «Показать ещё» — лише дописані)
+function watchFresh(list, from = 0) {
+  const rows = [...list.children].slice(from);
+  const pick = (sel) => rows.flatMap((r) => [...(r.matches(sel) ? [r] : []), ...r.querySelectorAll(sel)]);
   const io = new IntersectionObserver((entries) => {
     for (const { target, isIntersecting } of entries) {
       if (!isIntersecting) continue;
@@ -556,14 +582,14 @@ function watchFresh(list) {
       loadPic(target);
     }
   }, { rootMargin: '300px 0px' });
-  list.querySelectorAll('.meme-img').forEach((el) => io.observe(el));
+  pick('.meme-img').forEach((el) => io.observe(el));
   const seenIo = new IntersectionObserver((entries) => {
     for (const { target, isIntersecting } of entries) {
       if (isIntersecting) { seenIo.unobserve(target); seen(target); }
     }
   // Низ екрана закриває меню з марками — під ним ще не «побачено»
   }, { threshold: 0.6, rootMargin: '0px 0px -96px 0px' });
-  list.querySelectorAll('.feed-meme.is-fresh, .sent-reply.is-fresh').forEach((el) => seenIo.observe(el));
+  pick('.feed-meme.is-fresh, .sent-reply.is-fresh').forEach((el) => seenIo.observe(el));
 }
 
 let saveTimer = 0;

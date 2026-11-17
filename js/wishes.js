@@ -219,7 +219,7 @@ function photo(name, alt = '') {
 }
 
 // open — уся картка веде в магазин (чужі хотілки); onclick — відкриває форму (свої)
-function wishCard(w, { onclick, actions, open, fresh } = {}) {
+function wishCard(w, { onclick, actions, open, fresh, tag = 'li' } = {}) {
   const toShop = open && w.link;
   const inner = [
     w.img ? photo(w.img) : null,
@@ -234,7 +234,7 @@ function wishCard(w, { onclick, actions, open, fresh } = {}) {
   const body = toShop ? h('a', { class: 'want-body', ...ext, 'aria-label': `${w.title} — открыть в магазине` }, ...inner)
     : onclick ? h('button', { type: 'button', class: 'want-body', onclick }, ...inner)
     : h('div', { class: 'want-body' }, ...inner);
-  return h('li', { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}${fresh ? ' is-fresh' : ''}` },
+  return h(tag, { class: `want${w.mark ? ` is-${w.mark}` : ''}${w.img ? ' has-img' : ''}${fresh ? ' is-fresh' : ''}` },
     body,
     link || actions ? h('div', { class: 'want-foot' }, link, actions) : null);
 }
@@ -242,8 +242,10 @@ function wishCard(w, { onclick, actions, open, fresh } = {}) {
 // Своя хотілка: тап — форма, змах уліво — прибрати (з «Вернуть»)
 function mineCard(screen, w) {
   if (removing.has(w.id)) return undoRow(screen, w);
-  const li = wishCard(w, { onclick: () => editWish(screen, w) });
-  swipeable(li, li, {
+  // Картка їде за пальцем, а під нею відкривається, що станеться
+  const card = wishCard(w, { onclick: () => editWish(screen, w), tag: 'div' });
+  const li = h('li', { class: 'want-swipe' }, card);
+  swipeable(li, card, {
     place: 'wish',
     canRight: () => false,
     fold: false,

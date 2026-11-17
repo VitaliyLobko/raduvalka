@@ -2217,8 +2217,22 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .mk-chips + .voice-wrap, .mk-group > .voice-wrap { margin-top: 8px; }
 
 /* Хотілки: змах своєї вліво — прибрати; на її місці рядок «Вернуть» */
-.want-list > .want { transition: transform .2s ease-out; }
-.want-list > .want.is-drag { transition: none; }
+.want-swipe { position: relative; }
+.want-swipe > .want { position: relative; z-index: 1; touch-action: pan-y; transition: transform .2s ease-out; }
+.want-swipe > .want.is-drag { transition: none; }
+.want-swipe::before {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  color: var(--ink-soft);
+  font-size: .875rem;
+  font-weight: 600;
+  opacity: .5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.want-swipe[data-swipe^="hide"]::before { content: '🗑 Перехотелось'; }
+.want-swipe[data-swipe="hide"]::before { opacity: 1; }
 .want-undo {
   display: flex;
   align-items: center;
