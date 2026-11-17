@@ -221,7 +221,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transition: transform .6s cubic-bezier(.3, .7, .3, 1) .35s;
 }
 
-.seal svg, .nav-seal-wax svg.wax { width: 100%; height: 100%; }
+.seal svg, .write-seal-wax svg.wax { width: 100%; height: 100%; }
 
 .envelope.is-opening .seal { transform: scale(1.3); opacity: 0; }
 .envelope.is-opening .env-flap { transform: rotateX(180deg); z-index: 1; }
@@ -805,8 +805,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   bottom: 0;
   z-index: 10;
   display: grid;
-  /* Дві марки зліва ширші, три справа вужчі — печатка «Написать» лишається рівно посередині */
-  grid-template-columns: repeat(2, 3fr) auto repeat(3, 2fr);
+  grid-template-columns: repeat(5, 1fr);
   padding: 10px 4px max(10px, env(safe-area-inset-bottom));
   background: var(--tab-bg);
   backdrop-filter: blur(14px);
@@ -867,14 +866,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transform: rotate(-5deg) translateY(-2px);
 }
 
-/* Нахил «через одну» — за назвою, бо посередині стоїть печатка «Написать» */
-.tab:is([data-tab="envelopes"], [data-tab="plans"], [data-tab="wish"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+/* Нахил «через одну» */
+.tab:is([data-tab="envelopes"], [data-tab="memes"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
 
-/* Печатка «Написать» посередині — сургуч, трохи вище за марки */
-.nav-seal {
+/* Печатка «Написать» — сургуч у правому верхньому куті вкладки «Письма», навпроти заголовка */
+.screen { position: relative; }
+.write-seal {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  z-index: 2;
   display: grid;
   justify-items: center;
-  gap: 5px;
+  gap: 3px;
   padding: 0;
   border: 0;
   background: none;
@@ -885,19 +889,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   -webkit-tap-highlight-color: transparent;
 }
 
-.nav-seal-wax {
+.write-seal-wax {
   display: grid;
   place-items: center;
-  width: 60px;
-  height: 60px;
-  margin-top: -20px;
+  width: 58px;
+  height: 58px;
   filter: drop-shadow(0 2px 0 #5e1f45) drop-shadow(0 5px 6px rgba(74, 37, 69, .4));
   transition: transform .2s cubic-bezier(.3, 1.4, .5, 1);
 }
 
-.nav-seal:active .nav-seal-wax { transform: scale(.92) rotate(-6deg); }
+.write-seal:active .write-seal-wax { transform: scale(.92) rotate(-6deg); }
 
-[data-side="vin"] .nav-seal { color: var(--powder); }
+[data-side="vin"] .write-seal { color: var(--powder); }
 
 :root {
   --stamp-off: #EDE3FB;
@@ -1897,3 +1900,4 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .sheet-meme .meme-place { margin: 4px 0 0; }
 .sheet-meme .sheet-actions { margin-top: 10px; }
 .sheet-maker .mk-ai { margin: 0 0 10px; }
+.write-seal ~ :is(.title, .day, h2) { padding-right: 72px; }

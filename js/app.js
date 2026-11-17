@@ -226,7 +226,12 @@ function renderEmpty(title, text, mascot) {
 }
 
 function render() {
-  if (tab === 'letter') renderLetter();
+  if (tab === 'letter') {
+    renderLetter();
+    // «Написать» — сургуч у куті вкладки «Письма» (раніше — посередині нижнього меню)
+    screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: openWrite },
+      h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
+  }
   else if (tab === 'envelopes') renderEnvelopes(screen);
   else if (tab === 'memes') {
     // Показуємо, що вже є, і одразу дотягуємо свіже (push поки немає)
@@ -331,8 +336,6 @@ function openTogether() {
 
 chip.addEventListener('click', openTogether);
 
-document.getElementById('write-btn').addEventListener('click', openWrite);
-document.querySelector('.nav-seal-wax').innerHTML = waxSeal(QUILL_GLYPH);
 
 // Рядок у шапці під логотипом: «є нова версія» / «оновилась». Нічого не перекриває, ✕ — сховати
 function pill(text, onclick) {
