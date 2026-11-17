@@ -174,6 +174,9 @@ function renderLetter() {
     st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
     letterArchive(render),
   ].filter(Boolean));
+  // Згасання знизу — лише коли текст справді обрізано, коротке письмо лишається чистим
+  const text = screen.querySelector('.letter.is-compact .letter-text');
+  if (text) text.classList.toggle('is-clamped', text.scrollHeight > text.clientHeight + 2);
 }
 
 function openEnvelope(env) {
@@ -331,7 +334,7 @@ function openTogether() {
     body);
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
-  renderTogether(body, { onPlans: () => { close(); selectTab('plans'); } });
+  renderTogether(body, { onPlans: () => { close(); selectTab('plans'); }, onRender: markPlans });
 }
 
 chip.addEventListener('click', openTogether);
@@ -393,6 +396,8 @@ document.addEventListener('visibilitychange', () => {
   });
 });
 
+const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
+
 // Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні
 function openAbout() {
   const btn = document.getElementById('about-btn');
@@ -415,7 +420,9 @@ function openAbout() {
       h('h2', { class: 'title' }, 'Радовалка'),
       h('p', { class: 'about-version' }, `Версия ${VERSION}`),
       h('h3', {}, 'Что нового'),
-      h('ul', { class: 'news' }, ...NEWS.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text)))),
+      // Три свіжі версії на виду, решта — під «Ранее», щоб кнопки нижче не тонули
+      newsList(NEWS.slice(0, 3)),
+      NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null,
       getAltKey() ? h('button', {
         type: 'button',
         class: 'btn about-logout',

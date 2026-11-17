@@ -72,7 +72,7 @@ function mood({ desc = false } = {}) {
 // context() — що відомо про картинку (назва гифки), field — поле підпису
 export function captionHelper(field, context, onPick) {
   const m = mood({ desc: !context() });
-  const tune = h('details', { class: 'mk-tune' }, h('summary', {}, 'Повод и настроение'), m.el);
+  const tune = h('details', { class: 'mk-tune' }, h('summary', {}, 'Повод и настроение для ✨'), m.el);
   const out = h('div', { class: 'mk-chips mk-row mk-capts', 'aria-live': 'polite' });
   const go = h('button', { type: 'button', class: 'btn mk-ai-cap', 'aria-label': 'Придумать подпись' }, '✨');
   go.addEventListener('click', async () => {
@@ -92,7 +92,7 @@ export function captionHelper(field, context, onPick) {
     }
     go.disabled = false;
   });
-  return { button: go, el: h('div', { class: 'mk-helper' }, out, tune) };
+  return { button: go, captions: out, tune };
 }
 
 // Шторка вибору гифки; onGif(gif) — обрали
@@ -165,6 +165,8 @@ function gifPanel(done) {
   let seq = 0;
   const load = async (append) => {
     const my = ++seq;
+    // Поки вантажиться — «Ещё» сховано: подвійний тап чи стара тема не загублять сторінку
+    more.hidden = true;
     if (!append) grid.replaceChildren(h('p', { class: 'mk-wait' }, 'Ищу гифки…'));
     let list;
     try {
@@ -173,6 +175,13 @@ function gifPanel(done) {
       else list = await get(`gifs?q=${encodeURIComponent(source.q)}&offset=${offset}`);
     } catch (e) {
       if (my !== seq) return;
+      if (append) {
+        // Уже завантажені гифки лишаються, наступну сторінку можна попросити ще раз
+        offset -= 12;
+        more.hidden = false;
+        toast('Не загрузилось — попробуй ещё раз');
+        return;
+      }
       grid.replaceChildren(h('p', { class: 'mk-wait' }, e.status === 503
         ? 'Поиск гифок ещё не подключён — можно прислать картинку из галереи.'
         : 'Гифки не загрузились — попробуй ещё раз.'));

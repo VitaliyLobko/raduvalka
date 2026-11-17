@@ -47,8 +47,9 @@ export function chipLabel(now = today()) {
   return 'Вместе';
 }
 
-// onPlans — відкрити «Планы» (кнопка на місці колишнього списку «Куда пойдём»)
-export function renderTogether(screen, { onPlans } = {}) {
+// onPlans — відкрити «Планы» (кнопка на місці колишнього списку «Куда пойдём»); onRender — після кожного малювання
+export function renderTogether(screen, opts = {}) {
+  const { onPlans, onRender } = opts;
   const T = DATA.together;
   const { side } = DATA;
   const now = today();
@@ -76,7 +77,7 @@ export function renderTogether(screen, { onPlans } = {}) {
     onchange: (e) => {
       T.meet = e.target.value || null;
       save('together', { meet: T.meet });
-      renderTogether(screen, { onPlans });
+      renderTogether(screen, opts);
     },
   });
 
@@ -97,6 +98,7 @@ export function renderTogether(screen, { onPlans } = {}) {
   flyHeart(card, heart, trip.progress);
   // ponytail: на планеті поки лише пульс планети; ролики для Юпітера й Землі — передати сюди onPlanet
   dragHeart(card, heart, trip.progress);
+  onRender?.();
 }
 
 // «N дней вместе» з датою початку; без дати рядка немає

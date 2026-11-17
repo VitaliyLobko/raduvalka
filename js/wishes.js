@@ -185,12 +185,13 @@ function editWish(screen, w, sharedLink = '') {
   const drawPic = () => {
     const img = pic instanceof Blob ? h('img', { class: 'want-img', alt: 'Фото', src: URL.createObjectURL(pic) })
       : pic === undefined && w?.img ? photo(w.img, 'Фото') : null;
-    picBox.replaceChildren(
+    // replaceChildren не пропускає null, на відміну від h()
+    picBox.replaceChildren(...[
       img ? h('span', { class: 'want-pic-frame' },
         h('button', { type: 'button', class: 'want-pic-zoom', 'aria-label': 'Посмотреть фото крупно', onclick: () => { if (img.src) showPhoto(img.src, title.value || 'Фото'); } }, img),
         h('button', { type: 'button', class: 'want-pic-del', 'aria-label': 'Убрать фото', onclick: () => { pic = null; drawPic(); } }, '✕')) : null,
       h('button', { type: 'button', class: 'btn mk-reroll', onclick: () => fileIn.click() }, img ? '📷 Другое фото' : '📷 Фото'),
-    );
+    ].filter(Boolean));
   };
   const takeFile = async (blob) => {
     try {

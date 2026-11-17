@@ -342,9 +342,7 @@
 .plan-sheet .plan-screen .title { margin-top: 0; }
 
 /* Крапка «є що оцінити» на значку «Вместе» чи на кнопці входу */
-.together-chip.plan-has-new,
 [data-plans-entry].plan-has-new { position: relative; }
-.together-chip.plan-has-new::after,
 [data-plans-entry].plan-has-new::after {
   content: '';
   position: absolute;
@@ -356,4 +354,4 @@
   background: var(--wax);
   box-shadow: 0 0 0 2px var(--paper);
 }
-[data-side="vin"] :is(.together-chip, [data-plans-entry]).plan-has-new::after { background: var(--powder); box-shadow: 0 0 0 2px var(--night); }
+[data-side="vin"] [data-plans-entry].plan-has-new::after { background: var(--powder); box-shadow: 0 0 0 2px var(--night); }

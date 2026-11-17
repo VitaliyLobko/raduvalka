@@ -29,25 +29,61 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 // Екран міг змінитись, поки йшла відповідь сервера (інша вкладка чи закрита шторка), — тоді не малюємо
 const alive = (screen) => screen.isConnected && !!screen.querySelector(':scope > .plan-screen');
 
-// Які збіги вже бачили на цьому телефоні — щоб позначити нові; лише зручність, не обовʼязкове
-const seenKey = () => `radovalka:plans-seen:${DATA.side}`;
-function seenAt() {
+// Які збіги вже бачили на цьому телефоні — щоб позначити нові; лише зручність, не обовʼязкове.
+// Набір id, а не одна мітка часу: свій свіжий збіг не має гасити ранніші, яких ще не бачили
+const seenKey = () => `radovalka:plans-seen-ids:${DATA.side}`;
+const legacyKey = () => `radovalka:plans-seen:${DATA.side}`;
+function seenIds() {
   try {
-    return Number(localStorage.getItem(seenKey())) || 0;
+    const raw = localStorage.getItem(seenKey());
+    if (raw) return new Set(JSON.parse(raw));
+    // Перехід зі старої мітки часу: усе, що збіглося до неї, вже бачили
+    const before = Number(localStorage.getItem(legacyKey())) || 0;
+    return new Set((data?.ours || []).filter((p) => (p.matched || 0) <= before).map((p) => p.id));
   } catch {
-    return 0;
+    return new Set();
   }
 }
-function markSeen(t) {
+function markSeen(ids) {
   try {
-    if (t > seenAt()) localStorage.setItem(seenKey(), String(t));
+    const all = seenIds();
+    ids.forEach((id) => all.add(id));
+    // Лише ті, що ще є у «Наших планах», — щоб список не ріс вічно
+    const live = new Set((data?.ours || []).map((p) => p.id));
+    localStorage.setItem(seenKey(), JSON.stringify([...all].filter((id) => live.has(id))));
   } catch { /* приватний режим — позначка просто не запамʼятається */ }
 }
-const freshMatches = () => (data?.ours || []).filter((p) => !p.done && (p.matched || 0) > seenAt());
+function freshMatches() {
+  const seen = seenIds();
+  return (data?.ours || []).filter((p) => !p.done && !seen.has(p.id));
+}
+
+// Лічильник локальних змін: відповідь GET, що пішла до голосу чи нової ідеї, старіша за екран — її пропускаємо
+let gen = 0;
+let busy = 0;
+async function mutate(path, method, body) {
+  gen += 1;
+  busy += 1;
+  try {
+    return await send(path, method, body);
+  } finally {
+    busy -= 1;
+    gen += 1;
+  }
+}
 
 export async function loadPlans() {
-  data = await get('plans');
+  const before = gen;
+  const fresh = await get('plans');
+  if (before === gen && !busy) data = fresh;
   return data;
+}
+
+// Додати ідеї в «мої», не дублюючи тих, що вже прийшли з сервера
+function addMine(list) {
+  if (!data) return;
+  const have = new Set(data.mine.map((x) => x.id));
+  data.mine = [...list.filter((x) => !have.has(x.id)), ...data.mine];
 }
 
 // Крапка: є ідеї від другої половини без моєї відповіді або новий збіг
@@ -193,6 +229,7 @@ let voting = false;
 async function vote(screen, idea, v, card) {
   if (voting) return;
   voting = true;
+  gen += 1;
   card.classList.add('is-gone');
   card.style.transform = `translateX(${v ? 130 : -130}%) rotate(${v ? 16 : -16}deg)`;
   card.dataset.lean = v ? 'yes' : 'no';
@@ -202,10 +239,10 @@ async function vote(screen, idea, v, card) {
   voting = false;
   if (alive(screen)) renderPlans(screen);
   try {
-    const r = await send(`plans/${idea.id}`, 'PUT', { vote: v });
+    const r = await mutate(`plans/${idea.id}`, 'PUT', { vote: v });
     if (r.match && r.idea) {
       if (!data.ours.some((p) => p.id === r.idea.id)) data.ours.unshift(r.idea);
-      markSeen(r.idea.matched || 0);
+      markSeen([r.idea.id]);
       if (alive(screen)) {
         renderPlans(screen);
         celebrate(r.idea);
@@ -268,7 +305,7 @@ function planRow(p, action) {
 async function removeIdea(screen, p) {
   if (!confirm(`Убрать идею «${p.title}»?`)) return;
   try {
-    await send(`plans/${p.id}`, 'DELETE');
+    await mutate(`plans/${p.id}`, 'DELETE');
     data.mine = data.mine.filter((x) => x.id !== p.id);
     if (alive(screen)) renderPlans(screen);
   } catch (e) {
@@ -283,7 +320,7 @@ async function removeIdea(screen, p) {
 
 function oursView(screen, me, pet) {
   const fresh = new Set(freshMatches().map((p) => p.id));
-  markSeen(Math.max(0, ...data.ours.map((p) => p.matched || 0)));
+  markSeen(data.ours.map((p) => p.id));
   const open = data.ours.filter((p) => !p.done);
   const done = data.ours.filter((p) => p.done);
   const doneBtn = (p) => h('button', {
@@ -317,7 +354,7 @@ async function setDone(screen, p, done) {
   mark(done);
   renderPlans(screen);
   try {
-    await send(`plans/${p.id}`, 'PUT', { done });
+    await mutate(`plans/${p.id}`, 'PUT', { done });
     if (done) toast('Ура! Отмечено ✓');
   } catch {
     mark(prev);
@@ -418,8 +455,18 @@ function wheelSvg(slots) {
     const tone = i && i === slots.length - 1 && i % 4 === 0 ? 2 : i % 4;
     const g = el('g', { class: `plan-sector plan-sector-${tone}` });
     g.append(el('path', { d: `M0 0L${at(a0)}A${R} ${R} 0 ${step > 180 ? 1 : 0} 1 ${at(a0 + step)}Z` }));
-    const title = p.title.length > 15 ? `${p.title.slice(0, 14).trim()}…` : p.title;
-    g.append(el('text', { x: '31', y: '0', 'dominant-baseline': 'central', transform: `rotate(${a0 + step / 2 - 90})` }, `${catOf(p.cat)[1]} ${title}`));
+    // Від маточини до обода ~60 одиниць — влазить близько 11 знаків
+    const title = p.title.length > 11 ? `${p.title.slice(0, 10).trim()}…` : p.title;
+    const mid = (a0 + step / 2) % 360;
+    // Ліва половина колеса — розвертаємо, щоб підпис не стояв догори дриґом
+    const flip = mid > 180;
+    g.append(el('text', {
+      x: flip ? '-31' : '31',
+      y: '0',
+      'dominant-baseline': 'central',
+      'text-anchor': flip ? 'end' : 'start',
+      transform: `rotate(${mid + (flip ? 90 : -90)})`,
+    }, `${catOf(p.cat)[1]} ${title}`));
     svg.append(g);
   });
   return svg;
@@ -499,8 +546,8 @@ function editIdea(screen) {
     if (!title.value.trim()) { title.focus(); return; }
     saveBtn.disabled = true;
     try {
-      const idea = await send('plans', 'POST', { title: title.value, note: note.value, cat });
-      data?.mine.unshift(idea);
+      const idea = await mutate('plans', 'POST', { title: title.value, note: note.value, cat });
+      addMine([idea]);
     } catch {
       saveBtn.disabled = false;
       toast('Не сохранилось — нет связи');
@@ -537,7 +584,7 @@ function askIdeas(screen) {
           const btn = e.currentTarget;
           btn.disabled = true;
           try {
-            await send(`plans/${p.id}`, 'DELETE');
+            await mutate(`plans/${p.id}`, 'DELETE');
             added.splice(added.indexOf(p), 1);
             if (data) data.mine = data.mine.filter((x) => x.id !== p.id);
             drawAdded(added);
@@ -554,8 +601,8 @@ function askIdeas(screen) {
     goBtn.disabled = true;
     status.textContent = 'Придумываю…';
     try {
-      const { added } = await send('plan-ideas', 'POST', { cat, hint: hint.value });
-      if (data) data.mine = [...added, ...data.mine];
+      const { added } = await mutate('plan-ideas', 'POST', { cat, hint: hint.value });
+      addMine(added);
       status.textContent = `Готово: ${added.length}. ${cap(me.partner)} увидит их в колоде. Лишнее убери ✕`;
       drawAdded(added);
       out.scrollIntoView?.({ block: 'nearest' });

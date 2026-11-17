@@ -282,8 +282,9 @@ function sendSheet(preview, post, done, style0 = null, about = '') {
       h('h2', {}, 'Мемчик'),
       h('div', { class: 'meme-frame' }, Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }), over),
       h('div', { class: 'meme-cap-row' }, caption, helper.button),
-      helper.el,
+      helper.captions,
       place,
+      helper.tune,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
         go)));

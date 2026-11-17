@@ -25,7 +25,8 @@ const SCHEMA = [
 ];
 
 const SIDES = ['vona', 'vin'];
-const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'wishes'];
+// wishes більше не приймаємо: старий список «Куда пойдём» перенесено в «Планы» разово
+const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase'];
 const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
@@ -804,10 +805,7 @@ function view(r, side) {
   };
 }
 
-// Повзунок 0–100 → одна з трьох словесних смуг для промпту
-const pickBand = (v, bands) => bands[Math.min(2, Math.floor((Math.max(0, Math.min(100, Number(v) || 0))) / 34))];
-
-// Конструктор: ситуація й повзунки → 5 підписів від улюбленця або 3 англійські запити для GIF
+// Мемчики: повод і повзунки → 8 підписів (bestCaptions лишає 5) або 6 англійських запитів для GIF
 async function memeIdeas(req, env, side) {
   if (!env.AI) throw fail(503, 'ai');
   const b = await readJson(req);
@@ -815,7 +813,6 @@ async function memeIdeas(req, env, side) {
   const situation = String(b.situation || '').trim().slice(0, 200) || 'просто так, порадовать';
   const funny = level(b.funny);
   const bold = level(b.bold);
-  const to = side === 'vin' ? 'жене' : 'мужу';
 
   let system;
   let user;
@@ -827,9 +824,8 @@ async function memeIdeas(req, env, side) {
       + '"q" — the English query, 2-4 words; "label" — the same idea in natural Russian, 1-3 words, for a button. '
       + 'Make the six different from each other: different emotions, subjects and angles of the situation. '
       + 'No politics, no war, no violence, nothing explicit.';
-    user = `Situation (Russian): ${situation}. Mood: ${funny}% funny (0 = cute), ${bold}% cheeky (0 = tender), `
-      + `${level(b.absurd)}% absurd. `
-      + `Subjects: ${level(b.people) > 50 ? 'people, movie and cartoon characters, reactions' : 'animals — cats, dogs, cute creatures'}.`;
+    user = `Situation (Russian): ${situation}. Mood: ${funny}% funny (0 = cute), ${bold}% cheeky (0 = tender). `
+      + 'Subjects: mostly animals — cats, dogs, cute creatures; one or two may be people or cartoon reactions if they fit better.';
   } else {
     const desc = String(b.desc || '').trim().slice(0, 200);
     system = 'Ты остроумный автор подписей к мемам и открыткам. Пара: муж надолго уехал далеко, жена ждёт дома. '
@@ -841,10 +837,8 @@ async function memeIdeas(req, env, side) {
     user = (side === 'vin' ? 'От мужа жене. ' : 'От жены мужу. ')
       + (desc ? `На картинке: ${desc}. ` : 'Что на картинке — неизвестно, подпись должна подходить к любой. ')
       + `Повод: ${situation}. `
-      + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно), `
-      + `абсурдно на ${level(b.absurd)}%. `
-      + `Длина каждой подписи: ${pickBand(b.len, ['3–6 слов', '6–12 слов', '12–20 слов'])}. `
-      + `Эмодзи: ${pickBand(b.emoji, ['ни одного', 'не больше одного на подпись', 'одно-три к месту'])}.`;
+      + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно). `
+      + 'Длина каждой подписи: 3–10 слов, чтобы влезла на картинку. Эмодзи: не больше одного на подпись, можно без.';
   }
 
   const out = await env.AI.run(AI_MODEL, {
@@ -1077,7 +1071,7 @@ function ideaInsert(db, side, f, ai, created) {
   };
 }
 
-// Разовий перенос старого списку «Куда пойдём» (together.wishes): автор ❤️, done як було.
+// Разовий перенос старого списку «Куда пойдём» (together.wishes): автор ❤️; зроблене — спільне, обидва ❤️.
 // Позначка в docs — у тій самій пачці; id сталі, INSERT OR IGNORE — два одночасні запити не задвоять
 async function migrateWishes(db) {
   if (plansMigrated) return;
@@ -1091,10 +1085,18 @@ async function migrateWishes(db) {
   await db.batch([
     ...items.map((w, i) => {
       const by = SIDES.includes(w.by) ? w.by : 'vona';
+      const title = String(w.text).replace(/\s+/g, ' ').trim().slice(0, 120);
       // Список дописували згори (unshift), тож перший — найновіший
+      const created = now - i;
+      // Зроблене вже було спільним: обидва ❤️ і збіг — інакше воно знову прийде другому в колоду
+      if (w.done) {
+        return db.prepare('INSERT OR IGNORE INTO ideas (id, author, cat, title, note, vote_vona, vote_vin, done, matched, created) '
+          + 'VALUES (?, ?, ?, ?, NULL, 1, 1, 1, ?, ?)')
+          .bind(`wish${i}`, by, 'other', title, created, created);
+      }
       return db.prepare(`INSERT OR IGNORE INTO ideas (id, author, cat, title, note, ${VOTE_COL[by]}, done, created) `
-        + 'VALUES (?, ?, ?, ?, NULL, 1, ?, ?)')
-        .bind(`wish${i}`, by, 'other', String(w.text).replace(/\s+/g, ' ').trim().slice(0, 120), w.done ? 1 : 0, now - i);
+        + 'VALUES (?, ?, ?, ?, NULL, 1, 0, ?)')
+        .bind(`wish${i}`, by, 'other', title, created);
     }),
     db.prepare('INSERT INTO docs (k, v, updated) VALUES (?, ?, ?) '
       + 'ON CONFLICT (k) DO UPDATE SET v = excluded.v, updated = excluded.updated')

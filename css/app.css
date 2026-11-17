@@ -1025,10 +1025,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .mk-chips + input { margin-top: 8px; }
 
-.mk-pose-row { margin-top: 8px; flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
-.mk-pose-row .mk-chip { flex: none; width: 64px; height: 64px; min-height: 0; padding: 3px; border-radius: 16px; }
-.mk-pose-row img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
-.mk-pose-row .mk-chip[aria-checked="true"] { background: var(--plum); }
 
 .mk-slider {
   display: grid;
@@ -1048,17 +1044,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .mk-results textarea { margin-bottom: 4px; }
 .mk-wait { margin: 6px 0; color: #7a5a78; text-align: center; }
 
-.mk-caption {
-  display: block;
-  width: 100%;
-  margin: 0 0 8px;
-  padding: 10px 14px;
-  border: 1.5px solid var(--lavender);
-  border-radius: 14px;
-  background: #fff;
-  text-align: left;
-  font: 1.45rem/1.25 var(--hand);
-}
 
 .mk-gifs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 
@@ -1682,11 +1667,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .archive .sent-item { color: var(--plum); }
 
 /* Конструктор 0.1.27: режими з підказкою, свій підпис, живе прев'ю, пошук гифок */
-.mk-modes .mk-chip { padding: 0 8px; font-size: .875rem; }
-.mk-hint { margin: 8px 2px 0; font-size: .875rem; line-height: 1.4; color: #7a5a78; }
-.mk-body > .mk-group:first-child, .mk-body > .mk-gif-panel { margin-top: 12px; }
-.mk-more-tune { margin-top: 6px; }
-.mk-more-tune summary, .mk-ai summary {
+.mk-ai summary {
   min-height: 40px;
   display: flex;
   align-items: center;
@@ -1696,21 +1677,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 }
 .mk-ai { margin-top: 14px; padding: 2px 12px 12px; border: 1.5px dashed var(--lavender); border-radius: 16px; }
 .mk-ai[open] summary { margin-bottom: 4px; }
-.mk-photo:not(:empty) { margin-bottom: 8px; }
-.mk-photo img { display: block; max-width: 100%; max-height: 200px; margin: 0 auto; border-radius: 14px; }
-.mk-photo + .mk-reroll + input, .mk-group > input[type="text"] { margin-top: 8px; }
-.mk-go-row { display: flex; gap: 8px; margin-top: 16px; }
-.mk-go-row .mk-go { flex: 1.4; width: auto; margin: 0; }
-.mk-self { flex: 1; justify-content: center; border-style: dashed; }
-.mk-canvas {
-  display: block;
-  width: 100%;
-  max-height: 60vh;
-  object-fit: contain;
-  border-radius: 14px;
-  background: var(--env);
-  box-shadow: 0 10px 24px -18px rgba(74, 37, 69, .6);
-}
+.mk-group > input[type="text"] { margin-top: 8px; }
 .mk-results .sheet-actions { margin-top: 12px; }
 .mk-results textarea {
   width: 100%;
@@ -1780,6 +1747,8 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   overflow: hidden;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+.letter.is-compact .letter-text.is-clamped {
   -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
   mask-image: linear-gradient(180deg, #000 60%, transparent);
 }
@@ -1851,17 +1820,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .sheet-maker .mk-row .mk-chip { flex: none; }
 .sheet-maker .mk-group { margin-top: 10px; padding: 10px 12px 8px; }
 .sheet-maker .mk-label { margin-bottom: 4px; }
-.sheet-maker .mk-pose-row { margin-top: 6px; }
-.sheet-maker .mk-pose-row .mk-chip { width: 56px; height: 56px; }
 .sheet-maker .mk-slider { min-height: 34px; }
-.sheet-maker .mk-more-tune summary { min-height: 34px; }
-.mk-go-row .btn { white-space: nowrap; padding: 0 12px; }
-.mk-go-row .mk-go, .mk-self { flex: 1; }
-.mk-body.is-results > :not(.mk-results) { display: none; }
-.mk-body.is-results .mk-results { margin-top: 10px; }
-.mk-back { min-height: 38px; margin-bottom: 10px; padding: 0 14px; border-style: dashed; font-size: .875rem; }
-.mk-results .mk-caption { margin-bottom: 6px; padding: 8px 14px; font-size: 1.35rem; }
-.mk-canvas { max-height: 44vh; width: auto; max-width: 100%; margin: 0 auto; }
 .mk-results .mk-group { margin-top: 8px; }
 .mk-results textarea { font-size: 1.2rem; }
 
@@ -1870,7 +1829,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .meme-cap-row { display: flex; gap: 8px; }
 .meme-cap-row input { flex: 1; min-width: 0; }
 .mk-ai-cap { width: 46px; min-height: 46px; padding: 0; justify-content: center; font-size: 1.2rem; border-color: var(--lavender); }
-.mk-helper { margin-top: 6px; }
 .mk-capts:empty { display: none; }
 .mk-capts { margin: 0 -16px; padding: 2px 16px 4px; }
 .sheet-meme .mk-capts { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
@@ -1901,3 +1859,66 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .sheet-meme .sheet-actions { margin-top: 10px; }
 .sheet-maker .mk-ai { margin: 0 0 10px; }
 .write-seal ~ :is(.title, .day, h2) { padding-right: 72px; }
+
+/* Його половина: перемикачі й порожні стани на нічному небі читаються, як у «Планах» */
+[data-side="vin"] .screen :is(.archive-seg, .mk-kind, .want-budget) .mk-chip {
+  background: color-mix(in srgb, var(--night) 88%, #fff);
+  border-color: rgba(244, 230, 196, .3);
+  color: var(--cream);
+}
+[data-side="vin"] .screen :is(.archive-seg, .mk-kind, .want-budget) .mk-chip[aria-checked="true"] {
+  background: var(--star);
+  border-color: var(--star);
+  color: var(--night);
+}
+[data-side="vin"] .screen .mk-wait { color: rgba(244, 230, 196, .72); }
+[data-side="vin"] .plan-screen .mk-chip:not([aria-checked="true"]) { background: color-mix(in srgb, var(--night) 88%, #fff); }
+[data-side="vin"] .plan-banner { background: color-mix(in srgb, var(--night) 85%, #fff); }
+
+/* «О Радовалке»: ✕ не просвічує текстом під собою, давні версії — під «Ранее» */
+.sheet-about .sheet-close { background: var(--paper); box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+[data-side="vin"] .sheet-about .sheet-close { background: var(--night); color: var(--cream); }
+.news-more { margin: -12px 0 22px; }
+.news-more summary { min-height: 40px; display: flex; align-items: center; color: var(--ink-soft); font-weight: 500; cursor: pointer; }
+.news-more .news { margin: 6px 0 0; }
+
+/* Конверти: п'ятий не ховається під нижнє меню */
+.mini-env { aspect-ratio: 2 / 1; }
+
+/* Гифки: повідомлення — на всю ширину сітки, а не в одну колонку; стрічка тем натякає, що гортається */
+.mk-gifs > .mk-wait { grid-column: 1 / -1; }
+.mk-gif-chips {
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+.sheet-maker .mk-ai:not([open]) { padding-bottom: 2px; }
+.sheet-maker .mk-ai:not([open]) summary { min-height: 36px; }
+
+/* «Повод и настроение» — видно, що це розгортається, а не заголовок чипів */
+.mk-tune summary::before { content: '▸'; display: inline-block; width: 1em; transition: transform .2s; }
+.mk-tune[open] summary::before { transform: rotate(90deg); }
+.sheet-meme .mk-tune { margin-top: 4px; }
+
+/* Тост — по ширині тексту, а не пів екрана */
+.toast { width: max-content; text-align: center; }
+
+/* Колода «Листать» влазить разом із «Мои идеи ждут ответа» */
+.plan-card { min-height: 190px; padding-bottom: 14px; }
+.plan-card-emoji { font-size: 2.4rem; }
+.plan-votes { margin-top: 20px; }
+.plan-tools { margin-top: 14px; }
+.plan-wait { margin-top: 12px; }
+
+/* «Вместе»: кнопка «Планы» в межах екрана; календар видно на його половині */
+.sheet-together .meet-row { margin-top: 8px; }
+.sheet-together .together-days { margin-top: 8px; }
+[data-side="vin"] .meet-row input { color-scheme: light; }
+
+/* Світлі шторки на його половині: кружок під ✕ видно */
+.sheet-maker .sheet-close { background: rgba(74, 37, 69, .08); }
+
+/* Хотелки: бюджет — одним рядком, підказка по центру, як і порожній стан */
+.want-budget .mk-chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; }
+.want-budget .mk-chips::-webkit-scrollbar { display: none; }
+.want-budget .mk-chip { flex: none; }
+.want-budget ~ .hint { text-align: center; }
