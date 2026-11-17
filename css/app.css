@@ -805,7 +805,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   bottom: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* Дві марки зліва ширші, три справа вужчі — печатка «Написать» лишається рівно посередині */
+  grid-template-columns: repeat(2, 3fr) auto repeat(3, 2fr);
   padding: 10px 4px max(10px, env(safe-area-inset-bottom));
   background: var(--tab-bg);
   backdrop-filter: blur(14px);
@@ -867,7 +868,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* Нахил «через одну» — за назвою, бо посередині стоїть печатка «Написать» */
-.tab:is([data-tab="envelopes"], [data-tab="wish"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+.tab:is([data-tab="envelopes"], [data-tab="plans"], [data-tab="wish"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
 
 /* Печатка «Написать» посередині — сургуч, трохи вище за марки */
 .nav-seal {
@@ -1761,11 +1762,27 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .meme-over.is-bottom { bottom: 10px; }
 .meme-place { margin: 8px 0 4px; }
 
-/* Лист дня: «Сложить» і складений лист — край паперу визирає з конверта */
+/* Прочитаний лист дня — коротка картка: 3 рядки, без підпису й анімації; тап — цілим */
+.btn-fold { border-style: dashed; padding: 0 14px; white-space: nowrap; }
 .actions { flex-wrap: wrap; }
-.btn-fold { border-style: dashed; }
-.envelope.is-folded .paper-peek { transform: translateY(-16%) rotate(-2deg); transition: none; }
-.envelope.is-folded.is-opening .paper-peek { transform: translateY(-62%); transition: transform .6s cubic-bezier(.3, .7, .3, 1) .35s; }
+.letter.is-compact {
+  padding: 16px 20px 14px;
+  cursor: pointer;
+  animation: none;
+  box-shadow: 0 12px 26px -18px rgba(74, 37, 69, .55);
+}
+.letter.is-compact .letter-text {
+  display: -webkit-box;
+  max-height: 102px;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
+  mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+.letter.is-compact .letter-sign { display: none; }
+.letter.is-compact + .actions { margin-top: 12px; }
+.letter.is-compact + .actions .btn { min-height: 42px; padding: 0 14px; }
 
 /* Порожній конверт: не прозорий, а розкритий — клапан відкинуто, всередині пунктир, замість сургучу кільце */
 .env-card { padding-top: 22px; }
@@ -1817,3 +1834,30 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   color: var(--plum);
   font-weight: 500;
 }
+
+/* Конструктор на один екран: ряди чипів — одним рядком з прокруткою, групи щільніші,
+   а підписи й редактор займають шторку замість форми */
+.sheet-maker .mk-row {
+  flex-wrap: nowrap;
+  margin: 0 -12px;
+  padding: 2px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sheet-maker .mk-row::-webkit-scrollbar { display: none; }
+.sheet-maker .mk-row .mk-chip { flex: none; }
+.sheet-maker .mk-group { margin-top: 10px; padding: 10px 12px 8px; }
+.sheet-maker .mk-label { margin-bottom: 4px; }
+.sheet-maker .mk-pose-row { margin-top: 6px; }
+.sheet-maker .mk-pose-row .mk-chip { width: 56px; height: 56px; }
+.sheet-maker .mk-slider { min-height: 34px; }
+.sheet-maker .mk-more-tune summary { min-height: 34px; }
+.mk-go-row .btn { white-space: nowrap; padding: 0 12px; }
+.mk-go-row .mk-go, .mk-self { flex: 1; }
+.mk-body.is-results > :not(.mk-results) { display: none; }
+.mk-body.is-results .mk-results { margin-top: 10px; }
+.mk-back { min-height: 38px; margin-bottom: 10px; padding: 0 14px; border-style: dashed; font-size: .875rem; }
+.mk-results .mk-caption { margin-bottom: 6px; padding: 8px 14px; font-size: 1.35rem; }
+.mk-canvas { max-height: 44vh; width: auto; max-width: 100%; margin: 0 auto; }
+.mk-results .mk-group { margin-top: 8px; }
+.mk-results textarea { font-size: 1.2rem; }

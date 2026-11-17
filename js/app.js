@@ -10,7 +10,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './w
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
-import { loadPlans, markPlans, openPlans } from './plans.js';
+import { loadPlans, markPlans, renderPlans } from './plans.js';
 import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
@@ -45,18 +45,10 @@ function setLetterState(patch) {
   markLetter();
 }
 
-// Прочитаний лист можна скласти назад у конверт — пам'ятаємо лише на цьому телефоні, для цього дня
-const FOLD_KEY = 'radovalka:letter-folded';
+// Прочитаний лист — коротка картка на 3 рядки; цілим — щойно з конверта або після тапу, до перезапуску
 const letterKey = () => DATA.letter.id || DATA.letter.date;
-function isFolded() {
-  try { return localStorage.getItem(FOLD_KEY) === letterKey(); } catch { return false; }
-}
-function setFolded(on) {
-  try {
-    if (on) localStorage.setItem(FOLD_KEY, letterKey());
-    else localStorage.removeItem(FOLD_KEY);
-  } catch { /* без сховища — просто без «складено» */ }
-}
+let expanded = null;
+const setExpanded = (on) => { expanded = on ? letterKey() : null; render(); };
 
 // Лист із застосунку: дата — з часу показу за годинником телефона, репліка кур'єра — за родом
 function prepLetter(l) {
@@ -123,18 +115,18 @@ function renderLetter() {
     return;
   }
   const st = letterState();
+  const full = expanded === letterKey();
 
   const head = [
     h('p', { class: 'day' }, dayLabel(letter.date)),
     h('h2', { class: 'title' }, letter.special ? 'Праздничное письмо 🎉' : st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
   ];
 
-  if (!st.opened || isFolded()) {
-    const reread = st.opened;
+  if (!st.opened) {
     const env = h('button', {
       type: 'button',
-      class: `envelope${reread ? ' is-folded' : ''}`,
-      'aria-label': reread ? 'Перечитать письмо' : 'Открыть письмо',
+      class: 'envelope',
+      'aria-label': 'Открыть письмо',
       onclick: () => openEnvelope(env),
     },
     h('span', { class: 'env-back' }),
@@ -144,7 +136,7 @@ function renderLetter() {
     h('span', { class: 'seal', 'aria-hidden': 'true', html: waxSeal(SAGITTARIUS_GLYPH) }));
     screen.replaceChildren(...head, h('div', { class: 'stage' },
       env,
-      h('p', { class: 'hint' }, reread ? 'Коснись, чтобы перечитать' : 'Коснись печати, чтобы открыть'),
+      h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
       courier(letter)), letterArchive(render));
     return;
   }
@@ -152,7 +144,16 @@ function renderLetter() {
   // replaceChildren не пропускає null, на відміну від h()
   screen.replaceChildren(...[
     ...head,
-    h('article', { class: `letter${letter.special ? ' is-special' : ''}` },
+    h('article', {
+      class: `letter${letter.special ? ' is-special' : ''}${full ? '' : ' is-compact'}`,
+      ...(full ? {} : {
+        role: 'button',
+        tabindex: '0',
+        'aria-label': 'Прочитать письмо целиком',
+        onclick: () => setExpanded(true),
+        onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(true); } },
+      }),
+    },
       h('p', { class: 'letter-text' }, letter.text),
       h('p', { class: 'letter-sign', html: `${who().from} <span class="sign-arrow">${SAGITTARIUS}</span>` })),
     h('div', { class: 'actions' },
@@ -160,23 +161,25 @@ function renderLetter() {
         type: 'button',
         class: 'btn btn-heart',
         'aria-pressed': String(!!st.liked),
+        'aria-label': 'Сердечко',
         onclick: toggleHeart,
-      }, h('span', { class: 'heart', 'aria-hidden': 'true' }, st.liked ? '❤️' : '🤍'), st.liked ? 'Нравится' : 'Сердечко'),
+      }, h('span', { class: 'heart', 'aria-hidden': 'true' }, st.liked ? '❤️' : '🤍'), full ? (st.liked ? 'Нравится' : 'Сердечко') : null),
       st.reply ? null : h('button', { type: 'button', class: 'btn btn-primary', onclick: openReply }, 'Ответить'),
       h('button', {
         type: 'button',
         class: 'btn btn-fold',
-        onclick: () => { setFolded(true); render(); window.scrollTo({ top: 0 }); },
-      }, '✉ Сложить')),
-    st.reply ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
+        'aria-expanded': String(full),
+        onclick: () => { setExpanded(!full); if (full) window.scrollTo({ top: 0 }); },
+      }, full ? '▴ Свернуть' : '▾ Целиком')),
+    st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
     letterArchive(render),
   ].filter(Boolean));
 }
 
 function openEnvelope(env) {
   const done = () => {
-    setFolded(false);
-    if (!letterState().opened) setLetterState({ opened: true });
+    expanded = letterKey();
+    setLetterState({ opened: true });
     render();
   };
   if (reduceMotion) return done();
@@ -229,6 +232,10 @@ function render() {
     // Показуємо, що вже є, і одразу дотягуємо свіже (push поки немає)
     renderMemes(screen);
     refreshMemes().then((changed) => { if (changed && tab === 'memes') renderMemes(screen); });
+  } else if (tab === 'plans') {
+    // Планы: збережене одразу, свіже — слідом (друга половина могла проголосувати чи додати)
+    renderPlans(screen);
+    loadPlans().then(() => { markPlans(); if (tab === 'plans') renderPlans(screen); }).catch(() => {});
   } else {
     // Хотелки: показуємо збережене й одразу дотягуємо свіже (друга половина могла дописати)
     const had = !!DATA.wishes;
@@ -319,7 +326,7 @@ function openTogether() {
     body);
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
-  renderTogether(body, { onPlans: () => { close(); openPlans(drawChip); } });
+  renderTogether(body, { onPlans: () => { close(); selectTab('plans'); } });
 }
 
 chip.addEventListener('click', openTogether);

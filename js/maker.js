@@ -89,6 +89,7 @@ export function openMaker({ onPhoto, onGif }) {
   const about = slider('про питомца', 'про нас', 30);
   const emoji = slider('без эмодзи', 'с эмодзи', 15);
   const people = slider('зверята', 'люди', 20);
+  situation.el.classList.add('mk-row');
   const sitGroup = group('Повод', situation.el, own);
   const moodGroup = group('Настроение', funny.el, bold.el);
   const moreTune = h('details', { class: 'mk-more-tune' }, h('summary', {}, 'Ещё настройки'), absurd.el, len.el, about.el, emoji.el);
@@ -104,6 +105,7 @@ export function openMaker({ onPhoto, onGif }) {
     poses.replaceChildren(pick.el);
   };
   const petRow = choice(pets.map((k) => ({ v: k, label: petName(k) })), pet, (v) => { pet = v; drawPoses(); });
+  petRow.el.classList.add('mk-row');
   if (pets.length) drawPoses();
   const petGroup = group('Кто на фото', petRow.el, poses);
 
@@ -123,7 +125,7 @@ export function openMaker({ onPhoto, onGif }) {
 
   // ---- Підписи й редактор листівки
   const results = h('div', { class: 'mk-results', 'aria-live': 'polite' });
-  const go = h('button', { type: 'button', class: 'btn btn-primary mk-go' }, '✨ Придумать подписи');
+  const go = h('button', { type: 'button', class: 'btn btn-primary mk-go' }, '✨ Придумать');
   const selfWrite = h('button', { type: 'button', class: 'btn mk-self' }, '✍️ Своя подпись');
   const base = () => (mode === 'pets' ? { pet, pose } : { photo });
   const ready = () => {
@@ -143,27 +145,43 @@ export function openMaker({ onPhoto, onGif }) {
     ...(mode === 'pets' ? { pet: { name: DATA.mascots[pet].name, sp: DATA.mascots[pet].sp, g: DATA.mascots[pet].g } } : { desc: desc.value }),
   });
   const finish = (file) => { close(); onPhoto(file); };
+  // Підписи й редактор — на весь екран шторки: форма згортається, повернутись — «⚙ Повод и настроение»
+  const fold = (on) => {
+    body.classList.toggle('is-results', on);
+    hint.hidden = on;
+  };
+  const back = () => h('button', { type: 'button', class: 'btn mk-back', onclick: () => { fold(false); results.replaceChildren(); } }, '⚙ Повод и настроение');
+  const showResults = (...nodes) => {
+    fold(true);
+    results.replaceChildren(back(), ...nodes);
+    sheet.scrollTo({ top: 0 });
+  };
 
   go.addEventListener('click', async () => {
     if (!ready()) return;
     const q = ask();
     if (!q.situation.trim()) { own.focus(); return; }
     go.disabled = true;
-    results.replaceChildren(h('p', { class: 'mk-wait' }, mode === 'pets' ? `${petName(pet)} придумывает подписи…` : 'Придумываю подписи…'));
+    showResults(h('p', { class: 'mk-wait' }, mode === 'pets' ? `${petName(pet)} придумывает подписи…` : 'Придумываю подписи…'));
     try {
       const { captions } = await send('meme-ideas', 'POST', q);
       if (!captions?.length) throw new Error('empty');
-      results.replaceChildren(
+      showResults(
         h('p', { class: 'mk-label' }, 'Выбери подпись — дальше её можно поправить и выбрать стиль'),
-        ...captions.map((c) => h('button', { type: 'button', class: 'mk-caption', onclick: () => editor(results, c, base(), finish, () => go.click()) }, c)),
+        ...captions.map((c) => h('button', { type: 'button', class: 'mk-caption', onclick: () => edit(c) }, c)),
         reroll(() => go.click()));
-      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch {
-      results.replaceChildren(h('p', { class: 'mk-wait' }, 'Не получилось придумать — попробуй ещё раз или напиши свою подпись.'));
+      showResults(h('p', { class: 'mk-wait' }, 'Не получилось придумать — попробуй ещё раз или напиши свою подпись.'));
     }
     go.disabled = false;
   });
-  selfWrite.addEventListener('click', () => { if (ready()) editor(results, '', base(), finish, () => go.click()); });
+  const edit = (text) => {
+    fold(true);
+    editor(results, text, base(), finish, () => go.click());
+    results.prepend(back());
+    sheet.scrollTo({ top: 0 });
+  };
+  selfWrite.addEventListener('click', () => { if (ready()) edit(''); });
 
   // ---- Гифка
   const gif = gifPanel((g) => { close(); onGif(g); });
@@ -194,6 +212,7 @@ export function openMaker({ onPhoto, onGif }) {
   modeRow.el.classList.add('mk-kind', 'mk-modes');
   function layout() {
     hint.textContent = MODES.find((m) => m.v === mode).hint;
+    fold(false);
     results.replaceChildren();
     if (mode === 'gif') {
       aiBox.replaceChildren(aiBox.firstChild, sitGroup, moodGroup, group(null, people.el), gifAiGo);
@@ -258,9 +277,8 @@ function editor(results, text, src, done, again) {
     canvas,
     group('Стиль', styleRow.el, posRow.el),
     group('Подпись', field),
-    h('div', { class: 'sheet-actions' }, reroll(again, '🎲 Другие подписи'), make));
+    h('div', { class: 'sheet-actions' }, reroll(again, '🎲 Другие'), make));
   redraw();
-  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ---- Малювання листівки
