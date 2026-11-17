@@ -1620,3 +1620,43 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .gift-wish-pick { display: grid; gap: 10px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: #fff; }
 .gift-wish-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .gift-wish { text-align: left; }
+
+/* «Все письма» під листом дня */
+.archive { margin-top: 28px; }
+.archive-title { margin: 0 0 10px; font: 700 1.75rem/1.1 var(--hand); }
+.archive-seg { margin-bottom: 12px; }
+.archive-list .mk-wait { margin: 8px 2px; }
+.inbox-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.inbox-item {
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--plum);
+  box-shadow: 0 10px 22px -16px rgba(74, 37, 69, .5);
+}
+.inbox-item.is-new { box-shadow: inset 4px 0 0 var(--wax), 0 10px 22px -16px rgba(74, 37, 69, .5); }
+.inbox-body {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.inbox-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .8125rem; color: #7a5a78; }
+.inbox-new { padding: 0 8px; border-radius: 999px; background: var(--wax); color: #fff; font-weight: 600; }
+.inbox-text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font: 400 1.375rem/1.3 var(--hand);
+  white-space: pre-line;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.inbox-item.is-open .inbox-text { display: block; -webkit-line-clamp: unset; }
+.inbox-item .sent-reply { margin: 0; padding: 0 14px 12px; }
+.archive .sent-item { color: var(--plum); }

@@ -4,6 +4,7 @@ import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl } from '
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
+import { letterArchive } from './letters.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
@@ -104,6 +105,7 @@ function renderLetter() {
   const { letter } = DATA;
   if (!letter) {
     renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'));
+    screen.append(letterArchive(render));
     return;
   }
   const st = letterState();
@@ -128,7 +130,7 @@ function renderLetter() {
     screen.replaceChildren(...head, h('div', { class: 'stage' },
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
-      courier(letter)));
+      courier(letter)), letterArchive(render));
     return;
   }
 
@@ -147,6 +149,7 @@ function renderLetter() {
       }, h('span', { class: 'heart', 'aria-hidden': 'true' }, st.liked ? '❤️' : '🤍'), st.liked ? 'Нравится' : 'Сердечко'),
       st.reply ? null : h('button', { type: 'button', class: 'btn btn-primary', onclick: openReply }, 'Ответить')),
     st.reply ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
+    letterArchive(render),
   ].filter(Boolean));
 }
 
@@ -232,6 +235,8 @@ function selectTab(name) {
 }
 
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => selectTab(t.dataset.tab)));
+// Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
+document.addEventListener('radovalka:sent', () => { if (tab === 'letter') render(); });
 
 // «Поделиться → Радовалка»: service worker поклав картинку в кеш і відкрив ?go=shared.
 // Забираємо лише після входу — якщо замок, картинка чекає в кеші

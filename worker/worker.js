@@ -699,6 +699,19 @@ async function lettersRoute(req, db, side, rest) {
     return json(results.map((r) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })));
   }
 
+  // «Мне»: усі отримані листи з застосунку, чий час настав; подарунок — лише вже обраний
+  if (m === 'GET' && rest === 'inbox') {
+    const { results } = await db.prepare(
+      "SELECT id, kind, text, at, mascot, opened, liked, reply, gift, chosen FROM letters WHERE dst = ? AND at <= ? "
+        + "AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) ORDER BY at DESC LIMIT 60",
+    ).bind(side, Date.now()).all();
+    return json(results.map((r) => ({
+      id: r.id, kind: r.kind, text: r.text, at: r.at, mascot: r.mascot,
+      opened: !!r.opened, liked: !!r.liked, reply: r.reply,
+      ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
+    })));
+  }
+
   if (m === 'POST' && !rest) {
     const b = await readJson(req);
     const kind = String(b.kind || '');

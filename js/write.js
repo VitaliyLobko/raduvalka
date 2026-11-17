@@ -111,7 +111,6 @@ export function openWrite() {
 
   const helper = h('div', { class: 'write-helper' });
   mountHelper(helper, area);
-  const sent = h('div', { class: 'write-sent' });
   const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
 
   const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -139,6 +138,7 @@ export function openWrite() {
       });
       draft.set('');
       close();
+      document.dispatchEvent(new CustomEvent('radovalka:sent'));
       toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
     } catch {
       go.disabled = false;
@@ -155,24 +155,26 @@ export function openWrite() {
       area,
       h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, dateRow, giftBox, note),
       pets.length ? h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Кто понесёт'), petRow) : null,
-      go,
-      sent));
+      go));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
   if (!area.value) area.focus();
-  loadSent(sent);
   return { sheet, area };
 }
 
-// «Мои письма»: що вже надіслано й що з ним сталося на тому боці
-async function loadSent(box) {
+// «Мои письма»: що вже надіслано й що з ним сталося на тому боці (вкладка «Письма»)
+export async function loadSent(box) {
   let list;
   try {
     list = await get('letters/sent');
   } catch {
+    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
     return;
   }
-  if (!list.length) return;
+  if (!list.length) {
+    box.replaceChildren(h('p', { class: 'mk-wait' }, `Ты ещё ничего не ${who().partner === 'она' ? 'отправил' : 'отправила'}. Печать «Написать» внизу — и письмо полетит.`));
+    return;
+  }
   const me = who();
   const envLabel = (id) => (DATA.partnerEnvelopes || []).find((e) => e.id === id);
 
@@ -211,7 +213,7 @@ async function loadSent(box) {
     return row;
   };
 
-  box.replaceChildren(h('h3', {}, 'Мои письма'), h('ul', { class: 'sent-list' }, ...list.map(item)));
+  box.replaceChildren(h('ul', { class: 'sent-list' }, ...list.map(item)));
 }
 
 // Список її/його хотілок із фільтром бюджету; «Взять» заповнює рядки подарунка
