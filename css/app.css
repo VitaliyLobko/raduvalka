@@ -2160,6 +2160,11 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   font-size: .875rem;
 }
 .feed-hidden li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Запас листів: статус, «Выручать с» і список із «Забрать» */
+.feed-stock { margin-top: 4px; }
+.feed-stock-note { margin: 4px 0 8px; font-size: .875rem; line-height: 1.4; color: var(--ink-soft); text-align: center; }
+.feed-stock-from { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0 0 10px; font-size: .9375rem; color: var(--ink); }
+.feed-stock-from input { min-height: 40px; padding: 0 10px; border: 1.5px solid var(--lavender); border-radius: 12px; background: var(--paper); color: var(--plum); font: inherit; }
 .feed-quote {
   margin: 0 0 8px;
   padding: 6px 10px;

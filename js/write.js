@@ -77,6 +77,9 @@ export function openWrite() {
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} — как письмо дня.`
+      : where === 'stock'
+        ? `Ляжет в запас. В день, когда от тебя не будет письма, утром ${me.partner} получит одно из запаса — как обычное письмо дня.`
+          + (DATA.mine.stockFrom ? '' : ' Сейчас запас на паузе — включить: «Переписка» → «📦 Запас».')
       : where === 'date'
         ? (dateAt() ? `Придёт ${dayMonth(dateAt())} в ${hhmm(dateAt())} — праздничным письмом, принесут все вместе 🎉` : 'Выбери день — день рождения, годовщину, праздник.')
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
@@ -101,6 +104,7 @@ export function openWrite() {
     { v: 'date', label: '🎂 К дате' },
     ...(envs.length ? [{ v: 'env', label: 'В конверт' }] : []),
     { v: 'gift', label: '🎁 Подарок' },
+    { v: 'stock', label: '📦 В запас' },
   ], where, (v) => { where = v; paintNote(); });
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
   paintNote();
@@ -161,7 +165,8 @@ export function openWrite() {
       draft.set('');
       close();
       document.dispatchEvent(new CustomEvent('radovalka:sent'));
-      toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
+      toast(where === 'stock' ? 'Письмо в запасе 📦'
+        : `${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
     } catch {
       go.disabled = false;
       toast('Не отправилось — проверь интернет. Текст сохранён.');

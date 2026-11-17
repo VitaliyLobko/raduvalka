@@ -14,6 +14,7 @@ const EDGE = 24;
 
 let filter = 'all';
 let showHidden = false;
+let showStock = false;
 // Листи з сервера; мемчики — у DATA.memes. stale — перечитати при наступному показі
 let cache = null;
 let stale = true;
@@ -75,9 +76,10 @@ export const dayKey = () => (DATA.letter ? `day:${DATA.letter.id || DATA.letter.
 
 function load() {
   if (!loading) {
-    loading = Promise.all([get('letters/inbox'), get('letters/sent'), refreshMemes()])
-      .then(([inbox, sent]) => {
-        cache = { inbox, sent };
+    // Запас — лише свій; старий воркер його не знає — тоді просто без нього
+    loading = Promise.all([get('letters/inbox'), get('letters/sent'), refreshMemes(), get('letters/stock').catch(() => [])])
+      .then(([inbox, sent, , stock]) => {
+        cache = { inbox, sent, stock };
         stale = false;
         seenAt = { memes: memesSeen(), replies: repliesSeen() };
       })
@@ -163,6 +165,7 @@ function draw(force = false) {
     showHidden && nHidden ? h('ul', { class: 'feed-hidden' },
       dayHidden ? h('li', {}, h('span', {}, '💌 Письмо дня'), restoreBtn(dayKey(), true)) : null,
       ...hiddenItems.map((it) => h('li', {}, h('span', {}, hiddenLabel(it)), restoreBtn(it.key)))) : null,
+    stockBlock(),
   ].filter(Boolean));
   watchFresh(list);
   // Перша чужа — разок показує, що під нею зліва й справа
@@ -173,6 +176,48 @@ function draw(force = false) {
     first.dataset.swipe = s;
   };
   nudge('feed', first, [lean(-64, 'hide-soon'), lean(0, ''), lean(64, 'reply-soon'), lean(0, '')]);
+}
+
+// Запас: листи на дні, коли від мене нічого не буде; «с какого дня» — без неї запас на паузі
+const plural = (n, one, few, many) => {
+  const t = n % 10; const h100 = n % 100;
+  return t === 1 && h100 !== 11 ? one : t >= 2 && t <= 4 && (h100 < 12 || h100 > 14) ? few : many;
+};
+
+function stockBlock() {
+  const stock = cache?.stock || [];
+  if (!stock.length) return null;
+  const from = DATA.mine.stockFrom || '';
+  const toggle = h('button', {
+    type: 'button', class: 'feed-hidden-toggle feed-stock-toggle', 'aria-expanded': String(showStock),
+    onclick: () => { showStock = !showStock; draw(); },
+  }, showStock ? 'Свернуть запас' : `📦 Запас · ${stock.length}${from ? '' : ' · на паузе'}`);
+  if (!showStock) return toggle;
+  const setFrom = (v) => {
+    DATA.mine.stockFrom = v || null;
+    save('mine', { stockFrom: v || null });
+    draw();
+  };
+  const n = stock.length;
+  const status = from
+    ? `Выручает с ${dayMonth(new Date(`${from}T12:00`).getTime())}: в день без твоего письма утром придёт одно из запаса. Хватит на ${n} ${plural(n, 'утро', 'утра', 'утр')}.`
+    : 'На паузе. Выбери, с какого дня выручать, — тогда в день без твоего письма утром придёт одно из запаса.';
+  const take = (l) => h('button', {
+    type: 'button', class: 'sent-take',
+    onclick: async () => {
+      try {
+        await send(`letters/${l.id}`, 'DELETE');
+        cache.stock = cache.stock.filter((x) => x.id !== l.id);
+        draw();
+      } catch { toast('Не получилось — нет связи'); }
+    },
+  }, 'Забрать');
+  return h('div', { class: 'feed-stock' }, toggle,
+    h('p', { class: 'feed-stock-note' }, status),
+    h('label', { class: 'feed-stock-from' }, 'Выручать с',
+      h('input', { type: 'date', value: from, onchange: (e) => setFrom(e.target.value) }),
+      from ? h('button', { type: 'button', class: 'sent-take', onclick: () => setFrom('') }, 'Пауза') : null),
+    h('ul', { class: 'feed-hidden' }, ...stock.map((l) => h('li', {}, h('span', {}, `📦 ${l.text}`), take(l)))));
 }
 
 function emptyText() {
@@ -314,7 +359,8 @@ function outBubble(l, later) {
   const chose = me.partner === 'она' ? 'выбрала' : 'выбрал';
   const where = l.kind === 'gift'
     ? `🎁 ${(l.gift || []).map((o) => `${o.emoji} ${o.title}`).join(' / ')}`
-    : l.kind === 'env' ? `${e ? e.emoji : '✉'} в конверт «${e ? e.label : '…'}»` : `➶ ${hhmm(later ? l.created : l.at)}`;
+    : l.kind === 'env' ? `${e ? e.emoji : '✉'} в конверт «${e ? e.label : '…'}»`
+      : `${l.stocked ? '📦 из запаса ·' : '➶'} ${hhmm(later ? l.created : l.at)}`;
   let state;
   if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
   else if (l.kind === 'morning' && later) state = `ждёт утра · ${dayWord(l.at)} в ${hhmm(l.at)}`;

@@ -32,7 +32,8 @@ const SIDES = ['vona', 'vin'];
 // wishes більше не приймаємо: старий список «Куда пойдём» перенесено в «Планы» разово
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'bdayVona', 'bdayVin'];
 const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
-const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen'];
+// stockFrom — 'YYYY-MM-DD', з якого дня запас підстраховує; нема — запас на паузі
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;
@@ -42,7 +43,11 @@ const MAX_IMG = 1.4 * 1024 * 1024;
 const MAX_B64 = 1_900_000;
 const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
 const REACTIONS = ['😂', '❤️'];
-const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date'];
+// stock — «в запас»: без дати; утром, коли листа на сьогодні нема, cron робить із найстарішого «На утро»
+const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date', 'stock'];
+// Ранок як у «На утро» на телефоні (js/write.js MORNING_HOUR); пояс — якщо отримувач ще не дав сповіщень
+const MORNING_HOUR = 8;
+const STOCK_TZ = 'Europe/Kyiv';
 const MAX_LETTER = 4000;
 const MAX_AHEAD = 3 * 24 * 3600 * 1000;
 const MAX_DATE_AHEAD = 400 * 24 * 3600 * 1000; // «К дате» — до року вперед
@@ -65,6 +70,8 @@ const MIGRATIONS = [
   'ALTER TABLE memes ADD COLUMN reply TEXT',
   'ALTER TABLE memes ADD COLUMN replied INTEGER',
   'ALTER TABLE letters ADD COLUMN replied INTEGER',
+  // Коли лист поклали в запас (лишається й після видачі — відправник бачить «из запаса»)
+  'ALTER TABLE letters ADD COLUMN stocked INTEGER',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -87,9 +94,14 @@ export default {
       return json({ error: status === 500 ? 'server' : e.message }, status, cors);
     }
   },
-  // Cron: листи «На утро» і «К дате», чий час настав, — сповіщення отримувачу
+  // Cron: спершу видати лист із запасу (без нього push не потрібен), потім сповістити про «На утро» і «К дате».
+  // scheduledTime — час запуску; локальний /__cron підставляє свій, щоб тест не залежав від годинника
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(cronPush(env));
+    ctx.waitUntil((async () => {
+      await ensureSchema(env.DB);
+      await releaseStock(env.DB, event.scheduledTime || Date.now());
+      await cronPush(env);
+    })());
   },
 };
 
@@ -743,9 +755,18 @@ async function lettersRoute(req, db, side, rest, notify) {
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
     const { results } = await db.prepare(
-      'SELECT id, kind, env, text, at, created, opened, liked, reply, replied, gift, chosen FROM letters WHERE src = ? ORDER BY created DESC LIMIT 60',
+      "SELECT id, kind, env, text, at, created, opened, liked, reply, replied, gift, chosen, stocked FROM letters WHERE src = ? AND kind != 'stock' "
+        + 'ORDER BY created DESC LIMIT 60',
     ).bind(side).all();
     return json(results.map((r) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })));
+  }
+
+  // Мій запас — лише відправнику, від найстарішого (його видадуть першим)
+  if (m === 'GET' && rest === 'stock') {
+    const { results } = await db.prepare(
+      "SELECT id, text, mascot, created FROM letters WHERE src = ? AND kind = 'stock' ORDER BY created",
+    ).bind(side).all();
+    return json(results);
   }
 
   // «Мне»: усі отримані листи з застосунку, чий час настав; подарунок — лише вже обраний
@@ -781,17 +802,19 @@ async function lettersRoute(req, db, side, rest, notify) {
     const mascots = (await getDoc(db, 'mascots')) || {};
     const mascot = mascots[b.mascot] ? String(b.mascot) : null;
     const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const stocked = kind === 'stock' ? now : null;
     // «Сейчас» і подарунок — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
     const later = (kind === 'morning' || kind === 'date') && notify.on;
     await db.prepare(
-      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, at, created, gift, pushed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(id, side, other(side), kind, envId, mascot, text, at, now, gift, later ? null : 0).run();
+      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, at, created, gift, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, side, other(side), kind, envId, mascot, text, at, now, gift, later ? null : 0, stocked).run();
     if (kind === 'now' || kind === 'gift') notify.send(other(side), letterNote(kind, mascots[mascot]));
     return json({ id, kind, env: envId, text, at, created: now, opened: false, liked: false, reply: null, gift: gift && JSON.parse(gift), chosen: null }, 201);
   }
 
   const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(rest).first();
-  if (!r || (r.src !== side && r.dst !== side)) throw fail(404, 'not found');
+  // Лист у запасі для отримувача ще не існує
+  if (!r || (r.src !== side && r.dst !== side) || (r.kind === 'stock' && r.dst === side)) throw fail(404, 'not found');
 
   // Отримувач: відкрив, ❤️, відповідь
   if (m === 'PUT') {
@@ -1439,6 +1462,50 @@ async function pushRoute(req, env, side, path) {
     return json({ status });
   }
   throw fail(404, 'not found');
+}
+
+// Дата, година й північ «сьогодні» в поясі отримувача
+function localDay(tz, now) {
+  let parts;
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(now));
+  } catch {
+    return localDay(STOCK_TZ, now);
+  }
+  const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+  const offset = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(now / 1000) * 1000;
+  return { date: `${p.year}-${p.month}-${p.day}`, hour: +p.hour, start: Date.UTC(+p.year, +p.month - 1, +p.day) - offset };
+}
+
+// Запас: уже ранок у отримувача, а листа на сьогодні (прийшов чи заплановано на сьогодні) нема — найстаріший
+// із запасу стає «На утро» зараз, і cronPush нижче сповістить. Лише покладені до сьогоднішньої півночі:
+// щойно покладений не піде того ж дня. Відправник не вибрав «с какого дня» — запас на паузі
+async function releaseStock(db, now) {
+  const { results } = await db.prepare("SELECT DISTINCT src, dst FROM letters WHERE kind = 'stock'").all();
+  if (!results.length) return;
+  const pets = Object.keys((await getDoc(db, 'mascots')) || {});
+  for (const { src, dst } of results) {
+    const from = (await getDoc(db, `mine:${src}`))?.stockFrom;
+    if (!DATE_FIELD.test(String(from || ''))) continue;
+    const tz = await db.prepare('SELECT tz FROM push WHERE side = ? AND tz IS NOT NULL ORDER BY created DESC LIMIT 1').bind(dst).first('tz');
+    const day = localDay(tz || STOCK_TZ, now);
+    if (day.date < from || day.hour < MORNING_HOUR) continue;
+    const today = await db.prepare(
+      "SELECT 1 FROM letters WHERE dst = ? AND kind IN ('now', 'morning', 'date') AND at >= ? AND at < ? LIMIT 1",
+    ).bind(dst, day.start, day.start + 24 * 3600 * 1000).first();
+    if (today) continue;
+    const r = await db.prepare(
+      "SELECT id, mascot FROM letters WHERE src = ? AND dst = ? AND kind = 'stock' AND created < ? ORDER BY created LIMIT 1",
+    ).bind(src, dst, day.start).first();
+    if (!r) continue;
+    // Без кур'єра конверт стоїть порожній — даємо випадкового
+    const pet = pets.includes(r.mascot) ? r.mascot : pets[Math.floor(Math.random() * pets.length)] || null;
+    // Умова kind = 'stock' — два накладені запуски не видадуть той самий лист двічі
+    await db.prepare("UPDATE letters SET kind = 'morning', at = ?, created = ?, pushed = NULL, mascot = ? WHERE id = ? AND kind = 'stock'")
+      .bind(now, now, pet, r.id).run();
+  }
 }
 
 // Cron раз на 10 хвилин. Вікно в 6 годин: перший запуск не розбудить старими листами
