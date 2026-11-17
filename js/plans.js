@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
+import { learned, learn, nudge } from './swipehint.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -177,11 +178,14 @@ function deckView(screen, me, pet) {
     type: 'button', class: `plan-vote plan-vote-${v ? 'yes' : 'no'}`, 'aria-label': label,
     onclick: () => vote(screen, idea, v, card),
   }, text);
-  swipe(card, (v) => vote(screen, idea, v, card));
+  const lean = swipe(card, (v) => vote(screen, idea, v, card));
+  // Поки жодного разу не змахнули — картка разок хитається: ✕ ліворуч, ❤️ праворуч
+  nudge('plans', card, [() => lean(-60), () => lean(0), () => lean(60), () => lean(0)]);
 
   return [banner,
     h('div', { class: `plan-deck${data.deck.length > 1 ? ' has-more' : ''}` }, card),
     h('div', { class: 'plan-votes' }, voteBtn(0, 'Не сейчас', '✕'), voteBtn(1, 'Хочу', '❤️')),
+    learned('plans') ? null : h('p', { class: 'hint plan-hint plan-swipe-hint' }, '← не сейчас · хочу → — можно смахнуть карточку'),
     h('p', { class: 'hint plan-hint' }, `${data.deck.length > 1 ? `Ещё ${data.deck.length - 1} после этой. ` : ''}`
       + `Твой ответ ${me.partner} не увидит — только если вы оба ❤️.`),
     tools, waitingList(screen, me)];
@@ -228,11 +232,11 @@ function swipe(card, onVote) {
     if (x0 == null) return;
     x0 = null;
     card.classList.remove('is-drag');
-    if (Math.abs(dx) > 90) onVote(dx > 0 ? 1 : 0);
-    else lean(0);
+    if (Math.abs(dx) > 90) { learn('plans'); onVote(dx > 0 ? 1 : 0); } else lean(0);
   };
   card.addEventListener('pointerup', end);
   card.addEventListener('pointercancel', () => { dx = 0; end(); });
+  return lean;
 }
 
 let voting = false;

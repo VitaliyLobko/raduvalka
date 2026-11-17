@@ -5,6 +5,7 @@ import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, showPhoto } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
+import { learned, nudge } from './swipehint.js';
 
 export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
 const PHOTO_SIDE = 720;
@@ -164,7 +165,7 @@ export function renderWishes(screen) {
   if (view === 'mine') {
     body = [
       h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '＋ Хочу'),
-      data.mine.length ? h('p', { class: 'hint want-swipe-hint' }, 'Тап — изменить. Перехотелось — смахни влево.') : null,
+      data.mine.length && !learned('wish') ? h('p', { class: 'hint want-swipe-hint' }, 'Тап — изменить. Перехотелось — смахни влево.') : null,
       data.mine.length
         ? h('ul', { class: 'want-list' }, ...data.mine.map((w) => mineCard(screen, w)))
         : h('p', { class: 'mk-wait' }, `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
@@ -201,6 +202,11 @@ export function renderWishes(screen) {
     ].filter(Boolean);
   }
   screen.replaceChildren(...head.filter(Boolean), ...body.filter(Boolean));
+  if (view === 'mine') {
+    const first = screen.querySelector('.want-list > .want');
+    const lean = (x) => () => { first.style.transform = x ? `translateX(${x}px)` : ''; };
+    nudge('wish', first, [lean(-56), lean(0)]);
+  }
 }
 
 // Фото хотілки з сервера — один раз за сеанс, далі з пам'яті
@@ -237,6 +243,7 @@ function mineCard(screen, w) {
   if (removing.has(w.id)) return undoRow(screen, w);
   const li = wishCard(w, { onclick: () => editWish(screen, w) });
   swipeable(li, li, {
+    place: 'wish',
     canRight: () => false,
     onLeft: () => {
       const timer = setTimeout(async () => {
@@ -251,6 +258,7 @@ function mineCard(screen, w) {
       }, UNDO_MS);
       removing.set(w.id, timer);
       li.replaceWith(undoRow(screen, w));
+      document.querySelector('.want-swipe-hint')?.remove();
     },
   });
   return li;

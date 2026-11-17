@@ -199,6 +199,7 @@ function renderLetter() {
   // Свайп листа дня: вліво — сховати (лишиться в стрічці), вправо — відповісти
   const card = screen.querySelector('article.letter');
   swipeable(card, card, {
+    place: 'feed',
     canRight: () => !letterState().reply,
     onLeft: () => {
       hide(dayKey());

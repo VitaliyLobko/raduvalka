@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
+import { learned, learn, nudge } from './swipehint.js';
 
 const FILTERS = [['all', 'Все'], ['letters', 'Письма'], ['memes', 'Мемчики']];
 const SWIPE = 70;
@@ -152,6 +153,7 @@ function draw(force = false) {
   const nHidden = hiddenItems.length + (dayHidden ? 1 : 0);
   box.replaceChildren(...[
     seg,
+    shown.length && !learned('feed') ? h('p', { class: 'hint feed-swipe-hint' }, '← спрятать у себя · ответить →') : null,
     shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
     nHidden ? h('button', {
       type: 'button', class: 'feed-hidden-toggle', 'aria-expanded': String(showHidden),
@@ -162,6 +164,14 @@ function draw(force = false) {
       ...hiddenItems.map((it) => h('li', {}, h('span', {}, hiddenLabel(it)), restoreBtn(it.key)))) : null,
   ].filter(Boolean));
   watchFresh(list);
+  // Перша чужа — разок показує, що під нею зліва й справа
+  const first = list.querySelector('.feed-row.is-theirs');
+  const lean = (x, s) => () => {
+    const b = first.querySelector('.feed-bubble');
+    b.style.transform = x ? `translateX(${x}px)` : '';
+    first.dataset.swipe = s;
+  };
+  nudge('feed', first, [lean(-64, 'hide-soon'), lean(0, ''), lean(64, 'reply-soon'), lean(0, '')]);
 }
 
 function emptyText() {
@@ -207,6 +217,7 @@ function row(it) {
   const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}`, 'data-key': it.key }, bubble);
   const canReply = () => replyTarget(it) != null;
   swipeable(li, bubble, {
+    place: 'feed',
     canRight: canReply,
     onLeft: () => {
       hide(it.key);
@@ -502,7 +513,7 @@ async function loadPic(target) {
 }
 
 // Свайп пузиря: горизонтальний рух веде пузир, вертикальний — віддаємо прокрутці сторінки
-export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true }) {
+export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true, place = '' }) {
   let x0 = null;
   let y0 = 0;
   let dx = 0;
@@ -548,6 +559,7 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true 
     setTimeout(() => bubble.removeEventListener('click', stop, { capture: true }), 300);
     const go = dx < -SWIPE ? onLeft : dx > SWIPE && canRight() ? onRight : null;
     reset();
+    if (go && place) learn(place);
     go?.();
   };
   bubble.addEventListener('pointerup', end);
