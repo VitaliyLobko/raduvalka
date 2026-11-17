@@ -1915,3 +1915,25 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .want-budget .mk-chips::-webkit-scrollbar { display: none; }
 .want-budget .mk-chip { flex: none; }
 .want-budget ~ .hint { text-align: center; }
+
+/* Push: одноразова пропозиція на «Письмах» і блок у «О Радовалке» */
+.push-ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 6px 6px 6px 14px;
+  border: 1.5px dashed var(--wax);
+  border-radius: 16px;
+  background: var(--chip);
+  color: var(--ink);
+}
+[data-side="vin"] .push-ask { border-color: var(--star); }
+.push-ask-text { flex: 1; font-size: .9375rem; font-weight: 500; line-height: 1.3; }
+.push-ask-go { min-height: 38px; padding: 0 14px; }
+[data-side="vin"] .push-ask-go { background: var(--star); border-color: var(--star); color: var(--night); }
+.push-ask-x { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink-soft); font-size: 1rem; }
+.push-panel { display: grid; gap: 8px; margin: 0 0 10px; }
+.push-panel .btn { width: 100%; justify-content: center; }
+.push-panel .hint { margin: 0; }
+[data-side="vin"] .push-panel .btn-primary { background: var(--star); border-color: var(--star); color: var(--night); }

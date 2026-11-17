@@ -22,6 +22,10 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS ideas (id TEXT PRIMARY KEY, author TEXT NOT NULL, cat TEXT NOT NULL, '
     + 'title TEXT NOT NULL, note TEXT, vote_vona INTEGER, vote_vin INTEGER, done INTEGER NOT NULL DEFAULT 0, '
     + 'matched INTEGER, ai INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)',
+  // Push: одна підписка — один телефон; side перезаписується, коли телефон перемикає половину.
+  // tz — пояс телефону, щоб уночі сповіщення приходили без звуку
+  'CREATE TABLE IF NOT EXISTS push (endpoint TEXT PRIMARY KEY, side TEXT NOT NULL, p256dh TEXT NOT NULL, '
+    + 'auth TEXT NOT NULL, tz TEXT, created INTEGER NOT NULL)',
 ];
 
 const SIDES = ['vona', 'vin'];
@@ -52,6 +56,8 @@ const MIGRATIONS = [
   'ALTER TABLE wishes ADD COLUMN img TEXT',
   // Підпис мемчика поверх картинки: 'top' | 'bottom'; null — під картинкою, як раніше
   'ALTER TABLE memes ADD COLUMN style TEXT',
+  // Коли надіслано push про лист: NULL — ще ні (cron підбере «На утро» і «К дате»), 0 — не слати
+  'ALTER TABLE letters ADD COLUMN pushed INTEGER',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -61,21 +67,26 @@ const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 let schemaReady = false;
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const cors = corsHeaders(req);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
-      const res = await route(req, env);
+      const res = await route(req, env, ctx);
       for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
       return res;
     } catch (e) {
       const status = e.status || 500;
+      if (status === 500) console.error(e);
       return json({ error: status === 500 ? 'server' : e.message }, status, cors);
     }
   },
+  // Cron: листи «На утро» і «К дате», чий час настав, — сповіщення отримувачу
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cronPush(env));
+  },
 };
 
-async function route(req, env) {
+async function route(req, env, ctx) {
   const url = new URL(req.url);
   if (!url.pathname.startsWith('/api/')) return json({ ok: true, app: 'raduvalka' });
 
@@ -85,6 +96,9 @@ async function route(req, env) {
 
   const path = url.pathname.slice(5);
   const m = req.method;
+  const notify = pusher(req, env, ctx);
+
+  if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
 
   if (m === 'GET' && path === 'boot') {
     const [letter, gift, envelopes, partnerEnvelopes, together, mine, mascots, memes] = await Promise.all([
@@ -116,7 +130,7 @@ async function route(req, env) {
     return json({ letter, gift });
   }
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
-  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8));
+  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify);
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7));
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6));
@@ -170,7 +184,7 @@ function corsHeaders(req) {
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET, PUT, POST, DELETE, OPTIONS',
-    'access-control-allow-headers': 'authorization, content-type',
+    'access-control-allow-headers': 'authorization, content-type, x-no-push',
     'access-control-max-age': '86400',
     vary: 'Origin',
   };
@@ -699,7 +713,7 @@ async function myEnvelopes(db, side) {
   }));
 }
 
-async function lettersRoute(req, db, side, rest) {
+async function lettersRoute(req, db, side, rest, notify) {
   const m = req.method;
 
   // Надіслані мною — з тим, що вже сталося на тому боці
@@ -743,9 +757,12 @@ async function lettersRoute(req, db, side, rest) {
     const mascots = (await getDoc(db, 'mascots')) || {};
     const mascot = mascots[b.mascot] ? String(b.mascot) : null;
     const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    // «Сейчас» і подарунок — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
+    const later = (kind === 'morning' || kind === 'date') && notify.on;
     await db.prepare(
-      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, at, created, gift) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(id, side, other(side), kind, envId, mascot, text, at, now, gift).run();
+      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, at, created, gift, pushed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, side, other(side), kind, envId, mascot, text, at, now, gift, later ? null : 0).run();
+    if (kind === 'now' || kind === 'gift') notify.send(other(side), letterNote(kind, mascots[mascot]));
     return json({ id, kind, env: envId, text, at, created: now, opened: false, liked: false, reply: null, gift: gift && JSON.parse(gift), chosen: null }, 201);
   }
 
@@ -1224,4 +1241,172 @@ async function planIdeas(req, env, side) {
   const rows = fresh.slice(0, 6).map((f, i) => ideaInsert(env.DB, side, f, 1, now + i));
   await env.DB.batch(rows.map((x) => x.stmt));
   return json({ added: rows.map((x) => ideaView(x.row, side)) }, 201);
+}
+
+// ── Push-сповіщення ───────────────────────────────────────────────────────
+// Web Push: VAPID (RFC 8292) + шифрування вмісту aes128gcm (RFC 8291) на Web Crypto, без бібліотек.
+// Без ключа VAPID (локально) усе мовчки нічого не робить. Текст листа в сповіщення не кладемо — його видно на заблокованому екрані
+
+const PUSH_HOSTS = /(^|\.)(googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
+const APP_URL = 'https://vitaliylobko.github.io/raduvalka/';
+const enc = new TextEncoder();
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = (str) => Uint8Array.from(atob(String(str).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+const concat = (...parts) => {
+  const out = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
+  let o = 0;
+  for (const x of parts) {
+    out.set(x, o);
+    o += x.length;
+  }
+  return out;
+};
+
+async function hkdf(salt, ikm, info, bytes) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, bytes * 8));
+}
+
+// RFC 8291: один запис aes128gcm. asKeys і salt — параметри, щоб тест звірився з прикладом із RFC
+export async function encryptPush(sub, payload, { asKeys, salt } = {}) {
+  const uaPublic = unb64u(sub.p256dh);
+  const auth = unb64u(sub.auth);
+  const pair = asKeys || await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, pair.privateKey, 256));
+  const ikm = await hkdf(auth, shared, concat(enc.encode('WebPush: info\0'), uaPublic, asPublic), 32);
+  const s16 = salt || crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(s16, ikm, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(s16, ikm, enc.encode('Content-Encoding: nonce\0'), 12);
+  const key = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  // 0x02 — роздільник останнього (єдиного) запису
+  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, concat(enc.encode(payload), new Uint8Array([2]))));
+  const rs = new Uint8Array([0, 0, 16, 0]);
+  return concat(s16, rs, new Uint8Array([asPublic.length]), asPublic, sealed);
+}
+
+// VAPID JWT, підпис ES256 (Web Crypto одразу дає r‖s, як треба для JWT)
+export async function vapidAuth(env, endpoint) {
+  const jwk = JSON.parse(env.VAPID_PRIVATE);
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const head = b64u(enc.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
+  const claims = b64u(enc.encode(JSON.stringify({
+    aud: new URL(endpoint).origin,
+    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
+    sub: APP_URL,
+  })));
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(`${head}.${claims}`));
+  return `vapid t=${head}.${claims}.${b64u(sig)}, k=${env.VAPID_PUBLIC}`;
+}
+
+// Ніч у поясі телефону отримувача — без звуку й вібрації, але сповіщення лишається
+function quietAt(tz) {
+  try {
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: tz || 'UTC' }).format(new Date()));
+    return hour >= 23 || hour < 7;
+  } catch {
+    return false;
+  }
+}
+
+// Одна підписка: 404/410 — телефон відписався, прибираємо
+async function pushOne(env, sub, note) {
+  const body = await encryptPush(sub, JSON.stringify({ ...note, silent: quietAt(sub.tz) }));
+  const res = await fetch(sub.endpoint, {
+    method: 'POST',
+    headers: {
+      authorization: await vapidAuth(env, sub.endpoint),
+      'content-encoding': 'aes128gcm',
+      'content-type': 'application/octet-stream',
+      ttl: '86400',
+      urgency: 'normal',
+    },
+    body,
+  });
+  if (res.status === 404 || res.status === 410) {
+    await env.DB.prepare('DELETE FROM push WHERE endpoint = ?').bind(sub.endpoint).run();
+  }
+  return res.status;
+}
+
+async function pushSide(env, side, note) {
+  if (!env.VAPID_PRIVATE) return [];
+  const { results } = await env.DB.prepare('SELECT * FROM push WHERE side = ?').bind(side).all();
+  return Promise.all(results.map((sub) => pushOne(env, sub, note).catch((e) => { console.error('push', e); return 0; })));
+}
+
+// Для маршрутів: send не чекає відповіді push-сервісу. Заголовок x-no-push (демо, живі тести) — нікого не будимо
+function pusher(req, env, ctx) {
+  const on = !!env.VAPID_PRIVATE && req.headers.get('x-no-push') !== '1';
+  return {
+    on,
+    send(side, note) {
+      if (!on) return;
+      const job = pushSide(env, side, note);
+      if (ctx?.waitUntil) ctx.waitUntil(job);
+    },
+  };
+}
+
+// Що написати: хто приніс, без самого тексту листа
+function letterNote(kind, pet) {
+  const brought = pet ? `${pet.name} ${pet.g === 'f' ? 'принесла' : 'принёс'}` : '';
+  if (kind === 'gift') return { title: 'Тебе подарок 🎁', body: brought ? `${brought} подарок — выбери один` : 'Выбери один из вариантов', tag: 'gift' };
+  if (kind === 'date') return { title: 'Письмо к особому дню 💌', body: brought ? `${brought} письмо` : 'Открой, пока тёплое', tag: 'letter' };
+  if (kind === 'morning') return { title: 'Письмо на сегодня 💌', body: brought ? `${brought} письмо дня` : 'Открой, пока тёплое', tag: 'letter' };
+  return { title: 'Тебе письмо 💌', body: brought ? `${brought} письмо` : 'Открой, пока тёплое', tag: 'letter' };
+}
+
+async function pushRoute(req, env, side, path) {
+  const m = req.method;
+  if (m === 'GET' && path === 'push-key') return json({ key: env.VAPID_PUBLIC || null });
+  const b = await readJson(req);
+  const endpoint = String(b.endpoint || '');
+  if (m === 'DELETE' && path === 'push') {
+    await env.DB.prepare('DELETE FROM push WHERE endpoint = ?').bind(endpoint).run();
+    return json({ ok: true });
+  }
+  let host = '';
+  try {
+    const u = new URL(endpoint);
+    if (u.protocol === 'https:') host = u.hostname;
+  } catch { /* не адреса */ }
+  if (!PUSH_HOSTS.test(host)) throw fail(400, 'endpoint');
+  if (m === 'PUT' && path === 'push') {
+    const p256dh = String(b.keys?.p256dh || '');
+    const auth = String(b.keys?.auth || '');
+    if (unb64u(p256dh).length !== 65 || unb64u(auth).length !== 16) throw fail(400, 'keys');
+    const tz = String(b.tz || '').slice(0, 64) || null;
+    await env.DB.prepare('INSERT INTO push (endpoint, side, p256dh, auth, tz, created) VALUES (?, ?, ?, ?, ?, ?) '
+      + 'ON CONFLICT (endpoint) DO UPDATE SET side = excluded.side, p256dh = excluded.p256dh, auth = excluded.auth, tz = excluded.tz')
+      .bind(endpoint, side, p256dh, auth, tz, Date.now()).run();
+    return json({ ok: true });
+  }
+  // Перевірка: лише на цей телефон, і лише якщо він підписаний за цією половиною
+  if (m === 'POST' && path === 'push-test') {
+    if (!env.VAPID_PRIVATE) throw fail(503, 'nokey');
+    const sub = await env.DB.prepare('SELECT * FROM push WHERE endpoint = ? AND side = ?').bind(endpoint, side).first();
+    if (!sub) throw fail(404, 'not subscribed');
+    const status = await pushOne(env, sub, { title: 'Радовалка', body: 'Уведомления работают ✓', tag: 'test' });
+    return json({ status });
+  }
+  throw fail(404, 'not found');
+}
+
+// Cron раз на 10 хвилин. Вікно в 6 годин: перший запуск не розбудить старими листами
+async function cronPush(env) {
+  if (!env.VAPID_PRIVATE) return;
+  await ensureSchema(env.DB);
+  const now = Date.now();
+  const { results } = await env.DB.prepare(
+    "SELECT id, dst, kind, mascot FROM letters WHERE kind IN ('morning', 'date') AND pushed IS NULL AND at <= ? AND at > ?",
+  ).bind(now, now - 6 * 3600 * 1000).all();
+  if (!results.length) return;
+  const mascots = (await getDoc(env.DB, 'mascots')) || {};
+  for (const r of results) {
+    // Спершу позначка — щоб два накладені запуски cron не надіслали двічі
+    const res = await env.DB.prepare('UPDATE letters SET pushed = ? WHERE id = ? AND pushed IS NULL').bind(now, r.id).run();
+    if (res.meta?.changes) await pushSide(env, r.dst, letterNote(r.kind, mascots[r.mascot]));
+  }
 }

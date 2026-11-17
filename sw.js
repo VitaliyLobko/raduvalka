@@ -1,4 +1,4 @@
-// Service worker Радовалки: поки лише приймає «Поделиться → Радовалка».
+// Service worker Радовалки: приймає «Поделиться → Радовалка» і показує push-сповіщення.
 // Оболонку НЕ кешує — оновлення приходять самі, як і без нього
 const SHARE_CACHE = 'shared-radovalka';
 
@@ -31,3 +31,32 @@ async function receiveShare(request) {
   } catch { /* не вийшло — застосунок просто відкриється */ }
   return Response.redirect(new URL('?go=shared', self.registration.scope).href, 303);
 }
+
+// Push: сповіщення показуємо завжди, навіть якщо вміст не розібрався, — інакше Chrome покаже свою заглушку
+self.addEventListener('push', (event) => {
+  let note = {};
+  try {
+    note = event.data ? event.data.json() : {};
+  } catch { /* лишаємо загальний текст */ }
+  const scope = self.registration.scope;
+  event.waitUntil(self.registration.showNotification(note.title || 'Радовалка', {
+    body: note.body || 'Тебе что-то принесли 💌',
+    tag: note.tag || 'radovalka',
+    renotify: true,
+    silent: !!note.silent,
+    icon: new URL('icons/icon-192.png', scope).href,
+    data: { url: scope },
+  }));
+});
+
+// Тап по сповіщенню: уже відкриту Радовалку — на передній план, інакше відкрити. Ключ у застосунку, не в адресі
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || self.registration.scope;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const mine = wins.find((w) => w.url.startsWith(self.registration.scope));
+    if (mine) return mine.focus();
+    return self.clients.openWindow(url);
+  })());
+});

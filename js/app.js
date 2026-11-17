@@ -14,6 +14,7 @@ import { loadPlans, markPlans, renderPlans } from './plans.js';
 import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
+import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -111,7 +112,7 @@ function renderLetter() {
   const { letter } = DATA;
   if (!letter) {
     renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'));
-    screen.append(letterArchive(render));
+    screen.append(pushAsk(), letterArchive(render));
     return;
   }
   const st = letterState();
@@ -137,7 +138,7 @@ function renderLetter() {
     screen.replaceChildren(...head, h('div', { class: 'stage' },
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
-      courier(letter)), letterArchive(render));
+      courier(letter)), pushAsk(), letterArchive(render));
     return;
   }
 
@@ -172,6 +173,7 @@ function renderLetter() {
         onclick: () => { setExpanded(!full); if (full) window.scrollTo({ top: 0 }); },
       }, full ? '▴ Свернуть' : '▾ Целиком')),
     st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
+    pushAsk(),
     letterArchive(render),
   ].filter(Boolean));
   // Згасання знизу — лише коли текст справді обрізано, коротке письмо лишається чистим
@@ -408,8 +410,10 @@ function openAbout() {
     backdrop.remove();
     btn.focus();
   };
-  const logout = () => {
+  const logout = async () => {
     if (!confirm('Выйти на этом телефоне? Чтобы вернуться, понадобится твоя личная ссылка.')) return;
+    // Без ключа телефон більше нічий — і сповіщення йому слати нікому
+    await disablePush().catch(() => { /* сервер прибере підписку сам, коли push-сервіс відповість 410 */ });
     setKey(null);
     location.replace(location.pathname);
   };
@@ -423,6 +427,7 @@ function openAbout() {
       // Три свіжі версії на виду, решта — під «Ранее», щоб кнопки нижче не тонули
       newsList(NEWS.slice(0, 3)),
       NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null,
+      pushPanel(),
       getAltKey() ? h('button', {
         type: 'button',
         class: 'btn about-logout',
@@ -458,6 +463,7 @@ async function start() {
   render();
   maybeWelcome();
   takeShared();
+  syncPush();
   noteUpdated();
   checkUpdate();
 }
