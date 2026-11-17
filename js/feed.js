@@ -5,6 +5,7 @@ import { get, send, save } from './api.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
+import { mascotImg, petFor } from './icons.js';
 
 const FILTERS = [['all', 'Все'], ['letters', 'Письма'], ['memes', 'Мемчики']];
 const SWIPE = 70;
@@ -214,7 +215,10 @@ const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString
 function row(it) {
   const mine = it.type === 'out' || (it.type === 'meme' && it.m.mine);
   const bubble = it.type === 'meme' ? memeBubble(it.m) : it.type === 'in' ? inBubble(it.l) : outBubble(it.l, it.later);
-  const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}`, 'data-key': it.key }, bubble);
+  // Чуже повідомлення — з мордочкою того, хто приніс: лист — його кур'єр, мемчик — хто носить мемчики
+  const pet = mine ? null : it.type === 'meme' ? petFor('memes') : DATA.mascots[it.l.mascot] ? it.l.mascot : petFor('push');
+  const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${pet ? ' has-pet' : ''}`, 'data-key': it.key },
+    pet ? h('span', { class: 'mascot feed-pet', 'aria-hidden': 'true', html: mascotImg(pet) }) : null, bubble);
   const canReply = () => replyTarget(it) != null;
   swipeable(li, bubble, {
     place: 'feed',

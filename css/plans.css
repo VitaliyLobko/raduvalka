@@ -350,3 +350,7 @@
 /* Шторка «Планы», якщо вхід — кнопкою, а не вкладкою */
 .plan-sheet .plan-screen .title { margin-top: 0; }
 
+
+/* Улюбленець-наліпка в куті картки колоди */
+.plan-card-pet { position: absolute; top: 14px; right: 16px; width: 68px; height: 68px; pointer-events: none; }
+.plan-card-pet img { border-width: 3px; }

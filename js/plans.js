@@ -178,6 +178,8 @@ function deckView(screen, me, pet) {
     type: 'button', class: `plan-vote plan-vote-${v ? 'yes' : 'no'}`, 'aria-label': label,
     onclick: () => vote(screen, idea, v, card),
   }, text);
+  // Улюбленець визирає з кута картки — без зайвої висоти, колода лишається на один екран
+  if (pet) card.append(h('span', { class: 'mascot plan-card-pet', 'aria-hidden': 'true', html: mascotImg(pet, DATA.mascots[pet]?.poses.look ? 'look' : 'main') }));
   const lean = swipe(card, (v) => vote(screen, idea, v, card));
   // Поки жодного разу не змахнули — картка разок хитається: ✕ ліворуч, ❤️ праворуч
   nudge('plans', card, [() => lean(-60), () => lean(0), () => lean(60), () => lean(0)]);

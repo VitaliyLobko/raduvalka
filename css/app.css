@@ -2070,6 +2070,13 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .feed-row.is-theirs .feed-bubble { border-bottom-left-radius: 6px; }
 .feed-row.is-mine .feed-bubble { border-bottom-right-radius: 6px; background: color-mix(in srgb, var(--lavender) 30%, var(--paper)); }
 .feed-row.is-meme .feed-bubble { width: 66%; }
+/* Мордочка того, хто приніс, — як аватарка в чаті, внизу ліворуч від пузиря */
+.feed-row.has-pet { align-items: flex-end; gap: 6px; }
+.feed-row.has-pet .feed-bubble { width: calc(92% - 44px); }
+.feed-row.has-pet.is-meme .feed-bubble { width: calc(72% - 44px); }
+.feed-pet { width: 38px; height: 38px; margin-bottom: 2px; }
+.feed-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); }
+.feed-row.has-pet[data-swipe^="reply"]::before { left: 56px; }
 .feed-bubble.is-drag { transition: none; }
 .feed-bubble.is-new { box-shadow: inset 4px 0 0 var(--wax), 0 10px 22px -16px rgba(74, 37, 69, .5); }
 .feed-body {
