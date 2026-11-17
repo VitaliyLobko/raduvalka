@@ -1,10 +1,12 @@
 // «✍️ Написать»: лист зараз, на ранок або записка в її/його конверт; нижче — що вже надіслано
 import { DATA, who } from './data.js';
-import { get, send } from './api.js';
+import { send } from './api.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { mountHelper } from './helper.js';
 import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
+import { composeMeme, composeGif } from './memes.js';
+import { openGifs } from './maker.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -120,6 +122,26 @@ export function openWrite() {
     backdrop.remove();
   };
 
+  // Мемчик замість листа: шторка листа закривається, далі — шторка мемчика; стрічка оновиться сама
+  const memeSent = () => document.dispatchEvent(new CustomEvent('radovalka:sent'));
+  // input лишається в шторці, доки не обрано файл, — від'єднаний input change не надійний
+  const picker = h('input', {
+    type: 'file', accept: 'image/*', class: 'visually-hidden',
+    onchange: (e) => {
+      const [file] = e.target.files;
+      if (!file) return;
+      close();
+      composeMeme(file, memeSent);
+    },
+  });
+  const memeRow = h('div', { class: 'write-meme' },
+    h('span', {}, 'Или мемчик:'),
+    h('label', { class: 'mk-chip' }, picker, '📷 Из галереи'),
+    h('button', {
+      type: 'button', class: 'mk-chip',
+      onclick: () => { close(); openGifs((gif) => composeGif(gif, memeSent)); },
+    }, '🎞 Гифка'));
+
   go.addEventListener('click', async () => {
     const text = area.value.trim();
     const gift = where === 'gift' ? giftOptions() : null;
@@ -151,6 +173,7 @@ export function openWrite() {
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     h('div', { class: 'sheet-inner' },
       h('h2', {}, `Письмо ${me.toWhom}`),
+      memeRow,
       helper,
       area,
       h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, dateRow, giftBox, note),
@@ -160,60 +183,6 @@ export function openWrite() {
   document.addEventListener('keydown', onKey);
   if (!area.value) area.focus();
   return { sheet, area };
-}
-
-// «Мои письма»: що вже надіслано й що з ним сталося на тому боці (вкладка «Письма»)
-export async function loadSent(box) {
-  let list;
-  try {
-    list = await get('letters/sent');
-  } catch {
-    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
-    return;
-  }
-  if (!list.length) {
-    box.replaceChildren(h('p', { class: 'mk-wait' }, `Ты ещё ничего не ${who().partner === 'она' ? 'отправил' : 'отправила'}. Печать «Написать» внизу — и письмо полетит.`));
-    return;
-  }
-  const me = who();
-  const envLabel = (id) => (DATA.partnerEnvelopes || []).find((e) => e.id === id);
-
-  const item = (l) => {
-    const e = envLabel(l.env);
-    const chose = me.partner === 'она' ? 'выбрала' : 'выбрал';
-    const where = l.kind === 'gift'
-      ? `🎁 ${(l.gift || []).map((o) => `${o.emoji} ${o.title}`).join(' / ')}`
-      : l.kind === 'env'
-      ? `${e ? e.emoji : '✉'} в конверт «${e ? e.label : '…'}»`
-      : new Date(l.at).toLocaleDateString('ru', { day: 'numeric', month: 'short' }).replace('.', '');
-    let state;
-    if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
-    else if (l.kind === 'morning' && l.at > Date.now()) state = `ждёт утра · ${dayWord(l.at)} в ${hhmm(l.at)}`;
-    else if (l.kind === 'date' && l.at > Date.now()) state = `🎂 ждёт · ${dayMonth(l.at)} в ${hhmm(l.at)}`;
-    else if (l.opened) state = `${me.partnerOpened} ✓${l.liked ? ' · ❤️' : ''}`;
-    else state = l.kind === 'env' ? 'лежит в конверте' : `ещё не ${me.partnerOpened}`;
-
-    const row = h('li', { class: 'sent-item' },
-      l.text ? h('p', { class: 'sent-text' }, l.text) : null,
-      h('p', { class: 'sent-meta' }, h('span', {}, `${where} · ${state}`),
-        l.opened ? null : h('button', {
-          type: 'button',
-          class: 'sent-take',
-          onclick: async () => {
-            if (!confirm('Забрать письмо? Оно исчезнет, будто его не было.')) return;
-            try {
-              await send(`letters/${l.id}`, 'DELETE');
-              row.remove();
-            } catch (err) {
-              toast(err.status === 409 ? `Поздно — ${me.partner} уже ${me.partnerOpened}` : 'Не получилось — нет связи');
-            }
-          },
-        }, 'Забрать')),
-      l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply) : null);
-    return row;
-  };
-
-  box.replaceChildren(h('ul', { class: 'sent-list' }, ...list.map(item)));
 }
 
 // Список її/його хотілок із фільтром бюджету; «Взять» заповнює рядки подарунка

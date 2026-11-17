@@ -805,7 +805,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   bottom: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding: 10px 4px max(10px, env(safe-area-inset-bottom));
   background: var(--tab-bg);
   backdrop-filter: blur(14px);
@@ -867,7 +867,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* Нахил «через одну» */
-.tab:is([data-tab="envelopes"], [data-tab="memes"]).is-active .stamp { transform: rotate(4deg) translateY(-2px); }
+.tab[data-tab="envelopes"].is-active .stamp { transform: rotate(4deg) translateY(-2px); }
 
 /* Печатка «Написать» — сургуч у правому верхньому куті вкладки «Письма», навпроти заголовка */
 .screen { position: relative; }
@@ -2038,3 +2038,132 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 /* Відкритий лист: кур'єр поруч, але менший за конверт */
 .courier-read { margin-top: 14px; }
 .courier-read .mascot { width: 72px; height: 72px; }
+
+/* Стрічка «Письма»: чужі пузирі зліва, мої справа, мемчик вужчий; свайп відкриває підказку під пузирем */
+.feed { margin-top: 28px; }
+.feed-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; overflow-x: clip; }
+.feed-day {
+  justify-self: center;
+  margin-top: 6px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .45);
+  color: var(--ink-soft);
+  font-size: .75rem;
+  font-weight: 600;
+}
+[data-side="vin"] .feed-day { background: rgba(255, 255, 255, .08); }
+.feed-row { position: relative; display: flex; }
+.feed-row.is-mine { justify-content: flex-end; }
+.feed-bubble {
+  position: relative;
+  width: 86%;
+  padding-bottom: 8px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--plum);
+  box-shadow: 0 10px 22px -16px rgba(74, 37, 69, .5);
+  touch-action: pan-y;
+  transition: transform .2s ease-out;
+}
+.feed-row.is-theirs .feed-bubble { border-bottom-left-radius: 6px; }
+.feed-row.is-mine .feed-bubble { border-bottom-right-radius: 6px; background: color-mix(in srgb, var(--lavender) 30%, var(--paper)); }
+.feed-row.is-meme .feed-bubble { width: 66%; }
+.feed-bubble.is-drag { transition: none; }
+.feed-bubble.is-new { box-shadow: inset 4px 0 0 var(--wax), 0 10px 22px -16px rgba(74, 37, 69, .5); }
+.feed-body {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.feed-bubble > :is(.feed-text, .feed-meta, .sent-reply, .meme-cap) { margin: 8px 14px 0; }
+.feed-bubble > .feed-text:first-child { margin-top: 12px; }
+.feed-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: .8125rem; color: #7a5a78; }
+.feed-text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font: 400 1.35rem/1.28 var(--hand);
+  white-space: pre-line;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.feed-bubble.is-open .feed-text { display: block; -webkit-line-clamp: unset; }
+.feed-bubble .sent-reply { padding: 6px 10px; }
+.feed-bubble .sent-reply .inbox-new { margin-left: 6px; font-size: .75rem; }
+.feed-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 6px; padding: 8px 10px 0; }
+.feed-acts .feed-meta { margin-right: auto; }
+.feed-act {
+  min-width: 38px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(74, 37, 69, .07);
+  color: inherit;
+  font-size: 1.05rem;
+}
+.feed-act[aria-pressed="true"] { background: var(--powder); }
+.feed-reply { font-size: .875rem; font-weight: 600; }
+.feed-hide { opacity: .7; }
+.feed-pic { width: 100%; min-height: 140px; padding: 0; border: 0; border-radius: 0; cursor: zoom-in; }
+.feed-pic :is(img, video) { width: 100%; max-height: 50vh; object-fit: contain; }
+.feed-row.is-meme .meme-over { font-size: clamp(.95rem, 4.4vw, 1.4rem); }
+.feed-row.is-meme .meme-cap { font-size: 1.25rem; }
+.feed-row::before {
+  position: absolute;
+  top: 50%;
+  color: var(--ink-soft);
+  font-size: .875rem;
+  font-weight: 600;
+  opacity: .5;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.feed-row[data-swipe^="hide"]::before { content: '🙈 Спрятать'; right: 12px; }
+.feed-row[data-swipe^="reply"]::before { content: '↩ Ответить'; left: 12px; }
+.feed-row:is([data-swipe="hide"], [data-swipe="reply"])::before { opacity: 1; }
+.feed-hidden-toggle {
+  display: block;
+  min-height: 40px;
+  margin: 12px auto 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: .875rem;
+  text-decoration: underline;
+}
+.feed-hidden { display: grid; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+.feed-hidden li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--plum);
+  font-size: .875rem;
+}
+.feed-hidden li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-quote {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--lavender);
+  color: #7a5a78;
+  font: 1.2rem/1.25 var(--hand);
+}
+.feed-full { grid-template-rows: minmax(0, 1fr) auto; }
+.feed-full-frame { position: relative; display: grid; place-items: center; max-width: 100%; max-height: 100%; }
+.feed-full-frame :is(img, video) { max-width: 100%; max-height: 82vh; border-radius: 12px; object-fit: contain; }
+.feed-full-cap { margin: 10px 0 0; color: #fff; font: 1.5rem/1.25 var(--hand); text-align: center; }
+.write-meme { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 10px; color: #7a5a78; font-size: .875rem; }
+.write-meme label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
+.write-meme .mk-chip { display: inline-flex; align-items: center; gap: 4px; }

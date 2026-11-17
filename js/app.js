@@ -4,14 +4,14 @@ import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, remembe
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets } from './icons.js';
 import { openWrite } from './write.js';
-import { letterArchive } from './letters.js';
+import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans } from './plans.js';
-import { renderMemes, refreshMemes, markBadge, composeMeme } from './memes.js';
+import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
@@ -66,7 +66,8 @@ function prepLetter(l) {
 
 // Сургучна крапка на марці «Письмо», поки свіжий лист не відкрито
 function markLetter() {
-  const fresh = !!DATA.gift || (!!DATA.letter && !letterState().opened);
+  const day = !!DATA.letter && !isHidden(dayKey()) && !letterState().opened;
+  const fresh = !!DATA.gift || day || feedFresh() > 0;
   document.querySelector('.tab[data-tab="letter"]')?.classList.toggle('has-new', fresh);
 }
 
@@ -122,9 +123,14 @@ function renderLetter() {
     return;
   }
   const { letter } = DATA;
+  // Лист дня сховано свайпом — лишається переписка; повернути — у «Спрятанные»
+  if (letter && isHidden(dayKey())) {
+    screen.replaceChildren(h('p', { class: 'day' }, dayLabel(letter.date)), h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(render));
+    return;
+  }
   if (!letter) {
     renderEmpty('Письмо', `${cap(who().partner)} ещё пишет письмо на сегодня. Загляни чуть позже.`, petFor('push'), 'guilty');
-    screen.append(pushAsk(), letterArchive(render));
+    screen.append(pushAsk(), letterFeed(render));
     return;
   }
   const st = letterState();
@@ -150,7 +156,7 @@ function renderLetter() {
     screen.replaceChildren(...head, h('div', { class: 'stage' },
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
-      courier(letter)), pushAsk(), letterArchive(render));
+      courier(letter)), pushAsk(), letterFeed(render));
     return;
   }
 
@@ -187,8 +193,20 @@ function renderLetter() {
     st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
     letter.special ? null : readCourier(letter),
     pushAsk(),
-    letterArchive(render),
+    letterFeed(render),
   ].filter(Boolean));
+  // Свайп листа дня: вліво — сховати (лишиться в стрічці), вправо — відповісти
+  const card = screen.querySelector('article.letter');
+  swipeable(card, card, {
+    canRight: () => !letterState().reply,
+    onLeft: () => {
+      hide(dayKey());
+      markLetter();
+      render();
+      toast('Письмо дня спрятано. Вернуть — внизу «Спрятанные»');
+    },
+    onRight: openReply,
+  });
   // Згасання знизу — лише коли текст справді обрізано, коротке письмо лишається чистим
   const text = screen.querySelector('.letter.is-compact .letter-text');
   if (text) text.classList.toggle('is-clamped', text.scrollHeight > text.clientHeight + 2);
@@ -251,11 +269,7 @@ function render() {
       h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
   }
   else if (tab === 'envelopes') renderEnvelopes(screen);
-  else if (tab === 'memes') {
-    // Показуємо, що вже є, і одразу дотягуємо свіже (push поки немає)
-    renderMemes(screen);
-    refreshMemes().then((changed) => { if (changed && tab === 'memes') renderMemes(screen); });
-  } else if (tab === 'plans') {
+  else if (tab === 'plans') {
     // Планы: збережене одразу, свіже — слідом (друга половина могла проголосувати чи додати)
     renderPlans(screen);
     loadPlans().then(() => { markPlans(); if (tab === 'plans') renderPlans(screen); }).catch(() => {});
@@ -280,7 +294,7 @@ function applySide() {
 function selectTab(name, fromBack = false) {
   if (!fromBack) tabChanged(tab, name);
   tab = name;
-  if (name === 'letter') refreshLetter();
+  if (name === 'letter') { refreshLetter(); invalidateFeed(); }
   document.querySelectorAll('.tab').forEach((x) => {
     const on = x.dataset.tab === name;
     x.classList.toggle('is-active', on);
@@ -293,7 +307,9 @@ function selectTab(name, fromBack = false) {
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => selectTab(t.dataset.tab)));
 initBack((name) => selectTab(name, true));
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
-document.addEventListener('radovalka:sent', () => { if (tab === 'letter') render(); });
+document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
+// Стрічка дізналась про нове або його побачили — оновити крапку на марці
+document.addEventListener('radovalka:fresh', markLetter);
 
 // «Поделиться → Радовалка»: service worker поклав картинку в кеш і відкрив ?go=shared.
 // Забираємо лише після входу — якщо замок, картинка чекає в кеші
@@ -319,8 +335,8 @@ async function takeShared() {
     wishFromShare(screen, link);
     return;
   }
-  selectTab('memes');
-  if (file) composeMeme(file, () => selectTab('memes'));
+  selectTab('letter');
+  if (file) composeMeme(file, () => document.dispatchEvent(new CustomEvent('radovalka:sent')));
   else if (none) toast('Сюда можно поделиться картинкой или ссылкой на товар');
 }
 
@@ -411,10 +427,8 @@ document.addEventListener('visibilitychange', () => {
   get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
   if (tab !== 'wish') loadWishes().then(markWishes).catch(() => {});
   loadPlans().then(markPlans).catch(() => {});
-  refreshMemes().then((changed) => {
-    markBadge();
-    if (changed && tab === 'memes') renderMemes(screen);
-  });
+  // Стрічка перемальовує лише себе — відкритий лист дня не зсувається
+  refreshFeed();
 });
 
 const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
@@ -475,7 +489,6 @@ async function start() {
   document.body.classList.remove('is-booting');
   applySide();
   drawChip();
-  markBadge();
   loadWishes().then(markWishes).catch(() => {});
   loadPlans().then(markPlans).catch(() => {});
   markLetter();

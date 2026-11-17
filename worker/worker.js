@@ -32,7 +32,7 @@ const SIDES = ['vona', 'vin'];
 // wishes більше не приймаємо: старий список «Куда пойдём» перенесено в «Планы» разово
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'bdayVona', 'bdayVin'];
 const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
-const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen'];
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;
@@ -61,6 +61,10 @@ const MIGRATIONS = [
   'ALTER TABLE letters ADD COLUMN pushed INTEGER',
   // Хотілка «к дате»: 'YYYY-MM-DD' або NULL
   'ALTER TABLE wishes ADD COLUMN due TEXT',
+  // Стрічка «Письма»: відповідь на мемчик і час відповіді (щоб відправник побачив «новое»)
+  'ALTER TABLE memes ADD COLUMN reply TEXT',
+  'ALTER TABLE memes ADD COLUMN replied INTEGER',
+  'ALTER TABLE letters ADD COLUMN replied INTEGER',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -320,13 +324,23 @@ async function memesRoute(req, db, side, rest) {
     });
   }
 
-  // Реакцію ставить лише отримувач; null — зняти
+  // Реакцію й відповідь ставить лише отримувач; null — зняти. Лише поля із запиту:
+  // відповідь без reaction не має стерти реакцію
   if (m === 'PUT' && !sub) {
     if (meme.dst !== side) throw fail(403, 'forbidden');
-    const { reaction = null } = await readJson(req);
-    if (reaction !== null && !REACTIONS.includes(reaction)) throw fail(400, 'reaction');
-    await db.prepare('UPDATE memes SET reaction = ? WHERE id = ?').bind(reaction, id).run();
-    return json(view({ ...meme, reaction }, side));
+    const b = await readJson(req);
+    const next = { ...meme };
+    if ('reaction' in b) {
+      if (b.reaction !== null && !REACTIONS.includes(b.reaction)) throw fail(400, 'reaction');
+      next.reaction = b.reaction;
+    }
+    if ('reply' in b) {
+      next.reply = String(b.reply || '').trim().slice(0, MAX_LETTER) || null;
+      next.replied = next.reply ? Date.now() : null;
+    }
+    await db.prepare('UPDATE memes SET reaction = ?, reply = ?, replied = ? WHERE id = ?')
+      .bind(next.reaction ?? null, next.reply ?? null, next.replied ?? null, id).run();
+    return json(view(next, side));
   }
 
   // Видаляє лише той, хто надіслав
@@ -726,7 +740,7 @@ async function lettersRoute(req, db, side, rest, notify) {
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
     const { results } = await db.prepare(
-      'SELECT id, kind, env, text, at, created, opened, liked, reply, gift, chosen FROM letters WHERE src = ? ORDER BY created DESC LIMIT 20',
+      'SELECT id, kind, env, text, at, created, opened, liked, reply, replied, gift, chosen FROM letters WHERE src = ? ORDER BY created DESC LIMIT 60',
     ).bind(side).all();
     return json(results.map((r) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })));
   }
@@ -799,7 +813,13 @@ async function lettersRoute(req, db, side, rest, notify) {
     const args = [];
     if (b.opened) { sets.push('opened = COALESCE(opened, ?)'); args.push(Date.now()); }
     if ('liked' in b) { sets.push('liked = ?'); args.push(b.liked ? 1 : 0); }
-    if ('reply' in b) { sets.push('reply = ?'); args.push(String(b.reply || '').trim().slice(0, MAX_LETTER) || null); }
+    if ('reply' in b) {
+      const reply = String(b.reply || '').trim().slice(0, MAX_LETTER) || null;
+      sets.push('reply = ?', 'replied = ?');
+      args.push(reply, reply ? Date.now() : null);
+      // Відповідь — значить, лист прочитано
+      if (reply && !b.opened) { sets.push('opened = COALESCE(opened, ?)'); args.push(Date.now()); }
+    }
     if (sets.length) await db.prepare(`UPDATE letters SET ${sets.join(', ')} WHERE id = ?`).bind(...args, r.id).run();
     return json({ ok: true });
   }
@@ -826,6 +846,7 @@ async function listMemes(db, side) {
 function view(r, side) {
   return {
     id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, created: r.created, reaction: r.reaction,
+    reply: r.reply || null, replied: r.replied || null,
   };
 }
 
