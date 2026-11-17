@@ -22,6 +22,15 @@ let wheelCat = '';
 let data = null;
 // Накопичений кут колеса: кожне обертання починається з того місця, де зупинилось попереднє
 let turned = 0;
+// Розгорнуті списки («Сделали», «Мои идеи ждут ответа»): перемальовка екрана не має їх згортати
+const unfolded = new Set();
+
+function fold(key, summary, ...children) {
+  const el = h('details', { class: 'plan-wait' }, h('summary', {}, summary), ...children);
+  el.open = unfolded.has(key);
+  el.addEventListener('toggle', () => { if (el.open) unfolded.add(key); else unfolded.delete(key); });
+  return el;
+}
 
 const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -286,8 +295,7 @@ function celebrate(idea) {
 // Мої ❤️, на які друга половина ще не відповіла «так». Чи бачила — невідомо, і це навмисно
 function waitingList(screen, me) {
   if (!data.mine.length) return null;
-  return h('details', { class: 'plan-wait' },
-    h('summary', {}, `Мои идеи ждут ответа · ${data.mine.length}`),
+  return fold('wait', `Мои идеи ждут ответа · ${data.mine.length}`,
     h('p', { class: 'hint' }, `${cap(me.partner)} видит их у себя. Если тоже ❤️ — будет совпадение.`),
     h('ul', { class: 'plan-list' }, ...data.mine.map((p) => planRow(p, p.own ? h('button', {
       type: 'button', class: 'plan-row-btn', 'aria-label': `Убрать «${p.title}»`, onclick: () => removeIdea(screen, p),
@@ -342,8 +350,7 @@ function oursView(screen, me, pet) {
         return row;
       }))
       : h('p', { class: 'mk-wait' }, 'Всё, что совпало, уже сделано 🎉 Листай дальше — найдутся новые.'),
-    done.length ? h('details', { class: 'plan-wait' },
-      h('summary', {}, `Сделали · ${done.length}`),
+    done.length ? fold('done', `Сделали · ${done.length}`,
       h('ul', { class: 'plan-list' }, ...done.map((p) => planRow(p, doneBtn(p))))) : null,
     h('p', { class: 'hint' }, `Здесь только то, что вы оба отметили ❤️. «Сделали» видите и ты, и ${me.partner}.`),
   ];

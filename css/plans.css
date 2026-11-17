@@ -87,15 +87,24 @@
 .plan-card.is-drag { transition: none; cursor: grabbing; }
 .plan-card.is-gone { opacity: 0; }
 
-/* Нахил під час перетягування: ❤️ чи ✕ у куті картки */
+/* Нахил під час перетягування: ❤️ чи ✕ посередині картки — кут, що йде за край екрана, сховав би знак */
 .plan-card[data-lean="yes"] { box-shadow: 0 0 0 3px var(--wax), 0 22px 40px -24px rgba(74, 37, 69, .6); }
 .plan-card[data-lean="no"] { box-shadow: 0 0 0 3px var(--ink-soft), 0 22px 40px -24px rgba(74, 37, 69, .6); }
 .plan-card[data-lean]:not([data-lean=""])::after {
   position: absolute;
-  top: 16px;
-  right: 18px;
-  font-size: 2.4rem;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  box-shadow: 0 6px 18px -8px rgba(74, 37, 69, .5);
+  font-size: 2.6rem;
   line-height: 1;
+  pointer-events: none;
 }
 .plan-card[data-lean="yes"]::after { content: '❤️'; }
 .plan-card[data-lean="no"]::after { content: '✕'; color: var(--ink-soft); font-weight: 700; }
