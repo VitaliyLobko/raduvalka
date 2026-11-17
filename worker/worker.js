@@ -1247,9 +1247,29 @@ async function plansRoute(req, db, side, rest, notify) {
       deck: results.filter((r) => r[me] == null).reverse().map((r) => ideaView(r, side)),
       ours: results.filter(bothLike).sort((a, b) => b.matched - a.matched).map((r) => matchView(r, side)),
       mine: results.filter((r) => r[me] === 1 && !bothLike(r)).map((r) => ideaView(r, side)),
-      // «Идём!» з колеса — лише поки план спільний і не зроблений
+      // Обраний колесом — лише поки план спільний і не зроблений
       next: await planNext(db, results),
+      // Сьогоднішнє обертання (одне на двох) — колесо показує його замість нового
+      spin: await todaySpin(db),
     });
+  }
+
+  // Колесо чесне: одне обертання на день на двох, план обирає сервер серед показаних секторів —
+  // і він одразу «идём» у обох, другому push
+  if (m === 'POST' && rest === 'spin') {
+    const was = await todaySpin(db);
+    if (was) return json({ spin: was, again: true });
+    const b = await readJson(req);
+    const want = new Set(Array.isArray(b?.slots) ? b.slots.map(String) : []);
+    const { results } = await db.prepare('SELECT * FROM ideas').all();
+    const pool = results.filter((x) => want.has(x.id) && bothLike(x) && !x.done);
+    if (pool.length < 2) throw fail(409, 'pool');
+    const r = pool[crypto.getRandomValues(new Uint32Array(1))[0] % pool.length];
+    const spin = { id: r.id, by: side, at: Date.now(), day: kyivDay() };
+    await putDoc(db, 'plan-spin', spin);
+    await putDoc(db, 'plan-next', { id: r.id, by: side, at: spin.at });
+    notify.send(other(side), planGoNote(side, r.title));
+    return json({ spin, reaches: await hasPush(db, other(side)) });
   }
 
   if (m === 'POST' && !rest) {
@@ -1277,18 +1297,6 @@ async function plansRoute(req, db, side, rest, notify) {
       const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
       // Без збігу — лише false: ні «ще не дивився», ні «✕» назовні не виходить
       return json(after && bothLike(after) ? { match: true, idea: matchView(after, side) } : { match: false });
-    }
-    // «Идём!» з колеса: план — у «Наших планах» у обох, другому push (той самий план — не частіше раз на 6 год)
-    if (b.go === true) {
-      if (!bothLike(r) || r.done) throw fail(409, 'match');
-      await putDoc(db, 'plan-next', { id: r.id, by: side, at: Date.now() });
-      const reaches = await hasPush(db, other(side));
-      const last = await getDoc(db, `plango:${r.id}`);
-      if (reaches && !(last && Date.now() - last < 6 * 3600 * 1000)) {
-        await putDoc(db, `plango:${r.id}`, Date.now());
-        notify.send(other(side), planGoNote(side, r.title));
-      }
-      return json({ ok: true, reaches });
     }
     if ('done' in b) {
       if (!bothLike(r)) throw fail(409, 'match');
@@ -1514,6 +1522,14 @@ function wishNote(from) {
   return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил, чего хочется', 'Она добавила, чего хочется'), tag: 'wish', go: 'wish' };
 }
 
+// День за Києвом: «одне обертання на день» міняється опівночі в них, а не за UTC
+const kyivDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: STOCK_TZ }).format(new Date());
+
+async function todaySpin(db) {
+  const s = await getDoc(db, 'plan-spin');
+  return s && s.day === kyivDay() ? s : null;
+}
+
 async function planNext(db, rows) {
   const n = await getDoc(db, 'plan-next');
   const r = n && rows.find((x) => x.id === n.id);
@@ -1524,7 +1540,7 @@ async function planNext(db, rows) {
 function planGoNote(from, title) {
   return {
     title: 'Колесо выбрало 🎡',
-    body: `${sender(from, 'Он', 'Она')} зовёт: «${title}»`,
+    body: `${sender(from, 'Он покрутил', 'Она покрутила')} колесо: «${title}». Идём!`,
     tag: 'plan-go',
     go: 'plans',
   };
