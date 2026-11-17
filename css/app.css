@@ -2266,7 +2266,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   30% { transform: translateX(-11px) rotate(-16deg); }
 }
 @media (prefers-reduced-motion: reduce) { .swipe-hint-hand { animation: none; } }
-.want-swipe-hint { margin: 2px auto 10px; }
 
 /* Знайомство: затемнення з «віконцем» навколо того, про що розповідають */
 .tour { position: fixed; inset: 0; z-index: 45; animation: fade .3s ease-out; }
@@ -2307,4 +2306,16 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 @media (prefers-reduced-motion: reduce) {
   .tour-hole, .tour-card { transition: none; animation: none; }
   .tour-pet.is-hop { animation: none; }
+}
+
+/* Анімації свайпів: сердечка, пружина, наступна картка, рядок «Вернуть» */
+.fx-burst { position: fixed; z-index: 60; font-size: 1.6rem; line-height: 1; pointer-events: none; }
+.is-spring { transition: transform .45s cubic-bezier(.3, 1.7, .5, 1) !important; }
+.feed-pet { transition: transform .35s cubic-bezier(.3, 1.5, .5, 1); }
+.plan-card.is-next { animation: deck-pop .38s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes deck-pop { from { opacity: 0; transform: translateY(14px) scale(.9); } }
+.want-undo { animation: fade .3s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .is-spring { transition: none !important; }
+  .plan-card.is-next, .want-undo { animation: none; }
 }

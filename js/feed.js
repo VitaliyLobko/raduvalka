@@ -6,6 +6,7 @@ import { h, toast, cap, ARROW } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor } from './icons.js';
+import { flyOut, collapse } from './fx.js';
 
 const FILTERS = [['all', 'Все'], ['letters', 'Письма'], ['memes', 'Мемчики']];
 const SWIPE = 70;
@@ -170,9 +171,12 @@ function draw(force = false) {
   watchFresh(list);
   // Перша чужа — разок показує, що під нею зліва й справа
   const first = list.querySelector('.feed-row.is-theirs');
+  // Вправо пузир штовхає мордочка того, хто приніс
   const lean = (x, s) => () => {
     const b = first.querySelector('.feed-bubble');
+    const pet = first.querySelector('.feed-pet');
     b.style.transform = x ? `translateX(${x}px)` : '';
+    if (pet) pet.style.transform = x > 0 ? `translateX(${x - 10}px) rotate(12deg)` : '';
     first.dataset.swipe = s;
   };
   nudge('feed', first, [lean(-64, 'hide-soon'), lean(0, ''), lean(64, 'reply-soon'), lean(0, '')]);
@@ -563,7 +567,8 @@ async function loadPic(target) {
 }
 
 // Свайп пузиря: горизонтальний рух веде пузир, вертикальний — віддаємо прокрутці сторінки
-export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true, place = '' }) {
+// fold — після вильоту згорнути рядок (хотілка замість цього стає рядком «Вернуть»)
+export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true, place = '', fold = true }) {
   let x0 = null;
   let y0 = 0;
   let dx = 0;
@@ -608,8 +613,19 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true,
     bubble.addEventListener('click', stop, { capture: true, once: true });
     setTimeout(() => bubble.removeEventListener('click', stop, { capture: true }), 300);
     const go = dx < -SWIPE ? onLeft : dx > SWIPE && canRight() ? onRight : null;
-    reset();
     if (go && place) learn(place);
+    if (go === onLeft) {
+      // Відлітає з того місця, де відпустили, рядок згортається — і лише тоді зникає зі списку
+      const from = bubble.style.transform;
+      bubble.classList.remove('is-drag');
+      row.style.pointerEvents = 'none';
+      flyOut(bubble, -1, from).then(() => (fold ? collapse(row) : null)).then(() => onLeft());
+      return;
+    }
+    // Відповісти — пузир пружинить назад на місце
+    bubble.classList.add('is-spring');
+    setTimeout(() => bubble.classList.remove('is-spring'), 500);
+    reset();
     go?.();
   };
   bubble.addEventListener('pointerup', end);

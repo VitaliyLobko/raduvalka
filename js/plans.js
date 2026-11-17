@@ -5,6 +5,7 @@ import { get, send } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
+import { burst } from './fx.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -174,6 +175,7 @@ function deckView(screen, me, pet) {
   }
 
   const card = ideaCard(idea, me);
+  if (popNext) { card.classList.add('is-next'); popNext = false; }
   const voteBtn = (v, label, text) => h('button', {
     type: 'button', class: `plan-vote plan-vote-${v ? 'yes' : 'no'}`, 'aria-label': label,
     onclick: () => vote(screen, idea, v, card),
@@ -242,10 +244,14 @@ function swipe(card, onVote) {
 }
 
 let voting = false;
+// Після голосу наступна картка «вистрибує» — лише тоді, а не при кожному фоновому перемалюванні
+let popNext = false;
 async function vote(screen, idea, v, card) {
   if (voting) return;
   voting = true;
   gen += 1;
+  if (v) burst(card);
+  popNext = true;
   card.classList.add('is-gone');
   card.style.transform = `translateX(${v ? 130 : -130}%) rotate(${v ? 16 : -16}deg)`;
   card.dataset.lean = v ? 'yes' : 'no';
