@@ -184,24 +184,25 @@ html.is-covered :is(.sgr-stars circle, .sgr-stars path, .sgr-lines line) { anima
 /* Падаюча зірка: раз на ~25 с проноситься навскіс і гасне */
 .meteor {
   position: absolute;
-  top: 14%;
-  left: 78%;
+  top: 34%;
+  left: 80%;
   width: 130px;
   height: 2px;
   border-radius: 2px;
   background: linear-gradient(90deg, #F6D27A, rgba(246, 210, 122, 0));
   opacity: 0;
   transform: rotate(-28deg);
-  animation: meteor 25s linear infinite 6s;
+  animation: meteor 28s linear infinite 6s;
 }
+/* Пролітає ≈ 2,2 с (останні 8 % циклу), в обох однаково */
 @keyframes meteor {
-  0%, 95% { opacity: 0; transform: rotate(-28deg) translateX(0); }
-  96% { opacity: 1; }
+  0%, 92% { opacity: 0; transform: rotate(-28deg) translateX(0); }
+  93.5% { opacity: 1; }
   100% { opacity: 0; transform: rotate(-28deg) translateX(-340px); }
 }
 @media (prefers-reduced-motion: reduce) { .meteor { display: none; } }
 /* У неї — своя падаюча зірка: біло-рожевий слід, інший час, ніж у нього */
-.meteor-vona { top: 20%; left: 74%; height: 3px; background: linear-gradient(90deg, #FFE08A, #F08DBA 35%, rgba(240, 141, 186, 0)); box-shadow: 0 0 8px rgba(240, 141, 186, .8); animation-duration: 31s; animation-delay: 11s; }
+.meteor-vona { height: 3px; background: linear-gradient(90deg, #FFE08A, #F08DBA 35%, rgba(240, 141, 186, 0)); box-shadow: 0 0 8px rgba(240, 141, 186, .8); animation-delay: 15s; }
 
 .dv-front {
   --k: 26px;
