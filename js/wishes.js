@@ -135,7 +135,7 @@ export function renderWishes(screen) {
   const pet = petFor('box');
   const iMark = me.partner === 'она' ? 'присмотрел' : 'присмотрела';
 
-  const seg = h('div', { class: 'mk-chips mk-kind', role: 'radiogroup' },
+  const seg = h('div', { class: 'mk-chips mk-kind want-seg', role: 'radiogroup' },
     ...[['theirs', `${theirsName} хотелки`], ['mine', 'Мои']].map(([v, label]) => h('button', {
       type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(view === v),
       onclick: () => { view = v; renderWishes(screen); },

@@ -7,7 +7,7 @@ import { openWrite, prewarmWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine } from './ui.js';
+import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
@@ -31,7 +31,6 @@ const screen = document.getElementById('screen');
 // Розмір букв у листах — до першого малювання, без стрибка
 applyTextSize();
 
-const POCKET = `<svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path class="pocket" d="M0 2 150 106 300 2V200H0z"/><path class="pocket-fold" d="M0 200 130 116M300 200 170 116"/></svg>`;
 
 let tab = 'letter';
 
@@ -165,11 +164,10 @@ function renderLetter() {
     h('h2', { class: 'title' }, 'Письма'),
     pushAsk(),
     letterFeed(FEED_OPS),
-    // «Написать…» лише відкриває вікно — справа в тому ж рядку «до встречи» (з шапки, на інших вкладках він там)
+    // «Написать…» лише відкриває вікно. «Вместе N дн.» тимчасово прибрано з цього рядка — лишається в шапці
     h('div', { class: 'compose-row' },
       h('button', { type: 'button', class: 'compose', id: 'write-btn', onclick: () => openWrite() },
-        h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…'),
-      chip),
+        h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…')),
   ].filter(Boolean));
 }
 

@@ -486,13 +486,13 @@ html.is-covered body::before { animation-play-state: paused; }
 .me-flap-fill { fill: color-mix(in srgb, var(--tint) 82%, var(--paper)); }
 .me-flap-edge { fill: none; stroke: color-mix(in srgb, var(--tint) 60%, var(--plum)); stroke-width: 2; stroke-opacity: .3; vector-effect: non-scaling-stroke; }
 
-/* Записки в лінійку: скільки лишилось (до трьох), стільки й визирає */
+/* Записки в лінійку лежать усередині: закритий конверт їх ховає, видно лише при відкритті */
 .me-paper {
   position: absolute;
   z-index: 1;
   left: calc(13% + var(--k) * 5%);
   right: calc(13% + (2 - var(--k)) * 4%);
-  top: calc(-15% + var(--k) * 5%);
+  top: calc(8% + var(--k) * 4%);
   height: 62%;
   border-radius: 4px;
   background:
@@ -520,7 +520,12 @@ html.is-covered body::before { animation-play-state: paused; }
 /* Тап: клапан відкидається, сургуч відскакує, записка виїжджає — тоді вже читання */
 .env-card.is-opening .me-flap { transform: scaleY(-.5); z-index: 0; }
 .env-card.is-opening .me-seal { transform: scale(1.35); opacity: 0; }
-.env-card.is-opening .me-paper:last-of-type { transform: translateY(-45%) rotate(0deg); }
+.env-card.is-opening .me-paper:last-of-type { transform: translateY(-70%) rotate(0deg); }
+
+/* «Открой, когда…»: спершу великий конверт відкривається, лист і кнопки — після */
+.reader-inner.is-sealed > :not(.env-stage, .courier) { display: none; }
+.env-stage { padding: 40px 0 8px; }
+.env-stage .envelope { display: block; }
 
 /* Порожній: клапан відкинуто, всередині нічого, замість сургучу — бліда позначка теми */
 .env-card.is-empty .me-flap { transform: scaleY(-.5); z-index: 0; filter: none; }
@@ -1621,6 +1626,8 @@ html.is-covered body::before { animation-play-state: paused; }
 .want-budget { display: grid; gap: 6px; margin: 14px 0 10px; }
 .want-budget .mk-label { margin: 0; color: var(--ink-soft); }
 
+.want-seg { margin-bottom: 14px; }
+
 .want-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 
 .want {
@@ -2068,6 +2075,8 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .want-range input:focus-visible::-webkit-slider-thumb { outline: 3px solid var(--c); outline-offset: 2px; }
 .want-range input:focus-visible::-moz-range-thumb { outline: 3px solid var(--c); outline-offset: 2px; }
 .want-due { font-size: .8125rem; font-weight: 500; color: #8a3a66; }
+/* На його нічній картці слива не читається — жовтий, як інші акценти космосу */
+[data-side="vin"] .want-due { color: var(--star); }
 .want-due-label { display: block; margin: 10px 0 4px; }
 .want-due-row { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; }
 .want-due-row::-webkit-scrollbar { display: none; }

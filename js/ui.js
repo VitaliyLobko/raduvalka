@@ -81,6 +81,9 @@ export const signLine = (sign, from) => (sign
   ? h('p', { class: 'letter-sign' }, sign)
   : h('p', { class: 'letter-sign', html: `${from} <span class="sign-arrow">${SAGITTARIUS}</span>` }));
 
+// Кишеня великого конверта (лист дня, «Открой, когда…»): бокові й нижній клини
+export const ENV_POCKET = `<svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path class="pocket" d="M0 2 150 106 300 2V200H0z"/><path class="pocket-fold" d="M0 200 130 116M300 200 170 116"/></svg>`;
+
 export const SAGITTARIUS_GLYPH = '<path d="M5 19 19 5"/><path d="M11 5h8v8"/><path d="M7 11l6 6"/>';
 
 export const ARROW = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 19 5"/><path d="M12 5h7v7"/><path d="M4 20l1.5-4.5M4 20l4.5-1.5"/></svg>`;

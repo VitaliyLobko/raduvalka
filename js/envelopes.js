@@ -1,8 +1,8 @@
 // «Відкрий, коли…»: полиця конвертів на різні випадки
 import { DATA, who } from './data.js';
 import { save, send } from './api.js';
-import { mascotImg, petName } from './icons.js';
-import { h, toast, cap, waxSeal, reduceMotion, signLine } from './ui.js';
+import { mascotImg, petName, petFor } from './icons.js';
+import { h, toast, cap, waxSeal, reduceMotion, signLine, ENV_POCKET, SAGITTARIUS_GLYPH } from './ui.js';
 
 // Скільки листів уже прочитано в кожному конверті: { hard: 1 } — зберігається на сервері
 const seen = () => (DATA.mine.seen ||= {});
@@ -49,11 +49,9 @@ export function renderEnvelopes(screen) {
       'aria-label': `Открой, когда ${env.label}. ${n ? `Писем: ${n}` : 'Пусто'}`,
       onclick: () => {
         if (opening) return;
-        // Спершу конверт відкривається на полиці, тоді — читання
-        if (!n || reduceMotion) { openCard(screen, env); return; }
+        // Тап — одразу великий конверт у читанні (міні на полиці вдруге не відкриваємо)
         opening = true;
-        card.classList.add('is-opening');
-        setTimeout(() => openCard(screen, env), 520);
+        openCard(screen, env);
       },
     },
     h('span', { class: 'mini-env', 'aria-hidden': 'true' },
@@ -68,9 +66,15 @@ export function renderEnvelopes(screen) {
     return card;
   });
 
-  screen.replaceChildren(
+  // На полиці — улюбленець-утішник (роль push), як у «Хотелках»
+  const pet = petFor('push');
+  screen.replaceChildren(...[
     h('h2', { class: 'title' }, 'Открой, когда…'),
-    h('div', { class: 'env-grid' }, ...cards));
+    pet ? h('div', { class: 'courier want-courier env-courier' },
+      h('span', { class: 'mascot', html: mascotImg(pet) }),
+      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), 'Выбирай, какой открыть, — я сразу принесу 🐾')) : null,
+    h('div', { class: 'env-grid' }, ...cards),
+  ].filter(Boolean));
 }
 
 function plural(n) {
@@ -119,7 +123,16 @@ function openCard(screen, env) {
     },
   }, h('span', { class: 'heart', 'aria-hidden': 'true' }, '🤍'), 'Сердечко');
 
+  // Великий конверт: сургуч злітає, клапан відкидається, лист виїжджає — тоді сама записка
+  const big = reduceMotion ? null : h('div', { class: 'stage env-stage' },
+    h('span', { class: 'envelope' },
+      h('span', { class: 'env-back' }),
+      h('span', { class: 'paper-peek' }),
+      h('span', { class: 'env-front', html: ENV_POCKET }),
+      h('span', { class: 'env-flap' }),
+      h('span', { class: 'seal', 'aria-hidden': 'true', html: waxSeal(SAGITTARIUS_GLYPH) })));
   reader = overlay(close,
+    big,
     courier(env),
     h('article', { class: 'letter' },
       h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
@@ -128,6 +141,13 @@ function openCard(screen, env) {
     h('div', { class: 'actions' },
       heart,
       h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));
+
+  if (big) {
+    const inner = reader.querySelector('.reader-inner');
+    inner.classList.add('is-sealed');
+    requestAnimationFrame(() => requestAnimationFrame(() => big.firstChild.classList.add('is-opening')));
+    setTimeout(() => { big.remove(); inner.classList.remove('is-sealed'); reader.querySelector('.btn-primary')?.focus(); }, 1150);
+  }
 
   // Конверт-сигнал: другому push «відкрила»; тост — лише коли йому справді є куди його надіслати
   if (env.signal) {
