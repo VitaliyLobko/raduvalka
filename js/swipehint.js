@@ -19,7 +19,7 @@ export function learn(place) {
 // right = null — змах лише вліво, тоді пальчик ходить тільки туди; tap — підпис праворуч без стрілки
 export function hintBar(cls, left, right, tap = null) {
   return h('p', { class: `swipe-hint ${cls}`, role: 'note' },
-    h('span', { class: 'swipe-hint-l' }, `← ${left}`),
+    left ? h('span', { class: 'swipe-hint-l' }, `← ${left}`) : null,
     h('span', { class: `swipe-hint-hand${right ? '' : ' is-left'}`, 'aria-hidden': 'true' }, '👆'),
     right ? h('span', { class: 'swipe-hint-r' }, `${right} →`) : null,
     tap ? h('span', { class: 'swipe-hint-tap' }, tap) : null);

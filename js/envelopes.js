@@ -69,10 +69,11 @@ export function renderEnvelopes(screen) {
   // На полиці — улюбленець-утішник (роль push), як у «Хотелках»
   const pet = petFor('push');
   screen.replaceChildren(...[
-    h('h2', { class: 'title' }, 'Открой, когда…'),
+    // Заголовок говорить улюбленець; сам h2 — лише для екранного диктора (без улюбленця — видимий, як раніше)
+    h('h2', { class: pet ? 'title visually-hidden' : 'title' }, 'Открой, когда…'),
     pet ? h('div', { class: 'courier want-courier env-courier' },
       h('span', { class: 'mascot', html: mascotImg(pet) }),
-      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), 'Выбирай — принесу 🐾')) : null,
+      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), h('span', { class: 'env-say' }, 'Открой, когда…'), ' Выбирай — принесу 🐾')) : null,
     h('div', { class: 'env-grid' }, ...cards),
   ].filter(Boolean));
 }

@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, toast, cap, showPhoto } from './ui.js';
+import { h, toast, cap, showPhoto, reduceMotion } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
 
@@ -324,7 +324,7 @@ function editWish(screen, w, sharedLink = '') {
   const field = (attrs, value = '') => { const el = h('input', attrs); el.value = value ?? ''; return el; };
   const link = field({ type: 'url', maxlength: '500', placeholder: 'Ссылка на товар', 'aria-label': 'Ссылка' }, w?.link || sharedLink);
   const title = field({ type: 'text', maxlength: '120', placeholder: 'Что хочется', 'aria-label': 'Что хочется' }, w?.title);
-  const price = field({ type: 'number', inputmode: 'numeric', min: '0', step: '50', placeholder: 'Примерно сколько стоит, ₴', 'aria-label': 'Цена' }, w?.price);
+  const price = field({ type: 'number', inputmode: 'numeric', min: '0', step: '50', placeholder: 'Цена, ₴', 'aria-label': 'Примерная цена' }, w?.price);
   const note = field({ type: 'text', maxlength: '500', placeholder: 'Размер, цвет, подробности', 'aria-label': 'Подробности' }, w?.note);
   let hot = !!w?.hot;
   // «К дате»: свято одним дотиком (найближче), своя дата — календарем; ще дотик — без дати
@@ -335,10 +335,22 @@ function editWish(screen, w, sharedLink = '') {
   const T = DATA.together || {};
   const myBday = T[DATA.side === 'vona' ? 'bdayVona' : 'bdayVin'];
   const PRESETS = [
-    ...(myBday ? [[myBday.slice(5), '🎂 Мой ДР']] : []),
-    ...(T.since ? [[T.since.slice(5), '💞 Годовщина']] : []),
-    ['12-31', '🎄 Новый год'], ['02-14', '💘 14 февраля'], ['03-08', '💐 8 марта'],
-  ].filter(([md], i, all) => all.findIndex(([x]) => x === md) === i); // той самий день — одна кнопка, свій ДР першим
+    ...(myBday ? [[myBday.slice(5), '🎂', 'Мой ДР']] : []),
+    ...(T.since ? [[T.since.slice(5), '💞', 'Годовщина']] : []),
+    ['12-31', '🎄', 'Новый год'], ['02-14', '💘', '14 февраля'], ['03-08', '💐', '8 марта'],
+  ].filter(([md], i, all) => all.findIndex(([x]) => x === md) === i) // той самий день — одна кнопка, свій ДР першим
+    // Найближче свято — першим: так і видно, до чого встигнути
+    .sort(([a], [b]) => daysTo(nextDay(a)) - daysTo(nextDay(b)));
+  // Картка дати: значок, назва, коли — «10 дек · через 22 дн.»
+  const when = (d) => {
+    const n = daysTo(d);
+    const day = new Date(`${d}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'short' }).replace('.', '');
+    return `${day} · ${n > 1 ? `через ${n} дн.` : n === 1 ? 'завтра' : 'сегодня'}`;
+  };
+  const card = (emoji, name, sub) => [
+    h('span', { class: 'due-emoji', 'aria-hidden': 'true' }, emoji),
+    h('span', { class: 'due-name' }, name),
+    h('span', { class: 'due-when' }, sub)];
   const drawDue = () => {
     const preset = due && PRESETS.find(([md]) => due.slice(5) === md);
     const own = !!due && !preset;
@@ -347,19 +359,29 @@ function editWish(screen, w, sharedLink = '') {
     // Своя дата (день народження, річниця) — першою, вона потрібна найчастіше; свята — далі в рядку
     dueChips.replaceChildren(
       h('button', {
-        type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(own),
+        type: 'button', role: 'radio', class: 'mk-chip due-card', 'aria-checked': String(own),
         onclick: () => {
           if (own) { due = null; drawDue(); return; }
           dueIn.hidden = false;
           dueIn.focus();
           dueIn.showPicker?.();
         },
-      }, own ? `📅 ${new Date(`${due}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'short' })}` : '📅 Дата'),
-      ...PRESETS.map(([md, label]) => h('button', {
-        type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(preset?.[0] === md),
+      }, ...card('📅', own ? 'Своя дата' : 'Дата', own ? when(due) : 'выбрать')),
+      ...PRESETS.map(([md, emoji, name]) => h('button', {
+        type: 'button', role: 'radio', class: 'mk-chip due-card', 'aria-checked': String(preset?.[0] === md),
         onclick: () => { due = preset?.[0] === md ? null : nextDay(md); drawDue(); },
-      }, label)));
+      }, ...card(emoji, name, when(nextDay(md))))));
   };
+  // Стрічка гортається вбік: стрілка біля краю (тап — далі), на кінці стрілка ховається; на старті — одне «підглядання»
+  const moreBtn = h('button', { type: 'button', class: 'want-due-next', 'aria-label': 'Ещё даты', onclick: () => dueChips.scrollBy({ left: dueChips.clientWidth * 0.7, behavior: 'smooth' }) }, '›');
+  const dueStrip = h('div', { class: 'want-due-strip' }, dueChips, moreBtn);
+  const atEnd = () => dueStrip.classList.toggle('is-end', dueChips.scrollLeft + dueChips.clientWidth >= dueChips.scrollWidth - 4);
+  dueChips.addEventListener('scroll', atEnd, { passive: true });
+  requestAnimationFrame(() => {
+    atEnd();
+    if (reduceMotion || dueStrip.classList.contains('is-end')) return;
+    setTimeout(() => { dueChips.scrollBy({ left: 60, behavior: 'smooth' }); setTimeout(() => dueChips.scrollBy({ left: -60, behavior: 'smooth' }), 450); }, 500);
+  });
   dueIn.min = today().toLocaleDateString('sv');
   dueIn.addEventListener('change', () => { due = dueIn.value || null; drawDue(); });
   drawDue();
@@ -377,7 +399,8 @@ function editWish(screen, w, sharedLink = '') {
       img ? h('span', { class: 'want-pic-frame' },
         h('button', { type: 'button', class: 'want-pic-zoom', 'aria-label': 'Посмотреть фото крупно', onclick: () => { if (img.src) showPhoto(img.src, title.value || 'Фото'); } }, img),
         h('button', { type: 'button', class: 'want-pic-del', 'aria-label': 'Убрать фото', onclick: () => { pic = null; drawPic(); } }, '✕')) : null,
-      h('button', { type: 'button', class: 'btn mk-reroll', onclick: () => fileIn.click() }, img ? '📷 Другое фото' : '📷 Фото'),
+      // Фото — квадратик біля назви, а не цілий рядок; змінити — прибрати ✕ і вибрати нове
+      img ? null : h('button', { type: 'button', class: 'want-pic-add', 'aria-label': 'Добавить фото', onclick: () => fileIn.click() }, '📷'),
     ].filter(Boolean));
   };
   const takeFile = async (blob) => {
@@ -470,11 +493,13 @@ function editWish(screen, w, sharedLink = '') {
       h('div', { class: 'want-fillbox' },
         h('div', { class: 'want-linkrow' }, link, fillBtn),
         status, pasted),
-      picBox, fileIn,
-      title, price, note,
-      h('div', { class: 'mk-chips' }, hotBtn),
-      h('span', { class: 'mk-label want-due-label' }, 'К дате'),
-      dueChips, dueIn,
+      fileIn,
+      h('div', { class: 'want-titlerow' }, picBox, title),
+      // Ціна — коротке поле, поруч «очень хочу»: обидва в один рядок
+      h('div', { class: 'want-pricerow' }, price, hotBtn),
+      note,
+      h('span', { class: 'mk-label want-due-label' }, 'К дате', h('span', { class: 'want-due-more', 'aria-hidden': 'true' }, 'листай →')),
+      dueStrip, dueIn,
       h('div', { class: 'sheet-actions' },
         w ? h('button', { type: 'button', class: 'btn want-remove', onclick: remove }, 'Уже не хочу') : null,
         saveBtn)));

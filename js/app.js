@@ -4,7 +4,7 @@ import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, remembe
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
-import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
+import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine, ENV_POCKET as POCKET } from './ui.js';
@@ -80,7 +80,7 @@ function prepLetter(l) {
 
 // Сургучна крапка на марці «Письма»: непрочитане в чаті, привітальний лист чи подарунок
 function markLetter() {
-  const w = DATA.welcome && !isHidden(welcomeKey(DATA.welcome)) && !welcomeState().opened;
+  const w = DATA.welcome && !welcomeState().opened;
   // Поки чат не завантажено — дивимось на найновіший лист із boot
   const early = !feedLoaded() && !!DATA.letter?.id && !DATA.letter.opened;
   const fresh = !!DATA.gift || w || early || feedFresh() > 0;

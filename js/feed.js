@@ -17,7 +17,6 @@ const EDGE = 24;
 // Скільки рядків на екрані: стрічку перемальовує кожна дія, сотні мемчиків гальмували б телефон
 const PAGE = 30;
 let limit = PAGE;
-let showHidden = false;
 // Листи з сервера; мемчики — у DATA.memes. stale — перечитати при наступному показі.
 // page — найстаріша підвантажена сторінка feed: more — на сервері є старіше за horizon
 let cache = null;
@@ -45,33 +44,6 @@ const sizes = new ResizeObserver(() => { if (stuck && box?.isConnected) box.scro
 let ops = {};
 // Листи, розкриті з конверта, — цілим і після перемальовки; живе оновлення через них не стає (is-open — лише ручне розгортання)
 const unfolded = new Set();
-
-const hiddenKey = () => `radovalka:hidden:${DATA.side}`;
-
-// До 0.1.74 схований лист дня з застосунку мав ключ day:<id> — тепер це звичайний рядок l:<id>
-const legacy = (k) => (/^day:[0-9a-f]{8,}$/.test(k) ? `l:${k.slice(4)}` : k);
-
-function readHidden() {
-  try { return new Set(JSON.parse(localStorage.getItem(hiddenKey()) || '[]').map(legacy)); } catch { return new Set(); }
-}
-
-function writeHidden(set) {
-  try { localStorage.setItem(hiddenKey(), JSON.stringify([...set].slice(-300))); } catch { /* приватне вікно — сховане повернеться */ }
-}
-
-export const isHidden = (key) => readHidden().has(key);
-
-export function hide(key) {
-  const set = readHidden();
-  set.add(key);
-  writeHidden(set);
-}
-
-function unhide(key) {
-  const set = readHidden();
-  set.delete(key);
-  writeHidden(set);
-}
 
 // Перечитати листи при наступному показі (вхід на вкладку, повернення в застосунок, щойно надіслане)
 export function invalidateFeed() { stale = true; }
@@ -280,15 +252,13 @@ function draw(force = false, older = false) {
   if (!box || (!force && !box.isConnected)) return;
   const wasStuck = box.isConnected ? gap(box) < 40 : stuck;
   const restore = keepPlace(older);
-  const hidden = readHidden();
-  const all = items();
-  const shown = all.filter((it) => !hidden.has(it.key));
+  // «Спрятать у себя» прибрано: у переписці на двох видно все
+  const shown = items();
   // Найновіше змінилось: своє — донизу, щоб видно, що пішло; чуже, поки гортали вище, — «↓ Новое»
   const top = shown[0];
   const arrived = !older && newest && top && top.key !== newest ? top : null;
   if (top) newest = top.key;
   const mineNew = arrived && (arrived.type === 'out' || (arrived.type === 'meme' && arrived.m.mine));
-  const hiddenItems = all.filter((it) => hidden.has(it.key));
 
   // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори.
   // Незмінні рядки — ті самі вузли: нове лише вставляється, решта не рухається
@@ -316,20 +286,11 @@ function draw(force = false, older = false) {
     onclick: (e) => showMore(e.currentTarget, shown.length),
   }, page.more ? 'Показать раньше' : `Показать раньше · ${shown.length - limit}`) : null;
 
-  const nHidden = hiddenItems.length;
-  head.replaceChildren(...[
-    more,
-    nHidden ? h('button', {
-      type: 'button', class: 'feed-hidden-toggle', 'aria-expanded': String(showHidden),
-      onclick: () => { showHidden = !showHidden; draw(); },
-    }, showHidden ? 'Скрыть спрятанные' : `Спрятанные · ${nHidden}`) : null,
-    showHidden && nHidden ? h('ul', { class: 'feed-hidden' },
-      ...hiddenItems.map((it) => h('li', {}, h('span', {}, hiddenLabel(it)), restoreBtn(it.key)))) : null,
-  ].filter(Boolean));
+  head.replaceChildren(...[more].filter(Boolean));
   foot.replaceChildren(...[
     shown.length ? null : h('p', { class: 'mk-wait' }, emptyText()),
     // Підказка про свайп — лише коли є що гортати: запечатаний конверт тільки відкривають
-    shown.some((it) => !(it.type === 'in' && sealed(it.l))) && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
+    shown.some((it) => !(it.type === 'in' && sealed(it.l))) && !learned('feed') ? hintBar('feed-swipe-hint', null, 'ответить') : null,
   ].filter(Boolean));
   watchFresh(nodes);
   restore();
@@ -346,30 +307,12 @@ function draw(force = false, older = false) {
     first.querySelector('.feed-bubble').style.transform = x ? `translateX(${x}px)` : '';
     first.dataset.swipe = s;
   };
-  nudge('feed', first, [lean(-64, 'hide-soon'), lean(0, ''), lean(64, 'reply-soon'), lean(0, '')]);
+  nudge('feed', first, [lean(64, 'reply-soon'), lean(0, '')]);
 }
 
 function emptyText() {
   const me = who();
   return `Здесь будет ваша переписка: письма, ответы, фото и гифки. ${cap(me.partner)} тоже их тут увидит.`;
-}
-
-function restoreBtn(key) {
-  return h('button', {
-    type: 'button', class: 'sent-take',
-    onclick: () => { unhide(key); draw(); fresh(); },
-  }, 'Вернуть');
-}
-
-function hiddenLabel(it) {
-  if (it.type === 'meme') {
-    const gif = !!it.m.url;
-    const whose = it.m.mine ? (gif ? 'Твоя' : 'Твоё') : (who().partner === 'она' ? 'Её' : 'Его');
-    return `${gif ? '🎞' : '🖼'} ${whose} ${gif ? 'гифка' : 'фото'}${it.m.caption ? `: ${it.m.caption.slice(0, 40)}` : ''}`;
-  }
-  if (it.l.tpl) return '💌 Первое письмо';
-  const text = (it.l.text || (it.l.kind === 'gift' ? '🎁 Подарок' : '')).slice(0, 40);
-  return `${it.type === 'out' ? '➶' : '💌'} ${text}${(it.l.text || '').length > 40 ? '…' : ''}`;
 }
 
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
@@ -435,14 +378,6 @@ function row(it) {
   swipeable(li, bubble, {
     place: 'feed',
     canRight: canReply,
-    onLeft: () => {
-      hide(it.key);
-      // Пузир полетів за край — повернутий зі «Спрятанных» малюємо заново
-      rows.delete(it.key);
-      draw();
-      fresh();
-      toast('Спрятано у тебя. Вернуть — вверху чата «Спрятанные»');
-    },
     onRight: () => openReplyFor(it),
   });
   return li;
@@ -463,13 +398,6 @@ function quoteLine(q) {
 
 function newMark(on) {
   return on ? h('span', { class: 'inbox-new' }, 'новое') : null;
-}
-
-function hideBtn(key) {
-  return h('button', {
-    type: 'button', class: 'feed-act feed-hide', 'aria-label': 'Спрятать у себя',
-    onclick: (e) => { e.stopPropagation(); hide(key); draw(); fresh(); toast('Спрятано у тебя. Вернуть — вверху чата «Спрятанные»'); },
-  }, '🙈');
 }
 
 function replyBtn(it) {
@@ -546,7 +474,7 @@ function inBubble(l) {
   // append, на відміну від h(), друкує null як текст — порожні відсіюємо
   bubble.append(...[body,
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
-    h('div', { class: 'feed-acts' }, like, replyBtn(it), hideBtn(it.key))].filter(Boolean));
+    h('div', { class: 'feed-acts' }, like, replyBtn(it))].filter(Boolean));
   return bubble;
 }
 
@@ -629,7 +557,7 @@ function outBubble(l, later) {
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
       h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply, newMark(isNew)) : null,
-    h('div', { class: 'feed-acts' }, take, l.reply ? againBtn(l.reply) : null, hideBtn(`l:${l.id}`))].filter(Boolean));
+    h('div', { class: 'feed-acts' }, take, l.reply ? againBtn(l.reply) : null)].filter(Boolean));
   return bubble;
 }
 
@@ -672,7 +600,7 @@ function memeBubble(m) {
     replyLine,
     h('div', { class: 'feed-acts' },
       h('span', { class: 'feed-meta' }, `🖼 ${hhmm(m.created)}`, newMark(!m.mine && isNew)),
-      ...acts, hideBtn(it.key)));
+      ...acts));
 }
 
 // acts — рядок кнопок цього мемчика: позначаємо натиснуту в ньому, стрічку не перебудовуємо
