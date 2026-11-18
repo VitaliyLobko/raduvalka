@@ -6,13 +6,12 @@ import { h, toast } from './ui.js';
 import { DATA, who } from './data.js';
 
 // Другому сповіщення не приходять — сказати прямо, щоб не чекали push, якого не буде
-export function partnerOff(long) {
+export function partnerOff() {
   if (DATA.partnerPush !== false) return null;
   const me = who();
-  const text = `У ${me.partner === 'она' ? 'неё' : 'него'} не включены уведомления, поэтому ${me.toWhom} ничего не приходит`;
-  return h('p', { class: 'hint push-partner-off' }, long
-    ? `${text}. Включить можно на ${me.partner === 'она' ? 'её' : 'его'} телефоне: «О Радовалке» → «🔔 Присылать уведомления».`
-    : `🔕 У ${me.partner === 'она' ? 'неё' : 'него'} выключены уведомления`);
+  return h('p', { class: 'hint push-partner-off' },
+    `У ${me.partner === 'она' ? 'неё' : 'него'} не включены уведомления, поэтому ${me.toWhom} ничего не приходит. `
+    + `Включить можно на ${me.partner === 'она' ? 'её' : 'его'} телефоне: «О Радовалке» → «🔔 Присылать уведомления».`);
 }
 
 const ASK = 'radovalka:push-ask';
@@ -134,7 +133,7 @@ export function pushPanel() {
   const box = h('div', { class: 'push-panel' });
   const draw = async () => {
     await drawMine();
-    const off = partnerOff(true);
+    const off = partnerOff();
     if (off) box.append(off);
   };
   const drawMine = async () => {

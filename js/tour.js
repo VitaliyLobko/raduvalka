@@ -10,6 +10,7 @@ const KEY = 'radovalka:toured';
 const STEPS = [
   { sel: '.envelope, article.letter', who: 'push', text: 'Здесь — последнее письмо тебе. Придёт новое — я принесу и постучу уведомлением 🐾' },
   { sel: '#write-btn', who: 'memes', text: 'А тут — написать в ответ: письмо, записку в конверт или мемчик. Мемчики ношу я 😹' },
+  { sel: '.checkin-strip', who: 'push', text: () => `Тап по «Я в порядке», и ${who().partner} узнает, что всё хорошо. А если нужна помощь, проведи красный кружок вправо.` },
   { sel: '.feed-row.is-theirs, .feed .archive-title', who: 'memes', text: 'Ниже — вся ваша переписка. Смахни влево — спрятать, вправо — ответить.' },
   { sel: '.tab[data-tab=envelopes]', who: 'push', text: 'Конверты «Открой, когда…»: тяжёлый день, скучаешь, не спится. Открывай подходящий.' },
   { sel: '.tab[data-tab=plans]', who: 'memes', text: 'Планы: листай идеи, куда пойти. Совпало у вас обоих — значит, идём!' },

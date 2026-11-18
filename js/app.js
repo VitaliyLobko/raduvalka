@@ -21,7 +21,7 @@ import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
-import { sosBox, sosSlider, loadSos, sosCheck } from './sos.js';
+import { sosBox, loadSos, sosCheck } from './sos.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -298,9 +298,9 @@ function render() {
     // «Написать» — сургуч у куті вкладки «Письма» (раніше — посередині нижнього меню)
     screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: () => openWrite() },
       h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
-    // Під заголовком: сигнал «Нужна помощь» (якщо є), «Я в порядке» і повзунок допомоги (у подарунка й порожнього екрана теж є h2)
+    // Під заголовком: сигнал «Нужна помощь» (якщо є), потім «Я в порядке» з повзунком допомоги (у подарунка й порожнього екрана теж є h2)
     const title = screen.querySelector('h2');
-    const top = [sosBox(), checkinRow(), sosSlider()];
+    const top = [sosBox(), checkinRow()];
     if (title) title.after(...top);
     else screen.append(...top);
   }

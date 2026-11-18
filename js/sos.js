@@ -21,10 +21,10 @@ export async function loadSos() {
   paintSos();
 }
 
-// Повзунок: тягнути кружечок управо до кінця. Відпустив раніше — повертається, нічого не сталося
+// Повзунок поруч із «Я в порядке»: тягнути кружечок управо до кінця. Відпустив раніше — повертається
 export function sosSlider(onDone = openSos) {
   const thumb = h('button', { type: 'button', class: 'sos-thumb', 'aria-label': 'Нужна помощь: провести вправо или нажать Enter' }, '🆘');
-  const label = h('span', { class: 'sos-label' }, 'Нужна помощь — проведи вправо');
+  const label = h('span', { class: 'sos-label' }, 'Нужна помощь →');
   const track = h('div', { class: 'sos-slider' }, label, thumb);
   let start = null;
   let max = 0;
