@@ -101,7 +101,7 @@ export function startDepth() {
   const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
-    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2)));
+    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), h('span', { class: 'meteor meteor-vona' })));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
     h('i', { class: 'ds-chart', html: CHART }),

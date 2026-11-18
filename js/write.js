@@ -3,7 +3,6 @@ import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, cap, ARROW, reduceMotion, ribbon } from './ui.js';
-import { arrowFly } from './fx.js';
 import { mountHelper } from './helper.js';
 import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 import { composeMeme, composeGif } from './memes.js';
@@ -247,10 +246,7 @@ export function openWrite(preset = {}) {
       // Чернетка — лише листа; відповідь її не чіпає
       if (!reply) draft.set('');
       reply?.sent?.();
-      // Лист полетів стрілою — з того місця, де кнопка «Отправить»
-      const from = go.getBoundingClientRect();
       close();
-      if (!r.queued) arrowFly(from);
       // Без зв'язку лист лежить у черзі телефона — чесно кажемо, коли він піде
       if (r.queued) {
         toast(`Нет связи. ${gift ? 'Подарок ждёт' : 'Письмо ждёт'} в телефоне и уйдёт само, когда Радовалка будет открыта с интернетом 📮`);
