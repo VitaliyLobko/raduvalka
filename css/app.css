@@ -2453,6 +2453,22 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 [data-side="vin"] .sos-card { background: #4A1622; color: #FFE4E8; }
 [data-side="vin"] .sos-card .btn { color: #FFE4E8; }
 [data-side="vin"] .sos-card.is-ok { background: #173B26; color: #E3F6E8; }
+/* Своя картка: чи побачив другий — великою плашкою, не дрібним рядком */
+.sos-card p.sos-badge {
+  display: inline-flex; align-items: center; gap: 8px; justify-self: start; padding: 7px 14px; border-radius: 999px;
+  font-weight: 600; font-size: 1rem; line-height: 1.2;
+}
+.sos-badge.is-wait { background: #FFF1D2; color: #6E4300; border: 1px solid #E2A93B; }
+.sos-badge.is-wait::before {
+  content: ''; width: 9px; height: 9px; border-radius: 50%; background: #E2A93B; animation: sos-wait 1.2s ease-in-out infinite;
+}
+.sos-badge.is-seen { background: #DDF4E3; color: #0F5128; border: 1px solid #4CAF6A; font-size: 1.0625rem; }
+.sos-badge.is-new { animation: sos-seen-pop .6s ease-out; }
+[data-side="vin"] .sos-badge.is-wait { background: #4A3812; color: #FFE3A8; border-color: #C28B22; }
+[data-side="vin"] .sos-badge.is-seen { background: #173B26; color: #C9F2D5; border-color: #4CAF6A; }
+@keyframes sos-wait { 50% { opacity: .25; } }
+@keyframes sos-seen-pop { 0% { transform: scale(.85); } 45% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .sos-badge.is-wait::before, .sos-badge.is-new { animation: none; } }
 .sos-sheet .sos-line { margin: 0 0 10px; line-height: 1.35; }
 .sos-sheet .sos-line.is-bad { color: #C4283E; font-weight: 600; }
 [data-side="vin"] .sos-sheet .sos-line.is-bad { color: #FF8A9A; }

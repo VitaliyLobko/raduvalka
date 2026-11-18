@@ -222,6 +222,9 @@ function theirCard(s) {
     seenBtn);
 }
 
+// Що вже показали на своїй картці — щоб помітити мить, коли прийшло «увидел»
+let lastMine = null;
+
 function mineCard(s) {
   const me = who();
   if (s.ok) return null;
@@ -233,10 +236,17 @@ function mineCard(s) {
       loadSos();
     },
   }, 'Отбой: всё хорошо');
-  const saw = s.seen ? `${cap(me.partner)} ${me.partnerOpened === 'открыла' ? 'увидела' : 'увидел'} в ${hhmm(s.seen)} ✓` : `${cap(me.partner)} ещё не ${me.partnerOpened === 'открыла' ? 'видела' : 'видел'}`;
+  const she = me.partnerOpened === 'открыла';
+  // «Увидел» щойно прийшло, поки екран відкритий, — плашка підстрибує, телефон коротко вібрує
+  const fresh = !!s.seen && lastMine?.id === s.id && !lastMine.seen;
+  lastMine = { id: s.id, seen: s.seen || null };
+  if (fresh) navigator.vibrate?.([120, 80, 120]);
+  const saw = s.seen
+    ? h('p', { class: `sos-badge is-seen${fresh ? ' is-new' : ''}` }, `✓ ${cap(me.partner)} ${she ? 'увидела' : 'увидел'} в ${hhmm(s.seen)}`)
+    : h('p', { class: 'sos-badge is-wait' }, `${cap(me.partner)} ещё не ${she ? 'видела' : 'видел'}`);
   return h('div', { class: 'sos-card is-mine', role: 'status' },
     h('p', {}, h('b', {}, '🆘 Сигнал отправлен '), `в ${hhmm(s.at)}`),
-    h('p', { class: 'sos-meta' }, saw),
+    saw,
     ok);
 }
 
