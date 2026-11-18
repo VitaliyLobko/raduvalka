@@ -1707,7 +1707,7 @@ function checkinNote(from, at, now) {
   const late = now - at > 15 * 60 * 1000;
   const time = new Intl.DateTimeFormat('ru', { timeZone: STOCK_TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(at));
   return {
-    title: `${sender(from, 'Он отметился', 'Она отметилась')} 💚`,
+    title: `${sender(from, 'Он отметился', 'Она отметилась')} ❤️`,
     body: late ? `В ${time}: всё хорошо` : 'Всё хорошо',
     tag: 'checkin',
     go: 'letter',
