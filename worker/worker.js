@@ -990,9 +990,36 @@ function view(r, side) {
 }
 
 // Мемчики: повод і повзунки → 8 підписів (bestCaptions лишає 5) або 6 англійських запитів для GIF
+// Що на фото — коротко словами, щоб підпис був саме про нього; підписи далі пише AI_MODEL.
+// Llama 4 Scout: із чотирьох (замір 18.11) точно бачить деталі, ~4,5 с; mistral швидша, але вигадує; gemma акаунту недоступна
+const VISION_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+const MAX_VISION_B64 = 400_000;
+async function describePhoto(env, b64, type) {
+  const ask = 'Опиши фото для автора подписи: кто или что на нём, что делает, выражение, одна смешная или трогательная деталь. '
+    + '1–2 коротких предложения по-русски, без вступлений.';
+  try {
+    const out = await env.AI.run(VISION_MODEL, {
+      messages: [{ role: 'user', content: [{ type: 'text', text: ask }, { type: 'image_url', image_url: { url: `data:${type};base64,${b64}` } }] }],
+      max_tokens: 160,
+    });
+    return replyText(out).replace(/\s+/g, ' ').trim().slice(0, 300);
+  } catch {
+    // Не роздивилась — підписи однаково будуть, просто загальніші
+    return '';
+  }
+}
+
+// Пристрасть (флірт, «секси»): натяки й бажання, але без грубих і відвертих слів — інакше модель або відмовляє, або пошлить
+const passionTone = (p) => (p < 10 ? ''
+  : p < 70 ? 'Флирт — обязательно в каждом варианте: заигрывай, сделай комплимент, намекни на поцелуи и объятия, '
+      + 'лёгкая провокация. Без грубых и откровенных слов. '
+    : 'Страсть — обязательно в каждом варианте: желание, нетерпение, «хочу к тебе», поцелуи, чувственные намёки. '
+      + 'Красиво, без грубых и откровенных слов и без анатомии. ');
+
 async function memeIdeas(req, env, side) {
   if (!env.AI) throw fail(503, 'ai');
-  const b = await readJson(req);
+  // Зменшене фото для моделі із зором — 60–80 КБ base64, більше за звичайний ліміт JSON
+  const b = await readJson(req, MAX_VISION_B64 + 8192);
   const level = (v) => Math.max(0, Math.min(100, Number(v) || 0));
   const situation = String(b.situation || '').trim().slice(0, 200) || 'просто так, порадовать';
   const funny = level(b.funny);
@@ -1011,17 +1038,28 @@ async function memeIdeas(req, env, side) {
     user = `Situation (Russian): ${situation}. Mood: ${funny}% funny (0 = cute), ${bold}% cheeky (0 = tender). `
       + 'Subjects: mostly animals — cats, dogs, cute creatures; one or two may be people or cartoon reactions if they fit better.';
   } else {
-    const desc = String(b.desc || '').trim().slice(0, 200);
+    // Фото — бачить модель із зором; її опис іде разом зі словами людини
+    const img = String(b.image || '');
+    const seen = img && img.length <= MAX_VISION_B64 && /^[A-Za-z0-9+/]+=*$/.test(img)
+      ? await describePhoto(env, img, MEME_TYPES.test(String(b.type || '')) ? String(b.type) : 'image/jpeg')
+      : '';
+    const desc = [seen, String(b.desc || '').trim()].filter(Boolean).join('. ').slice(0, 400);
+    // Підпис не переказує фото (його й так видно), а чіпляється за деталь; заборонені шаблони — ними модель
+    // закривала все: «Пес тебя ждёт», «Шапка на собаке, мысль о тебе» (замір 18.11)
     system = 'Ты остроумный автор подписей к мемам и открыткам. Пара: муж надолго уехал далеко, жена ждёт дома. '
       + 'Один отправляет другому картинку, фото или гифку с подписью — её приносит их питомец. Подпись — от лица отправителя, '
-      + 'обращение к любимому человеку на «ты», '
-      + 'с конкретной деталью и неожиданным поворотом, как в хороших мемах. Не банально: не «я скучаю», не «люблю тебя» в лоб. '
-      + 'Без пошлости, политики, войны, хэштегов. Никогда не используй слова «мама», «папа». '
+      + 'обращение к любимому человеку на «ты». '
+      + 'НЕ описывай картинку — получатель её видит. Зацепись за одну деталь и сделай из неё шутку, признание или намёк. '
+      + 'Используй разные ходы: реплика того, кто на картинке; сравнение с собой или с вами двумя; неожиданный вывод из детали; '
+      + 'что сделаешь при встрече; вопрос с подвохом. '
+      + 'Запрещены шаблоны: «ждёт тебя», «скучает», «думаю о тебе», «шлёт привет», «приветствует», «люблю тебя» в лоб. '
+      + 'Без политики, войны, хэштегов, грубых и откровенных слов. Никогда не используй слова «мама», «папа». '
       + 'Ответь ТОЛЬКО JSON {"captions": [8 разных подписей]}.';
     user = (side === 'vin' ? 'От мужа жене. ' : 'От жены мужу. ')
       + (desc ? `На картинке: ${desc}. ` : 'Что на картинке — неизвестно, подпись должна подходить к любой. ')
       + `Повод: ${situation}. `
       + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно). `
+      + passionTone(level(b.passion))
       + 'Длина каждой подписи: 3–10 слов, чтобы влезла на картинку. Эмодзи: не больше одного на подпись, можно без.';
   }
 
@@ -1040,7 +1078,8 @@ async function memeIdeas(req, env, side) {
   if (b.kind === 'gif') return json({ queries: queries.slice(0, 6) });
   // llama іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
   const captions = [...new Set(list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)))];
-  return json({ captions: await bestCaptions(env, captions, situation) });
+  const want = [`Повод: ${situation}`, passionTone(level(b.passion)).trim()].filter(Boolean).join('. ');
+  return json({ captions: await bestCaptions(env, captions, want) });
 }
 
 // Текст відповіді моделі → JSON-обʼєкт (або {})
@@ -1082,11 +1121,11 @@ async function bestCaptions(env, captions, situation) {
       messages: [
         {
           role: 'system',
-          content: 'Ты строгий редактор мемов. Из пронумерованных подписей выбери 5 лучших: смешных, тёплых, '
-            + 'неожиданных, грамматически чистых, без банальностей и повторов друг друга. Лучшую — первой. '
+          content: 'Ты строгий редактор мемов. Из пронумерованных подписей выбери 5 лучших: точно в заданном тоне, '
+            + 'неожиданных, грамматически чистых, без банальностей, без пересказа картинки и без повторов друг друга. Лучшую — первой. '
             + 'Ответь ТОЛЬКО JSON {"best": [номера]}.',
         },
-        { role: 'user', content: `Повод: ${situation}.\n${captions.map((c, i) => `${i + 1}. ${c}`).join('\n')}` },
+        { role: 'user', content: `${situation}.\n${captions.map((c, i) => `${i + 1}. ${c}`).join('\n')}` },
       ],
       max_tokens: 60,
       temperature: 0.2,
@@ -1207,7 +1246,7 @@ async function letterIdeas(req, env, side) {
   const user = `Задача: ${reason}. ${focus ? `Акцент: ${focus}. ` : ''}`
     + `${words ? `Что обязательно сказать (слова автора): ${words}. ` : ''}`
     + `Длина: ${sentences}. Тон: игриво на ${level(b.funny)}% (0 — нежно), `
-    + `поэтично на ${level(b.poetic)}% (0 — просто, как в переписке).`;
+    + `поэтично на ${level(b.poetic)}% (0 — просто, как в переписке). ${passionTone(level(b.passion))}`.trim();
   const one = async (i) => {
     const system = `Ты помогаешь написать короткое личное письмо. ${who} ${rules} `
       + `Напиши один вариант: ${OPENING[i]}; ${slot(i)}. Без подписи в конце. `

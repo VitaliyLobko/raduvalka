@@ -1392,18 +1392,45 @@ button { font: inherit; color: inherit; cursor: pointer; }
   resize: vertical;
 }
 
+/* Повод і настрій — стрічки вбік; довжина — два чипи праворуч від «Настроение» */
+.help-panel .mk-label { margin: 10px 0 4px; }
+.help-panel > .mk-label:first-child { margin-top: 2px; }
+.help-ribbon { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+.help-ribbon::-webkit-scrollbar { display: none; }
+.help-panel .help-ribbon .mk-chip, .help-panel .help-length .mk-chip { flex: none; white-space: nowrap; min-height: 36px; padding: 0 12px; font-size: .875rem; }
+.help-panel input[type="text"] { width: 100%; margin-top: 6px; }
+.help-tone-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.help-tone-row .mk-label { margin-bottom: 4px; }
+.help-length { flex-wrap: nowrap; gap: 4px; margin-top: 6px; }
+.help-panel .help-length .mk-chip { min-height: 30px; padding: 0 10px; font-size: .8125rem; }
+.help-panel .help-words { resize: none; min-height: 44px; }
+.help-panel .mk-go { margin-top: 10px; }
+.help-panel .mk-results { margin-top: 10px; }
+.help-panel .mk-results .mk-label { margin-top: 0; }
+/* Чернетки — картки, що гортаються вбік із защіпкою: видно край наступної */
+.help-drafts {
+  display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 -16px; padding: 2px 16px 6px; scroll-padding: 0 16px;
+}
+.help-drafts::-webkit-scrollbar { display: none; }
 .help-draft {
-  display: block;
-  width: 100%;
-  margin: 0 0 8px;
+  display: flex; flex-direction: column; flex: 0 0 85%; scroll-snap-align: start;
+  max-height: 34dvh; overflow-y: auto;
   padding: 10px 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 14px;
   background: #fff;
+  color: var(--plum);
   text-align: left;
   white-space: pre-line;
-  font: 1.35rem/1.3 var(--hand);
+  font: 1.3rem/1.3 var(--hand);
 }
+.help-draft-text { flex: 1; }
+.help-draft-take { align-self: flex-end; margin-top: 6px; font: 500 .8125rem/1 var(--ui); color: var(--wax); }
+.help-panel .mk-reroll { width: auto; min-height: 36px; margin: 6px auto 0; padding: 0 16px; font-size: .875rem; }
+.help-fix { margin-top: 4px; }
+/* Помічник відкритий — переписка над полем згортається, місце йому */
+.sheet-write.is-helping .write-thread { display: none; }
 
 .help-undo {
   display: block;
@@ -1778,14 +1805,17 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .mk-results .mk-group { margin-top: 8px; }
 .mk-results textarea { font-size: 1.2rem; }
 
-/* Шторка мемчика: підпис + ✨ в один рядок, варіанти ШІ — стрічкою, повод і настрій — згорнуті */
-.sheet-meme .meme-preview { max-height: 34vh; }
-.meme-cap-row { display: flex; gap: 8px; }
-.meme-cap-row input { flex: 1; min-width: 0; }
-.mk-ai-cap { width: 46px; min-height: 46px; padding: 0; justify-content: center; font-size: 1.2rem; border-color: var(--lavender); }
+/* Шторка фото/гифки: прев'ю, підпис, одразу варіанти ШІ стрічкою, під ними настрій стрічкою (тап — нові варіанти), де підпис */
+.sheet-meme .meme-preview { max-height: 32vh; }
+.sheet-meme .sheet-inner > .voice-wrap { margin-top: 10px; }
+.cap-assist { display: grid; gap: 4px; margin-top: 8px; }
+.cap-assist .mk-label { margin: 4px 0 0; }
 .mk-capts:empty { display: none; }
-.mk-capts { margin: 0 -16px; padding: 2px 16px 4px; }
-.sheet-meme .mk-capts { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.mk-capts, .cap-moods { margin: 0 -16px; padding: 2px 16px 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.cap-moods .mk-chip { flex: none; white-space: nowrap; min-height: 36px; padding: 0 12px; font-size: .875rem; }
+.mk-capts .mk-capt[aria-pressed="true"] { background: var(--plum); color: #fff; border-color: var(--plum); }
+.cap-more { flex: none; min-height: 0; padding: 6px 12px; white-space: nowrap; color: var(--wax); border-style: dashed; }
+.cap-own { margin-top: 4px; }
 .mk-capts .mk-capt {
   flex: none;
   max-width: 240px;
@@ -1797,18 +1827,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   font: 1.15rem/1.15 var(--hand);
 }
 .mk-capts .mk-wait { margin: 4px 0; }
-.mk-tune summary {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--wax);
-  font-size: .875rem;
-  font-weight: 500;
-}
-.mk-mood { display: grid; gap: 4px; padding: 6px 0 2px; }
-.mk-mood .mk-row { margin: 0 -16px; padding: 2px 16px; }
-.mk-mood input[type="text"] { margin-top: 4px; }
 .sheet-meme .meme-place { margin: 4px 0 0; }
 .sheet-meme .sheet-actions { margin-top: 10px; }
 .sheet-maker .mk-ai { margin: 0 0 10px; }
@@ -1847,10 +1865,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .sheet-maker .mk-ai:not([open]) { padding-bottom: 2px; }
 .sheet-maker .mk-ai:not([open]) summary { min-height: 36px; }
 
-/* «Повод и настроение» — видно, що це розгортається, а не заголовок чипів */
-.mk-tune summary::before { content: '▸'; display: inline-block; width: 1em; transition: transform .2s; }
-.mk-tune[open] summary::before { transform: rotate(90deg); }
-.sheet-meme .mk-tune { margin-top: 4px; }
 
 /* Тост — по ширині тексту, а не пів екрана */
 .toast { width: max-content; text-align: center; }
@@ -2119,10 +2133,16 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   color: #7a5a78;
   font: 1.2rem/1.25 var(--hand);
 }
-.feed-full { grid-template-rows: minmax(0, 1fr) auto; }
 .feed-full-frame { position: relative; display: grid; place-items: center; max-width: 100%; max-height: 100%; }
 .feed-full-frame :is(img, video) { max-width: 100%; max-height: 82vh; border-radius: 12px; object-fit: contain; }
 .feed-full-cap { margin: 10px 0 0; color: #fff; font: 1.5rem/1.25 var(--hand); text-align: center; }
+.feed-full { grid-template-rows: minmax(0, 1fr) auto auto; }
+/* «⬇ Сохранить» — під фото, по центру */
+.feed-full-save {
+  justify-self: center; min-height: 44px; margin-top: 12px; padding: 0 20px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, .16); color: #fff; font: 600 .9375rem/1 var(--ui); cursor: pointer;
+}
+.feed-full-save:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .write-meme { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 10px; color: #7a5a78; font-size: .875rem; }
 .write-meme label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
 .write-meme .mk-chip { display: inline-flex; align-items: center; gap: 4px; }
@@ -2337,6 +2357,30 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 }
 .checkin-btn.is-beat .checkin-heart svg { animation: heart-tap .7s ease-out; }
 .checkin-btn.is-beat .checkin-heart::after { animation: heart-ring .7s ease-out; }
+/* ˄/˅ — згорнути блок у рядок: ❤ і 🆘 лишаються іконками */
+.checkin-fold {
+  flex: none; display: grid; place-items: center; width: 32px; height: 44px; margin-right: -4px; padding: 0;
+  border: 0; border-radius: 12px; background: none; color: var(--ink-soft); cursor: pointer;
+}
+.checkin-fold svg { width: 18px; height: 18px; transition: transform .2s ease; }
+.checkin-fold:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; }
+.checkin-sos-mini { display: none; }
+.checkin-row.is-folded { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; }
+.checkin-row.is-folded .checkin-status { flex: 1; min-width: 0; margin: 0; }
+.checkin-row.is-folded .checkin-theirs { white-space: nowrap; }
+.checkin-row.is-folded .checkin-day { display: none; }
+.checkin-row.is-folded .checkin-strip { flex: none; gap: 6px; margin-left: auto; }
+.checkin-row.is-folded .sos-slider, .checkin-row.is-folded .checkin-label { display: none; }
+.checkin-row.is-folded .checkin-btn { width: 40px; min-height: 40px; padding: 0; justify-content: center; }
+.checkin-row.is-folded .checkin-sos-mini {
+  display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1.5px solid color-mix(in srgb, var(--beat) 45%, transparent);
+  background: color-mix(in srgb, var(--beat) 12%, transparent); font-size: 1rem;
+}
+.checkin-row.is-folded .checkin-sos-mini:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+.checkin-row.is-folded .checkin-fold { height: 40px; }
+.checkin-row.is-folded .checkin-fold svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .checkin-fold svg { transition: none; } }
 @keyframes heartbeat { 0%, 45%, 100% { transform: scale(1); } 12% { transform: scale(1.2); } 24% { transform: scale(1); } 34% { transform: scale(1.12); } }
 @keyframes heart-tap { 0% { transform: scale(1); } 30% { transform: scale(1.45); } 100% { transform: scale(1); } }
 @keyframes heart-ring { 0% { transform: scale(.6); opacity: .8; } 100% { transform: scale(2.2); opacity: 0; } }
@@ -2388,6 +2432,13 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 [data-side="vin"] .sos-card { background: #4A1622; color: #FFE4E8; }
 [data-side="vin"] .sos-card .btn { color: #FFE4E8; }
 [data-side="vin"] .sos-card.is-ok { background: #173B26; color: #E3F6E8; }
+/* Низький екран: картка щільніша, «На карте» і «Вижу» — в один рядок, щоб «Написать…» лишалось над вкладками */
+@media (max-height: 700px) {
+  .sos-card { gap: 6px 10px; padding: 10px 14px; grid-template-columns: auto 1fr; }
+  .sos-card > * { grid-column: 1 / -1; }
+  .sos-card > :is(.sos-map, .sos-seen) { grid-column: auto; order: 5; min-height: 40px; }
+  .sos-title { font-size: 1.125rem; }
+}
 /* Своя картка: чи побачив другий — великою плашкою, не дрібним рядком */
 .sos-card p.sos-badge {
   display: inline-flex; align-items: center; gap: 8px; justify-self: start; padding: 7px 14px; border-radius: 999px;
@@ -2547,7 +2598,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 /* «Помочь написать» — такий самий чип, в один рядок з «Мемчик» і «Гифка» */
 .write-tools .help-open { width: auto; flex: none; min-height: 40px; margin: 0; padding: 0 10px; border-style: dashed; font-size: .875rem; }
 .write-tools .mk-chip { padding: 0 10px; font-size: .875rem; }
-.write-tools .help-panel { flex-basis: 100%; }
+.write-tools .help-panel { flex-basis: 100%; min-width: 0; }
 /* Обгортка 🎤 росте сама — тож колонкою, щоб поле тяглося разом з нею */
 .sheet-write.sheet-full .voice-wrap.is-area { display: flex; flex-direction: column; min-height: 0; }
 .sheet-write.sheet-full .write-text { flex: 1; min-height: 96px; margin: 0; resize: none; }
@@ -2556,9 +2607,9 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .write-when { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
 .write-when::-webkit-scrollbar { display: none; }
 /* Край, за яким ще є чипи, тане — видно, що стрічку можна горнути */
-.write-when.is-more-end { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); }
-.write-when.is-more-start { -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px); mask-image: linear-gradient(90deg, transparent, #000 56px); }
-.write-when.is-more-start.is-more-end {
+.mk-ribbon.is-more-end { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); }
+.mk-ribbon.is-more-start { -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px); mask-image: linear-gradient(90deg, transparent, #000 56px); }
+.mk-ribbon.is-more-start.is-more-end {
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent);
   mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent);
 }

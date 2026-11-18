@@ -71,6 +71,20 @@ export async function prepare(file, maxSide = MAX_SIDE, keepGif = true) {
   return new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
 }
 
+// Для моделі із зором — маленька JPEG (512 px): досить, щоб розгледіти, і швидко
+async function aiPhoto(blob) {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(1, 512 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bmp.width * k);
+  canvas.height = Math.round(bmp.height * k);
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  const jpeg = await new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.8));
+  return { b64: await toBase64(jpeg), type: 'image/jpeg' };
+}
+const once = (fn) => { let p = null; return () => (p ||= fn()); };
+
 export const toBase64 = (blob) => new Promise((ok, no) => {
   const r = new FileReader();
   r.onload = () => ok(String(r.result).split(',')[1]);
@@ -92,7 +106,7 @@ export async function composeMeme(file, done) {
     const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption, style });
     urls.set(meme.id, preview);
     return meme;
-  }, done);
+  }, done, null, '', once(() => aiPhoto(blob)));
 }
 
 // GIF із пошуку: на сервер іде лише посилання GIPHY
@@ -106,8 +120,8 @@ export function composeGif(gif, done) {
 
 // Шторка «що надсилаю»: прев'ю, підпис (свій або ✨ від ШІ) і де він — під картинкою чи поверх, «Отправить».
 // post(caption, style) повертає збережений мемчик; style0 — де підпис спочатку (GIF — поверх знизу);
-// about — що відомо про картинку (назва гифки) для ШІ
-function sendSheet(preview, post, done, style0 = null, about = '') {
+// about — що відомо про картинку (назва гифки) для ШІ; image() — зменшене фото для моделі із зором
+function sendSheet(preview, post, done, style0 = null, about = '', image = null) {
   // Гифка з пошуку приходить посиланням, фото з галереї — blob: так і називаємо
   const gif = !preview.startsWith('blob:');
   let style = style0;
@@ -131,7 +145,7 @@ function sendSheet(preview, post, done, style0 = null, about = '') {
       onclick: () => { style = v === 'null' ? null : v; paint(); },
     }, label)));
   caption.addEventListener('input', paint);
-  const helper = captionHelper(caption, () => about, paint);
+  const helper = captionHelper(caption, { about, image, onPick: paint });
   const close = () => { sheet.remove(); backdrop.remove(); };
   const go = h('button', { type: 'button', class: 'btn btn-primary', html: `${ARROW}Отправить` });
   go.addEventListener('click', async () => {
@@ -153,13 +167,15 @@ function sendSheet(preview, post, done, style0 = null, about = '') {
     h('div', { class: 'sheet-inner' },
       h('h2', {}, gif ? 'Гифка' : 'Фото'),
       h('div', { class: 'meme-frame' }, Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }), over),
-      h('div', { class: 'meme-cap-row' }, caption, helper.button),
-      helper.captions,
+      caption,
+      helper.el,
+      h('p', { class: 'mk-label' }, 'Где подпись'),
       place,
-      helper.tune,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
         go)));
   document.body.append(backdrop, sheet);
   paint();
+  // Варіанти — одразу, без «✨»: людина бачить, що підпис можна взяти готовий
+  helper.start();
 }

@@ -261,6 +261,8 @@ export function sosBox() {
 export function paintSos() {
   const box = document.querySelector('.sos-box');
   if (box) box.replaceWith(sosBox());
+  // Блок «Я в порядке» згортається, поки є картка SOS
+  document.dispatchEvent(new Event('radovalka:sos'));
 }
 
 // Наперед дати дозволи на місце й мікрофон — щоб у біді не питало

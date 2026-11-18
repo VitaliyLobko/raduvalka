@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
-import { h, toast, cap, ARROW, reduceMotion } from './ui.js';
+import { h, toast, cap, ARROW, reduceMotion, ribbon } from './ui.js';
 import { mountHelper } from './helper.js';
 import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 import { composeMeme, composeGif } from './memes.js';
@@ -31,17 +31,13 @@ const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', mi
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 // Над полем: сьогоднішнє — годиною, інше — днем
-// Стрічка чипів, що гортається вбік: край, за яким ще щось є, тане — видно, що можна горнути; вибраний чип — у полі зору
-function ribbon(row) {
-  row.classList.add('write-when');
-  const edges = () => {
-    const end = row.scrollWidth - row.clientWidth - row.scrollLeft;
-    row.classList.toggle('is-more-start', row.scrollLeft > 4);
-    row.classList.toggle('is-more-end', end > 4);
-  };
-  row.addEventListener('scroll', edges, { passive: true });
-  row.addEventListener('click', (e) => e.target.closest('.mk-chip')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
-  new ResizeObserver(edges).observe(row);
+// Межі кнопки як clip-path для вікна на весь екран; null — без анімації (зменшений рух, кнопки не видно)
+function clipFrom(el) {
+  if (reduceMotion || !el?.isConnected) return null;
+  const r = el.getBoundingClientRect();
+  if (!r.width || r.bottom < 0 || r.top > innerHeight) return null;
+  const px = (n) => `${Math.max(0, Math.round(n))}px`;
+  return `inset(${px(r.top)} ${px(innerWidth - r.right)} ${px(innerHeight - r.bottom)} ${px(r.left)} round ${px(Math.min(28, r.height / 2))})`;
 }
 
 const whenShort = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? hhmm(ms) : dayMonth(ms));
@@ -51,6 +47,8 @@ const whenShort = (ms) => (new Date(ms).toDateString() === new Date().toDateStri
 // onSend(text) відправляє й повертає текст тосту (або null)
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
+  // Звідки відкрили («Написать…» чи «↩ Ответить») — з тієї кнопки вікно виростає і туди ж згортається
+  const origin = document.activeElement?.closest?.('button') || document.getElementById('write-btn');
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
   const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
@@ -128,7 +126,7 @@ export function openWrite(preset = {}) {
     { v: 'gift', label: '🎁 Подарок' },
   ], where, (v) => { where = v; paintNote(); });
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
-  [whereRow, envRow.firstChild].forEach(ribbon);
+  [whereRow, envRow.firstChild].forEach((row) => { row.classList.add('write-when'); ribbon(row); });
   paintNote();
 
   const pets = Object.keys(DATA.mascots);
@@ -145,10 +143,14 @@ export function openWrite(preset = {}) {
   const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
 
   const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const close = () => {
+  // fast — одразу, без згортання: далі відкривається інша шторка (фото, гифка)
+  const close = (fast = false) => {
     document.removeEventListener('keydown', onKey);
-    sheet.remove();
-    backdrop.remove();
+    const done = () => { sheet.remove(); backdrop.remove(); };
+    const from = !fast && clipFrom(origin);
+    if (!from) { done(); return; }
+    sheet.animate([{ clipPath: 'inset(0 0 0 0 round 0px)' }, { clipPath: from }], { duration: 220, easing: 'cubic-bezier(.4, 0, .8, .4)', fill: 'forwards' }).onfinish = done;
+    backdrop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' });
   };
 
   // Мемчик замість листа: шторка листа закривається, далі — шторка мемчика; стрічка оновиться сама
@@ -159,7 +161,7 @@ export function openWrite(preset = {}) {
     onchange: (e) => {
       const [file] = e.target.files;
       if (!file) return;
-      close();
+      close(true);
       composeMeme(file, memeSent);
     },
   });
@@ -167,7 +169,7 @@ export function openWrite(preset = {}) {
     h('label', { class: 'mk-chip' }, picker, '📷 Фото'),
     h('button', {
       type: 'button', class: 'mk-chip',
-      onclick: () => { close(); openGifs((gif) => composeGif(gif, memeSent)); },
+      onclick: () => { close(true); openGifs((gif) => composeGif(gif, memeSent)); },
     }, '🎞 Гифка'),
     helper);
 
@@ -233,12 +235,12 @@ export function openWrite(preset = {}) {
 
   // На весь екран, як у месенджері: заголовок, переписка (або цитата), інструменти, поле, знизу — «Когда», хто понесе, «Отправить»
   const title = reply ? 'Ответ' : `Письмо ${me.toWhom}`;
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const backdrop = h('div', { class: 'backdrop', onclick: () => close() });
   const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('div', { class: 'sheet-inner' }, ...[
       h('div', { class: 'write-head' },
         h('h2', {}, title),
-        h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
+        h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: () => close() }, '✕')),
       ctx,
       thread,
       reply ? null : tools,
@@ -250,6 +252,13 @@ export function openWrite(preset = {}) {
     ].filter(Boolean)));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
+  // Виростає з кнопки: рамка розкривається від її меж до всього екрана
+  const from = clipFrom(origin);
+  if (from) {
+    sheet.style.animation = 'none';
+    sheet.animate([{ clipPath: from }, { clipPath: 'inset(0 0 0 0 round 0px)' }], { duration: 300, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    backdrop.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
+  }
   // Клавіатура стискає вікно — переписка лишається притиснутою донизу, найсвіжіше біля поля
   if (thread) new ResizeObserver(() => { thread.scrollTop = thread.scrollHeight; }).observe(thread);
   if (area.value) grow();

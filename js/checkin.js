@@ -6,6 +6,7 @@ import { deliver, waiting } from './outbox.js';
 import { sosSlider } from './sos.js';
 
 const FRESH = 48 * 3600 * 1000;
+const isToday = (ms) => new Date(ms).toDateString() === new Date().toDateString();
 const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 
 function when(ms) {
@@ -31,7 +32,8 @@ function statusLine() {
       ? h('span', { class: 'checkin-theirs' },
         h('span', { class: 'checkin-pulse', html: PULSE }),
         h('b', {}, me.partner === 'он' ? 'Он в порядке' : 'Она в порядке'),
-        h('span', { class: 'checkin-when' }, when(at)))
+        // «сегодня в» у згорнутому рядку ховається — лишається час
+        h('span', { class: 'checkin-when' }, ...(isToday(at) ? [h('span', { class: 'checkin-day' }, 'сегодня в '), hhmm(at)] : [when(at)])))
       : null,
     DATA.partnerPush === false ? h('span', {}, `🔕 У ${me.partner === 'она' ? 'неё' : 'него'} выключены уведомления`) : null,
     n ? h('span', { class: 'checkin-wait' }, `📮 Ждёт связи: ${n === 1 ? 'одно письмо' : `${n} ${n < 5 ? 'письма' : 'писем'}`}`) : null);
@@ -42,7 +44,7 @@ function checkinBtn() {
     type: 'button', class: 'checkin-btn',
     'aria-label': `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо`,
     onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
-  }, h('span', { class: 'checkin-heart', html: HEART }), 'Я в порядке');
+  }, h('span', { class: 'checkin-heart', html: HEART }), h('span', { class: 'checkin-label' }, 'Я в порядке'));
   return btn;
 }
 
@@ -63,11 +65,45 @@ export async function checkIn() {
 }
 
 // Над заголовком «Писем»: рядок стану, під ним в один ряд «Я в порядке» і повзунок «Нужна помощь»
-export function checkinRow() {
-  return h('div', { class: 'checkin-row' },
-    statusLine(),
-    h('div', { class: 'checkin-strip' }, checkinBtn(), sosSlider()));
+// Згорнутий блок — один рядок: стан, ❤ і 🆘 іконками. Кожен телефон пам'ятає своє
+const FOLD = 'radovalka:checkin-folded';
+const isFolded = () => { try { return localStorage.getItem(FOLD) === '1'; } catch { return false; } };
+const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+
+// Поки на екрані картка SOS, блок сам згорнутий — інакше на малому телефоні «Написать…» їде під вкладки.
+// Розгорнула вручну — до кінця цього SOS лишається розгорнутим
+let sosOpened = false;
+const sosOn = () => !!(DATA.sos?.theirs || DATA.sos?.mine);
+
+function paintFold(row = document.querySelector('.checkin-row')) {
+  if (!row) return;
+  const on = isFolded() || (sosOn() && !sosOpened);
+  row.classList.toggle('is-folded', on);
+  const fold = row.querySelector('.checkin-fold');
+  fold?.setAttribute('aria-expanded', String(!on));
+  fold?.setAttribute('aria-label', on ? 'Развернуть: «Я в порядке» и «Нужна помощь»' : 'Свернуть в строку');
 }
+
+function setFold(on, row) {
+  if (!on && sosOn()) sosOpened = true;
+  try { localStorage.setItem(FOLD, on ? '1' : '0'); } catch { /* приватне вікно — просто не запам'ятає */ }
+  paintFold(row);
+}
+
+export function checkinRow() {
+  const row = h('div', { class: 'checkin-row' });
+  const fold = h('button', { type: 'button', class: 'checkin-fold', html: CHEVRON, onclick: () => setFold(!row.classList.contains('is-folded'), row) });
+  // 🆘 у згорнутому лише розгортає: сигнал іде тільки повзунком, щоб не натиснути випадково
+  const sos = h('button', {
+    type: 'button', class: 'checkin-sos-mini', 'aria-label': 'Нужна помощь — открыть ползунок',
+    onclick: () => { setFold(false, row); row.querySelector('.sos-thumb')?.focus(); },
+  }, '🆘');
+  row.append(statusLine(), h('div', { class: 'checkin-strip' }, checkinBtn(), sosSlider(), sos, fold));
+  paintFold(row);
+  return row;
+}
+
+document.addEventListener('radovalka:sos', () => { if (!sosOn()) sosOpened = false; paintFold(); });
 
 // Перемалювати стан і кнопку; повзунок не чіпаємо — його можуть саме тягнути
 export function paint() {

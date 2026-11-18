@@ -9,6 +9,7 @@ import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse } from './fx.js';
 import { deliver } from './outbox.js';
+import { saveMeme } from './memesave.js';
 
 const SWIPE = 70;
 // Від краю екрана Android гортає «Назад» — там свайп не починаємо
@@ -621,6 +622,10 @@ function showMeme(m, pic) {
     h('div', { class: 'feed-full-frame' }, el,
       m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null),
     m.caption && !m.style ? h('p', { class: 'feed-full-cap' }, m.caption) : null,
+    h('button', {
+      type: 'button', class: 'feed-full-save', 'aria-label': `Сохранить ${m.url ? 'гифку' : 'фото'} на устройство`,
+      onclick: (e) => { e.stopPropagation(); saveMeme(m, el); },
+    }, '⬇ Сохранить'),
     h('button', { type: 'button', class: 'photo-view-close', 'aria-label': 'Закрыть' }, '✕'));
   document.addEventListener('keydown', onKey);
   document.body.append(view);

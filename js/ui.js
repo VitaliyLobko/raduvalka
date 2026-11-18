@@ -23,6 +23,21 @@ export const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Стрічка чипів, що гортається вбік: край, за яким ще щось є, тане — видно, що можна горнути; вибраний чип — у полі зору
+export function ribbon(row) {
+  row.classList.add('mk-ribbon');
+  const edges = () => {
+    const end = row.scrollWidth - row.clientWidth - row.scrollLeft;
+    row.classList.toggle('is-more-start', row.scrollLeft > 4);
+    row.classList.toggle('is-more-end', end > 4);
+  };
+  row.addEventListener('scroll', edges, { passive: true });
+  row.addEventListener('click', (e) => e.target.closest('.mk-chip')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
+  new ResizeObserver(edges).observe(row);
+  // Чипи підмінили (нові варіанти від ШІ) — ширина вмісту інша
+  new MutationObserver(() => requestAnimationFrame(edges)).observe(row, { childList: true });
+}
+
 // Стріла Стрільця — малюнком, бо символ ♐ телефони показують емодзі
 export const SAGITTARIUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5"/><path d="M11 5h8v8"/><path d="M7 11l6 6"/></svg>`;
 

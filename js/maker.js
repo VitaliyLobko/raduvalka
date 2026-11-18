@@ -1,10 +1,8 @@
 // Мемчики: вибір гифки (пошук російською, популярне, недавні, теми, підбір під настрій)
-// і помічник підпису для шторки «що надсилаю» — повод, настрій, ✨ варіанти від ШІ
+// і помічник підпису для шторки «що надсилаю» — варіанти від ШІ одразу, настрій чипами
 import { send, get } from './api.js';
-import { h, toast } from './ui.js';
+import { h, toast, ribbon } from './ui.js';
 
-const SITUATIONS = ['просто так', 'скучаю', 'доброе утро', 'тяжёлый день', 'поддержать', 'подразнить', 'спокойной ночи'];
-const OWN = '✎ своё';
 
 const RECENT_KEY = 'radovalka:gifs-recent';
 const recentGifs = () => {
@@ -18,74 +16,79 @@ export function rememberGif(g) {
   } catch { /* без сховища — просто без «Недавних» */ }
 }
 
-// Повзунок «ліве ↔ праве», значення 0–100
-function slider(left, right, value = 30) {
-  const input = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(value), 'aria-label': `${left} или ${right}` });
-  const el = h('div', { class: 'mk-slider' }, h('span', {}, left), input, h('span', {}, right));
-  return { el, value: () => Number(input.value) };
-}
+// Настрій підпису: повод і тон разом — один тап, і одразу нові варіанти
+const CAPTION_MOODS = [
+  { label: '✨ просто так', situation: 'просто так, порадовать', funny: 45, bold: 25 },
+  { label: '😂 посмеяться', situation: 'рассмешить', funny: 90, bold: 40 },
+  { label: '🥰 нежно', situation: 'сказать что-то нежное', funny: 15, bold: 5 },
+  { label: '🥺 скучаю', situation: 'скучаю', funny: 25, bold: 10 },
+  { label: '😏 флирт', situation: 'пофлиртовать', funny: 55, bold: 70, passion: 60 },
+  { label: '🔥 страстно', situation: 'сказать, как хочется к тебе', funny: 15, bold: 60, passion: 90 },
+  { label: '😜 подразнить', situation: 'подразнить', funny: 70, bold: 80 },
+  { label: '💪 поддержать', situation: 'у получателя тяжёлый день — поддержать', funny: 35, bold: 15 },
+  { label: '☀️ утро', situation: 'доброе утро', funny: 45, bold: 15 },
+  { label: '🌙 ночь', situation: 'спокойной ночи', funny: 20, bold: 5 },
+];
+const OWN = '✎ своё';
 
-// Ряд кнопок, з яких обрана одна
-function choice(items, picked, onPick) {
-  const row = h('div', { class: 'mk-chips', role: 'radiogroup' });
-  const paint = () => row.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === picked)));
-  items.forEach(({ v, label }) => row.append(h('button', {
-    type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
-    onclick: () => { picked = v; paint(); onPick?.(v); },
-  }, label)));
-  paint();
-  return { el: row, value: () => picked };
-}
-
-// Повод і настрій — спільні для підпису й підбору гифок; desc — «що на картинці» (для фото)
-function mood({ desc = false } = {}) {
-  const own = h('input', { type: 'text', maxlength: '200', placeholder: 'Например: у тебя экзамен', 'aria-label': 'Повод своими словами', hidden: true });
-  const situation = choice([...SITUATIONS, OWN].map((s) => ({ v: s, label: s })), SITUATIONS[0], (v) => {
-    own.hidden = v !== OWN;
-    if (!own.hidden) own.focus();
-  });
-  situation.el.classList.add('mk-row');
-  const funny = slider('мило', 'смешно', 45);
-  const bold = slider('нежно', 'дерзко', 25);
-  const about = desc ? h('input', { type: 'text', maxlength: '120', placeholder: 'Что на картинке? Подпись выйдет точнее', 'aria-label': 'Что на картинке' }) : null;
-  const el = h('div', { class: 'mk-mood' }, situation.el, own, funny.el, bold.el, about);
-  const ask = () => {
-    const s = situation.value() === OWN ? own.value.trim() : situation.value();
-    return {
-      situation: s === 'просто так' ? 'просто так, порадовать' : s,
-      funny: funny.value(),
-      bold: bold.value(),
-      ...(about ? { desc: about.value } : {}),
-    };
-  };
-  return { el, ask };
-}
-
-// Помічник підпису в шторці: «✨» біля поля → 5 варіантів чипами; повод і настрій — згорнуті.
-// context() — що відомо про картинку (назва гифки), field — поле підпису
-export function captionHelper(field, context, onPick) {
-  const m = mood({ desc: !context() });
-  const tune = h('details', { class: 'mk-tune' }, h('summary', {}, 'Повод и настроение для ✨'), m.el);
+// Помічник підпису: щойно відкрили — варіанти від ШІ чипами (тап — підпис на фото), під ними настрій (тап — нові)
+// і «✎ своё» (свій повод чи що на фото). about — що відомо про картинку (назва гифки);
+// image() — зменшене фото { b64, type } для моделі із зором; onPick — підпис змінився
+export function captionHelper(field, { about = '', image = null, onPick }) {
+  let mood = CAPTION_MOODS[0];
+  let seq = 0;
   const out = h('div', { class: 'mk-chips mk-row mk-capts', 'aria-live': 'polite' });
-  const go = h('button', { type: 'button', class: 'btn mk-ai-cap', 'aria-label': 'Придумать подпись' }, '✨');
-  go.addEventListener('click', async () => {
-    go.disabled = true;
-    out.replaceChildren(h('span', { class: 'mk-wait' }, 'Придумываю…'));
+  const more = h('button', { type: 'button', class: 'mk-chip cap-more', 'aria-label': 'Ещё варианты', onclick: () => ask() }, '🎲 ещё');
+  const own = h('input', {
+    type: 'text', maxlength: '200', enterkeyhint: 'go', hidden: true, class: 'cap-own',
+    placeholder: 'Свой повод или что на фото', 'aria-label': 'Свой повод или что на фото',
+  });
+  own.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ask(); } });
+  const moods = h('div', { class: 'mk-chips mk-row cap-moods', role: 'radiogroup', 'aria-label': 'Настроение подписи' });
+  const paintMoods = (picked) => moods.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === picked)));
+  [...CAPTION_MOODS.map((x) => x.label), OWN].forEach((label) => moods.append(h('button', {
+    type: 'button', role: 'radio', class: 'mk-chip', 'data-v': label,
+    onclick: () => {
+      paintMoods(label);
+      own.hidden = label !== OWN;
+      if (label === OWN) { own.focus(); return; }
+      mood = CAPTION_MOODS.find((x) => x.label === label);
+      ask();
+    },
+  }, label)));
+  paintMoods(mood.label);
+  ribbon(moods);
+  ribbon(out);
+
+  async function ask() {
+    const n = ++seq;
+    out.replaceChildren(h('span', { class: 'mk-wait' }, 'Придумываю подписи…'));
     try {
-      const q = m.ask();
-      const { captions } = await send('meme-ideas', 'POST', { kind: 'photo', ...q, desc: [context(), q.desc].filter(Boolean).join('. ') });
+      const img = image ? await image().catch(() => null) : null;
+      const mine = own.hidden ? '' : own.value.trim();
+      const { captions } = await send('meme-ideas', 'POST', {
+        kind: 'photo', situation: mine || mood.situation, funny: mood.funny, bold: mood.bold, passion: mood.passion || 0, desc: about,
+        ...(img ? { image: img.b64, type: img.type } : {}),
+      });
+      if (n !== seq) return;
       if (!captions?.length) throw new Error('empty');
       out.replaceChildren(...captions.map((c) => h('button', {
         type: 'button', class: 'mk-chip mk-capt',
-        onclick: () => { field.value = c; onPick(); },
-      }, c)));
+        onclick: (e) => {
+          field.value = c;
+          out.querySelectorAll('.mk-capt').forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget)));
+          onPick();
+        },
+      }, c)), more);
       out.scrollLeft = 0;
     } catch {
-      out.replaceChildren(h('span', { class: 'mk-wait' }, 'Не придумалось — попробуй ещё раз'));
+      if (n === seq) out.replaceChildren(h('span', { class: 'mk-wait' }, 'Не придумалось'), more);
     }
-    go.disabled = false;
-  });
-  return { button: go, captions: out, tune };
+  }
+  const el = h('div', { class: 'cap-assist' },
+    h('p', { class: 'mk-label' }, '✨ Подписи — тап, и она на фото'), out,
+    h('p', { class: 'mk-label' }, 'Настроение'), moods, own);
+  return { el, start: ask };
 }
 
 // Шторка вибору гифки; onGif(gif) — обрали
