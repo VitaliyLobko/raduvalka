@@ -3,7 +3,7 @@ import { DATA, who } from './data.js';
 import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved } from './api.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
-import { openWrite } from './write.js';
+import { openWrite, prewarmWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
@@ -291,6 +291,8 @@ function openReply(t) {
 }
 
 function render() {
+  // Згорнутий «Я в порядке» живе в шапці лише на «Письмах»; інші вкладки — звичайна шапка
+  document.querySelector('.top')?.classList.remove('has-checkin');
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
   const chat = tab === 'letter' && !DATA.gift;
   screen.classList.toggle('is-chat', chat);
@@ -415,7 +417,9 @@ function registerWorker() {
 const chip = document.getElementById('together-chip');
 
 function drawChip() {
-  chip.querySelector('.chip-text').textContent = chipLabel();
+  // «до встречи» окремо від «75 дн.»: у шапці зі згорнутим «Я в порядке» лишається лише число
+  const [, word = '', num = chipLabel()] = chipLabel().match(/^(.*?)(\d+ дн\.)$/) || [];
+  chip.querySelector('.chip-text').replaceChildren(...(word ? [h('span', { class: 'chip-word' }, word)] : []), num);
   chip.setAttribute('aria-label', `Вместе: ${chipLabel()}`);
   chip.hidden = false;
   markPlans();
@@ -618,6 +622,7 @@ async function start() {
   // Старий воркер (або збережений до 0.1.74 boot без мережі) привітального окремо не віддає
   if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
   document.body.classList.remove('is-booting');
+  prewarmWrite();
   applySide();
   drawChip();
   loadWishes().then(markWishes).catch(() => {});

@@ -31,24 +31,51 @@ const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', mi
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 // Над полем: сьогоднішнє — годиною, інше — днем
-// Межі кнопки як clip-path для вікна на весь екран; null — без анімації (зменшений рух, кнопки не видно)
-function clipFrom(el) {
-  if (reduceMotion || !el?.isConnected) return null;
-  const r = el.getBoundingClientRect();
-  if (!r.width || r.bottom < 0 || r.top > innerHeight) return null;
-  const px = (n) => `${Math.max(0, Math.round(n))}px`;
-  return `inset(${px(r.top)} ${px(innerWidth - r.right)} ${px(innerHeight - r.bottom)} ${px(r.left)} round ${px(Math.min(28, r.height / 2))})`;
-}
+// Поява й зникнення — лише зсув і прозорість: їх рахує відеокарта без перемальовування вікна.
+// clip-path перемальовував усе вікно кожен кадр і на телефоні гальмував (18.11)
+const MOVE = { opacity: 0, transform: 'translateY(28px) scale(.98)' };
+const STILL = { opacity: 1, transform: 'none' };
 
 const whenShort = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? hhmm(ms) : dayMonth(ms));
+
+// Прогрів. Перше відкриття вікна в кожному запуску було в рази повільнішим за наступні (замір 18.11, CPU ×6:
+// розкладка ~1–1,5 с проти ~50 мс): браузер уперше готує шрифти під кожен розмір і накреслення, шукає емодзі,
+// збирає поле дати. Тому знімок розмітки вікна з першого відкриття лежить у телефоні, і щойно Радовалка простоює,
+// він один кадр невидимо стоїть на екрані. Знімку ще нема (найперший запуск) — хоча б емодзі й поля
+const WARM_KEY = 'radovalka:warm-write';
+const WARM = '📷 🎞 ✨ 🎂 🎁 💗 😏 🔥 😄 🌸 🙂 ✎ 🎲 ↩ ⬇ 🌷 🍝 💆 😂 🥰 🥺 😜 💪 ☀️ 🌙 🎤 ✂️ ✓';
+let snapped = false;
+function snapWrite(sheet) {
+  if (snapped) return;
+  snapped = true;
+  try { localStorage.setItem(WARM_KEY, JSON.stringify({ cls: sheet.className, html: sheet.innerHTML.slice(0, 80000) })); } catch { /* немає місця — прогріється простіше */ }
+}
+export function prewarmWrite() {
+  const run = () => {
+    let snap = null;
+    try { snap = JSON.parse(localStorage.getItem(WARM_KEY) || 'null'); } catch { /* зіпсований знімок — як без нього */ }
+    const box = h('div', { class: 'write-warm', 'aria-hidden': 'true', inert: true });
+    if (snap?.html) {
+      const copy = h('div', { class: snap.cls });
+      // Знімок лише для розкладки: без id і без автофокуса, щоб не зачепити справжні елементи
+      copy.innerHTML = snap.html.replace(/\s(id|autofocus)="[^"]*"/g, '');
+      box.append(copy);
+    } else {
+      const pics = (DATA.partnerEnvelopes || []).map((e) => e.emoji).join(' ');
+      box.append(h('span', {}, `${WARM} ${pics}`), h('b', {}, WARM), h('input', { type: 'date', tabindex: '-1' }), h('input', { type: 'file', tabindex: '-1' }));
+    }
+    document.body.append(box);
+    requestAnimationFrame(() => requestAnimationFrame(() => box.remove()));
+  };
+  if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 4000 });
+  else setTimeout(run, 1500);
+}
 
 // preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
 // { reply: { quote, onSend } } — той самий екран для відповіді: цитата зверху, без «Когда» й «Кто понесёт»,
 // onSend(text) відправляє й повертає текст тосту (або null)
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
-  // Звідки відкрили («Написать…» чи «↩ Ответить») — з тієї кнопки вікно виростає і туди ж згортається
-  const origin = document.activeElement?.closest?.('button') || document.getElementById('write-btn');
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
   const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
@@ -146,11 +173,13 @@ export function openWrite(preset = {}) {
   // fast — одразу, без згортання: далі відкривається інша шторка (фото, гифка)
   const close = (fast = false) => {
     document.removeEventListener('keydown', onKey);
+    document.documentElement.classList.remove('is-covered');
+    // Закрили ще під час руху — знімок для прогріву все одно потрібен
+    snapWrite(sheet);
     const done = () => { sheet.remove(); backdrop.remove(); };
-    const from = !fast && clipFrom(origin);
-    if (!from) { done(); return; }
-    sheet.animate([{ clipPath: 'inset(0 0 0 0 round 0px)' }, { clipPath: from }], { duration: 220, easing: 'cubic-bezier(.4, 0, .8, .4)', fill: 'forwards' }).onfinish = done;
-    backdrop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' });
+    if (fast || reduceMotion) { done(); return; }
+    sheet.animate([STILL, MOVE], { duration: 160, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }).onfinish = done;
+    backdrop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' });
   };
 
   // Мемчик замість листа: шторка листа закривається, далі — шторка мемчика; стрічка оновиться сама
@@ -252,17 +281,22 @@ export function openWrite(preset = {}) {
     ].filter(Boolean)));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
-  // Виростає з кнопки: рамка розкривається від її меж до всього екрана
-  const from = clipFrom(origin);
-  if (from) {
-    sheet.style.animation = 'none';
-    sheet.animate([{ clipPath: from }, { clipPath: 'inset(0 0 0 0 round 0px)' }], { duration: 300, easing: 'cubic-bezier(.2, .8, .2, 1)' });
-    backdrop.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
-  }
+  // Спливає знизу, від кнопки «Написать…»; клавіатура — вже після, щоб вікно не перебудовувалось посеред руху
+  sheet.style.animation = 'none';
+  const shown = reduceMotion ? null
+    : sheet.animate([MOVE, STILL], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  if (shown) backdrop.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
   // Клавіатура стискає вікно — переписка лишається притиснутою донизу, найсвіжіше біля поля
   if (thread) new ResizeObserver(() => { thread.scrollTop = thread.scrollHeight; }).observe(thread);
+  // Вікно відкрилось — фон під ним на паузу; клавіатура — вже після руху
+  const settled = () => {
+    if (!sheet.isConnected) return;
+    document.documentElement.classList.add('is-covered');
+    snapWrite(sheet);
+  };
+  if (shown) shown.finished.then(() => { settled(); if (!area.value) area.focus(); }, () => {});
+  else { settled(); if (!area.value) area.focus(); }
   if (area.value) grow();
-  else area.focus();
   return { sheet, area };
 }
 

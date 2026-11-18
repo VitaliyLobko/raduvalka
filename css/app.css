@@ -64,6 +64,8 @@ body {
 @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: var(--lo, .3); } }
 
 .sky-page { position: fixed; opacity: .6; }
+/* На екранах мерехтіння за вмістом не помітно (його видно у «Вместе») — зорі стоять, кожна зі своєю яскравістю */
+.sky-page i { animation: none; opacity: calc((1 + var(--lo, .3)) / 2); }
 [data-side="vona"] .sky-page { display: none; }
 .welcome .sky { opacity: .55; }
 .space .sky { opacity: .85; }
@@ -404,6 +406,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .backdrop { position: fixed; inset: 0; z-index: 19; background: rgba(42, 23, 48, .35); }
 
 @keyframes rise { from { transform: translateY(100%); } }
+/* Вікно на весь екран закриває все: безкінечні прикраси під ним стоять і не забирають процесор у самого вікна */
+html.is-covered :is(.sky i, .spin-e, .spin-c, .spin-j, .travel-heart svg, .swipe-hint-hand, .pulse-win, .pulse-in, .checkin-heart svg, .feed-env-go::after),
+html.is-covered body::before { animation-play-state: paused; }
+/* Прогрів першого «Написать…»: у полі зору (інакше браузер не малює), але невидимо й на один кадр */
+.write-warm { position: fixed; inset: 0; z-index: -1; opacity: .01; pointer-events: none; overflow: hidden; }
+.write-warm .sheet { animation: none; }
 
 /* «Відкрий, коли…»: конверти на столі — кишеня з клинами, клапан, сургуч; записки визирають згори */
 .env-grid {
@@ -2328,12 +2336,15 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   background: color-mix(in srgb, var(--beat) 13%, transparent);
   border: 1px solid color-mix(in srgb, var(--beat) 28%, transparent);
 }
-.checkin-pulse { display: grid; width: 33px; height: 12px; }
-.checkin-pulse svg { width: 33px; height: 12px; overflow: visible; }
+.checkin-pulse { position: relative; display: block; flex: none; width: 33px; height: 12px; }
+.checkin-pulse svg { display: block; width: 33px; height: 12px; overflow: visible; }
 .checkin-pulse polyline { fill: none; stroke: var(--beat); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .checkin-pulse .pulse-base { opacity: .3; }
-.checkin-pulse .pulse-run { stroke-dasharray: 18 72; stroke-dashoffset: 18; animation: pulse-run 2.2s linear infinite; }
-@keyframes pulse-run { 0% { stroke-dashoffset: 18; } 70%, 100% { stroke-dashoffset: -72; } }
+/* Віконце 8px їде зліва направо, лінія в ньому — навпаки: на екрані вона стоїть, видно лише відрізок, що біжить */
+.pulse-win { position: absolute; top: -3px; bottom: -3px; left: 0; width: 8px; overflow: hidden; animation: pulse-win 2.2s linear infinite; }
+.pulse-in { position: absolute; top: 3px; left: 0; width: 33px; height: 12px; animation: pulse-in 2.2s linear infinite; }
+@keyframes pulse-win { 0% { transform: translateX(-8px); } 70%, 100% { transform: translateX(33px); } }
+@keyframes pulse-in { 0% { transform: translateX(8px); } 70%, 100% { transform: translateX(-33px); } }
 .checkin-theirs b { font-weight: 600; color: var(--ink); }
 .checkin-when { color: var(--ink-soft); }
 .checkin-status:has(.checkin-theirs) { align-items: center; }
@@ -2357,36 +2368,59 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 }
 .checkin-btn.is-beat .checkin-heart svg { animation: heart-tap .7s ease-out; }
 .checkin-btn.is-beat .checkin-heart::after { animation: heart-ring .7s ease-out; }
-/* ˄/˅ — згорнути блок у рядок: ❤ і 🆘 лишаються іконками */
+/* ˄ — згорнути блок у шапку */
 .checkin-fold {
   flex: none; display: grid; place-items: center; width: 32px; height: 44px; margin-right: -4px; padding: 0;
   border: 0; border-radius: 12px; background: none; color: var(--ink-soft); cursor: pointer;
 }
-.checkin-fold svg { width: 18px; height: 18px; transition: transform .2s ease; }
-.checkin-fold:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; }
-.checkin-sos-mini { display: none; }
-.checkin-row.is-folded { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; }
-.checkin-row.is-folded .checkin-status { flex: 1; min-width: 0; margin: 0; }
-.checkin-row.is-folded .checkin-theirs { white-space: nowrap; }
-.checkin-row.is-folded .checkin-day { display: none; }
-.checkin-row.is-folded .checkin-strip { flex: none; gap: 6px; margin-left: auto; }
-.checkin-row.is-folded .sos-slider, .checkin-row.is-folded .checkin-label { display: none; }
-.checkin-row.is-folded .checkin-btn { width: 40px; min-height: 40px; padding: 0; justify-content: center; }
-.checkin-row.is-folded .checkin-sos-mini {
+.checkin-fold svg, .top-fold svg { width: 18px; height: 18px; }
+.checkin-fold:focus-visible, .top-fold:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; }
+.checkin-row.is-folded { display: none; }
+/* Згорнутий — у шапці: «Радовалка» | ❤ 🆘 ˅, під нею стан | «🪐 75 дн.» */
+.top { --beat: #E5486F; }
+[data-side="vin"] .top { --beat: #FF6B8B; }
+.top-checkin, .top-status { display: none; }
+.top.has-checkin {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 4px;
+}
+.top.has-checkin .wordmark { grid-area: 1 / 1; }
+.top.has-checkin .top-checkin { display: flex; grid-area: 1 / 2; align-items: center; gap: 6px; }
+.top.has-checkin .top-status { display: block; grid-area: 2 / 1; min-width: 0; }
+.top.has-checkin .together-chip { grid-area: 2 / 2; min-height: 32px; padding: 2px 10px 2px 4px; }
+.top.has-checkin .chip-planets { width: 30px; height: 22px; }
+.top.has-checkin .chip-word { display: none; }
+.top.has-checkin .update-pill { grid-column: 1 / -1; grid-row: 3; }
+.top-status .checkin-status { margin: 0; }
+.top-status .checkin-theirs { white-space: nowrap; }
+.top-status .checkin-day { display: none; }
+.top-heart, .top-sos {
   display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
+}
+.top-heart {
+  border: 0; background: linear-gradient(135deg, var(--powder), var(--lavender));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--powder) 55%, transparent);
+}
+.top-heart:disabled { cursor: default; }
+.top-sos {
   border: 1.5px solid color-mix(in srgb, var(--beat) 45%, transparent);
   background: color-mix(in srgb, var(--beat) 12%, transparent); font-size: 1rem;
 }
-.checkin-row.is-folded .checkin-sos-mini:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
-.checkin-row.is-folded .checkin-fold { height: 40px; }
-.checkin-row.is-folded .checkin-fold svg { transform: rotate(180deg); }
-@media (prefers-reduced-motion: reduce) { .checkin-fold svg { transition: none; } }
+.top-heart:focus-visible, .top-sos:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+.top-fold {
+  display: grid; place-items: center; width: 28px; height: 40px; margin-right: -6px; padding: 0;
+  border: 0; border-radius: 12px; background: none; color: var(--ink-soft); cursor: pointer;
+}
+.top-fold svg { transform: rotate(180deg); }
+.top-heart.is-beat .checkin-heart svg { animation: heart-tap .7s ease-out; }
+.top-heart.is-beat .checkin-heart::after { animation: heart-ring .7s ease-out; }
+@media (prefers-reduced-motion: reduce) { .top-heart.is-beat .checkin-heart svg, .top-heart.is-beat .checkin-heart::after { animation: none; } }
 @keyframes heartbeat { 0%, 45%, 100% { transform: scale(1); } 12% { transform: scale(1.2); } 24% { transform: scale(1); } 34% { transform: scale(1.12); } }
 @keyframes heart-tap { 0% { transform: scale(1); } 30% { transform: scale(1.45); } 100% { transform: scale(1); } }
 @keyframes heart-ring { 0% { transform: scale(.6); opacity: .8; } 100% { transform: scale(2.2); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .checkin-heart svg, .checkin-btn.is-beat .checkin-heart svg, .checkin-btn.is-beat .checkin-heart::after { animation: none; }
-  .checkin-pulse .pulse-run { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
+  .pulse-win, .pulse-in { animation: none; }
+  .pulse-win { width: 33px; }
 }
 
 /* Без зв'язку: показуємо збережене — тонка плашка під шапкою */
@@ -2537,8 +2571,14 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .feed-env-text span { font-size: .8125rem; color: #7a5a78; }
 .feed-env-go {
   flex: none; display: grid; place-items: center; min-height: 38px; padding: 0 14px; border-radius: 999px;
-  background: var(--plum); color: #fff; font: 600 .875rem/1 var(--ui); animation: sos-call 1.6s ease-in-out 2;
+  position: relative; background: var(--plum); color: #fff; font: 600 .875rem/1 var(--ui);
 }
+/* Кличе двічі — кільце навколо кнопки, у якого міняється лише прозорість (анімація тіні перемальовувалась щокадру) */
+.feed-env-go::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  box-shadow: 0 0 0 6px rgba(224, 70, 90, .3); animation: ring-call 1.6s ease-in-out 2;
+}
+@keyframes ring-call { 50% { opacity: 1; } }
 /* Свято: золотава рамка й конверт */
 .feed-env.is-festive { border-color: #E8B84A; background: linear-gradient(160deg, #FFF8E6, #FFE9F1); }
 .feed-env.is-festive .feed-env-pic { background: linear-gradient(160deg, #FCE7A6, #F7C7DA); }
@@ -2554,7 +2594,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .feed-env-pic::after, .feed-env-go { transition: transform .35s ease-in, opacity .35s ease-in; }
 .feed-env.is-opening .feed-env-pic::after { transform: translateY(-14px) scale(1.5) rotate(-20deg); opacity: 0; }
 .feed-env.is-opening .feed-env-go { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .feed-env-go { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .feed-env-go::after { animation: none; } }
 
 /* Шторка листа: тло застосунку, конверт посередині */
 .day-sheet { overflow-y: auto; background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom)); color: var(--ink); }

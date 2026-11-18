@@ -93,18 +93,23 @@ export function mountHelper(box, area) {
   const paintFix = () => { fixBox.hidden = area.value.trim().length < 10; };
   area.addEventListener('input', paintFix);
 
-  // Зверху вниз, як читається: про що → який настрій і довжина → свої слова → кнопка → чернетки
-  panel.append(
-    h('p', { class: 'mk-label' }, 'Повод'), reason.el, own,
-    h('div', { class: 'help-tone-row' }, h('p', { class: 'mk-label' }, 'Настроение'), long.el),
-    tone.el,
-    words,
-    go,
-    results,
-    fixBox);
+  // Зверху вниз, як читається: про що → який настрій і довжина → свої слова → кнопка → чернетки.
+  // У документ — лише з першим «Помочь написать»: стрічки зі спостерігачами гальмували відкриття вікна
+  const build = () => {
+    if (panel.childElementCount) return;
+    panel.append(
+      h('p', { class: 'mk-label' }, 'Повод'), reason.el, own,
+      h('div', { class: 'help-tone-row' }, h('p', { class: 'mk-label' }, 'Настроение'), long.el),
+      tone.el,
+      words,
+      go,
+      results,
+      fixBox);
+  };
 
   // Помічник відкритий — переписка над полем ховається, місце йому
   const toggle = (show) => {
+    if (show) build();
     panel.hidden = !show;
     open.setAttribute('aria-expanded', String(show));
     open.textContent = show ? '✨ Свернуть' : '✨ Помочь написать';
