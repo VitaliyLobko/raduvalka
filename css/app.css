@@ -153,7 +153,7 @@ html.is-still .bokeh, html.is-still .depth .sky i { animation: none; }
 .sgr { position: absolute; display: block; }
 /* Сузірʼя трохи нахилені — живіше; зірки мерехтять, пунктир повільно «тече», ніби світло біжить лініями */
 /* В обох сузірʼя на тому самому місці й під тим самим нахилом */
-.depth .sgr { left: 5%; top: 52%; width: 54%; }
+.depth .sgr { left: 10%; top: 52%; width: 54%; }
 .depth .sgr svg { transform: rotate(-12deg); }
 .sgr-stars :is(circle, path) { transform-box: fill-box; transform-origin: center; animation: sgr-twinkle 5s ease-in-out infinite; }
 .sgr-lines line { animation: sgr-flow 6s linear infinite; }

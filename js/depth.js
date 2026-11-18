@@ -18,19 +18,21 @@ export function setStill(on) {
 // Пелюстка сакури — та сама форма, що в гілочці на її фоні
 const PETAL = '<svg viewBox="-7 -13 14 14" aria-hidden="true"><path d="M0 0C-3.5-1-7.5-5-6.2-9.2C-5.3-12-2.4-12.6-.9-11.6L0-10.4L.9-11.6C2.4-12.6 5.3-12 6.2-9.2C7.5-5 3.5-1 0 0Z"/></svg>';
 // Сузірʼя Стрільця — астеризм «чайник» (як на зоряних картах): зірки й лінії між ними; heart — зірки-сердечка (її)
-const SGR = { g: [20, 70], d: [55, 58], e: [44, 102], l: [86, 28], p: [106, 70], s: [152, 50], t: [162, 86], z: [122, 102] };
+// Положення — зі справжніх координат зірок (схід ліворуч, північ угорі, як на зоряній карті): носик (γ) праворуч, ручка (σ, τ) ліворуч
+const SGR = { g: [167, 68], d: [128, 61], e: [120, 113], l: [111, 10], p: [66, 28], s: [42, 20], t: [12, 36], z: [23, 61] };
 const SGR_LINES = ['gd', 'de', 'eg', 'dl', 'lp', 'pd', 'ps', 'st', 'tz', 'zp', 'ez'];
 const HEART = 'M0 1.6C-1.2.3-3.2-.6-3.2-2.3-3.2-3.6-1.6-4.2 0-2.8 1.6-4.2 3.2-3.6 3.2-2.3 3.2-.6 1.2.3 0 1.6Z';
 function constellation(heart) {
   const lines = SGR_LINES.map(([a, b]) => `<line x1="${SGR[a][0]}" y1="${SGR[a][1]}" x2="${SGR[b][0]}" y2="${SGR[b][1]}"/>`).join('');
   const stars = Object.entries(SGR).map(([k, [x, y]], i) => {
-    const r = k === 's' || k === 'e' ? 1.35 : 1;
+    // Розмір — за справжньою яскравістю: найяскравіші ε (Каус Аустраліс) і σ (Нункі), найтьмяніші φ і τ
+    const r = { e: 1.4, s: 1.3, z: 1.1, d: 1.05, l: 1, g: 0.95, p: 0.85, t: 0.85 }[k];
     const tw = `style="animation-delay:-${(i * 1.37) % 5}s;animation-duration:${4 + (i % 3) * 1.3}s;--i:${i}"`;
     return heart ? `<g transform="translate(${x} ${y}) scale(${r * 1.5})"><path ${tw} d="${HEART}"/></g>` : `<circle ${tw} cx="${x}" cy="${y}" r="${r * 2.6}"/>`;
   }).join('');
   // Під сузірʼям — підпис, як на зоряній карті (в обох; у неї — сливовим)
-  const label = '<text class="sgr-label" x="18" y="132">Sagittarius</text>';
-  return h('span', { class: `sgr${heart ? ' sgr-heart' : ''}`, html: `<svg viewBox="0 0 180 140" aria-hidden="true"><g class="sgr-lines">${lines}</g><g class="sgr-stars">${stars}</g>${label}</svg>` });
+  const label = '<text class="sgr-label" x="8" y="146">Sagittarius</text>';
+  return h('span', { class: `sgr${heart ? ' sgr-heart' : ''}`, html: `<svg viewBox="0 0 180 150" aria-hidden="true"><g class="sgr-lines">${lines}</g><g class="sgr-stars">${stars}</g>${label}</svg>` });
 }
 // Його фон — зоряна карта: кола координат, лінії й пунктир екліптики (тонко, золотом)
 const CHART = '<svg viewBox="0 0 250 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#EDB949" stroke-width=".7">'
