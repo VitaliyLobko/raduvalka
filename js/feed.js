@@ -7,6 +7,7 @@ import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor } from './icons.js';
 import { flyOut, collapse } from './fx.js';
+import { deliver } from './outbox.js';
 
 const FILTERS = [['all', 'Все'], ['letters', 'Письма'], ['memes', 'Мемчики']];
 const SWIPE = 70;
@@ -308,6 +309,22 @@ function replyBtn(it) {
   }, '↩ Ответить');
 }
 
+// Відповісти на його/її відповідь: окремої гілки немає — новий лист, першим рядком цитата, щоб було ясно, на що
+function againBtn(reply) {
+  return h('button', {
+    type: 'button', class: 'feed-act feed-reply',
+    onclick: (e) => {
+      e.stopPropagation();
+      replySheet(reply, async (text) => {
+        const q = reply.length > 80 ? `${reply.slice(0, 80)}…` : reply;
+        const r = await deliver('letter', 'letters', { kind: 'now', text: `«${q}»\n\n${text}` });
+        document.dispatchEvent(new CustomEvent('radovalka:sent'));
+        return r.queued ? 'Нет связи. Письмо ждёт в телефоне и уйдёт само 📮' : null;
+      });
+    },
+  }, '↩ Ответить');
+}
+
 function inBubble(l) {
   const me = who();
   const chose = me.youOpened === 'открыла' ? 'выбрала' : 'выбрал';
@@ -395,7 +412,7 @@ function outBubble(l, later) {
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
       h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply, newMark(isNew)) : null,
-    h('div', { class: 'feed-acts' }, take, hideBtn(`l:${l.id}`))].filter(Boolean));
+    h('div', { class: 'feed-acts' }, take, l.reply ? againBtn(l.reply) : null, hideBtn(`l:${l.id}`))].filter(Boolean));
   return bubble;
 }
 
@@ -412,6 +429,7 @@ function memeBubble(m) {
   if (m.mine) {
     acts = [
       m.reaction ? h('span', { class: 'meme-their' }, `${cap(me.partner)}: ${m.reaction}`) : null,
+      m.reply ? againBtn(m.reply) : null,
       h('button', { type: 'button', class: 'feed-act', 'aria-label': 'Удалить мемчик у обоих', onclick: () => removeMeme(m) }, '🗑'),
     ];
   } else {
@@ -487,9 +505,9 @@ function replySheet(quote, onSend) {
     if (!text) { area.focus(); return; }
     go.disabled = true;
     try {
-      await onSend(text);
+      const said = await onSend(text);
       close();
-      toast('Отправлено ➶');
+      toast(said || 'Отправлено ➶');
     } catch {
       go.disabled = false;
       toast('Не отправилось — проверь интернет');
