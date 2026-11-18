@@ -149,7 +149,7 @@ html.is-still .bokeh, html.is-still .depth .sky i { animation: none; }
 .sgr { position: absolute; display: block; }
 /* Зірки сузірʼя мерехтять (8 маленьких — дешево); пунктир стоїть: «текучий» перемальовував би сузірʼя щокадру */
 /* В обох сузірʼя на тому самому місці й під тим самим нахилом */
-.depth .sgr { left: 10%; top: 50%; width: 54%; }
+.depth .sgr { left: 10%; top: 54%; width: 54%; }
 .depth .sgr svg { transform: rotate(-12deg); }
 .sgr-stars :is(circle, path) { transform-box: fill-box; transform-origin: center; animation: sgr-twinkle 5s ease-in-out infinite; }
 @keyframes sgr-twinkle { 50% { opacity: .45; transform: scale(.8); } }

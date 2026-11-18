@@ -14,8 +14,11 @@ export const CATS = [
   ['trip', '🧳', 'Поездка'],
   ['home', '🏠', 'Дома вдвоём'],
   ['pets', '🐾', 'С питомцами'],
+  ['love', '🍓', 'Нежность'],
   ['other', '✨', 'Другое'],
 ];
+// «Нежность» — готові ідеї одним дотиком (натяком, без відвертостей: їх видно на екрані й у push)
+const LOVE_IDEAS = ['Ночь только для нас', 'Свидание без телефонов', 'Утро, когда никуда не надо', 'Ванна с пеной на двоих', 'Танец на кухне под нашу песню'];
 const catOf = (key) => CATS.find(([k]) => k === key) || CATS[CATS.length - 1];
 
 const WHEEL_MAX = 12;
@@ -94,6 +97,27 @@ export async function loadPlans() {
 }
 
 // Додати ідеї в «мої», не дублюючи тих, що вже прийшли з сервера
+// 🍓 одним дотиком: план «Заняться любовью» — одразу другому (push «предложил план»), без форми
+function loveBtn(screen) {
+  const btn = h('button', {
+    type: 'button', class: 'btn plan-love', 'aria-label': 'Предложить: заняться любовью',
+    onclick: async () => {
+      btn.disabled = true;
+      try {
+        const idea = await mutate('plans', 'POST', { title: 'Заняться любовью', cat: 'love' });
+        addMine([idea]);
+        burst(btn, '🍓', 8);
+        toast(`${cap(who().partner)} увидит 🍓 — если тоже ❤️, будет совпадение`);
+        if (alive(screen)) renderPlans(screen);
+      } catch {
+        btn.disabled = false;
+        toast('Не отправилось — нет связи');
+      }
+    },
+  }, '🍓');
+  return btn;
+}
+
 function addMine(list) {
   if (!data) return;
   const have = new Set(data.mine.map((x) => x.id));
@@ -166,6 +190,7 @@ function deckView(screen, me, pet) {
     type: 'button', class: 'plan-banner', onclick: () => { view = 'ours'; renderPlans(screen); },
   }, `🎉 ${fresh.length > 1 ? `Новые совпадения: ${fresh.length}` : 'Новое совпадение'} — посмотреть`) : null;
   const tools = h('div', { class: 'plan-tools' },
+    loveBtn(screen),
     h('button', { type: 'button', class: 'btn', onclick: () => editIdea(screen) }, '＋ Своя идея'),
     h('button', { type: 'button', class: 'btn btn-primary', onclick: () => askIdeas(screen) }, '✨ Подкинуть идеи'));
 
@@ -680,9 +705,13 @@ function editIdea(screen) {
   const title = h('input', { type: 'text', maxlength: '120', placeholder: 'Куда пойдём или что сделаем', 'aria-label': 'Идея' });
   const note = h('input', { type: 'text', maxlength: '300', placeholder: 'Подробности — по желанию', 'aria-label': 'Подробности' });
   const saveBtn = h('button', { type: 'button', class: 'btn btn-primary' }, 'Предложить');
+  const ready = h('div', { class: 'mk-chips mk-row plan-ready', hidden: true, 'aria-label': 'Готовые идеи' },
+    ...LOVE_IDEAS.map((t) => h('button', { type: 'button', class: 'mk-chip', onclick: () => { title.value = t; title.focus(); } }, t)));
+  ribbon(ready);
   const { close } = openSheet(screen, 'Новая идея',
     h('h2', {}, 'Идея'),
-    catChips(() => cat, (k) => { cat = k; }),
+    catChips(() => cat, (k) => { cat = k; ready.hidden = k !== 'love'; }),
+    ready,
     title, note,
     h('p', { class: 'plan-sheet-note' }, `${cap(me.partner)} увидит её у себя и ответит ❤️ или ✕. Что ответит — узнаешь, только если совпадёт.`),
     h('div', { class: 'sheet-actions' }, saveBtn));

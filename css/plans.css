@@ -83,6 +83,8 @@
 .plan-cat-home { --tint: var(--cream); }
 .plan-cat-pets { --tint: #C3E5B8; }
 .plan-cat-other { --tint: var(--lavender); }
+.plan-cat-love { --tint: #F49CC4; }
+.plan-ready { margin: 4px 0 10px; }
 
 .plan-card.is-drag { transition: none; cursor: grabbing; }
 .plan-card.is-gone { opacity: 0; }
@@ -154,6 +156,8 @@
 
 .plan-tools { display: flex; gap: 10px; margin: 14px 0 0; }
 .plan-tools .btn { flex: 1; justify-content: center; padding: 0 10px; }
+/* 🍓 — квадратна кнопка-значок перед іншими */
+.plan-tools .plan-love { flex: none; width: 46px; padding: 0; font-size: 1.35rem; }
 
 /* Списки: мої ідеї, що чекають, наші плани */
 .plan-wait { margin-top: 12px; }
@@ -409,6 +413,7 @@
 [data-side="vin"] .plan-cat-home { --tint: #EDB949; }
 [data-side="vin"] .plan-cat-pets { --tint: #8FBB4C; }
 [data-side="vin"] .plan-cat-other { --tint: #7FA8C9; }
+[data-side="vin"] .plan-cat-love { --tint: #E8473C; }
 [data-side="vin"] .plan-vote-yes { border-color: var(--star); background: rgba(237, 185, 73, .18); }
 [data-side="vin"] .plan-card-from { color: #a9c3c9; }
 /* Картки «стосом» під верхньою — теж нічні, а не світлі */
