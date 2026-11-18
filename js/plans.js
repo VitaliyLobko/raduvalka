@@ -309,9 +309,20 @@ function waitingList(screen, me) {
   if (!data.mine.length) return null;
   return fold('wait', `Мои идеи ждут ответа · ${data.mine.length}`,
     h('p', { class: 'hint' }, `${cap(me.partner)} видит их у себя. Если тоже ❤️ — будет совпадение.`),
-    h('ul', { class: 'plan-list' }, ...data.mine.map((p) => planRow(p, p.own ? h('button', {
-      type: 'button', class: 'plan-row-btn', 'aria-label': `Убрать «${p.title}»`, onclick: () => removeIdea(screen, p),
-    }, '✕') : null))));
+    h('ul', { class: 'plan-list' }, ...data.mine.map((p) => waitRow(screen, p))));
+}
+
+// Своя ідея, що чекає: змах уліво — прибрати (як ✕, з тим самим питанням); чужу прибрати не можна
+function waitRow(screen, p) {
+  const btn = p.own ? h('button', {
+    type: 'button', class: 'plan-row-btn', 'aria-label': `Убрать «${p.title}»`, onclick: () => removeIdea(screen, p),
+  }, '✕') : null;
+  if (!p.own) return planRow(p, null);
+  const row = planRow(p, btn, 'div');
+  const li = h('li', { class: 'plan-swipe' }, row);
+  // Передумали в питанні — картка, що вилетіла, повертається перемальовкою
+  swipeable(li, row, { canRight: () => false, fold: false, onLeft: async () => { await removeIdea(screen, p); if (alive(screen)) renderPlans(screen); } });
+  return li;
 }
 
 function planRow(p, action, tag = 'li') {
