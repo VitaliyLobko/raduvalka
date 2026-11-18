@@ -93,7 +93,8 @@ export const toBase64 = (blob) => new Promise((ok, no) => {
 });
 
 // Сюди ж прийде файл із «Поделиться» і листівка з конструктора
-export async function composeMeme(file, done) {
+// re — { quote, on }: фото у відповідь на повідомлення
+export async function composeMeme(file, done, re = null) {
   let blob;
   try {
     blob = await prepare(file);
@@ -103,16 +104,16 @@ export async function composeMeme(file, done) {
   }
   const preview = URL.createObjectURL(blob);
   sendSheet(preview, async (caption, style) => {
-    const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption, style });
+    const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption, style, ...re });
     urls.set(meme.id, preview);
     return meme;
   }, done, null, '', once(() => aiPhoto(blob)));
 }
 
 // GIF із пошуку: на сервер іде лише посилання GIPHY
-export function composeGif(gif, done) {
+export function composeGif(gif, done, re = null) {
   sendSheet(gif.url, async (caption, style) => {
-    const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style });
+    const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style, ...re });
     rememberGif(gif);
     return meme;
   }, done, 'bottom', gif.title || '');

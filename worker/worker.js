@@ -81,6 +81,9 @@ const MIGRATIONS = [
   'ALTER TABLE letters ADD COLUMN replied INTEGER',
   // Коли лист поклали в запас (лишається й після видачі — відправник бачить «из запаса»)
   'ALTER TABLE letters ADD COLUMN stocked INTEGER',
+  // Відповідь — нове повідомлення з цитатою того, на що відповідають (до 300 знаків)
+  'ALTER TABLE letters ADD COLUMN quote TEXT',
+  'ALTER TABLE memes ADD COLUMN quote TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -366,12 +369,13 @@ async function memesRoute(req, db, side, rest, notify) {
       url: null,
       caption: String(body.caption || '').trim().slice(0, 300) || null,
       style: ['top', 'bottom'].includes(body.style) ? body.style : null,
+      quote: quoteOf(body),
       created: Date.now(),
       reaction: null,
     };
     const insertMeme = () => db.prepare(
-      'INSERT INTO memes (id, src, dst, img, url, caption, style, created, reaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.created, null);
+      'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.quote, meme.created, null);
 
     // GIF із GIPHY — лише посилання, файл не зберігаємо
     if (body.gif) {
@@ -379,7 +383,7 @@ async function memesRoute(req, db, side, rest, notify) {
       if (!GIF_URL.test(gifUrl)) throw fail(400, 'gif');
       meme.url = gifUrl;
       await insertMeme().run();
-      notify.send(meme.dst, memeNote(side, true));
+      notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(body), 'gif') : memeNote(side, true));
       return json(view(meme, side), 201);
     }
 
@@ -393,7 +397,7 @@ async function memesRoute(req, db, side, rest, notify) {
         .bind(meme.img, type, data, meme.created),
       insertMeme(),
     ]);
-    notify.send(meme.dst, memeNote(side));
+    notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(body), 'photo') : memeNote(side));
     return json(view(meme, side), 201);
   }
 
@@ -850,7 +854,7 @@ async function lettersRoute(req, db, side, rest, notify) {
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
     const { results } = await db.prepare(
-      "SELECT id, kind, env, text, at, created, opened, liked, reply, replied, gift, chosen, stocked FROM letters WHERE src = ? AND kind != 'stock' "
+      "SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, gift, chosen, stocked FROM letters WHERE src = ? AND kind != 'stock' "
         + 'ORDER BY created DESC LIMIT 60',
     ).bind(side).all();
     return json(results.map((r) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })));
@@ -867,11 +871,11 @@ async function lettersRoute(req, db, side, rest, notify) {
   // «Мне»: усі отримані листи з застосунку, чий час настав; подарунок — лише вже обраний
   if (m === 'GET' && rest === 'inbox') {
     const { results } = await db.prepare(
-      "SELECT id, kind, text, at, mascot, opened, liked, reply, gift, chosen FROM letters WHERE dst = ? AND at <= ? "
+      "SELECT id, kind, text, quote, at, mascot, opened, liked, reply, gift, chosen FROM letters WHERE dst = ? AND at <= ? "
         + "AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) ORDER BY at DESC LIMIT 60",
     ).bind(side, Date.now()).all();
     return json(results.map((r) => ({
-      id: r.id, kind: r.kind, text: r.text, at: r.at, mascot: r.mascot,
+      id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
       opened: !!r.opened, liked: !!r.liked, reply: r.reply,
       ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
     })));
@@ -903,7 +907,7 @@ async function lettersRoute(req, db, side, rest, notify) {
       if (dup) {
         if (dup.src !== side) throw fail(409, 'cid');
         return json({
-          id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, at: dup.at, created: dup.created,
+          id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, quote: dup.quote || null, at: dup.at, created: dup.created,
           opened: !!dup.opened, liked: !!dup.liked, reply: dup.reply, gift: dup.gift && JSON.parse(dup.gift), chosen: dup.chosen, again: true,
         });
       }
@@ -912,11 +916,13 @@ async function lettersRoute(req, db, side, rest, notify) {
     const stocked = kind === 'stock' ? now : null;
     // «Сейчас» і подарунок — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
     const later = (kind === 'morning' || kind === 'date') && notify.on;
+    const quote = quoteOf(b);
     await db.prepare(
-      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, at, created, gift, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(id, side, other(side), kind, envId, mascot, text, at, now, gift, later ? null : 0, stocked).run();
-    if (kind === 'now' || kind === 'gift') notify.send(other(side), letterNote(kind, mascots[mascot]));
-    return json({ id, kind, env: envId, text, at, created: now, opened: false, liked: false, reply: null, gift: gift && JSON.parse(gift), chosen: null }, 201);
+      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, gift, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, side, other(side), kind, envId, mascot, text, quote, at, now, gift, later ? null : 0, stocked).run();
+    if (kind === 'now' && quote) notify.send(other(side), replyNote(side, quoteOn(b)));
+    else if (kind === 'now' || kind === 'gift') notify.send(other(side), letterNote(kind, mascots[mascot]));
+    return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null, gift: gift && JSON.parse(gift), chosen: null }, 201);
   }
 
   const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(rest).first();
@@ -984,7 +990,8 @@ async function listMemes(db, side) {
 // Для телефона: mine — «я надіслав», без внутрішніх src/dst/img
 function view(r, side) {
   return {
-    id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, created: r.created, reaction: r.reaction,
+    id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, quote: r.quote || null,
+    created: r.created, reaction: r.reaction,
     reply: r.reply || null, replied: r.replied || null,
   };
 }
@@ -1036,6 +1043,9 @@ async function memeIdeas(req, env, side) {
       + 'Make the six different from each other: different emotions, subjects and angles of the situation. '
       + 'No politics, no war, no violence, nothing explicit.';
     user = `Situation (Russian): ${situation}. Mood: ${funny}% funny (0 = cute), ${bold}% cheeky (0 = tender). `
+      + (level(b.passion) >= 70
+        ? 'Passion: every query is romantic desire — kisses, "come here", longing to be together; people and cartoons are fine. '
+        : level(b.passion) >= 10 ? 'Flirt: every query is playful flirting — winks, blown kisses, seductive looks. ' : '')
       + 'Subjects: mostly animals — cats, dogs, cute creatures; one or two may be people or cartoon reactions if they fit better.';
   } else {
     // Фото — бачить модель із зором; її опис іде разом зі словами людини
@@ -1903,13 +1913,18 @@ function likeNote(from, kind) {
   };
 }
 
-function replyNote(from, on) {
+// as — чим відповіли, якщо не словами: 'gif' | 'photo'
+function replyNote(from, on, as) {
+  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : 'на твоё письмо';
   return {
     title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
-    body: on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : 'на твоё письмо',
+    body: as === 'gif' ? `Гифкой ${what}` : as === 'photo' ? `Фото ${what}` : what[0].toUpperCase() + what.slice(1),
     tag: 'reply',
   };
 }
+// Відповідь новим повідомленням: цитата (до 300 знаків) і на що — для push
+const quoteOf = (b) => String(b.quote || '').trim().slice(0, 300) || null;
+const quoteOn = (b) => (['gif', 'photo'].includes(b.on) ? b.on : 'letter');
 
 async function pushRoute(req, env, side, path) {
   const m = req.method;

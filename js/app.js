@@ -20,6 +20,7 @@ import { startLive, check as checkLive } from './live.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
+import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
 
@@ -27,6 +28,8 @@ import { sosBox, loadSos, sosCheck } from './sos.js';
 document.body.prepend(sky(46, 3, 'sky-page'));
 
 const screen = document.getElementById('screen');
+// Розмір букв у листах — до першого малювання, без стрибка
+applyTextSize();
 
 const POCKET = `<svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path class="pocket" d="M0 2 150 106 300 2V200H0z"/><path class="pocket-fold" d="M0 200 130 116M300 200 170 116"/></svg>`;
 
@@ -273,18 +276,12 @@ function openReply(t) {
   openWrite({
     reply: {
       quote: l.text.length > 300 ? `${l.text.slice(0, 300)}…` : l.text,
-      onSend: async (text) => {
-        // Привітальний — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
-        let queued = false;
-        if (target.tpl) {
-          queued = !!(await deliver('letter', 'letters', { kind: 'now', text })).queued;
-          invalidateFeed();
-        }
-        patchLetter(target, { reply: text, opened: true });
+      on: 'letter',
+      // Відповідь — нове повідомлення (його надсилає сам екран); тут лише «прочитано»
+      sent: () => {
+        if (l.opened) return;
+        patchLetter(target, { opened: true });
         fillLetter();
-        if (target.tpl) render();
-        else redrawFeed();
-        return queued ? 'Нет связи. Ответ ждёт в телефоне и уйдёт сам, когда Радовалка будет открыта с интернетом 📮' : null;
       },
     },
   });
@@ -587,6 +584,7 @@ function openAbout() {
       // Три свіжі версії на виду, решта — під «Ранее», щоб кнопки нижче не тонули
       newsList(NEWS.slice(0, 3)),
       NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null,
+      textSizePanel(),
       pushPanel(),
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       h('button', { type: 'button', class: 'btn', onclick: sosCheck }, '🆘 Проверить «Нужна помощь»'),

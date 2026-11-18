@@ -112,7 +112,9 @@ const MOODS = [
   { key: 'morning', label: '☀️ Утро', qs: ['good morning', 'sleepy cat wake up', 'coffee morning cute'], funny: 45, bold: 15 },
   { key: 'night', label: '🌙 Ночь', qs: ['good night', 'sleepy puppy', 'cat sleeping cute'], funny: 20, bold: 5 },
   { key: 'cheer', label: '💪 Держись', qs: ['you got this', 'cheer up', 'dog high five'], funny: 40, bold: 20 },
-  { key: 'tease', label: '😏 Подразнить', qs: ['sassy cat', 'cheeky wink', 'dog side eye'], funny: 70, bold: 80 },
+  { key: 'flirt', label: '😏 Флирт', qs: ['flirty wink', 'blowing kiss', 'seductive cat'], funny: 50, bold: 70, passion: 55 },
+  { key: 'passion', label: '🔥 Страсть', qs: ['passionate kiss', 'come here i want you', 'kiss me'], funny: 10, bold: 60, passion: 90 },
+  { key: 'tease', label: '😜 Подразнить', qs: ['sassy cat', 'cheeky wink', 'dog side eye'], funny: 70, bold: 80 },
   { key: 'yay', label: '🎉 Ура', qs: ['yay celebration', 'happy dance', 'excited dog'], funny: 65, bold: 30 },
 ];
 const PER = 4; // з кожного пошуку суміші — по 4, разом 12
@@ -188,7 +190,7 @@ function gifPanel(done) {
     aiGo.disabled = true;
     aiGo.textContent = 'Подбираю…';
     try {
-      const { queries } = await send('meme-ideas', 'POST', { kind: 'gif', situation, funny: m?.funny ?? 50, bold: m?.bold ?? 20 });
+      const { queries } = await send('meme-ideas', 'POST', { kind: 'gif', situation, funny: m?.funny ?? 50, bold: m?.bold ?? 20, passion: m?.passion || 0 });
       if (!queries?.length) throw new Error('empty');
       if (my === ask) {
         ai = queries.slice(0, 6);

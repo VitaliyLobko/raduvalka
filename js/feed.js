@@ -8,7 +8,6 @@ import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse } from './fx.js';
-import { deliver } from './outbox.js';
 import { saveMeme } from './memesave.js';
 
 const SWIPE = 70;
@@ -339,11 +338,16 @@ function row(it) {
 }
 
 // Кому можна відповісти: лише на чуже і лише раз
+// Відповісти можна на кожне отримане повідомлення і скільки завгодно разів: відповідь — нове повідомлення з цитатою
 function replyTarget(it) {
-  if (it.type === 'in' && it.l.tpl) return it.l.reply ? null : { tpl: true, obj: it.l };
-  if (it.type === 'in' && !it.l.reply) return { path: `letters/${it.l.id}`, obj: it.l };
-  if (it.type === 'meme' && !it.m.mine && !it.m.reply) return { path: `memes/${it.m.id}`, obj: it.m };
+  if (it.type === 'in') return it.l.tpl ? { tpl: true, obj: it.l } : { path: `letters/${it.l.id}`, obj: it.l };
+  if (it.type === 'meme' && !it.m.mine) return { path: `memes/${it.m.id}`, obj: it.m };
   return null;
+}
+
+// Над повідомленням-відповіддю — на що відповіли
+function quoteLine(q) {
+  return q ? h('span', { class: 'feed-quote' }, h('span', { class: 'feed-quote-mark', 'aria-hidden': 'true' }, '↩ '), q) : null;
 }
 
 function newMark(on) {
@@ -364,19 +368,11 @@ function replyBtn(it) {
   }, '↩ Ответить');
 }
 
-// Відповісти на його/її відповідь: окремої гілки немає — новий лист, першим рядком цитата, щоб було ясно, на що
+// Відповісти на його/її старішу відповідь під повідомленням — так само новим повідомленням із цитатою
 function againBtn(reply) {
   return h('button', {
     type: 'button', class: 'feed-act feed-reply',
-    onclick: (e) => {
-      e.stopPropagation();
-      replySheet(reply, async (text) => {
-        const q = reply.length > 80 ? `${reply.slice(0, 80)}…` : reply;
-        const r = await deliver('letter', 'letters', { kind: 'now', text: `«${q}»\n\n${text}` });
-        document.dispatchEvent(new CustomEvent('radovalka:sent'));
-        return r.queued ? 'Нет связи. Письмо ждёт в телефоне и уйдёт само 📮' : null;
-      });
-    },
+    onclick: (e) => { e.stopPropagation(); replySheet(reply, 'letter'); },
   }, '↩ Ответить');
 }
 
@@ -416,6 +412,7 @@ function inBubble(l) {
     l.tpl ? h('span', {}, 'первое письмо') : null,
     newMark(!l.opened),
     gift ? h('span', {}, `🎁 ты ${chose}: ${gift.emoji} ${gift.title}`) : null),
+  quoteLine(l.quote),
   l.text ? text : null);
   const like = h('button', {
     type: 'button', class: 'feed-act', 'aria-pressed': String(!!l.liked), 'aria-label': 'Сердечко',
@@ -438,7 +435,7 @@ function inBubble(l) {
   // append, на відміну від h(), друкує null як текст — порожні відсіюємо
   bubble.append(...[body,
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
-    h('div', { class: 'feed-acts' }, like, l.reply ? null : replyBtn(it), hideBtn(it.key))].filter(Boolean));
+    h('div', { class: 'feed-acts' }, like, replyBtn(it), hideBtn(it.key))].filter(Boolean));
   return bubble;
 }
 
@@ -516,6 +513,7 @@ function outBubble(l, later) {
   }, 'Забрать');
   const isNew = (l.replied || 0) > seenAt.replies;
   bubble.append(...[
+    quoteLine(l.quote),
     l.text ? h('p', { class: 'feed-text', onclick: () => bubble.classList.toggle('is-open') }, l.text) : null,
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
@@ -546,7 +544,7 @@ function memeBubble(m) {
         type: 'button', class: 'feed-act', 'aria-pressed': String(m.reaction === r),
         'aria-label': r === '😂' ? 'Смешно' : 'Нравится', onclick: (e) => react(m, r, e.currentTarget.parentElement),
       }, r)),
-      m.reply ? null : replyBtn(it),
+      replyBtn(it),
     ];
   }
   const replyLine = m.reply
@@ -554,6 +552,7 @@ function memeBubble(m) {
       h('b', {}, m.mine ? `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: ` : 'Твой ответ: '), m.reply, newMark(m.mine && isNew))
     : null;
   return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}`, 'data-created': m.created },
+    quoteLine(m.quote),
     pic,
     m.caption && !over ? h('p', { class: 'meme-cap' }, m.caption) : null,
     replyLine,
@@ -594,21 +593,19 @@ function openReplyFor(it) {
   if (!target) return;
   // Привітальний — без відправника: відповідь іде звичайним листом, це робить app.js
   if (target.tpl) { ops.reply?.(it.l); return; }
-  const quote = it.type === 'meme' ? (it.m.caption || (it.m.url ? 'на гифку' : 'на фото')) : (it.l.text || '');
-  replySheet(quote, async (text) => {
-    await send(target.path, 'PUT', { reply: text });
-    const cur = it.type === 'in' ? liveLetter(target.obj) : liveMeme(target.obj);
-    cur.reply = text;
-    if (it.type === 'in') cur.opened = true;
-    draw();
-    fresh();
-  });
+  const meme = it.type === 'meme';
+  const quote = meme ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : (it.l.text || '');
+  // Відповіла на лист — значить, прочитала
+  const sent = meme || it.l.opened ? null : () => {
+    liveLetter(it.l).opened = true;
+    send(target.path, 'PUT', { opened: true }).catch(() => {});
+  };
+  replySheet(quote, meme ? (it.m.url ? 'gif' : 'photo') : 'letter', sent);
 }
 
-// Відповідь — той самий екран, що й «Написать» (app.js передає openWrite): цитата зверху, поле на всю висоту.
-// onSend кидає помилку — екран лишається з текстом
-function replySheet(quote, onSend) {
-  ops.compose?.({ reply: { quote: quote.length > 300 ? `${quote.slice(0, 300)}…` : quote, onSend } });
+// Відповідь — той самий екран «Написать» (app.js передає openWrite) з цитатою зверху; піде новим повідомленням
+function replySheet(quote, on, sent = null) {
+  ops.compose?.({ reply: { quote: quote.length > 300 ? `${quote.slice(0, 300)}…` : quote, on, sent } });
 }
 
 // Мемчик на весь екран: та сама картинка чи відео з підписом поверх

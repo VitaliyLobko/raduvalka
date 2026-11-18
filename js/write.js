@@ -72,8 +72,8 @@ export function prewarmWrite() {
 }
 
 // preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
-// { reply: { quote, onSend } } — той самий екран для відповіді: цитата зверху, без «Когда» й «Кто понесёт»,
-// onSend(text) відправляє й повертає текст тосту (або null)
+// { reply: { quote, on, sent } } — відповідь: той самий екран із цитатою зверху; лист, фото чи гифка йдуть новим
+// повідомленням із цією цитатою; on — на що відповідають ('letter' | 'gif' | 'photo'), sent() — після відправки
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
   const me = who();
@@ -166,7 +166,7 @@ export function openWrite(preset = {}) {
   petRow.querySelectorAll('button').forEach((b) => { b.title = petName(b.dataset.v); });
 
   const helper = h('div', { class: 'write-helper' });
-  if (!reply) mountHelper(helper, area);
+  mountHelper(helper, area);
   const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
 
   const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -183,7 +183,8 @@ export function openWrite(preset = {}) {
   };
 
   // Мемчик замість листа: шторка листа закривається, далі — шторка мемчика; стрічка оновиться сама
-  const memeSent = () => document.dispatchEvent(new CustomEvent('radovalka:sent'));
+  const memeSent = () => { reply?.sent?.(); document.dispatchEvent(new CustomEvent('radovalka:sent')); };
+  const re = reply ? { quote: reply.quote, on: reply.on } : null;
   // input лишається в шторці, доки не обрано файл, — від'єднаний input change не надійний
   const picker = h('input', {
     type: 'file', accept: 'image/*', class: 'visually-hidden',
@@ -191,14 +192,14 @@ export function openWrite(preset = {}) {
       const [file] = e.target.files;
       if (!file) return;
       close(true);
-      composeMeme(file, memeSent);
+      composeMeme(file, memeSent, re);
     },
   });
   const tools = h('div', { class: 'write-tools' },
     h('label', { class: 'mk-chip' }, picker, '📷 Фото'),
     h('button', {
       type: 'button', class: 'mk-chip',
-      onclick: () => { close(true); openGifs((gif) => composeGif(gif, memeSent)); },
+      onclick: () => { close(true); openGifs((gif) => composeGif(gif, memeSent, re)); },
     }, '🎞 Гифка'),
     helper);
 
@@ -220,19 +221,6 @@ export function openWrite(preset = {}) {
 
   go.addEventListener('click', async () => {
     const text = area.value.trim();
-    if (reply) {
-      if (!text) { area.focus(); return; }
-      go.disabled = true;
-      try {
-        const said = await reply.onSend(text);
-        close();
-        toast(said || 'Отправлено ➶');
-      } catch {
-        go.disabled = false;
-        toast('Не отправилось — проверь интернет');
-      }
-      return;
-    }
     const gift = where === 'gift' ? giftOptions() : null;
     if (gift && gift.length < 2) { toast('Нужно хотя бы два варианта'); giftRows[gift.length].title.focus(); return; }
     if (!text && !gift) { area.focus(); return; }
@@ -246,8 +234,12 @@ export function openWrite(preset = {}) {
         env: where === 'env' ? envId : undefined,
         at: where === 'morning' ? nextMorning().getTime() : where === 'date' ? dateAt() : undefined,
         gift: gift || undefined,
+        quote: reply?.quote,
+        on: reply?.on,
       });
-      draft.set('');
+      // Чернетка — лише листа; відповідь її не чіпає
+      if (!reply) draft.set('');
+      reply?.sent?.();
       close();
       // Без зв'язку лист лежить у черзі телефона — чесно кажемо, коли він піде
       if (r.queued) {
@@ -272,11 +264,11 @@ export function openWrite(preset = {}) {
         h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: () => close() }, '✕')),
       ctx,
       thread,
-      reply ? null : tools,
+      tools,
       area,
       h('div', { class: 'write-dock' }, ...[
-        ...(reply ? [] : [whereRow, envRow, dateRow, giftBox, note]),
-        h('div', { class: 'write-send' }, ...[reply || !pets.length ? null : petRow, go].filter(Boolean)),
+        whereRow, envRow, dateRow, giftBox, note,
+        h('div', { class: 'write-send' }, ...[pets.length ? petRow : null, go].filter(Boolean)),
       ]),
     ].filter(Boolean)));
   document.body.append(backdrop, sheet);
