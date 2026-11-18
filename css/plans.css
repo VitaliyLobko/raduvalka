@@ -391,3 +391,4 @@
 }
 .plan-filter::-webkit-scrollbar { display: none; }
 .plan-filter .mk-chip { flex: none; white-space: nowrap; }
+.plan-hub-again { font-size: 1.05rem; }

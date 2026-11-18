@@ -468,12 +468,29 @@ function wheelView(screen, me, pet) {
   const seenKey = `radovalka:wheel-seen:${DATA.side}`;
   const markSeen = (at) => { try { localStorage.setItem(seenKey, String(at)); } catch { /* приватне вікно */ } };
 
-  // ── Сьогодні вже крутили: колесо стоїть на результаті; хто бачить уперше — у нього воно прокрутиться
-  if (data.spin) {
+  // ── Останнє обертання: колесо стоїть на результаті; хто бачить уперше — у нього воно прокрутиться.
+  // Нове запрошення (від будь-кого) — важливіше за старий результат
+  if (data.spin && !inv) {
     let seen = '';
     try { seen = localStorage.getItem(seenKey) || ''; } catch { /* приватне вікно */ }
     markSeen(data.spin.at);
-    const hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Завтра');
+    // «Ещё раз?» — знову кличемо другого (крутимо вдвох скільки завгодно)
+    const hub = h('button', {
+      type: 'button', class: 'plan-hub plan-hub-again',
+      onclick: async () => {
+        hub.disabled = true;
+        try {
+          const r = await mutate('plans/invite', 'POST', { cats: [...wheelCats] });
+          data.invite = r.invite;
+          renderPlans(screen);
+          toast(r.reaches ? `${cap(me.partner)} получит приглашение 💜` : `${cap(me.partner)} увидит, когда откроет «Планы»`);
+        } catch (e) {
+          hub.disabled = false;
+          if (e.status === 409) { reload(screen); return; }
+          toast('Не отправилось — нет связи');
+        }
+      },
+    }, 'Ещё раз?');
     if (seen !== String(data.spin.at) && !reduceMotion) {
       turned = 0;
       disc.style.transform = 'rotate(0deg)';
@@ -483,7 +500,7 @@ function wheelView(screen, me, pet) {
       disc.style.transform = `rotate(${turned}deg)`;
       const p = byId.get(data.spin.id);
       if (p) showPick(result, p, data.spin);
-      else result.append(h('p', { class: 'hint plan-hint' }, 'Сегодня колесо уже крутили. Крутим снова завтра.'));
+      else result.append(h('p', { class: 'hint plan-hint' }, 'Колесо уже крутили. Захотите ещё — жмите «Ещё раз?».'));
     }
     return [wheel(hub), result];
   }
@@ -548,7 +565,7 @@ function wheelView(screen, me, pet) {
         }
       },
     }, 'Крутим?');
-    note = h('p', { class: 'hint plan-hint' }, `Выбери темы и позови — ${me.partner} отметит свои, и колесо закрутится для вас обоих. Раз в день.`);
+    note = h('p', { class: 'hint plan-hint' }, `Выбери темы и позови — ${me.partner} отметит свои, и колесо закрутится для вас обоих.`);
   }
 
   if (chips) ribbon(chips);
@@ -567,8 +584,8 @@ function showPick(box, p, spin) {
     courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)),
     cardBody(p, 'plan-pick-card'),
     h('p', { class: 'hint plan-hint' }, spin?.with
-      ? 'Колесо выбрало для вас двоих — план уже первым в «Наших планах». Крутим снова завтра.'
-      : 'Решено — план уже первым в «Наших планах» у вас обоих. Крутим снова завтра.'));
+      ? 'Колесо выбрало для вас двоих — план уже первым в «Наших планах». Ещё раз — снова вдвоём.'
+      : 'Решено — план уже первым в «Наших планах» у вас обоих.'));
 }
 
 // Тап по сповіщенню «Колесо выбрало» — одразу «Наши планы»

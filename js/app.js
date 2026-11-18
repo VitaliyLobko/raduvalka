@@ -23,9 +23,12 @@ import { deliver, startOutbox } from './outbox.js';
 import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
+import { startDepth } from './depth.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
+// Її фон — шарами на різній глибині, що зсуваються від нахилу телефона
+startDepth();
 
 const screen = document.getElementById('screen');
 // Розмір букв у листах — до першого малювання, без стрибка

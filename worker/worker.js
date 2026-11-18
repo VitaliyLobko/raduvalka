@@ -1504,9 +1504,9 @@ async function plansRoute(req, db, side, rest, notify) {
     });
   }
 
-  // Колесо вдвох. Один кличе («Крутим?») зі своїми темами — другому push; запрошення живе до кінця дня
+  // Колесо вдвох. Один кличе («Крутим?») зі своїми темами — другому push; запрошення живе до кінця дня.
+  // Крутити можна скільки завгодно разів — кожне обертання знову вдвох
   if (m === 'POST' && rest === 'invite') {
-    if (await todaySpin(db)) throw fail(409, 'spun');
     const inv = await todayInvite(db);
     if (inv && inv.by !== side) throw fail(409, 'invited');
     const invite = { by: side, cats: cleanCats((await readJson(req))?.cats), at: Date.now(), day: kyivDay() };
@@ -1524,8 +1524,6 @@ async function plansRoute(req, db, side, rest, notify) {
   // «Готов»: крутить може лише той, кого покликали. У колесо — теми, які обрали обоє (спільних нема — усі);
   // план обирає сервер, і він одразу «идём» у обох. Сектори (slots) зберігаємо — обоє бачать те саме колесо
   if (m === 'POST' && rest === 'spin') {
-    const was = await todaySpin(db);
-    if (was) return json({ spin: was, again: true });
     const inv = await todayInvite(db);
     if (!inv || inv.by === side) throw fail(409, 'invite');
     const mine = cleanCats((await readJson(req))?.cats);

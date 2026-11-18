@@ -97,22 +97,38 @@ body {
 .welcome > .sky { position: absolute; }
 
 /* Її половина: лотос і гілочка сакури, мʼякі плями й хвилі, що ледь пливуть */
-[data-side="vona"] body::before {
-  content: '';
-  position: fixed;
+/* Її половина — обʼємна: шари на різній глибині (js/depth.js зсуває їх від нахилу телефона чи миші).
+   Далеко — мʼякі плями (ще й ледь пливуть), посередині — сердечка й хвилі, близько — лотос і сакура */
+.depth { position: fixed; inset: -32px; z-index: -1; display: none; pointer-events: none; }
+[data-side="vona"] .depth-vona { display: block; }
+.depth > i {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(calc(var(--dx, 0) * var(--k) * -1), calc(var(--dy, 0) * var(--k) * -1), 0);
+  will-change: transform;
+}
+.dv-back { --k: 6px; }
+.dv-back > b {
+  position: absolute;
   inset: -6%;
-  z-index: -1;
-  pointer-events: none;
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-14 -13 28 20'%3E%3Cg fill-opacity='.28'%3E%3Cpath d='M0 5C-8 4-13-1-13-5C-6-5-2-1 0 5z' fill='%23A98BE0'/%3E%3Cpath d='M0 5C8 4 13-1 13-5C6-5 2-1 0 5z' fill='%23A98BE0'/%3E%3Cpath d='M0 5C-5 2-8-3-7-8C-3-5-1-1 0 5z' fill='%23E98BB5'/%3E%3Cpath d='M0 5C5 2 8-3 7-8C3-5 1-1 0 5z' fill='%23E98BB5'/%3E%3Cpath d='M0-12C5-6 5 0 0 5C-5 0-5-6 0-12z' fill='%23E27BAB'/%3E%3C/g%3E%3C/svg%3E") right -40px bottom 14% / 300px auto no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -6 160 124'%3E%3Cdefs%3E%3Cpath id='p' d='M0 0C-3.5-1-7.5-5-6.2-9.2C-5.3-12-2.4-12.6-.9-11.6L0-10.4L.9-11.6C2.4-12.6 5.3-12 6.2-9.2C7.5-5 3.5-1 0 0z'/%3E%3Cg id='f'%3E%3Cuse href='%23p'/%3E%3Cuse href='%23p' transform='rotate(72)'/%3E%3Cuse href='%23p' transform='rotate(144)'/%3E%3Cuse href='%23p' transform='rotate(216)'/%3E%3Cuse href='%23p' transform='rotate(288)'/%3E%3Cpath d='M0 0L1.9-2.6M0 0L3 1M0 0V3.2M0 0L-3 1M0 0L-1.9-2.6' stroke='%239C3D74' stroke-width='.45' stroke-opacity='.35'/%3E%3Cg fill='%239C3D74'%3E%3Ccircle r='1.1'/%3E%3Ccircle cx='1.9' cy='-2.6' r='.6'/%3E%3Ccircle cx='3' cy='1' r='.6'/%3E%3Ccircle cy='3.2' r='.6'/%3E%3Ccircle cx='-3' cy='1' r='.6'/%3E%3Ccircle cx='-1.9' cy='-2.6' r='.6'/%3E%3C/g%3E%3C/g%3E%3Cg id='b'%3E%3Cpath d='M0 0C-3.6-3-4-9 0-13C4-9 3.6-3 0 0z' fill='%23E27BAB'/%3E%3Cpath d='M0 0C-2.6-1-3.4-4-2.6-6.4L0-3.6L2.6-6.4C3.4-4 2.6-1 0 0z' fill='%237FA36B'/%3E%3C/g%3E%3Cpath id='l' d='M0 0C5-4 12-4.6 16-2C12 1.4 5 2 0 0z'/%3E%3C/defs%3E%3Cg fill='none' stroke='%239C3D74' stroke-linecap='round' opacity='.3'%3E%3Cpath d='M-4 12.4C24 14.4 46.8 25.1 64.8 41.1C82.8 57.1 104.2 81.5 140.2 95.5C141 95.8 140.6 96.7 139.8 96.5C103.8 82.5 81.2 58.9 63.2 42.9C45.2 26.9 24 17.6-4 15.6z' fill='%239C3D74' stroke='none'/%3E%3Cpath d='M38 22C43 18 49 15 52 11' stroke-width='1.4'/%3E%3Cpath d='M88 64C94 60 100 55 104 47' stroke-width='1.3'/%3E%3Cpath d='M114 84C117 89 119 95 119 101' stroke-width='1.1'/%3E%3C/g%3E%3Cg fill='%237FA36B' fill-opacity='.45'%3E%3Cuse href='%23l' transform='translate(26 17) rotate(-40)'/%3E%3Cuse href='%23l' transform='translate(70 47) rotate(28) scale(.9)'/%3E%3Cuse href='%23l' transform='translate(124 89) rotate(-14) scale(.8)'/%3E%3C/g%3E%3Cg fill-opacity='.3'%3E%3Cuse href='%23f' fill='%23F49CC4' transform='translate(52 11) rotate(12) scale(1.25)'/%3E%3Cuse href='%23f' fill='%23E98BB5' transform='translate(105 46) rotate(-20) scale(1.05)'/%3E%3Cuse href='%23f' fill='%23F49CC4' transform='translate(70 31) rotate(40) scale(.72)'/%3E%3Cuse href='%23b' transform='translate(119 102) rotate(180) scale(.9)'/%3E%3Cuse href='%23b' transform='translate(140 96) rotate(112) scale(.75)'/%3E%3Cuse href='%23p' fill='%23F49CC4' transform='translate(138 58) rotate(-130) scale(.62)'/%3E%3Cuse href='%23p' fill='%23E98BB5' transform='translate(152 24) rotate(-200) scale(.5)'/%3E%3C/g%3E%3C/svg%3E") left -16px top 17% / 300px auto no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='190'%3E%3Cg fill='%239C3D74' fill-opacity='.16'%3E%3Cpath d='M30 40c-3-4-9-2-8 3 1 4 8 8 8 8s7-4 8-8c1-5-5-7-8-3z'/%3E%3Cpath d='M120 120c-2-3-7-1-6 2 1 3 6 6 6 6s5-3 6-6c1-3-4-5-6-2z'/%3E%3Ccircle cx='100' cy='30' r='2'/%3E%3Ccircle cx='60' cy='150' r='1.6'/%3E%3Ccircle cx='145' cy='75' r='1.4'/%3E%3Ccircle cx='15' cy='105' r='1.6'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 160px 190px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'%3E%3Cpath fill='%23C9B6F2' fill-opacity='.6' d='M0 224l60-21c60-22 180-64 300-59s240 59 360 75 240-11 360-37 240-48 300-59l60-11v208H0z'/%3E%3Cpath fill='%23F7B8D2' fill-opacity='.62' d='M0 288l80-16c80-16 240-48 400-43s320 48 480 48 320-43 400-64l80-21v128H0z'/%3E%3C/svg%3E") left 0 bottom 9% / 100% 200px no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'%3E%3Cpath fill='%23F7B8D2' fill-opacity='.5' d='M0 96l80 21c80 22 240 64 400 59s320-59 480-64 320 32 400 48l80 16V0H0z'/%3E%3Cpath fill='%23C9B6F2' fill-opacity='.5' d='M0 32l120 16c120 16 360 48 600 37s480-64 600-80l120-16V0H0z'/%3E%3C/svg%3E") left 0 top 4% / 100% 150px no-repeat,
     radial-gradient(40% 28% at 14% 26%, rgba(185, 160, 240, .6), transparent 70%),
     radial-gradient(36% 26% at 90% 46%, rgba(244, 156, 196, .5), transparent 70%),
     radial-gradient(44% 30% at 30% 70%, rgba(200, 176, 246, .5), transparent 70%);
   animation: drift 24s ease-in-out infinite alternate;
+}
+.dv-mid {
+  --k: 14px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='190'%3E%3Cg fill='%239C3D74' fill-opacity='.16'%3E%3Cpath d='M30 40c-3-4-9-2-8 3 1 4 8 8 8 8s7-4 8-8c1-5-5-7-8-3z'/%3E%3Cpath d='M120 120c-2-3-7-1-6 2 1 3 6 6 6 6s5-3 6-6c1-3-4-5-6-2z'/%3E%3Ccircle cx='100' cy='30' r='2'/%3E%3Ccircle cx='60' cy='150' r='1.6'/%3E%3Ccircle cx='145' cy='75' r='1.4'/%3E%3Ccircle cx='15' cy='105' r='1.6'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 160px 190px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'%3E%3Cpath fill='%23C9B6F2' fill-opacity='.6' d='M0 224l60-21c60-22 180-64 300-59s240 59 360 75 240-11 360-37 240-48 300-59l60-11v208H0z'/%3E%3Cpath fill='%23F7B8D2' fill-opacity='.62' d='M0 288l80-16c80-16 240-48 400-43s320 48 480 48 320-43 400-64l80-21v128H0z'/%3E%3C/svg%3E") left 0 bottom 9% / 100% 200px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'%3E%3Cpath fill='%23F7B8D2' fill-opacity='.5' d='M0 96l80 21c80 22 240 64 400 59s320-59 480-64 320 32 400 48l80 16V0H0z'/%3E%3Cpath fill='%23C9B6F2' fill-opacity='.5' d='M0 32l120 16c120 16 360 48 600 37s480-64 600-80l120-16V0H0z'/%3E%3C/svg%3E") left 0 top 4% / 100% 150px no-repeat;
+}
+.dv-front {
+  --k: 26px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-14 -13 28 20'%3E%3Cg fill-opacity='.28'%3E%3Cpath d='M0 5C-8 4-13-1-13-5C-6-5-2-1 0 5z' fill='%23A98BE0'/%3E%3Cpath d='M0 5C8 4 13-1 13-5C6-5 2-1 0 5z' fill='%23A98BE0'/%3E%3Cpath d='M0 5C-5 2-8-3-7-8C-3-5-1-1 0 5z' fill='%23E98BB5'/%3E%3Cpath d='M0 5C5 2 8-3 7-8C3-5 1-1 0 5z' fill='%23E98BB5'/%3E%3Cpath d='M0-12C5-6 5 0 0 5C-5 0-5-6 0-12z' fill='%23E27BAB'/%3E%3C/g%3E%3C/svg%3E") right -40px bottom 14% / 300px auto no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -6 160 124'%3E%3Cdefs%3E%3Cpath id='p' d='M0 0C-3.5-1-7.5-5-6.2-9.2C-5.3-12-2.4-12.6-.9-11.6L0-10.4L.9-11.6C2.4-12.6 5.3-12 6.2-9.2C7.5-5 3.5-1 0 0z'/%3E%3Cg id='f'%3E%3Cuse href='%23p'/%3E%3Cuse href='%23p' transform='rotate(72)'/%3E%3Cuse href='%23p' transform='rotate(144)'/%3E%3Cuse href='%23p' transform='rotate(216)'/%3E%3Cuse href='%23p' transform='rotate(288)'/%3E%3Cpath d='M0 0L1.9-2.6M0 0L3 1M0 0V3.2M0 0L-3 1M0 0L-1.9-2.6' stroke='%239C3D74' stroke-width='.45' stroke-opacity='.35'/%3E%3Cg fill='%239C3D74'%3E%3Ccircle r='1.1'/%3E%3Ccircle cx='1.9' cy='-2.6' r='.6'/%3E%3Ccircle cx='3' cy='1' r='.6'/%3E%3Ccircle cy='3.2' r='.6'/%3E%3Ccircle cx='-3' cy='1' r='.6'/%3E%3Ccircle cx='-1.9' cy='-2.6' r='.6'/%3E%3C/g%3E%3C/g%3E%3Cg id='b'%3E%3Cpath d='M0 0C-3.6-3-4-9 0-13C4-9 3.6-3 0 0z' fill='%23E27BAB'/%3E%3Cpath d='M0 0C-2.6-1-3.4-4-2.6-6.4L0-3.6L2.6-6.4C3.4-4 2.6-1 0 0z' fill='%237FA36B'/%3E%3C/g%3E%3Cpath id='l' d='M0 0C5-4 12-4.6 16-2C12 1.4 5 2 0 0z'/%3E%3C/defs%3E%3Cg fill='none' stroke='%239C3D74' stroke-linecap='round' opacity='.3'%3E%3Cpath d='M-4 12.4C24 14.4 46.8 25.1 64.8 41.1C82.8 57.1 104.2 81.5 140.2 95.5C141 95.8 140.6 96.7 139.8 96.5C103.8 82.5 81.2 58.9 63.2 42.9C45.2 26.9 24 17.6-4 15.6z' fill='%239C3D74' stroke='none'/%3E%3Cpath d='M38 22C43 18 49 15 52 11' stroke-width='1.4'/%3E%3Cpath d='M88 64C94 60 100 55 104 47' stroke-width='1.3'/%3E%3Cpath d='M114 84C117 89 119 95 119 101' stroke-width='1.1'/%3E%3C/g%3E%3Cg fill='%237FA36B' fill-opacity='.45'%3E%3Cuse href='%23l' transform='translate(26 17) rotate(-40)'/%3E%3Cuse href='%23l' transform='translate(70 47) rotate(28) scale(.9)'/%3E%3Cuse href='%23l' transform='translate(124 89) rotate(-14) scale(.8)'/%3E%3C/g%3E%3Cg fill-opacity='.3'%3E%3Cuse href='%23f' fill='%23F49CC4' transform='translate(52 11) rotate(12) scale(1.25)'/%3E%3Cuse href='%23f' fill='%23E98BB5' transform='translate(105 46) rotate(-20) scale(1.05)'/%3E%3Cuse href='%23f' fill='%23F49CC4' transform='translate(70 31) rotate(40) scale(.72)'/%3E%3Cuse href='%23b' transform='translate(119 102) rotate(180) scale(.9)'/%3E%3Cuse href='%23b' transform='translate(140 96) rotate(112) scale(.75)'/%3E%3Cuse href='%23p' fill='%23F49CC4' transform='translate(138 58) rotate(-130) scale(.62)'/%3E%3Cuse href='%23p' fill='%23E98BB5' transform='translate(152 24) rotate(-200) scale(.5)'/%3E%3C/g%3E%3C/svg%3E") left -16px top 17% / 300px auto no-repeat;
 }
 
 @keyframes drift {
@@ -430,7 +446,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes rise { from { transform: translateY(100%); } }
 /* Вікно на весь екран закриває все: безкінечні прикраси під ним стоять і не забирають процесор у самого вікна */
 html.is-covered :is(.sky i, .spin-e, .spin-c, .spin-j, .travel-heart svg, .swipe-hint-hand, .pulse-win, .pulse-in, .checkin-heart svg, .feed-env-go::after),
-html.is-covered body::before { animation-play-state: paused; }
+html.is-covered body::before, html.is-covered .dv-back > b { animation-play-state: paused; }
 /* Прогрів першого «Написать…»: у полі зору (інакше браузер не малює), але невидимо й на один кадр */
 .write-warm { position: fixed; inset: 0; z-index: -1; opacity: .01; pointer-events: none; overflow: hidden; }
 .write-warm .sheet { animation: none; }
