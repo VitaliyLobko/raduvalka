@@ -111,6 +111,11 @@ export function startDepth() {
   // Обидві половини в одній обгортці: зсув (--dx/--dy) успадковують шари обох; показується — своя (CSS)
   const box = h('div', { class: 'depth-root', 'aria-hidden': 'true' }, vona, vin);
   root = box;
+  // Будь-яке вікно поверх (шторка, читання, печенька, знайомство) — прикраси фону на паузу:
+  // під вікном їх не видно, а рух забирав би процесор і відеокарту в самого вікна. Дивимось лише прямих дітей body
+  const OVER = '.backdrop, .reader, .cookie-layer, .sheet, .photo-view, .plan-match, .tour';
+  const cover = () => document.documentElement.classList.toggle('is-covered', [...document.body.children].some((el) => el.matches(OVER)));
+  new MutationObserver(cover).observe(document.body, { childList: true });
   document.documentElement.classList.toggle('is-still', isStill());
   document.body.prepend(box);
   document.addEventListener('click', (e) => {

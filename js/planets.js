@@ -130,10 +130,6 @@ export function planetsSvg() {
     <stop offset=".86" stop-color="#9BE7F0" stop-opacity=".45"/>
     <stop offset="1" stop-color="#9BE7F0" stop-opacity="0"/>
   </radialGradient>
-  <filter id="${u}-grain" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="1.15" numOctaves="2" stitchTiles="stitch"/>
-    <feColorMatrix values="0 0 0 0 .22  0 0 0 0 .12  0 0 0 0 .05  0 0 0 .6 0"/>
-  </filter>
 </defs>
 
 <g class="jupiter">
@@ -144,7 +140,6 @@ export function planetsSvg() {
       <use href="#${u}-jstrip" x="${JUP.P}"/>
     </g>
     <circle cx="${JUP.cx}" cy="${JUP.cy}" r="${JUP.r}" fill="url(#${u}-limb)"/>
-    <rect x="${JUP.cx - JUP.r}" y="${JUP.cy - JUP.r}" width="${JUP.r * 2}" height="${JUP.r * 2}" filter="url(#${u}-grain)" opacity=".42"/>
     <path d="M${JUP.cx - 46} ${JUP.cy - 26}a54 54 0 0 1 40-32" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".35"/>
   </g>
   <circle cx="${JUP.cx}" cy="${JUP.cy}" r="${JUP.r}" fill="none" stroke="#24201d" stroke-width="3"/>
@@ -165,7 +160,6 @@ export function planetsSvg() {
     <ellipse cx="${EARTH.cx}" cy="${EARTH.cy - EARTH.r + 3}" rx="26" ry="7" fill="#F4FBFF" opacity=".9"/>
     <ellipse cx="${EARTH.cx}" cy="${EARTH.cy + EARTH.r - 2}" rx="30" ry="7" fill="#F4FBFF" opacity=".9"/>
     <circle cx="${EARTH.cx}" cy="${EARTH.cy}" r="${EARTH.r}" fill="url(#${u}-eshade)"/>
-    <rect x="${ex0}" y="${EARTH.cy - EARTH.r}" width="${EARTH.r * 2}" height="${EARTH.r * 2}" filter="url(#${u}-grain)" opacity=".38"/>
     <path d="M${EARTH.cx - 44} ${EARTH.cy - 24}a52 52 0 0 1 38-30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".38"/>
   </g>
   <circle cx="${EARTH.cx}" cy="${EARTH.cy}" r="${EARTH.r}" fill="none" stroke="#1d2a2c" stroke-width="3"/>

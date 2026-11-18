@@ -292,7 +292,8 @@ export function openWrite(preset = {}) {
   const settled = () => {
     if (!sheet.isConnected) return;
     document.documentElement.classList.add('is-covered');
-    snapWrite(sheet);
+    const later = self.requestIdleCallback || ((fn) => setTimeout(fn, 800));
+    later(() => { if (sheet.isConnected) snapWrite(sheet); }, { timeout: 3000 });
   };
   if (shown) shown.finished.then(() => { settled(); if (!area.value) area.focus(); }, () => {});
   else { settled(); if (!area.value) area.focus(); }

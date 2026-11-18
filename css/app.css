@@ -15,7 +15,7 @@
   --ink-soft: #7a5a78;
   --env: #E4D6FA;
   --env-shade: #D3C0F5;
-  --tab-bg: rgba(255, 255, 255, .72);
+  --tab-bg: rgba(253, 248, 255, .95);
   --tab-active: var(--plum);
   --chip: rgba(74, 37, 69, .08);
   --field: #fff;
@@ -34,7 +34,7 @@
   --ink-soft: #a9c3c9;
   --env: #1b4f63;
   --env-shade: #154457;
-  --tab-bg: rgba(10, 49, 66, .86);
+  --tab-bg: rgba(10, 49, 66, .96);
   --tab-active: var(--star);
   --chip: rgba(255, 255, 255, .1);
   color-scheme: dark;
@@ -521,6 +521,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Вікно на весь екран закриває все: безкінечні прикраси під ним стоять і не забирають процесор у самого вікна */
 html.is-covered :is(.sky i, .spin-e, .spin-c, .spin-j, .travel-heart svg, .swipe-hint-hand, .pulse-win, .pulse-in, .checkin-heart svg, .feed-env-go::after),
 html.is-covered .bokeh, html.is-covered .meteor { animation-play-state: paused; }
+/* Але те, що в самому вікні («Вместе» з планетами, знайомство), — рухається */
+html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-j, .travel-heart svg, .checkin-heart svg, .swipe-hint-hand) { animation-play-state: running; }
 /* Прогрів першого «Написать…»: у полі зору (інакше браузер не малює), але невидимо й на один кадр */
 .write-warm { position: fixed; inset: 0; z-index: -1; opacity: .01; pointer-events: none; overflow: hidden; }
 .write-warm .sheet { animation: none; }
@@ -984,8 +986,8 @@ html.is-covered .bokeh, html.is-covered .meteor { animation-play-state: paused; 
   grid-template-columns: repeat(4, 1fr);
   /* Тло — на всю ширину, самі вкладки — у колонці 480px по центру (на широкому екрані не розлітаються) */
   padding: 10px max(4px, calc((100% - 480px) / 2)) max(10px, env(safe-area-inset-bottom));
+  /* Без backdrop-filter: під меню весь час рухається фон, і розмиття перераховувалось би щокадру */
   background: var(--tab-bg);
-  backdrop-filter: blur(14px);
   border-top: 1px solid var(--chip);
 }
 
