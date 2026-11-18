@@ -11,7 +11,7 @@ import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine 
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
-import { composeMeme, memesFresh } from './memes.js';
+import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
 import { showLock } from './lock.js';
@@ -614,7 +614,6 @@ async function start() {
   let restPets = null;
   try {
     Object.assign(DATA, await get('boot'));
-    memesFresh();
     restPets = await loadPets();
   } catch (e) {
     showLock(e.status === 401 ? 'bad' : 'offline', start);

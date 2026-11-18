@@ -26,23 +26,6 @@ export function media(kind, label, src) {
 const pet = () => petFor('memes');
 const isShe = (key) => DATA.mascots[key]?.g === 'f';
 
-// Коли мемчики востаннє прийшли з сервера: щойно привіз boot — другий запит не потрібен
-let memesAt = 0;
-export function memesFresh() { memesAt = Date.now(); }
-
-export async function refreshMemes() {
-  // Лише перший раз після boot; далі — завжди з сервера (тап по сповіщенню мусить показати нове)
-  if (Date.now() - memesAt < 15000) { memesAt = 0; return false; }
-  try {
-    const list = await get('memes');
-    const changed = JSON.stringify(list) !== JSON.stringify(DATA.memes);
-    DATA.memes = list;
-    return changed;
-  } catch {
-    return false;
-  }
-}
-
 export async function memeUrl(id) {
   if (!urls.has(id)) {
     const { type, data } = await get(`memes/${id}/img`);

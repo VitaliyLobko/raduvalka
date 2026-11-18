@@ -216,7 +216,7 @@ export function openWrite(preset = {}) {
       h('span', { class: 'write-msg-text' }, m.text),
       h('span', { class: 'write-msg-at' }, whenShort(m.at))))) : null;
   // Межа між верхом (переписка чи цитата) і полем — тягнеться пальцем
-  const split = thread || ctx ? splitter(thread || ctx, area) : null;
+  const split = thread || ctx ? splitter(thread || ctx, area, ctx ? `${SPLIT_KEY}-reply` : SPLIT_KEY) : null;
   // Поле росте, поки пишеш, — переписка над ним стискається; межу перетягнули — поле просто займає решту
   const grow = () => {
     if (split?.on()) return;
@@ -304,7 +304,8 @@ export function openWrite(preset = {}) {
 // Телефон пам'ятає висоту верху; поле не нижче 80px (CSS), вікно не прокручується (з клавіатурою теж)
 const SPLIT_KEY = 'radovalka:write-split';
 const MIN_TOP = 44;
-function splitter(top, area) {
+// key — окремо для листа й відповіді: цитата здебільшого коротка, їй не потрібна висота всієї переписки
+function splitter(top, area, key) {
   let sheet = null;
   const grip = h('div', {
     class: 'write-split', role: 'separator', 'aria-orientation': 'horizontal', tabindex: '0',
@@ -321,7 +322,7 @@ function splitter(top, area) {
     if (over > 0) sheet.style.setProperty('--top-h', `${Math.max(MIN_TOP, want - over)}px`);
   };
   const topH = () => top.getBoundingClientRect().height;
-  const save = () => { try { localStorage.setItem(SPLIT_KEY, String(Math.round(topH()))); } catch { /* не запам'ятає */ } };
+  const save = () => { try { localStorage.setItem(key, String(Math.round(topH()))); } catch { /* не запам'ятає */ } };
   let y0 = 0;
   let h0 = 0;
   grip.addEventListener('pointerdown', (e) => {
@@ -345,7 +346,7 @@ function splitter(top, area) {
   const mount = (s) => {
     sheet = s;
     let saved = 0;
-    try { saved = Number(localStorage.getItem(SPLIT_KEY)) || 0; } catch { /* як уперше */ }
+    try { saved = Number(localStorage.getItem(key)) || 0; } catch { /* як уперше */ }
     if (saved) set(saved);
     // Клавіатура стискає вікно — поле не зникає: верх поступається
     new ResizeObserver(() => { if (on() && sheet.scrollHeight > sheet.clientHeight) set(topH()); }).observe(sheet);

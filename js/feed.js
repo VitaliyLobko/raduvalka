@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
-import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
+import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse } from './fx.js';
@@ -18,13 +18,19 @@ const EDGE = 24;
 const PAGE = 30;
 let limit = PAGE;
 let showHidden = false;
-// Листи з сервера; мемчики — у DATA.memes. stale — перечитати при наступному показі
+// Листи з сервера; мемчики — у DATA.memes. stale — перечитати при наступному показі.
+// page — найстаріша підвантажена сторінка feed: more — на сервері є старіше за horizon
 let cache = null;
+let page = { more: false, horizon: 0 };
 let stale = true;
 let loading = null;
 // Позначки «бачив» на момент завантаження: «новое» на пузирях не гасне, поки стрічка на екрані
 let seenAt = { memes: 0, replies: 0 };
 let box = null;
+// Стрічка всередині box: зверху «Показать раньше» і сховані, рядки, знизу порожньо/підказка свайпу
+let head = null;
+let list = null;
+let foot = null;
 // Скільки до низу чату було перед перемальовуванням: щоб живе оновлення не зсувало те, що зараз читають
 let fromBottom = 0;
 // Скільки було прогорнуто згори — новий box (перемальовка вкладки) стає на те саме місце, а не на початок
@@ -125,17 +131,61 @@ export function redrawFeed() { draw(); }
 // Запечатаний: справжній лист чи привітальний, ще не відкритий (подарунок — свій вигляд)
 const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind));
 
+// Час, за яким рядок стоїть у чаті, — так само рахує сервер для меж сторінок
+const tIn = (l) => l.at;
+const tOut = (l) => (l.kind === 'env' ? l.created : (l.at || l.created));
+const tMeme = (m) => m.created;
+const ids = (list) => new Set(list.map((x) => x.id));
+// Свіжа перша сторінка + те, що підвантажили раніше й старіше за її межу
+const joinNew = (fresh, old, t, horizon) => { const s = ids(fresh); return [...fresh, ...old.filter((x) => !s.has(x.id) && t(x) < horizon)]; };
+const joinOld = (cur, older) => { const s = ids(cur); return [...cur, ...older.filter((x) => !s.has(x.id))]; };
+
+// p — сторінка feed. older — дописати старіше знизу; інакше це свіже: замінює верх, підвантажене глибше лишається
+function merge(p, older = false) {
+  const memes = DATA.memes || [];
+  if (older) {
+    cache = { inbox: joinOld(cache.inbox, p.inbox), sent: joinOld(cache.sent, p.sent) };
+    DATA.memes = joinOld(memes, p.memes);
+    page = { more: p.more, horizon: p.horizon };
+  } else if (cache && p.more && page.horizon < p.horizon) {
+    cache = { inbox: joinNew(p.inbox, cache.inbox, tIn, p.horizon), sent: joinNew(p.sent, cache.sent, tOut, p.horizon) };
+    DATA.memes = joinNew(p.memes, memes, tMeme, p.horizon);
+  } else {
+    cache = { inbox: p.inbox, sent: p.sent };
+    DATA.memes = p.memes;
+    page = { more: p.more, horizon: p.horizon };
+  }
+}
+
 function load() {
   if (!loading) {
-    loading = Promise.all([get('letters/inbox'), get('letters/sent'), refreshMemes()])
-      .then(([inbox, sent]) => {
-        cache = { inbox, sent };
+    loading = get('feed')
+      .then((p) => {
+        merge(p);
         stale = false;
         seenAt = { memes: memesSeen(), replies: repliesSeen() };
       })
       .finally(() => { loading = null; });
   }
   return loading;
+}
+
+// «Показать раньше»: на екрані закінчилось підвантажене — тягнемо з сервера наступну сторінку
+async function showMore(btn, have) {
+  if (limit + PAGE > have && page.more) {
+    btn.disabled = true;
+    btn.textContent = 'Загружаю…';
+    try {
+      merge(await get(`feed?before=${page.horizon}`), true);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Показать раньше';
+      toast('Не загрузилось — нет связи');
+      return;
+    }
+  }
+  limit += PAGE;
+  draw(false, true);
 }
 
 // Тап по вкладці «Письма» — наступна стрічка стає на найновіше, навіть якщо гортали вище
@@ -149,7 +199,10 @@ export function letterFeed(o) {
   fromTop = box?.isConnected && !toLatest ? box.scrollTop : 0;
   toLatest = false;
   stuck = fromBottom < 40;
-  box = h('div', { class: 'feed-box' });
+  head = h('div', { class: 'feed-head' });
+  list = h('ol', { class: 'feed-list' });
+  foot = h('div', { class: 'feed-foot' });
+  box = h('div', { class: 'feed-box' }, head, list, foot);
   jump = h('button', { type: 'button', class: 'feed-jump', hidden: true, onclick: toEnd }, '↓ Новое');
   // Гортання рукою: дійшла донизу — знову прилипли і «Новое» вже не треба
   box.addEventListener('scroll', () => {
@@ -159,10 +212,10 @@ export function letterFeed(o) {
   const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box, jump);
   // Секцію ще не вставлено в сторінку — малюємо в неї примусово
   if (cache) draw(true);
-  else box.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
+  else foot.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
   if (stale || !cache) {
     load().then(settle).catch(() => {
-      if (!cache && box.isConnected) box.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
+      if (!cache && box.isConnected) foot.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
     });
   }
   return section;
@@ -192,8 +245,9 @@ const liveMeme = (m) => (DATA.memes || []).find((x) => x.id === m.id) || m;
 function items() {
   const now = Date.now();
   const list = [];
-  // Привітальний — найперше повідомлення: час — коли його вперше показали на цьому телефоні
-  const w = ops.welcome?.();
+  // Привітальний — найперше повідомлення: час — коли його вперше показали на цьому телефоні.
+  // Поки на сервері є старіше, він не перший — покажемо, коли догорнуть до початку
+  const w = page.more ? null : ops.welcome?.();
   if (w) list.push({ type: 'in', key: welcomeKey(w), at: w.at, l: w });
   for (const l of cache?.inbox || []) list.push({ type: 'in', key: `l:${l.id}`, at: l.at, l });
   for (const l of cache?.sent || []) {
@@ -234,36 +288,48 @@ function draw(force = false, older = false) {
   const mineNew = arrived && (arrived.type === 'out' || (arrived.type === 'meme' && arrived.m.mine));
   const hiddenItems = all.filter((it) => hidden.has(it.key));
 
-  // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори
-  const list = h('ol', { class: 'feed-list' });
+  // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори.
+  // Незмінні рядки — ті самі вузли: нове лише вставляється, решта не рухається
+  around = JSON.stringify([Object.entries(DATA.mascots || {}).map(([k, v]) => [k, v.name, v.g, v.roles]),
+    (DATA.partnerEnvelopes || []).map((e) => [e.id, e.emoji, e.label])]);
+  const nodes = [];
   let lastDay = '';
   for (const it of shown.slice(0, limit).reverse()) {
     const d = dayTitle(it.at);
     if (d !== lastDay) {
-      list.append(h('li', { class: 'feed-day' }, d));
+      nodes.push(dayFor(d));
       lastDay = d;
     }
-    list.append(row(it));
+    nodes.push(rowFor(it));
   }
-  const more = h('button', {
+  const want = new Set(nodes);
+  [...list.children].forEach((c) => { if (!want.has(c)) c.remove(); });
+  nodes.forEach((n, i) => { if (list.children[i] !== n) list.insertBefore(n, list.children[i] || null); });
+  const keep = new Set(shown.slice(0, limit).map((it) => it.key));
+  for (const k of rows.keys()) if (!keep.has(k)) rows.delete(k);
+
+  const canMore = shown.length > limit || page.more;
+  const more = canMore ? h('button', {
     type: 'button', class: 'feed-hidden-toggle feed-more',
-    onclick: () => { limit += PAGE; draw(false, true); },
-  }, `Показать раньше · ${shown.length - limit}`);
+    onclick: (e) => showMore(e.currentTarget, shown.length),
+  }, page.more ? 'Показать раньше' : `Показать раньше · ${shown.length - limit}`) : null;
 
   const nHidden = hiddenItems.length;
-  box.replaceChildren(...[
-    shown.length > limit ? more : null,
+  head.replaceChildren(...[
+    more,
     nHidden ? h('button', {
       type: 'button', class: 'feed-hidden-toggle', 'aria-expanded': String(showHidden),
       onclick: () => { showHidden = !showHidden; draw(); },
     }, showHidden ? 'Скрыть спрятанные' : `Спрятанные · ${nHidden}`) : null,
     showHidden && nHidden ? h('ul', { class: 'feed-hidden' },
       ...hiddenItems.map((it) => h('li', {}, h('span', {}, hiddenLabel(it)), restoreBtn(it.key)))) : null,
-    shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
+  ].filter(Boolean));
+  foot.replaceChildren(...[
+    shown.length ? null : h('p', { class: 'mk-wait' }, emptyText()),
     // Підказка про свайп — лише коли є що гортати: запечатаний конверт тільки відкривають
     shown.some((it) => !(it.type === 'in' && sealed(it.l))) && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
   ].filter(Boolean));
-  watchFresh(list);
+  watchFresh(nodes);
   restore();
   stuck = wasStuck || !!mineNew;
   if (mineNew) requestAnimationFrame(toEnd);
@@ -318,6 +384,30 @@ const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', mi
 const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 
+// Рядок, що не змінився, — той самий вузол: картинка не вантажиться вдруге, гифка не починається спочатку.
+// Заплановані «на потім» міняють підпис із часом — їх щоразу заново
+const rows = new Map();
+const days = new Map();
+// Що, крім самого рядка, видно в пузирі: улюблені-кур'єри й назви її конвертів. «новое» — свій для рядка (fresh)
+let around = '';
+// Чи позначено рядок «новое» — так само рахують outBubble і memeBubble
+function isFresh(it) {
+  if (it.type === 'meme') return it.m.mine ? (it.m.replied || 0) > seenAt.replies : it.m.created > seenAt.memes;
+  return it.type === 'out' && (it.l.replied || 0) > seenAt.replies;
+}
+function rowFor(it) {
+  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m, unfolded.has(it.key), isFresh(it), around]);
+  const had = rows.get(it.key);
+  if (had && sig && had.sig === sig) return had.el;
+  const el = row(it);
+  rows.set(it.key, { sig, el });
+  return el;
+}
+function dayFor(d) {
+  if (!days.has(d)) days.set(d, h('li', { class: 'feed-day' }, d));
+  return days.get(d);
+}
+
 // Рядок стрічки: li стоїть на місці (під ним — підказка свайпу), пузир їде за пальцем
 function row(it) {
   const mine = it.type === 'out' || (it.type === 'meme' && it.m.mine);
@@ -333,6 +423,8 @@ function row(it) {
     canRight: canReply,
     onLeft: () => {
       hide(it.key);
+      // Пузир полетів за край — повернутий зі «Спрятанных» малюємо заново
+      rows.delete(it.key);
       draw();
       fresh();
       toast('Спрятано у тебя. Вернуть — вверху чата «Спрятанные»');
@@ -531,10 +623,13 @@ function memeBubble(m) {
   const me = who();
   const it = { type: 'meme', key: `m:${m.id}`, m };
   const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
-  const pic = h('button', {
-    type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть на весь экран',
-    onclick: () => showMeme(m, pic),
-  }, media(m.url, m.caption || memeWord(m)), over);
+  // Старе фото стерли, щоб у базі лишалось місце: підпис і відповіді лишаються, картинки нема
+  const pic = m.gone && !m.url
+    ? h('p', { class: 'meme-gone' }, '🖼 Фото удалено, чтобы освободить место')
+    : h('button', {
+      type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть на весь экран',
+      onclick: () => showMeme(m, pic),
+    }, media(m.url, m.caption || memeWord(m)), over);
   const isNew = m.mine ? (m.replied || 0) > seenAt.replies : m.created > seenAt.memes;
   let acts;
   if (m.mine) {
@@ -635,25 +730,39 @@ function showMeme(m, pic) {
 }
 
 // Картинки тягнемо, коли пузир під'їжджає до екрана; нове гасне, коли його справді побачили.
-// from — з якого рядка дивитись
-function watchFresh(list, from = 0) {
-  const rows = [...list.children].slice(from);
-  const pick = (sel) => rows.flatMap((r) => [...(r.matches(sel) ? [r] : []), ...r.querySelectorAll(sel)]);
-  const io = new IntersectionObserver((entries) => {
+// els — щойно вставлені вузли (уже бачені не чіпаємо). Гифки (беззвучне відео) грають лише на екрані:
+// за краєм — пауза, інакше довгий чат крутив би десятки відео й тримав процесор зайнятим
+const watched = new WeakSet();
+let picIo = null;
+let seenIo = null;
+let playIo = null;
+function watchFresh(els) {
+  const fresh = els.filter((el) => !watched.has(el));
+  fresh.forEach((el) => watched.add(el));
+  if (!fresh.length) return;
+  picIo ||= new IntersectionObserver((entries) => {
     for (const { target, isIntersecting } of entries) {
       if (!isIntersecting) continue;
-      io.unobserve(target);
+      picIo.unobserve(target);
       loadPic(target);
     }
   }, { rootMargin: '300px 0px' });
-  pick('.meme-img').forEach((el) => io.observe(el));
-  const seenIo = new IntersectionObserver((entries) => {
+  // Низ екрана закриває меню з марками — під ним ще не «побачено»
+  seenIo ||= new IntersectionObserver((entries) => {
     for (const { target, isIntersecting } of entries) {
       if (isIntersecting) { seenIo.unobserve(target); seen(target); }
     }
-  // Низ екрана закриває меню з марками — під ним ще не «побачено»
   }, { threshold: 0.6, rootMargin: '0px 0px -96px 0px' });
+  playIo ||= new IntersectionObserver((entries) => {
+    for (const { target, isIntersecting } of entries) {
+      if (isIntersecting) target.play().catch(() => {});
+      else target.pause();
+    }
+  });
+  const pick = (sel) => fresh.flatMap((r) => [...(r.matches(sel) ? [r] : []), ...r.querySelectorAll(sel)]);
+  pick('.meme-img').forEach((el) => picIo.observe(el));
   pick('.feed-meme.is-fresh, .sent-reply.is-fresh').forEach((el) => seenIo.observe(el));
+  pick('.meme-img video').forEach((el) => playIo.observe(el));
 }
 
 let saveTimer = 0;

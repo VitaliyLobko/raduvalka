@@ -14,6 +14,18 @@ const ago = (ms) => {
 const mapUrl = (s) => `https://www.google.com/maps?q=${s.lat},${s.lon}`;
 const pressed = (p) => (p === 'он' ? 'Он нажал' : 'Она нажала');
 
+// «Отбой» другого — новина на годину: далі (або після «Понятно») картка зникає, хоч сервер тримає сигнал добу
+const OK_SHOW = 3600 * 1000;
+const OK_CLOSED = 'radovalka:sos-ok-closed';
+const okClosed = (s) => { try { return localStorage.getItem(OK_CLOSED) === s.id; } catch { return false; } };
+const okLive = (s) => Date.now() - s.ok < OK_SHOW && !okClosed(s);
+// Чи є зараз картка SOS угорі «Писем» (від цього згортається блок «Я в порядке»)
+export const sosShown = () => {
+  const { theirs, mine } = DATA.sos || {};
+  return !!((theirs && (!theirs.ok || okLive(theirs))) || (mine && !mine.ok));
+};
+let okTimer = 0;
+
 export async function loadSos() {
   try {
     DATA.sos = await get('sos');
@@ -200,8 +212,15 @@ function voiceBtn(s) {
 function theirCard(s) {
   const me = who();
   if (s.ok) {
+    if (!okLive(s)) return null;
+    clearTimeout(okTimer);
+    okTimer = setTimeout(paintSos, s.ok + OK_SHOW - Date.now());
     return h('div', { class: 'sos-card is-ok', role: 'status' },
-      h('p', {}, h('b', {}, 'Отбой ❤️ '), `${pressed(me.partner)} «Всё хорошо» в ${hhmm(s.ok)} (сигнал был в ${hhmm(s.at)})`));
+      h('p', {}, h('b', {}, 'Отбой ❤️ '), `${pressed(me.partner)} «Всё хорошо» в ${hhmm(s.ok)} (сигнал был в ${hhmm(s.at)})`),
+      h('button', {
+        type: 'button', class: 'btn sos-close',
+        onclick: () => { try { localStorage.setItem(OK_CLOSED, s.id); } catch { /* приватне вікно — сховається за годину */ } paintSos(); },
+      }, 'Понятно'));
   }
   const seenBtn = s.seen ? h('p', { class: 'sos-meta' }, `Ты отметил${me.youOpened === 'открыла' ? 'а' : ''}, что видишь ✓`)
     : h('button', {

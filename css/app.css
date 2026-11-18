@@ -18,6 +18,9 @@
   --tab-bg: rgba(255, 255, 255, .72);
   --tab-active: var(--plum);
   --chip: rgba(74, 37, 69, .08);
+  --field: #fff;
+  --on-plum: #fff;
+  --rule: rgba(201, 182, 242, .55);
 
   --hand: 'Caveat', 'Segoe Print', cursive;
   --ui: 'Rubik', system-ui, sans-serif;
@@ -36,6 +39,25 @@
   --chip: rgba(255, 255, 255, .1);
   color-scheme: dark;
 }
+
+/* Його половина: шторки й картки темні, як «Вместе», — ніч, крем, золото. Ті самі імена змінних,
+   тож правила лишаються спільні: «слива» в нього — крем, «папір» — ніч, акцент — золото */
+[data-side="vin"] :is(.sheet, .bubble, .feed-bubble, .feed-hidden li, .want, .inbox-item, .meme, .sent-item) {
+  --paper: #134A5E;
+  --plum: var(--cream);
+  --lavender: rgba(244, 230, 196, .26);
+  --powder: rgba(237, 185, 73, .6);
+  --wax: var(--star);
+  --field: rgba(255, 255, 255, .07);
+  --on-plum: var(--night);
+  --rule: rgba(244, 230, 196, .14);
+  --chip: rgba(255, 255, 255, .1);
+}
+[data-side="vin"] .sheet .btn-primary { background: var(--star); border-color: var(--star); color: var(--night); }
+[data-side="vin"] .sheet ::placeholder { color: rgba(244, 230, 196, .5); }
+/* Його свої повідомлення — світліша ніч (золото з бірюзою дає болотне), «Я в порядке» — золото */
+[data-side="vin"] :is(.feed-row.is-mine .feed-bubble, .write-msg.is-mine) { background: color-mix(in srgb, var(--cream) 13%, #134A5E); }
+[data-side="vin"] :is(.checkin-btn, .top-heart) { color: var(--night); background: linear-gradient(135deg, #F6D27A, #E3A841); box-shadow: 0 2px 10px rgba(237, 185, 73, .35); }
 
 * { box-sizing: border-box; }
 
@@ -394,14 +416,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 12px;
   border: 1.5px solid var(--lavender);
   border-radius: 12px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font: 1.5rem/1.3 var(--hand);
 }
 
 .sheet-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
 
-.sheet .btn-primary { background: var(--plum); border-color: var(--plum); color: #fff; }
+.sheet .btn-primary { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
 
 .backdrop { position: fixed; inset: 0; z-index: 19; background: rgba(42, 23, 48, .35); }
 
@@ -1040,7 +1062,7 @@ html.is-covered body::before { animation-play-state: paused; }
 .sheet-maker h2 { margin-right: 44px; }
 
 .mk-group { margin: 14px 0 0; }
-.mk-label { margin: 0 0 6px; font-size: .8125rem; color: #7a5a78; }
+.mk-label { margin: 0 0 6px; font-size: .8125rem; color: var(--ink-soft); }
 
 .mk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -1049,12 +1071,12 @@ html.is-covered body::before { animation-play-state: paused; }
   padding: 0 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 999px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font-size: .9375rem;
 }
 
-.mk-chip[aria-checked="true"] { background: var(--plum); border-color: var(--plum); color: #fff; }
+.mk-chip[aria-checked="true"] { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
 
 .mk-kind .mk-chip { flex: 1; min-height: 44px; font-weight: 500; }
 
@@ -1077,7 +1099,7 @@ html.is-covered body::before { animation-play-state: paused; }
 
 .mk-results { margin-top: 14px; }
 .mk-results textarea { margin-bottom: 4px; }
-.mk-wait { margin: 6px 0; color: #7a5a78; text-align: center; }
+.mk-wait { margin: 6px 0; color: var(--ink-soft); text-align: center; }
 
 
 .mk-gifs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
@@ -1094,7 +1116,7 @@ html.is-covered body::before { animation-play-state: paused; }
 .mk-gif img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 .mk-more { display: flex; justify-content: center; width: 100%; margin-top: 10px; }
-.mk-giphy { margin: 10px 0 0; font-size: .75rem; color: #7a5a78; text-align: center; }
+.mk-giphy { margin: 10px 0 0; font-size: .75rem; color: var(--ink-soft); text-align: center; }
 
 .meme-feed { display: grid; gap: 16px; }
 
@@ -1130,7 +1152,7 @@ html.is-covered body::before { animation-play-state: paused; }
   gap: 10px;
   padding: 8px 10px 10px 14px;
   font-size: .8125rem;
-  color: #7a5a78;
+  color: var(--ink-soft);
 }
 
 .meme-actions { display: flex; align-items: center; gap: 6px; }
@@ -1165,7 +1187,7 @@ html.is-covered body::before { animation-play-state: paused; }
   padding: 0 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 12px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font: inherit;
 }
@@ -1256,7 +1278,7 @@ html.is-covered body::before { animation-play-state: paused; }
   line-height: 1.3;
 }
 
-.write-note { margin: 8px 0 0; font-size: .875rem; color: #7a5a78; }
+.write-note { margin: 8px 0 0; font-size: .875rem; color: var(--ink-soft); }
 .write-envs { margin-top: 8px; }
 
 .write-pets .mk-chip {
@@ -1278,7 +1300,7 @@ html.is-covered body::before { animation-play-state: paused; }
   padding: 10px 12px;
   border: 1.5px solid var(--lavender);
   border-radius: 14px;
-  background: #fff;
+  background: var(--field);
 }
 
 .sent-text {
@@ -1298,7 +1320,7 @@ html.is-covered body::before { animation-play-state: paused; }
   gap: 8px;
   margin: 6px 0 0;
   font-size: .8125rem;
-  color: #7a5a78;
+  color: var(--ink-soft);
 }
 
 .sent-take {
@@ -1361,7 +1383,7 @@ html.is-covered body::before { animation-play-state: paused; }
   box-shadow: 0 2px 6px rgba(74, 37, 69, .35);
 }
 
-.mk-slider span { color: #7a5a78; }
+.mk-slider span { color: var(--ink-soft); }
 
 .sheet-maker .mk-group {
   padding: 12px 12px 10px;
@@ -1369,13 +1391,13 @@ html.is-covered body::before { animation-play-state: paused; }
   background: #F6EEFD;
 }
 
-.sheet-maker .mk-group .mk-chip { background: #fff; }
+.sheet-maker .mk-group .mk-chip { background: var(--field); }
 .sheet-maker .mk-group .mk-chip[aria-checked="true"] { background: var(--plum); }
 
 /* Поле листа — аркуш у лінійку, як сам лист */
 .sheet-write .write-text {
   border-color: var(--lavender);
-  background: #fff repeating-linear-gradient(180deg, transparent 0 39px, rgba(201, 182, 242, .55) 39px 40px);
+  background: var(--field) repeating-linear-gradient(180deg, transparent 0 39px, var(--rule) 39px 40px);
   background-attachment: local;
   line-height: 40px;
   padding: 6px 14px;
@@ -1400,7 +1422,7 @@ html.is-covered body::before { animation-play-state: paused; }
   padding: 10px 12px;
   border: 1.5px solid var(--lavender);
   border-radius: 12px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font: inherit;
   resize: vertical;
@@ -1433,7 +1455,7 @@ html.is-covered body::before { animation-play-state: paused; }
   padding: 10px 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 14px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   text-align: left;
   white-space: pre-line;
@@ -1558,7 +1580,7 @@ html.is-covered body::before { animation-play-state: paused; }
 }
 
 a.want-body { text-decoration: none; -webkit-tap-highlight-color: transparent; }
-a.want-body:active { background: rgba(201, 182, 242, .25); }
+a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transparent); }
 .want-text { display: grid; flex: 1; gap: 2px; min-width: 0; }
 
 /* Фото товару: магазинні знімки на білому, тому рамка біла й contain, щоб не різати */
@@ -1567,13 +1589,13 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   width: 76px;
   height: 76px;
   border-radius: 12px;
-  background: #fff;
+  background: var(--field);
   object-fit: contain;
   box-shadow: inset 0 0 0 1px rgba(74, 37, 69, .08);
 }
 
 .want-title { font: 700 1.5rem/1.15 var(--hand); }
-.want-meta { font-size: .875rem; color: #7a5a78; }
+.want-meta { font-size: .875rem; color: var(--ink-soft); }
 .want-note { font-size: .9375rem; }
 
 .want-foot {
@@ -1593,12 +1615,12 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   padding: 0 12px;
   border: 1.5px solid var(--lavender);
   border-radius: 999px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font-size: .8125rem;
 }
 
-.want-mark[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); color: #fff; }
+.want-mark[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
 .want.is-bought { opacity: .6; }
 .want.is-bought .want-title { text-decoration: line-through; text-decoration-thickness: 2px; }
 .want.is-eye { outline: 2px dashed var(--wax); outline-offset: -2px; }
@@ -1606,18 +1628,18 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .want-form input { margin-bottom: 8px; }
 
 /* Посилання й «Заповнити» — першими: зазвичай хотілку додають із магазину */
-.want-fillbox { display: grid; gap: 6px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: rgba(201, 182, 242, .25); }
+.want-fillbox { display: grid; gap: 6px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--lavender) 25%, transparent); }
 .want-linkrow { display: flex; gap: 8px; }
 .want-linkrow input { flex: 1; min-width: 0; margin: 0; }
 .want-fill { flex: none; min-height: 46px; padding: 0 14px; }
-.want-status { margin: 0; font-size: .875rem; color: #7a5a78; }
+.want-status { margin: 0; font-size: .875rem; color: var(--ink-soft); }
 .want-status:empty { display: none; }
 .want-paste {
   width: 100%;
   padding: 10px 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 12px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font: inherit;
   resize: vertical;
@@ -1674,14 +1696,14 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   padding: 0 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 12px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font: inherit;
 }
-.want-remove { margin-right: auto; border-color: var(--lavender); color: #7a5a78; }
+.want-remove { margin-right: auto; border-color: var(--lavender); color: var(--ink-soft); }
 
 .gift-from-wish { margin: 0 0 10px; }
-.gift-wish-pick { display: grid; gap: 10px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: #fff; }
+.gift-wish-pick { display: grid; gap: 10px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: var(--field); }
 .gift-wish-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .gift-wish { text-align: left; }
 
@@ -1710,7 +1732,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   font: inherit;
   text-align: left;
 }
-.inbox-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .8125rem; color: #7a5a78; }
+.inbox-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .8125rem; color: var(--ink-soft); }
 .inbox-new { padding: 0 8px; border-radius: 999px; background: var(--wax); color: #fff; font-weight: 600; }
 .inbox-text {
   display: -webkit-box;
@@ -1754,7 +1776,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   padding: 0 14px;
   border: 1.5px solid var(--lavender);
   border-radius: 999px;
-  background: #fff;
+  background: var(--field);
   color: var(--plum);
   font: inherit;
 }
@@ -1827,7 +1849,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .mk-capts:empty { display: none; }
 .mk-capts, .cap-moods { margin: 0 -16px; padding: 2px 16px 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .cap-moods .mk-chip { flex: none; white-space: nowrap; min-height: 36px; padding: 0 12px; font-size: .875rem; }
-.mk-capts .mk-capt[aria-pressed="true"] { background: var(--plum); color: #fff; border-color: var(--plum); }
+.mk-capts .mk-capt[aria-pressed="true"] { background: var(--plum); color: var(--on-plum); border-color: var(--plum); }
 .cap-more { flex: none; min-height: 0; padding: 6px 12px; white-space: nowrap; color: var(--wax); border-style: dashed; }
 .cap-own { margin-top: 4px; }
 .mk-capts .mk-capt {
@@ -2081,7 +2103,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 }
 .feed-bubble > :is(.feed-text, .feed-meta, .sent-reply, .meme-cap) { margin: 8px 14px 0; }
 .feed-bubble > .feed-text:first-child { margin-top: 12px; }
-.feed-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: .8125rem; color: #7a5a78; }
+.feed-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: .8125rem; color: var(--ink-soft); }
 .feed-text {
   display: -webkit-box;
   margin: 0;
@@ -2170,7 +2192,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   background: rgba(255, 255, 255, .16); color: #fff; font: 600 .9375rem/1 var(--ui); cursor: pointer;
 }
 .feed-full-save:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.write-meme { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 10px; color: #7a5a78; font-size: .875rem; }
+.write-meme { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 10px; color: var(--ink-soft); font-size: .875rem; }
 .write-meme label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
 .write-meme .mk-chip { display: inline-flex; align-items: center; gap: 4px; }
 
@@ -2492,6 +2514,8 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 [data-side="vin"] .sos-card { background: #4A1622; color: #FFE4E8; }
 [data-side="vin"] .sos-card .btn { color: #FFE4E8; }
 [data-side="vin"] .sos-card.is-ok { background: #173B26; color: #E3F6E8; }
+.sos-card.is-ok { grid-template-columns: 1fr auto; align-items: center; }
+.sos-card.is-ok .sos-close { grid-column: auto; order: 0; min-height: 40px; padding: 0 14px; color: inherit; }
 /* Низький екран: картка щільніша, «На карте» і «Вижу» — в один рядок, щоб «Написать…» лишалось над вкладками */
 @media (max-height: 700px) {
   .sos-card { gap: 6px 10px; padding: 10px 14px; grid-template-columns: auto 1fr; }
@@ -2559,6 +2583,8 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .screen.is-chat .feed-list { margin-top: auto; gap: 6px; padding-top: 6px; }
 .screen.is-chat .feed-more, .screen.is-chat .feed-hidden-toggle { flex: none; margin-top: 6px; }
 .screen.is-chat .feed-swipe-hint { flex: none; margin-top: 8px; }
+.screen.is-chat .feed-head, .screen.is-chat .feed-foot { flex: none; }
+.meme-gone { margin: 0; padding: 18px 12px; border: 1.5px dashed var(--lavender); border-radius: 12px; color: var(--ink-soft); font-size: .875rem; text-align: center; }
 /* Пузирі чату: по ширині тексту, дрібніший почерк — на екран влазить більше розмови */
 .screen.is-chat .feed-bubble { width: auto; min-width: 46%; max-width: 84%; }
 .screen.is-chat .feed-row.is-meme .feed-bubble { width: 66%; }
@@ -2601,7 +2627,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 }
 .feed-env-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .feed-env-text b { font: 700 1.25rem/1.15 var(--hand); }
-.feed-env-text span { font-size: .8125rem; color: #7a5a78; }
+.feed-env-text span { font-size: .8125rem; color: var(--ink-soft); }
 .feed-env-go {
   flex: none; display: grid; place-items: center; min-height: 38px; padding: 0 14px; border-radius: 999px;
   position: relative; background: var(--plum); color: #fff; font: 600 .875rem/1 var(--ui);
@@ -2621,7 +2647,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 [data-side="vin"] .feed-env-go { background: #E8B84A; color: #1b2b33; }
 [data-side="vin"] .feed-env.is-festive { background: linear-gradient(160deg, #3A4A3E, #2A3B47); }
 /* Улюбленець, що приніс, тримає конверт */
-.feed-env-pet { flex: none; width: 40px; height: 40px; margin-right: -18px; z-index: 1; }
+.feed-env-pet { flex: none; width: 56px; height: 56px; margin: -4px -20px -4px -4px; z-index: 1; }
 .feed-env-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); }
 /* Тап: печатка злітає, кнопка гасне — далі на цьому місці відкритий лист */
 .feed-env-pic::after, .feed-env-go { transition: transform .35s ease-in, opacity .35s ease-in; }
@@ -2657,7 +2683,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   display: grid; gap: 2px; width: 100%; padding: 8px 12px; border: 0; border-left: 3px solid var(--wax); border-radius: 12px;
   background: color-mix(in srgb, var(--lavender) 22%, var(--paper)); color: var(--plum); text-align: left; font: inherit; cursor: pointer;
 }
-.write-ctx-label { font-size: .75rem; color: #7a5a78; }
+.write-ctx-label { font-size: .75rem; color: var(--ink-soft); }
 .write-ctx-text {
   display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   font: 400 1.125rem/1.3 var(--hand); white-space: pre-line;
@@ -2713,7 +2739,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   font: 400 1.0625rem/1.25 var(--hand); white-space: pre-line;
 }
-.write-msg-at { justify-self: end; font-size: .6875rem; color: #7a5a78; }
+.write-msg-at { justify-self: end; font-size: .6875rem; color: var(--ink-soft); }
 .sheet-write.has-thread .voice-wrap.is-area { flex: none; }
 .sheet-write.has-thread .write-text { flex: none; min-height: 172px; max-height: 50dvh; overflow-y: auto; }
 /* Межа між верхом (переписка чи цитата) і полем — смужка, за яку тягнуть; є лише там, де є верх */

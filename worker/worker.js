@@ -84,6 +84,8 @@ const MIGRATIONS = [
   // Відповідь — нове повідомлення з цитатою того, на що відповідають (до 300 знаків)
   'ALTER TABLE letters ADD COLUMN quote TEXT',
   'ALTER TABLE memes ADD COLUMN quote TEXT',
+  // Коли фото мемчика стерто, щоб звільнити місце в базі (сам мемчик із підписом лишається)
+  'ALTER TABLE memes ADD COLUMN gone INTEGER',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -121,6 +123,7 @@ export default {
       await releaseStock(env.DB, event.scheduledTime || Date.now());
       await cronPush(env);
       await sosCleanup(env.DB);
+      await photoCleanup(env);
     })());
   },
 };
@@ -160,7 +163,8 @@ async function route(req, env, ctx, info = {}) {
       getDoc(env.DB, 'together'),
       getDoc(env.DB, `mine:${side}`),
       getDoc(env.DB, 'mascots'),
-      listMemes(env.DB, side),
+      // Стрічку тягне feed сторінками; тут — лише свіжі, для крапки на марці до першого feed
+      listMemes(env.DB, side, 60),
       checkinsOf(env.DB, side),
       getDoc(env.DB, `letter:${side}`),
     ]);
@@ -208,6 +212,7 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'POST' && path === 'wish-from-url') return wishFromUrl(req, env);
   if (m === 'POST' && path === 'wish-image') return wishImage(req);
   if (m === 'GET' && path === 'gifs') return gifSearch(url, env);
+  if (m === 'GET' && path === 'feed') return json(await feedPage(env.DB, side, url));
 
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
@@ -980,11 +985,53 @@ async function lettersRoute(req, db, side, rest, notify) {
   throw fail(405, 'method');
 }
 
-async function listMemes(db, side) {
+async function listMemes(db, side, limit = 300) {
   const { results } = await db.prepare(
-    'SELECT * FROM memes WHERE src = ? OR dst = ? ORDER BY created DESC LIMIT 300',
-  ).bind(side, side).all();
+    'SELECT * FROM memes WHERE src = ? OR dst = ? ORDER BY created DESC LIMIT ?',
+  ).bind(side, side, limit).all();
   return results.map((r) => view(r, side));
+}
+
+// Стрічка «Письма» сторінками: отримані листи, мої листи й мемчики одним зрізом за часом показу (як їх ставить чат).
+// before — віддати старіше за цей час (нема — найсвіжіше). Межа сторінки — horizon: усе, що не старіше за неї,
+// уже тут (і рівне їй теж), тож наступна сторінка — before=horizon без дублів і пропусків; more — чи є старіше
+const FEED_PAGE = 40;
+async function feedPage(db, side, url) {
+  const before = Number(url.searchParams.get('before')) || Number.MAX_SAFE_INTEGER;
+  const n = Math.min(100, Math.max(10, Number(url.searchParams.get('limit')) || FEED_PAGE));
+  const take = n + 1;
+  const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
+  const [inbox, sent, memes] = await Promise.all([
+    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, gift, chosen, at AS t FROM letters '
+      + "WHERE dst = ? AND at <= ? AND at < ? AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) "
+      + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
+    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, gift, chosen, stocked, ${sentAt} AS t `
+      + `FROM letters WHERE src = ? AND kind != 'stock' AND ${sentAt} < ? ORDER BY t DESC LIMIT ?`).bind(side, before, take).all(),
+    db.prepare('SELECT *, created AS t FROM memes WHERE (src = ? OR dst = ?) AND created < ? ORDER BY created DESC LIMIT ?')
+      .bind(side, side, before, take).all(),
+  ]);
+  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results]];
+  const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
+  let page = all;
+  let horizon = 0;
+  let more = false;
+  if (all.length > n) {
+    horizon = all[n - 1].r.t;
+    page = all.filter((x) => x.r.t >= horizon);
+    more = true;
+  }
+  const of = (s) => page.filter((x) => x.s === s).map((x) => x.r);
+  return {
+    inbox: of('in').map((r) => ({
+      id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
+      opened: !!r.opened, liked: !!r.liked, reply: r.reply,
+      ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
+    })),
+    sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
+    memes: of('meme').map((r) => view(r, side)),
+    more,
+    horizon,
+  };
 }
 
 // Для телефона: mine — «я надіслав», без внутрішніх src/dst/img
@@ -992,7 +1039,7 @@ function view(r, side) {
   return {
     id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, quote: r.quote || null,
     created: r.created, reaction: r.reaction,
-    reply: r.reply || null, replied: r.replied || null,
+    reply: r.reply || null, replied: r.replied || null, gone: r.gone || null,
   };
 }
 
@@ -1859,6 +1906,40 @@ async function sosRoute(req, db, side, path, notify) {
 }
 
 // Сигнал старший за добу — прибрати разом із місцем і голосом
+// Місце в базі: D1 безкоштовно — 500 МБ на базу. Дані зайняли понад PHOTO_KEEP ліміту — стираємо найстаріші фото
+// з переписки (лише картинки мемчиків m-*: улюбленці, хотілки, решта imgs і гифки-посилання не чіпаються), рівно
+// стільки, щоб повернутися під поріг. Рахуємо самі дані, не розмір файлу: звільнене SQLite не віддає, а бере знову,
+// тож за розміром файлу cron стирав би щоночі ще. DB_LIMIT_BYTES — інший ліміт (тест)
+const DB_LIMIT = 500 * 1024 * 1024;
+const PHOTO_KEEP = 0.7;
+const liveBytes = (db) => db.prepare('SELECT (SELECT IFNULL(SUM(LENGTH(data)), 0) FROM imgs)'
+  + ' + (SELECT IFNULL(SUM(LENGTH(v)), 0) FROM docs)'
+  + ' + (SELECT IFNULL(SUM(LENGTH(text) + IFNULL(LENGTH(quote), 0) + IFNULL(LENGTH(reply), 0) + IFNULL(LENGTH(gift), 0)), 0) FROM letters) AS n').first('n');
+async function photoCleanup(env, now = Date.now()) {
+  const db = env.DB;
+  const limit = Number(env.DB_LIMIT_BYTES) || DB_LIMIT;
+  let over = (await liveBytes(db)) - limit * PHOTO_KEEP;
+  let gone = 0;
+  while (over > 0) {
+    const { results } = await db.prepare('SELECT m.id, m.img, LENGTH(i.data) AS n FROM memes m JOIN imgs i ON i.name = m.img '
+      + "WHERE m.img LIKE 'm-%' ORDER BY m.created ASC LIMIT 50").all();
+    if (!results.length) break;
+    const pick = [];
+    for (const r of results) {
+      if (over <= 0) break;
+      pick.push(r);
+      over -= r.n;
+    }
+    await db.batch(pick.flatMap((r) => [
+      db.prepare('DELETE FROM imgs WHERE name = ?').bind(r.img),
+      db.prepare("UPDATE memes SET img = '', gone = ? WHERE id = ?").bind(now, r.id),
+    ]));
+    gone += pick.length;
+  }
+  if (gone) console.log('photoCleanup', { gone });
+  return gone;
+}
+
 async function sosCleanup(db) {
   const now = Date.now();
   for (const side of SIDES) {

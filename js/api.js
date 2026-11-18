@@ -90,7 +90,7 @@ async function request(path, init = {}) {
 // Читання без зв'язку: останні відповіді цих запитів лежать у кеші телефона (Cache Storage — не localStorage:
 // його 5 МБ ділять усі застосунки на цьому сайті). Нема мережі — віддаємо збережене і кажемо, що це воно
 const DATA_CACHE = 'data-radovalka';
-const OFFLINE_PATHS = /^(boot|letter|envelopes|letters\/(inbox|sent)|plans|wishes|memes)$/;
+const OFFLINE_PATHS = /^(boot|letter|envelopes|feed|plans|wishes)$/;
 let offline = false;
 export const isOffline = () => offline;
 

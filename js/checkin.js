@@ -3,7 +3,7 @@
 import { DATA, who } from './data.js';
 import { h, toast, cap } from './ui.js';
 import { deliver, waiting } from './outbox.js';
-import { sosSlider } from './sos.js';
+import { sosSlider, sosShown } from './sos.js';
 
 const FRESH = 48 * 3600 * 1000;
 const isToday = (ms) => new Date(ms).toDateString() === new Date().toDateString();
@@ -78,7 +78,7 @@ const UNFOLD = 'Развернуть: «Я в порядке» и «Нужна �
 // Поки на екрані картка SOS, блок сам згорнутий — інакше на малому телефоні «Написать…» їде під вкладки.
 // Розгорнула вручну — до кінця цього SOS лишається розгорнутим
 let sosOpened = false;
-const sosOn = () => !!(DATA.sos?.theirs || DATA.sos?.mine);
+const sosOn = sosShown;
 const theRow = () => document.querySelector('.checkin-row');
 
 function paintFold(row = theRow()) {
