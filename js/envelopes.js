@@ -73,7 +73,7 @@ export function renderEnvelopes(screen) {
     h('h2', { class: pet ? 'title visually-hidden' : 'title' }, 'Открой, когда…'),
     pet ? h('div', { class: 'courier want-courier env-courier' },
       h('span', { class: 'mascot', html: mascotImg(pet) }),
-      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), h('span', { class: 'env-say' }, 'Открой, когда…'), ' Выбирай — принесу 🐾')) : null,
+      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), h('span', { class: 'env-say' }, 'Открой, когда…'))) : null,
     h('div', { class: 'env-grid' }, ...cards),
   ].filter(Boolean));
 }
