@@ -148,6 +148,7 @@ function gifPanel(done) {
   const more = h('button', { type: 'button', class: 'btn mk-more', hidden: true }, 'Ещё гифки');
   const moods = h('div', { class: 'mk-moods', role: 'radiogroup', 'aria-label': 'Настроение' });
   const chips = h('div', { class: 'mk-chips mk-gif-chips', role: 'radiogroup', 'aria-label': 'Ещё гифки' });
+  ribbon(chips);
   const input = h('input', { type: 'search', maxlength: '80', placeholder: 'Найти своими словами', 'aria-label': 'Найти гифку', enterkeyhint: 'search' });
   const form = h('form', { class: 'mk-gif-search', role: 'search' }, input, h('button', { type: 'submit', class: 'btn', 'aria-label': 'Искать' }, '🔎'));
   const aiGo = h('button', { type: 'button', class: 'mk-chip mk-ai-more' }, '✨ Ещё идеи');

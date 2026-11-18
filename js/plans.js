@@ -3,7 +3,7 @@
 import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, toast, cap, reduceMotion } from './ui.js';
+import { h, toast, cap, reduceMotion, ribbon } from './ui.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { burst } from './fx.js';
 import { swipeable } from './feed.js';
@@ -490,12 +490,11 @@ function wheelView(screen, me, pet) {
 
   disc.style.transform = `rotate(${turned}deg)`;
   // Теми — кілька одразу; зняли всі — колесо бере всі
-  const chips = cats.length > 1 ? h('div', { class: 'mk-chips plan-filter', role: 'group', 'aria-label': 'Темы' },
+  const chips = cats.length > 1 ? h('div', { class: 'mk-chips mk-row plan-filter', role: 'group', 'aria-label': 'Темы' },
     ...cats.map(([k, emoji, label]) => h('button', {
       type: 'button', class: 'mk-chip', 'aria-pressed': String(myCats.has(k)), 'aria-checked': String(myCats.has(k)), disabled: iCalled,
       onclick: () => { if (wheelCats.has(k)) wheelCats.delete(k); else wheelCats.add(k); renderPlans(screen); },
     }, `${emoji} ${label}`))) : null;
-  const catNames = (list) => list.map((k) => catOf(k)).map(([, e, l]) => `${e} ${l}`).join(', ');
 
   let hub;
   let note;
@@ -521,11 +520,11 @@ function wheelView(screen, me, pet) {
         renderPlans(screen);
       },
     }, 'Готов!');
-    note = courier(pet, `${cap(me.partner)} зовёт крутить вместе!${inv.cats.length ? ` ${she ? 'Её' : 'Его'} темы: ${catNames(inv.cats)}.` : ''} Отметь свои и жми «Готов» — в колесо попадёт общее.`);
+    note = courier(pet, `${cap(me.partner)} зовёт крутить!${inv.cats.length ? ` ${she ? 'Её' : 'Его'} темы: ${inv.cats.map((k) => catOf(k)[1]).join(' ')}.` : ''} Отметь свои — и «Готов».`);
   } else if (iCalled) {
     hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Ждём…');
     note = h('div', {},
-      courier(pet, `Позвали ${she ? 'её' : 'его'}! Как только ${me.partner} ${she ? 'будет готова' : 'будет готов'}, колесо закрутится — у вас обоих 🎡`),
+      courier(pet, `Позвали ${she ? 'её' : 'его'}! ${cap(me.partner)} ${she ? 'будет готова' : 'будет готов'} — и колесо закрутится у обоих 🎡`),
       h('button', {
         type: 'button', class: 'btn plan-wide',
         onclick: async () => {
@@ -552,18 +551,21 @@ function wheelView(screen, me, pet) {
     note = h('p', { class: 'hint plan-hint' }, `Выбери темы и позови — ${me.partner} отметит свои, и колесо закрутится для вас обоих. Раз в день.`);
   }
 
-  return [chips, wheel(hub),
+  if (chips) ribbon(chips);
+  // Що робити — над колесом, щоб не сховалось під меню
+  return [chips, h('div', { class: 'plan-note' }, note), wheel(hub),
     open.length > WHEEL_MAX ? h('p', { class: 'hint plan-hint' }, `На колесе до ${WHEEL_MAX} планов — каждый раз другие.`) : null,
-    note, result];
+    result];
 }
 
 function showPick(box, p, spin) {
   const pet = p.cat === 'pets' ? pick(Object.keys(DATA.mascots)) || petFor('box') : petFor('box');
   // Хто крутив: я — «решено»; другий — «он покрутил / она покрутила» (рід — за його/її половиною)
   // Крутили вдвох (spin.with); старі обертання — один
+  // Улюбленець — над карткою, інакше на телефоні його ховає нижнє меню
   box.replaceChildren(
-    cardBody(p, 'plan-pick-card'),
     courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)),
+    cardBody(p, 'plan-pick-card'),
     h('p', { class: 'hint plan-hint' }, spin?.with
       ? 'Колесо выбрало для вас двоих — план уже первым в «Наших планах». Крутим снова завтра.'
       : 'Решено — план уже первым в «Наших планах» у вас обоих. Крутим снова завтра.'));

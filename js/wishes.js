@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, toast, cap, showPhoto, reduceMotion } from './ui.js';
+import { h, toast, cap, showPhoto, ribbon } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
 
@@ -372,21 +372,8 @@ function editWish(screen, w, sharedLink = '') {
         onclick: () => { due = preset?.[0] === md ? null : nextDay(md); drawDue(); },
       }, ...card(emoji, name, when(nextDay(md))))));
   };
-  // Стрічка гортається вбік: стрілка біля краю (тап — далі), на кінці стрілка ховається; на старті — одне «підглядання»
-  const moreBtn = h('button', { type: 'button', class: 'want-due-next', 'aria-label': 'Ещё даты', onclick: () => dueChips.scrollBy({ left: dueChips.clientWidth * 0.7, behavior: 'smooth' }) }, '›');
-  // Назад — на компʼютері мишею вбік не погортаєш, тож стрілка й ліворуч (зʼявляється, щойно погортали)
-  const backBtn = h('button', { type: 'button', class: 'want-due-next want-due-back', 'aria-label': 'Назад', onclick: () => dueChips.scrollBy({ left: -dueChips.clientWidth * 0.7, behavior: 'smooth' }) }, '‹');
-  const dueStrip = h('div', { class: 'want-due-strip is-start' }, backBtn, dueChips, moreBtn);
-  const atEnd = () => {
-    dueStrip.classList.toggle('is-end', dueChips.scrollLeft + dueChips.clientWidth >= dueChips.scrollWidth - 4);
-    dueStrip.classList.toggle('is-start', dueChips.scrollLeft <= 4);
-  };
-  dueChips.addEventListener('scroll', atEnd, { passive: true });
-  requestAnimationFrame(() => {
-    atEnd();
-    if (reduceMotion || dueStrip.classList.contains('is-end')) return;
-    setTimeout(() => { dueChips.scrollBy({ left: 60, behavior: 'smooth' }); setTimeout(() => dueChips.scrollBy({ left: -60, behavior: 'smooth' }), 450); }, 500);
-  });
+  // Стрічка — спільна для всього застосунку (краї тануть, стрілки ‹ ›)
+  ribbon(dueChips);
   dueIn.min = today().toLocaleDateString('sv');
   dueIn.addEventListener('change', () => { due = dueIn.value || null; drawDue(); });
   drawDue();
@@ -503,8 +490,8 @@ function editWish(screen, w, sharedLink = '') {
       // Ціна — коротке поле, поруч «очень хочу»: обидва в один рядок
       h('div', { class: 'want-pricerow' }, price, hotBtn),
       note,
-      h('span', { class: 'mk-label want-due-label' }, 'К дате', h('span', { class: 'want-due-more', 'aria-hidden': 'true' }, 'листай →')),
-      dueStrip, dueIn,
+      h('span', { class: 'mk-label want-due-label' }, 'К дате'),
+      dueChips, dueIn,
       h('div', { class: 'sheet-actions' },
         w ? h('button', { type: 'button', class: 'btn want-remove', onclick: remove }, 'Уже не хочу') : null,
         saveBtn)));

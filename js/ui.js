@@ -26,11 +26,25 @@ export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').match
 // Стрічка чипів, що гортається вбік: край, за яким ще щось є, тане — видно, що можна горнути; вибраний чип — у полі зору
 export function ribbon(row) {
   row.classList.add('mk-ribbon');
+  // Стрілки по краях — і для компʼютера (мишею вбік не погортаєш), і щоб на телефоні було видно, що це стрічка
+  const go = (dir) => row.scrollBy({ left: dir * row.clientWidth * 0.7, behavior: reduceMotion ? 'auto' : 'smooth' });
+  const back = h('button', { type: 'button', class: 'rib-arrow rib-back', 'aria-label': 'Листать назад', tabindex: '-1', onclick: () => go(-1) }, '‹');
+  const next = h('button', { type: 'button', class: 'rib-arrow rib-next', 'aria-label': 'Листать дальше', tabindex: '-1', onclick: () => go(1) }, '›');
+  const wrap = h('div', { class: 'rib-wrap' });
   const edges = () => {
     const end = row.scrollWidth - row.clientWidth - row.scrollLeft;
     row.classList.toggle('is-more-start', row.scrollLeft > 4);
     row.classList.toggle('is-more-end', end > 4);
+    wrap.classList.toggle('is-more-start', row.scrollLeft > 4);
+    wrap.classList.toggle('is-more-end', end > 4);
   };
+  // Обгортка для стрілок — щойно стрічка опинилась у документі (ribbon часто кличуть до вставки)
+  const mount = (n = 0) => {
+    if (!row.parentNode) { if (n < 120) requestAnimationFrame(() => mount(n + 1)); return; }
+    if (!row.parentNode.classList?.contains('rib-wrap')) { row.replaceWith(wrap); wrap.append(back, row, next); }
+    edges();
+  };
+  mount();
   row.addEventListener('scroll', edges, { passive: true });
   row.addEventListener('click', (e) => e.target.closest('.mk-chip')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
   new ResizeObserver(edges).observe(row);

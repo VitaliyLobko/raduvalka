@@ -221,12 +221,16 @@
 /* Колесо */
 .plan-filter { margin: 0 0 6px; }
 
+/* Колесо — щоб разом із темами й реплікою влазило на екран телефона */
 .plan-wheel {
   position: relative;
-  width: min(100%, 320px);
+  width: min(100%, 250px, 36vh);
   aspect-ratio: 1;
-  margin: 22px auto 0;
+  margin: 12px auto 0;
 }
+.plan-note .courier { margin-top: 8px; align-items: center; }
+.plan-note .mascot { width: 76px; height: 76px; }
+.plan-note .bubble { padding-block: 8px; }
 
 .plan-disc {
   display: block;
@@ -274,8 +278,8 @@
   top: 50%;
   left: 50%;
   z-index: 1;
-  width: 86px;
-  height: 86px;
+  width: 70px;
+  height: 70px;
   padding: 0;
   transform: translate(-50%, -50%);
   border: 4px solid var(--paper);
@@ -381,10 +385,9 @@
 .plan-filter {
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding: 2px 0;
+  margin: 0 -16px;
+  padding: 2px 16px;
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
-  mask-image: linear-gradient(90deg, #000 85%, transparent);
 }
 .plan-filter::-webkit-scrollbar { display: none; }
 .plan-filter .mk-chip { flex: none; white-space: nowrap; }
