@@ -1,11 +1,12 @@
 // Чат «Письма»: листи (отримані й надіслані) і мемчики разом, по днях — старе вгорі, нове внизу, як у месенджері.
+// Непрочитаний лист — запечатаний конверт, тап відкриває його на весь екран (шторка — в app.js).
 // Свайп вліво — сховати в себе, вправо — відповісти; те саме кнопками
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, ARROW } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
-import { mascotImg, petFor } from './icons.js';
+import { mascotImg, petFor, firstPose } from './icons.js';
 import { flyOut, collapse } from './fx.js';
 import { deliver } from './outbox.js';
 
@@ -26,15 +27,16 @@ let seenAt = { memes: 0, replies: 0 };
 let box = null;
 // Скільки до низу чату було перед перемальовуванням: щоб живе оновлення не зсувало те, що зараз читають
 let fromBottom = 0;
-let redrawAll = null;
-// Лист дня, відкритий за цей захід, лишається нагорі; drawnInFeed — де він був при малюванні екрана
-let pinned = null;
-let drawnInFeed = false;
+// З app.js: open(l) — шторка листа; welcome() — привітальний лист-заготовка (або null); like/reply — для нього
+let ops = {};
 
 const hiddenKey = () => `radovalka:hidden:${DATA.side}`;
 
+// До 0.1.74 схований лист дня з застосунку мав ключ day:<id> — тепер це звичайний рядок l:<id>
+const legacy = (k) => (/^day:[0-9a-f]{8,}$/.test(k) ? `l:${k.slice(4)}` : k);
+
 function readHidden() {
-  try { return new Set(JSON.parse(localStorage.getItem(hiddenKey()) || '[]')); } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem(hiddenKey()) || '[]').map(legacy)); } catch { return new Set(); }
 }
 
 function writeHidden(set) {
@@ -72,29 +74,24 @@ export function feedFresh() {
   const memes = DATA.memes || [];
   let n = memes.filter((m) => (m.mine ? (m.replied || 0) > repliesSeen() : m.created > memesSeen())).length;
   if (cache) {
-    n += cache.inbox.filter((l) => !l.opened && l.id !== dayId()).length;
+    n += cache.inbox.filter((l) => !l.opened).length;
     n += cache.sent.filter((l) => (l.replied || 0) > repliesSeen()).length;
   }
   return n;
 }
 
-export function pinDay(id) { pinned = id; }
+// Ключ привітального листа: у нього нема id, лише дата заготовки
+export const welcomeKey = (w) => `day:${w.date}`;
 
-// Прочитаний лист дня, новіший за який у переписці вже щось є, стає звичайним рядком — нагорі найновіше.
-// Свято й заготовка з бази (без id, у стрічці її нема) лишаються карткою
-export function dayInFeed() {
-  const l = DATA.letter;
-  if (!cache || !l?.id || !l.at || !l.opened || l.special || l.id === pinned || isHidden(dayKey())) return false;
-  const now = Date.now();
-  const hidden = readHidden();
-  const newer = (key, at) => at > l.at && at <= now && !hidden.has(key);
-  return cache.inbox.some((x) => x.id !== l.id && newer(`l:${x.id}`, x.at))
-    || cache.sent.some((x) => newer(`l:${x.id}`, x.kind === 'env' ? x.created : (x.at || x.created)))
-    || (DATA.memes || []).some((m) => newer(`m:${m.id}`, m.created));
-}
+// Лист з отриманих за id — після фонового оновлення об'єкт у кеші новий, старий тримати не можна
+export const findLetter = (id) => cache?.inbox.find((x) => x.id === id) || null;
+export const feedLoaded = () => !!cache;
 
-const dayId = () => (isHidden(dayKey()) || dayInFeed() ? null : DATA.letter?.id);
-export const dayKey = () => (DATA.letter ? `day:${DATA.letter.id || DATA.letter.date}` : '');
+// Перемалювати лише стрічку (після шторки листа)
+export function redrawFeed() { draw(); }
+
+// Запечатаний: справжній лист чи привітальний, ще не відкритий (подарунок — свій вигляд)
+const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind));
 
 function load() {
   if (!loading) {
@@ -109,10 +106,9 @@ function load() {
   return loading;
 }
 
-// Стрічка під листом дня. rerender — перемалювати весь екран «Письма» (для повернення листа дня)
-export function letterFeed(rerender) {
-  redrawAll = rerender;
-  drawnInFeed = dayInFeed();
+// Стрічка «Писем». o — зв'язок з app.js (див. ops)
+export function letterFeed(o) {
+  ops = o || {};
   fromBottom = box?.isConnected ? gap(box) : 0;
   box = h('div', { class: 'feed-box' });
   const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box);
@@ -129,10 +125,8 @@ export function letterFeed(rerender) {
 
 const fresh = () => document.dispatchEvent(new CustomEvent('radovalka:fresh'));
 
-// Дотягнули свіже: лист дня переїхав у стрічку чи назад — перемальовуємо весь екран, інакше лише стрічку
 function settle() {
-  if (box?.isConnected && redrawAll && dayInFeed() !== drawnInFeed) redrawAll();
-  else draw();
+  draw();
   fresh();
 }
 
@@ -142,13 +136,17 @@ const liveMeme = (m) => (DATA.memes || []).find((x) => x.id === m.id) || m;
 
 function items() {
   const now = Date.now();
-  const day = dayId();
   const list = [];
-  for (const l of cache?.inbox || []) if (l.id !== day) list.push({ type: 'in', key: `l:${l.id}`, at: l.at, l });
+  // Привітальний — найперше повідомлення: час — коли його вперше показали на цьому телефоні
+  const w = ops.welcome?.();
+  if (w) list.push({ type: 'in', key: welcomeKey(w), at: w.at, l: w });
+  for (const l of cache?.inbox || []) list.push({ type: 'in', key: `l:${l.id}`, at: l.at, l });
   for (const l of cache?.sent || []) {
     list.push({ type: 'out', key: `l:${l.id}`, at: l.kind === 'env' ? l.created : (l.at || l.created), l, later: l.at > now });
   }
   for (const m of DATA.memes || []) list.push({ type: 'meme', key: `m:${m.id}`, at: m.created, m });
+  // Привітальний завжди перший, навіть якщо другий написав раніше, ніж її вперше відкрили
+  if (w) list[0].at = Math.min(w.at, ...list.slice(1).map((it) => it.at - 1));
   return list.sort((a, b) => b.at - a.at);
 }
 
@@ -174,7 +172,6 @@ function draw(force = false, older = false) {
   const all = items();
   const shown = all.filter((it) => !hidden.has(it.key));
   const hiddenItems = all.filter((it) => hidden.has(it.key));
-  const dayHidden = DATA.letter && hidden.has(dayKey());
 
   // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори
   const list = h('ol', { class: 'feed-list' });
@@ -192,7 +189,7 @@ function draw(force = false, older = false) {
     onclick: () => { limit += PAGE; draw(false, true); },
   }, `Показать раньше · ${shown.length - limit}`);
 
-  const nHidden = hiddenItems.length + (dayHidden ? 1 : 0);
+  const nHidden = hiddenItems.length;
   box.replaceChildren(...[
     shown.length > limit ? more : null,
     nHidden ? h('button', {
@@ -200,15 +197,17 @@ function draw(force = false, older = false) {
       onclick: () => { showHidden = !showHidden; draw(); },
     }, showHidden ? 'Скрыть спрятанные' : `Спрятанные · ${nHidden}`) : null,
     showHidden && nHidden ? h('ul', { class: 'feed-hidden' },
-      dayHidden ? h('li', {}, h('span', {}, '💌 Письмо дня'), restoreBtn(dayKey(), true)) : null,
       ...hiddenItems.map((it) => h('li', {}, h('span', {}, hiddenLabel(it)), restoreBtn(it.key)))) : null,
     shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
-    shown.length && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
+    // Підказка про свайп — лише коли є що гортати: запечатаний конверт тільки відкривають
+    shown.some((it) => !(it.type === 'in' && sealed(it.l))) && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
   ].filter(Boolean));
   watchFresh(list);
   restore();
-  // Остання чужа (найближча до низу, де дивляться) — разок показує, що під нею зліва й справа
+  // Остання чужа (найближча до низу, де дивляться) — разок показує, що під нею зліва й справа.
+  // Запечатаний конверт не гортається — на ньому не показуємо
   const first = [...list.querySelectorAll('.feed-row.is-theirs')].pop();
+  if (!first || first.classList.contains('is-sealed')) return;
   // Вправо пузир штовхає мордочка того, хто приніс
   const lean = (x, s) => () => {
     const b = first.querySelector('.feed-bubble');
@@ -225,10 +224,10 @@ function emptyText() {
   return `Здесь будет ваша переписка: письма, ответы и мемчики. ${cap(me.partner)} тоже их тут увидит.`;
 }
 
-function restoreBtn(key, whole = false) {
+function restoreBtn(key) {
   return h('button', {
     type: 'button', class: 'sent-take',
-    onclick: () => { unhide(key); if (whole) redrawAll?.(); else draw(); fresh(); },
+    onclick: () => { unhide(key); draw(); fresh(); },
   }, 'Вернуть');
 }
 
@@ -237,6 +236,7 @@ function hiddenLabel(it) {
     const whose = it.m.mine ? 'Твой' : (who().partner === 'она' ? 'Её' : 'Его');
     return `🖼 ${whose} мемчик${it.m.caption ? `: ${it.m.caption.slice(0, 40)}` : ''}`;
   }
+  if (it.l.tpl) return '💌 Первое письмо';
   const text = (it.l.text || (it.l.kind === 'gift' ? '🎁 Подарок' : '')).slice(0, 40);
   return `${it.type === 'out' ? '➶' : '💌'} ${text}${(it.l.text || '').length > 40 ? '…' : ''}`;
 }
@@ -258,11 +258,16 @@ const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString
 // Рядок стрічки: li стоїть на місці (під ним — підказка свайпу), пузир їде за пальцем
 function row(it) {
   const mine = it.type === 'out' || (it.type === 'meme' && it.m.mine);
-  const bubble = it.type === 'meme' ? memeBubble(it.m) : it.type === 'in' ? inBubble(it.l) : outBubble(it.l, it.later);
+  const closed = it.type === 'in' && sealed(it.l);
+  const bubble = it.type === 'meme' ? memeBubble(it.m) : closed ? envBubble(it.l) : it.type === 'in' ? inBubble(it.l) : outBubble(it.l, it.later);
   // Чуже повідомлення — з мордочкою того, хто приніс: лист — його кур'єр, мемчик — хто носить мемчики
   const pet = mine ? null : it.type === 'meme' ? petFor('memes') : DATA.mascots[it.l.mascot] ? it.l.mascot : petFor('push');
-  const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${pet ? ' has-pet' : ''}`, 'data-key': it.key },
-    pet ? h('span', { class: 'mascot feed-pet', 'aria-hidden': 'true', html: mascotImg(pet) }) : null, bubble);
+  // До свята кур'єр — у святковому ковпаку
+  const pose = pet && it.type === 'in' && it.l.kind === 'date' ? firstPose(pet, 'party', 'festive') : undefined;
+  const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${pet ? ' has-pet' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key },
+    pet ? h('span', { class: 'mascot feed-pet', 'aria-hidden': 'true', html: mascotImg(pet, pose) }) : null, bubble);
+  // Конверт лише відкривають: сховати чи відповісти, не прочитавши, не можна
+  if (closed) return li;
   const canReply = () => replyTarget(it) != null;
   swipeable(li, bubble, {
     place: 'feed',
@@ -280,6 +285,7 @@ function row(it) {
 
 // Кому можна відповісти: лише на чуже і лише раз
 function replyTarget(it) {
+  if (it.type === 'in' && it.l.tpl) return it.l.reply ? null : { tpl: true, obj: it.l };
   if (it.type === 'in' && !it.l.reply) return { path: `letters/${it.l.id}`, obj: it.l };
   if (it.type === 'meme' && !it.m.mine && !it.m.reply) return { path: `memes/${it.m.id}`, obj: it.m };
   return null;
@@ -323,7 +329,7 @@ function inBubble(l) {
   const me = who();
   const chose = me.youOpened === 'открыла' ? 'выбрала' : 'выбрал';
   const gift = l.gift && l.gift.chosen != null ? l.gift.options[l.gift.chosen] : null;
-  const it = { type: 'in', key: `l:${l.id}`, l };
+  const it = { type: 'in', key: l.tpl ? welcomeKey(l) : `l:${l.id}`, l };
   const text = h('p', { class: 'feed-text' }, l.text || '');
   const bubble = h('div', { class: `feed-bubble${l.opened ? '' : ' is-new'}` });
   const body = h('button', {
@@ -343,6 +349,7 @@ function inBubble(l) {
   },
   h('span', { class: 'feed-meta' },
     h('span', {}, `${l.kind === 'date' ? '🎉' : '💌'} ${hhmm(l.at)}`),
+    l.tpl ? h('span', {}, 'первое письмо') : null,
     newMark(!l.opened),
     gift ? h('span', {}, `🎁 ты ${chose}: ${gift.emoji} ${gift.title}`) : null),
   l.text ? text : null);
@@ -350,6 +357,7 @@ function inBubble(l) {
     type: 'button', class: 'feed-act', 'aria-pressed': String(!!l.liked), 'aria-label': 'Сердечко',
     onclick: async (e) => {
       e.stopPropagation();
+      if (l.tpl) { ops.like?.(l); return; }
       const cur = liveLetter(l);
       const prev = cur.liked;
       cur.liked = !prev;
@@ -368,6 +376,22 @@ function inBubble(l) {
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
     h('div', { class: 'feed-acts' }, like, l.reply ? null : replyBtn(it), hideBtn(it.key))].filter(Boolean));
   return bubble;
+}
+
+// Запечатаний лист у чаті: міні-конверт із печаттю, назва й «Открыть»; тап — шторка на весь екран
+function envBubble(l) {
+  const festive = l.kind === 'date';
+  const name = festive ? 'Праздничное письмо 🎉' : 'Тебе письмо 💌';
+  return h('button', {
+    type: 'button', class: `feed-bubble feed-env${festive ? ' is-festive' : ''}`,
+    'aria-label': `${name}: открыть`,
+    onclick: () => ops.open?.(l),
+  },
+    h('span', { class: 'feed-env-pic', 'aria-hidden': 'true' }),
+    h('span', { class: 'feed-env-text' },
+      h('b', {}, name),
+      h('span', {}, `${hhmm(l.at)}${l.tpl ? ' · первое письмо' : ''}`)),
+    h('span', { class: 'feed-env-go', 'aria-hidden': 'true' }, 'Открыть'));
 }
 
 function outBubble(l, later) {
@@ -478,6 +502,8 @@ async function removeMeme(m) {
 function openReplyFor(it) {
   const target = replyTarget(it);
   if (!target) return;
+  // Привітальний — без відправника: відповідь іде звичайним листом, це робить app.js
+  if (target.tpl) { ops.reply?.(it.l); return; }
   const quote = it.type === 'meme' ? (it.m.caption || 'на мемчик') : (it.l.text || '');
   replySheet(quote, async (text) => {
     await send(target.path, 'PUT', { reply: text });

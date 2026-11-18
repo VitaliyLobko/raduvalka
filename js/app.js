@@ -4,7 +4,7 @@ import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, remembe
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose } from './icons.js';
 import { openWrite } from './write.js';
-import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable, dayInFeed, pinDay } from './feed.js';
+import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, ARROW, waxSeal, SAGITTARIUS_GLYPH, sky, signLine } from './ui.js';
@@ -32,31 +32,38 @@ const POCKET = `<svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidde
 
 let tab = 'letter';
 
-// Стан листа дня { opened, liked, reply }. Лист із застосунку тримає стан у собі на сервері —
-// так відправник бачить «відкрила», ❤️ і відповідь. Лист-заготовка — у mine, за датою
-function letterState() {
-  const l = DATA.letter;
-  if (l.id) return { opened: l.opened, liked: l.liked, reply: l.reply };
+// Привітальний лист-заготовка — перше повідомлення чату. Його стан { opened, liked, reply, at } — у mine.letter за датою;
+// at — коли його вперше показали на цьому телефоні (власного часу в заготовки нема)
+function welcomeState() {
   const s = DATA.mine.letter;
-  return s && s.date === l.date ? s : { date: l.date };
+  return s && s.date === DATA.welcome.date ? s : { date: DATA.welcome.date };
 }
 
-function setLetterState(patch) {
-  const l = DATA.letter;
-  if (l.id) {
-    Object.assign(l, patch);
-    save(`letters/${l.id}`, patch);
-  } else {
-    DATA.mine.letter = { ...letterState(), ...patch };
-    save('mine', { letter: DATA.mine.letter });
+function setWelcome(patch) {
+  DATA.mine.letter = { ...welcomeState(), ...patch };
+  save('mine', { letter: DATA.mine.letter });
+}
+
+// Для стрічки й шторки: текст заготовки + стан цього телефона; tpl — лист без відправника
+function welcomeLetter() {
+  if (!DATA.welcome) return null;
+  if (!welcomeState().at) setWelcome({ at: Date.now() });
+  const st = welcomeState();
+  return { ...DATA.welcome, tpl: true, id: null, at: st.at, opened: !!st.opened, liked: !!st.liked, reply: st.reply || null };
+}
+
+// t — { id, tpl }: який лист міняємо. Справжній тримає стан на сервері — так відправник бачить «открыла», ❤️ і відповідь
+function patchLetter(t, patch) {
+  if (t.tpl) setWelcome(patch);
+  else {
+    const l = findLetter(t.id);
+    if (l) Object.assign(l, patch);
+    // Найновіший лист живе ще й у DATA.letter — без цього крапка на марці не згасла б
+    if (DATA.letter?.id === t.id) Object.assign(DATA.letter, patch);
+    save(`letters/${t.id}`, patch);
   }
   markLetter();
 }
-
-// Прочитаний лист — коротка картка на 3 рядки; цілим — щойно з конверта або після тапу, до перезапуску
-const letterKey = () => DATA.letter.id || DATA.letter.date;
-let expanded = null;
-const setExpanded = (on) => { expanded = on ? letterKey() : null; render(); };
 
 // Лист із застосунку: дата — з часу показу за годинником телефона, репліка кур'єра — за родом
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -69,10 +76,12 @@ function prepLetter(l) {
   return l;
 }
 
-// Сургучна крапка на марці «Письмо», поки свіжий лист не відкрито
+// Сургучна крапка на марці «Письма»: непрочитане в чаті, привітальний лист чи подарунок
 function markLetter() {
-  const day = !!DATA.letter && !isHidden(dayKey()) && !letterState().opened;
-  const fresh = !!DATA.gift || day || feedFresh() > 0;
+  const w = DATA.welcome && !isHidden(welcomeKey(DATA.welcome)) && !welcomeState().opened;
+  // Поки чат не завантажено — дивимось на найновіший лист із boot
+  const early = !feedLoaded() && !!DATA.letter?.id && !DATA.letter.opened;
+  const fresh = !!DATA.gift || w || early || feedFresh() > 0;
   document.querySelector('.tab[data-tab="letter"]')?.classList.toggle('has-new', fresh);
 }
 
@@ -101,14 +110,16 @@ function dayLabel(iso) {
   return s[0].toUpperCase() + s.slice(1);
 }
 
-// Над листом — день і час, коли він прийшов (у заготовки з бази часу нема)
+// Над листом — день і час, коли він прийшов
 const letterWhen = (l) => (l.at
   ? `${dayLabel(l.date)} · ${new Date(l.at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}`
   : dayLabel(l.date));
 
+const festive = (l) => l.kind === 'date';
+
 function courier(letter) {
   // Лист до особливої дати несуть усі разом: у святковому ковпаку, інакше у святковій позі (де вони є)
-  if (letter.special) {
+  if (festive(letter)) {
     return h('div', { class: 'courier courier-all' },
       h('span', { class: 'mascots' }, ...Object.keys(DATA.mascots).map((k) => h('span', { class: 'mascot', html: mascotImg(k, firstPose(k, 'party', 'festive')) }))),
       h('p', { class: 'bubble' }, 'Мы принесли всей командой — сегодня особенный день! 🎉'));
@@ -130,88 +141,69 @@ function readCourier(letter) {
     h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), line));
 }
 
-// «Письма» — міні-чат: заголовок, блок «Я в порядке + SOS» (render), смужка листа дня, переписка, «Написать…».
-// Сам лист дня — у шторці на весь екран (конверт із печаттю, потім лист)
-let daySheet = null;
-let dayBox = null;
+// «Письма» — міні-чат: заголовок, блок «Я в порядке + SOS» (render), переписка, «Написать…».
+// Лист відкривається з чату шторкою на весь екран: конверт із печаттю, потім сам лист
+const FEED_OPS = {
+  open: (l) => openLetter(l),
+  welcome: () => welcomeLetter(),
+  like: () => { setWelcome({ liked: !welcomeState().liked }); redrawFeed(); markLetter(); },
+  reply: () => openReply({ id: null, tpl: true }),
+};
 
 function renderLetter() {
-  // Подарунок, що чекає вибору, — першим; після «Ура!» видно звичайний лист дня
+  // Подарунок, що чекає вибору, — першим; після «Ура!» — чат
   if (DATA.gift) {
-    closeDay();
+    closeLetter();
     renderGift(screen, DATA.gift, () => { DATA.gift = null; markLetter(); render(); });
     return;
   }
-  const { letter } = DATA;
-  // Лист дня сховано свайпом (повернути — у «Спрятанные») або прочитано, а в переписці вже є новіше —
-  // тоді смужки нема, він — звичайне повідомлення в чаті
-  const showDay = !!letter && !isHidden(dayKey()) && !dayInFeed();
-  if (!showDay) closeDay();
   screen.replaceChildren(...[
     h('h2', { class: 'title' }, 'Письма'),
-    showDay ? dayPin(letter) : null,
     pushAsk(),
-    letterFeed(render),
+    letterFeed(FEED_OPS),
     h('button', { type: 'button', class: 'compose', id: 'write-btn', onclick: () => openWrite() },
       h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…'),
   ].filter(Boolean));
-  if (dayBox) fillDay();
 }
 
-// Коротко для смужки: сьогоднішній — лише час, інакше день
-const pinWhen = (l) => (l.at && l.date === isoDay(new Date())
-  ? `сегодня в ${new Date(l.at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}`
-  : dayLabel(l.date));
+// Шторка тримає лише { id, tpl }: фонове оновлення підміняє об'єкти листів у кеші
+let sheet = null;
+const sheetLetter = () => (sheet.tpl ? welcomeLetter() : findLetter(sheet.id));
 
-// Смужка над чатом: хто приніс, міні-конверт, «Открыть» / «Читать»
-function dayPin(letter) {
-  const st = letterState();
-  const pet = DATA.mascots[letter.mascot] ? letter.mascot : petFor('push');
-  const name = letter.special ? 'С праздником 🎉' : st.opened ? 'Письмо дня' : 'Тебе письмо 💌';
-  return h('button', {
-    type: 'button', class: `day-pin${st.opened ? '' : ' is-sealed'}`, onclick: openDay,
-    'aria-label': `${name}: ${st.opened ? 'читать' : 'открыть'}`,
-  },
-    pet ? h('span', { class: 'mascot', html: mascotImg(pet) }) : null,
-    h('span', { class: 'day-pin-env', 'aria-hidden': 'true' }),
-    h('span', { class: 'day-pin-text' },
-      h('b', {}, name),
-      h('span', {}, `${pinWhen(letter)}${st.liked ? ' ❤️' : ''}`)),
-    h('span', { class: 'day-pin-go', 'aria-hidden': 'true' }, st.opened ? 'Читать' : 'Открыть'));
+function openLetter(l) {
+  if (sheet) return;
+  const box = h('div', { class: 'day-body' });
+  const backdrop = h('div', { class: 'backdrop', onclick: closeLetter });
+  const el = h('div', { class: 'sheet sheet-full day-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Письмо' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: closeLetter }, '✕'),
+    h('div', { class: 'sheet-inner' }, box));
+  sheet = { id: l.id, tpl: !!l.tpl, el, box, backdrop };
+  document.body.append(backdrop, el);
+  fillLetter();
 }
 
-function openDay() {
-  if (daySheet) return;
-  dayBox = h('div', { class: 'day-body' });
-  const backdrop = h('div', { class: 'backdrop', onclick: closeDay });
-  daySheet = h('div', { class: 'sheet sheet-full day-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Письмо дня' },
-    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: closeDay }, '✕'),
-    h('div', { class: 'sheet-inner' }, dayBox));
-  daySheet.backdrop = backdrop;
-  document.body.append(backdrop, daySheet);
-  fillDay();
-}
-
-function closeDay() {
-  if (!daySheet) return;
-  daySheet.backdrop.remove();
-  daySheet.remove();
-  daySheet = null;
-  dayBox = null;
+function closeLetter() {
+  if (!sheet) return;
+  sheet.backdrop.remove();
+  sheet.el.remove();
+  sheet = null;
+  redrawFeed();
+  markLetter();
 }
 
 // Вміст шторки: запечатаний конверт або сам лист
-function fillDay() {
-  const { letter } = DATA;
-  if (!letter) { closeDay(); return; }
-  const st = letterState();
-  const full = expanded === letterKey();
+function fillLetter() {
+  if (!sheet) return;
+  const l = sheetLetter();
+  // Відправник забрав лист, поки його не відкрили
+  if (!l) { if (feedLoaded()) closeLetter(); return; }
+  prepLetter(l);
   const head = [
-    h('p', { class: 'day' }, letterWhen(letter)),
-    h('h2', { class: 'title' }, letter.special ? 'Праздничное письмо 🎉' : st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
+    h('p', { class: 'day' }, letterWhen(l)),
+    h('h2', { class: 'title' }, festive(l) ? 'Праздничное письмо 🎉' : l.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
   ];
 
-  if (!st.opened) {
+  if (!l.opened) {
     const env = h('button', {
       type: 'button',
       class: 'envelope',
@@ -223,97 +215,66 @@ function fillDay() {
     h('span', { class: 'env-front', html: POCKET }),
     h('span', { class: 'env-flap' }),
     h('span', { class: 'seal', 'aria-hidden': 'true', html: waxSeal(SAGITTARIUS_GLYPH) }));
-    dayBox.replaceChildren(...head, h('div', { class: 'stage' },
+    sheet.box.replaceChildren(...head, h('div', { class: 'stage' },
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
-      courier(letter)));
+      courier(l)));
     return;
   }
 
   // replaceChildren не пропускає null, на відміну від h()
-  dayBox.replaceChildren(...[
+  sheet.box.replaceChildren(...[
     ...head,
-    // Обгортка — підкладка з підписом, що станеться від змаху (як у стрічці)
-    h('div', { class: `letter-swipe${full ? '' : ' is-compact'}` }, h('article', {
-      class: `letter${letter.special ? ' is-special' : ''}${full ? '' : ' is-compact'}`,
-      ...(full ? {} : {
-        role: 'button',
-        tabindex: '0',
-        'aria-label': 'Прочитать письмо целиком',
-        onclick: () => setExpanded(true),
-        onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(true); } },
-      }),
-    },
-      h('p', { class: 'letter-text' }, letter.text),
-      signLine(DATA.partnerSign, who().from))),
+    h('article', { class: `letter${festive(l) ? ' is-special' : ''}` },
+      h('p', { class: 'letter-text' }, l.text),
+      signLine(DATA.partnerSign, who().from)),
     h('div', { class: 'actions' },
       h('button', {
         type: 'button',
         class: 'btn btn-heart',
-        'aria-pressed': String(!!st.liked),
+        'aria-pressed': String(!!l.liked),
         'aria-label': 'Сердечко',
         onclick: toggleHeart,
-      }, h('span', { class: 'heart', 'aria-hidden': 'true' }, st.liked ? '❤️' : '🤍'), full ? (st.liked ? 'Нравится' : 'Сердечко') : null),
-      st.reply ? null : h('button', { type: 'button', class: 'btn btn-primary', onclick: openReply }, 'Ответить'),
-      h('button', {
-        type: 'button',
-        class: 'btn btn-fold',
-        'aria-expanded': String(full),
-        onclick: () => { setExpanded(!full); if (full) daySheet?.scrollTo({ top: 0 }); },
-      }, full ? '▴ Свернуть' : '▾ Целиком')),
-    st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
-    letter.special ? null : readCourier(letter),
+      }, h('span', { class: 'heart', 'aria-hidden': 'true' }, l.liked ? '❤️' : '🤍'), l.liked ? 'Нравится' : 'Сердечко'),
+      l.reply ? null : h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openReply(sheet) }, 'Ответить')),
+    l.reply ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), l.reply) : null,
+    festive(l) ? null : readCourier(l),
   ].filter(Boolean));
-  // Свайп листа дня: вліво — сховати (лишиться в чаті), вправо — відповісти
-  const card = dayBox.querySelector('article.letter');
-  swipeable(card.parentElement, card, {
-    place: 'feed',
-    canRight: () => !letterState().reply,
-    onLeft: () => {
-      hide(dayKey());
-      closeDay();
-      markLetter();
-      render();
-      toast('Письмо дня спрятано. Вернуть — вверху чата «Спрятанные»');
-    },
-    onRight: openReply,
-  });
-  // Згасання знизу — лише коли текст справді обрізано, коротке письмо лишається чистим
-  const text = dayBox.querySelector('.letter.is-compact .letter-text');
-  if (text) text.classList.toggle('is-clamped', text.scrollHeight > text.clientHeight + 2);
 }
 
 function openEnvelope(env) {
   const done = () => {
-    expanded = letterKey();
-    // Щойно відкритий лишається нагорі до наступного заходу, навіть якщо в переписці є новіше
-    pinDay(DATA.letter.id);
-    setLetterState({ opened: true });
-    render();
+    patchLetter(sheet, { opened: true });
+    fillLetter();
+    redrawFeed();
   };
   if (reduceMotion) return done();
   env.classList.add('is-opening');
   env.disabled = true;
-  setTimeout(done, 1050);
+  setTimeout(() => { if (sheet) done(); }, 1050);
 }
 
 function toggleHeart() {
-  const liked = !letterState().liked;
-  setLetterState({ liked });
-  render();
-  // Заготовка — без відправника, ❤️ лишається на цьому телефоні; «увидит» — лише справжньому листу
-  if (liked && DATA.letter.id) toast(`${cap(who().partner)} увидит твоё ❤️`);
+  const l = sheetLetter();
+  if (!l) return;
+  const liked = !l.liked;
+  patchLetter(sheet, { liked });
+  fillLetter();
+  // Привітальний — без відправника, ❤️ лишається на цьому телефоні; «увидит» — лише справжньому листу
+  if (liked && !sheet.tpl) toast(`${cap(who().partner)} увидит твоё ❤️`);
 }
 
-function openReply() {
+// t — { id, tpl }; шторку листа (якщо відкрита) після відповіді оновлюємо
+function openReply(t) {
+  const target = { id: t.id, tpl: t.tpl };
   const area = h('textarea', { id: 'reply-text', 'data-voice': true, 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
-  const close = () => { sheet.remove(); backdrop.remove(); };
+  const close = () => { box.remove(); backdrop.remove(); };
   const submit = async () => {
     const text = area.value.trim();
     if (!text) { area.focus(); return; }
-    // Заготовка — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
+    // Привітальний — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
     let queued = false;
-    if (!DATA.letter.id) {
+    if (target.tpl) {
       try {
         queued = !!(await deliver('letter', 'letters', { kind: 'now', text })).queued;
       } catch {
@@ -322,20 +283,22 @@ function openReply() {
       }
       invalidateFeed();
     }
-    setLetterState({ reply: text });
+    patchLetter(target, { reply: text, opened: true });
     close();
-    render();
+    fillLetter();
+    if (target.tpl) render();
+    else redrawFeed();
     toast(queued ? 'Нет связи. Ответ ждёт в телефоне и уйдёт сам, когда Радовалка будет открыта с интернетом 📮' : 'Отправлено ➶');
   };
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'reply-title' },
+  const box = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'reply-title' },
     h('div', { class: 'sheet-inner' },
       h('h2', { id: 'reply-title' }, 'Ответ'),
       area,
       h('div', { class: 'sheet-actions' },
         h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
         h('button', { type: 'button', class: 'btn btn-primary', onclick: submit, html: `${ARROW}Отправить` }))));
-  document.body.append(backdrop, sheet);
+  document.body.append(backdrop, box);
   area.focus();
 }
 
@@ -420,7 +383,11 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
   if (goTo(e.data?.go)) refreshAll();
 });
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці
-document.addEventListener('radovalka:fresh', markLetter);
+document.addEventListener('radovalka:fresh', () => {
+  markLetter();
+  // Лист, відкритий у шторці, відправник забрав — закриваємо
+  if (sheet && !sheet.tpl && feedLoaded() && !findLetter(sheet.id)) closeLetter();
+});
 
 // «Поделиться → Радовалка»: service worker поклав картинку в кеш і відкрив ?go=shared.
 // Забираємо лише після входу — якщо замок, картинка чекає в кеші
@@ -663,6 +630,8 @@ async function start() {
     return;
   }
   prepLetter(DATA.letter);
+  // Старий воркер (або збережений до 0.1.74 boot без мережі) привітального окремо не віддає
+  if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
   document.body.classList.remove('is-booting');
   applySide();
   drawChip();

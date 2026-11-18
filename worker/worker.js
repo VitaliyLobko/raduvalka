@@ -149,7 +149,7 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
 
   if (m === 'GET' && path === 'boot') {
-    const [letter, gift, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins] = await Promise.all([
+    const [letter, gift, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins, welcome] = await Promise.all([
       dayLetter(env.DB, side),
       pendingGift(env.DB, side),
       myEnvelopes(env.DB, side),
@@ -159,12 +159,15 @@ async function route(req, env, ctx, info = {}) {
       getDoc(env.DB, 'mascots'),
       listMemes(env.DB, side),
       checkinsOf(env.DB, side),
+      getDoc(env.DB, `letter:${side}`),
     ]);
     return json({
       side,
       pulse: (await getDoc(env.DB, `pulse:${side}`)) || 0,
       checkins,
       letter,
+      // Привітальний лист-заготовка — першим повідомленням чату назавжди, а не лише поки нема справжніх
+      welcome: welcome || null,
       gift,
       envelopes,
       // Для «В конверт»: лише назви її/його конвертів, без самих записок
