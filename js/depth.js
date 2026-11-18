@@ -1,17 +1,25 @@
 // Обʼємний фон: шари на різній «глибині» зсуваються від нахилу телефона (на компʼютері — від миші).
 // Лише transform шарів (рахує відеокарта), подія датчика — не частіше кадру, стоїть, коли згорнуто, під шторкою
 // чи «уменьшить движение». Шари — у CSS (.depth > i, --k — наскільки далеко зсувається шар)
-import { h, reduceMotion } from './ui.js';
+import { h, reduceMotion, sky } from './ui.js';
 
 const MAX = 1;
 const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
 
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
-  const box = h('div', { class: 'depth depth-vona', 'aria-hidden': 'true' },
+  const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-back' }, h('b')),
     h('i', { class: 'dv-mid' }),
     h('i', { class: 'dv-front' }));
+  // Його космос: туманність, далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
+  const vin = h('div', { class: 'depth depth-vin' },
+    h('i', { class: 'ds-nebula' }),
+    h('i', { class: 'ds-far' }, sky(70, 21)),
+    h('i', { class: 'ds-mid' }, sky(26, 3)),
+    h('i', { class: 'ds-near' }, sky(9, 5), h('span', { class: 'meteor' })));
+  // Обидві половини в одній обгортці: зсув (--dx/--dy) успадковують шари обох; показується — своя (CSS)
+  const box = h('div', { class: 'depth-root', 'aria-hidden': 'true' }, vona, vin);
   document.body.prepend(box);
   if (reduceMotion) return;
 

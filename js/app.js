@@ -7,7 +7,7 @@ import { openWrite, prewarmWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine, ENV_POCKET as POCKET } from './ui.js';
+import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs, showWheel } from './plans.js';
@@ -26,8 +26,7 @@ import { sosBox, loadSos, sosCheck } from './sos.js';
 import { startDepth } from './depth.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
-document.body.prepend(sky(46, 3, 'sky-page'));
-// Її фон — шарами на різній глибині, що зсуваються від нахилу телефона
+// Фон обох половин — шарами на різній глибині, що зсуваються від нахилу телефона
 startDepth();
 
 const screen = document.getElementById('screen');
