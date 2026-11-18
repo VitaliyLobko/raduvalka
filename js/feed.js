@@ -357,12 +357,14 @@ function dayFor(d) {
 // Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
 function newsRow(n) {
   const she = who().partner === 'она';
-  const [icon, what, tab] = n.kind === 'wish'
-    ? ['🎁', `${she ? 'добавила' : 'добавил'} хотелку`, 'wish']
-    : ['🧭', `${she ? 'предложила' : 'предложил'} план`, 'plans'];
+  // Колесо: запрошення від другого й останнє обертання; тап — одразу колесо
+  const text = n.kind === 'invite' ? `${cap(who().partner)} ${she ? 'зовёт' : 'зовёт'} крутить колесо — жми «Готов»`
+    : n.kind === 'spin' ? `Колесо выбрало: «${n.title}»`
+    : `${cap(who().partner)} ${n.kind === 'wish' ? `${she ? 'добавила' : 'добавил'} хотелку` : `${she ? 'предложила' : 'предложил'} план`} «${n.title}»`;
+  const [icon, tab] = n.kind === 'wish' ? ['🎁', 'wish'] : n.kind === 'plan' ? ['🧭', 'deck'] : ['🎡', 'wheel'];
   return h('li', { class: 'feed-news' },
     h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.(tab) },
-      h('span', { 'aria-hidden': 'true' }, icon), ` ${cap(who().partner)} ${what} «${n.title}»`));
+      h('span', { 'aria-hidden': 'true' }, icon), ` ${text}`));
 }
 
 function row(it) {

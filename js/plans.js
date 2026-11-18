@@ -591,6 +591,7 @@ function showPick(box, p, spin) {
 // Тап по сповіщенню «Колесо выбрало» — одразу «Наши планы»
 export function showOurs() { view = 'ours'; }
 export function showWheel() { view = 'wheel'; }
+export function showDeck() { view = 'deck'; }
 
 // Колесо в SVG: сектори за годинниковою стрілкою від верху, підписи вздовж радіуса
 function wheelSvg(slots) {

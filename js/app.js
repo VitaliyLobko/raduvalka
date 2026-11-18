@@ -10,7 +10,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFres
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
-import { loadPlans, markPlans, renderPlans, showOurs, showWheel } from './plans.js';
+import { loadPlans, markPlans, renderPlans, showOurs, showWheel, showDeck } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
@@ -23,7 +23,7 @@ import { deliver, startOutbox } from './outbox.js';
 import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
-import { startDepth } from './depth.js';
+import { startDepth, isStill, setStill } from './depth.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 // Фон обох половин — шарами на різній глибині, що зсуваються від нахилу телефона
@@ -153,7 +153,7 @@ const FEED_OPS = {
   like: () => { setWelcome({ liked: !welcomeState().liked }); redrawFeed(); markLetter(); },
   reply: () => openReply({ id: null, tpl: true }),
   compose: (o) => openWrite(o),
-  go: (t) => selectTab(t),
+  go: (t) => goTo(t),
 };
 
 function renderLetter() {
@@ -364,7 +364,8 @@ function goTo(go) {
     return true;
   }
   // «Крутим?» і «Колесо выбрало» — у «Планах» одразу колесо
-  if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'plans') showOurs();
+  // «Новый план» — у колоду «Листать», щоб одразу проголосувати
+  if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
   if (tab !== go) selectTab(go);
   else if (go === 'plans') render();
@@ -576,6 +577,22 @@ const aboutRowBody = (icon, label, note) => [
 ];
 const aboutRow = (icon, label, note, onclick) => h('button', { type: 'button', class: 'about-row', onclick }, ...aboutRowBody(icon, label, note));
 
+// Перемикач «Движение фона»: нахил, пелюстки, падаюча зірка
+function stillSwitch() {
+  const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
+  const paint = () => {
+    const on = !isStill();
+    btn.setAttribute('aria-checked', String(on));
+    btn.replaceChildren(
+      h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, '🌸'),
+      h('span', { class: 'about-row-label' }, 'Движение фона', h('small', {}, 'Наклон телефона, лепестки, падающие звёзды')),
+      h('span', { class: 'about-toggle', 'aria-hidden': 'true' }));
+  };
+  btn.addEventListener('click', () => { setStill(!isStill()); paint(); });
+  paint();
+  return btn;
+}
+
 // Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні
 function openAbout() {
   const btn = document.getElementById('about-btn');
@@ -604,6 +621,8 @@ function openAbout() {
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Размер букв в письмах', textSizePanel()),
       aboutGroup('Уведомления', pushPanel()),
+      // Раптом від руху фону укачує — вимикається тут
+      aboutGroup('Фон', stillSwitch()),
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('На всякий случай',
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),

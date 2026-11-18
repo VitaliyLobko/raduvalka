@@ -510,7 +510,7 @@ async function wishesRoute(req, db, side, rest, notify) {
       db.prepare('INSERT INTO wishes (id, owner, title, price, link, note, hot, created, img, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
         .bind(id, side, f.title, f.price, f.link, f.note, f.hot, created, img?.name ?? null, f.due),
     ]);
-    notify.send(other(side), wishNote(side));
+    notify.send(other(side), wishNote(side, f.title));
     return json({ id, ...f, hot: !!f.hot, img: img?.name ?? null, created }, 201);
   }
   const r = await db.prepare('SELECT * FROM wishes WHERE id = ?').bind(rest).first();
@@ -1014,7 +1014,16 @@ async function feedPage(db, side, url) {
       + "UNION ALL SELECT 'plan' AS kind, id, title, created AS t FROM ideas WHERE author = ? AND ai = 0 AND created < ? "
       + 'ORDER BY t DESC LIMIT ?').bind(other(side), before, other(side), before, take).all(),
   ]);
-  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', news.results]];
+  // Колесо в чаті: запрошення від другого (поки чекає) і останнє обертання — в обох
+  const wheel = [];
+  const inv = await todayInvite(db);
+  if (inv && inv.by === other(side) && inv.at < before) wheel.push({ kind: 'invite', id: `i${inv.at}`, title: '', t: inv.at });
+  const spin = await getDoc(db, 'plan-spin');
+  if (spin?.at && spin.at < before) {
+    const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
+    if (idea) wheel.push({ kind: 'spin', id: `s${spin.at}`, title: idea.title, t: spin.at });
+  }
+  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...wheel]]];
   const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
   let page = all;
   let horizon = 0;
@@ -1551,6 +1560,7 @@ async function plansRoute(req, db, side, rest, notify) {
     if (!f.title) throw fail(400, 'title');
     const { row, stmt } = ideaInsert(db, side, f, 0, Date.now());
     await stmt.run();
+    notify.send(other(side), planNewNote(side, f.title));
     return json(ideaView(row, side), 201);
   }
 
@@ -1569,6 +1579,8 @@ async function plansRoute(req, db, side, rest, notify) {
         + `matched = CASE WHEN ? = 1 AND ${them} = 1 THEN ? ELSE matched END WHERE id = ? AND ${me} IS NULL`)
         .bind(b.vote, b.vote, Date.now(), r.id).run();
       const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
+      // Збіг щойно стався цим голосом — другому push (сам бачить збіг на екрані)
+      if (after && bothLike(after) && !bothLike(r)) notify.send(other(side), planMatchNote(after.title));
       // Без збігу — лише false: ні «ще не дивився», ні «✕» назовні не виходить
       return json(after && bothLike(after) ? { match: true, idea: matchView(after, side) } : { match: false });
     }
@@ -1794,8 +1806,14 @@ function envOpenedNote(from, e) {
   };
 }
 
-function wishNote(from) {
-  return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил, чего хочется', 'Она добавила, чего хочется'), tag: 'wish', go: 'wish' };
+function wishNote(from, title) {
+  return { title: 'Новая хотелка 🎁', body: `${sender(from, 'Он хочет', 'Она хочет')}: «${title}»`, tag: 'wish', go: 'wish' };
+}
+function planNewNote(from, title) {
+  return { title: 'Новый план 🧭', body: `${sender(from, 'Он предложил', 'Она предложила')}: «${title}». Листай — может, совпадёт 💞`, tag: 'plan-new', go: 'deck' };
+}
+function planMatchNote(title) {
+  return { title: 'Совпало! 💞', body: `Вы оба хотите: «${title}»`, tag: 'plan-match', go: 'plans' };
 }
 
 // День за Києвом: «одне обертання на день» міняється опівночі в них, а не за UTC
