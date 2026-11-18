@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved } from './api.js';
 import { VERSION, NEWS } from './version.js';
-import { mascotImg, petName, petFor, loadPets, firstPose } from './icons.js';
+import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed } from './feed.js';
 import { renderGift } from './gift.js';
@@ -126,7 +126,7 @@ function courier(letter) {
   }
   if (!DATA.mascots[letter.mascot]) return null;
   return h('div', { class: 'courier' },
-    h('span', { class: 'mascot', html: mascotImg(letter.mascot) }),
+    h('span', { class: 'mascot', html: mascotImg(letter.mascot, letterPose(letter.mascot, letter.id ?? letter.date)) }),
     h('p', { class: 'bubble' }, h('b', {}, `${petName(letter.mascot)}: `), letter.mascotLine));
 }
 
@@ -137,7 +137,7 @@ function readCourier(letter) {
   if (!pet) return null;
   const line = READ_LINES[new Date().getDate() % READ_LINES.length];
   return h('div', { class: 'courier courier-read' },
-    h('span', { class: 'mascot', html: mascotImg(pet) }),
+    h('span', { class: 'mascot', html: mascotImg(pet, letterPose(pet, letter.id ?? letter.date)) }),
     h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), line));
 }
 
@@ -298,11 +298,8 @@ function render() {
   if (chat) document.documentElement.style.setProperty('--tabs-h', `${document.querySelector('.tabs').offsetHeight}px`);
   if (tab === 'letter') {
     renderLetter();
-    // Під заголовком: сигнал «Нужна помощь» (якщо є), потім блок «Я в порядке» з повзунком допомоги (у подарунка теж є h2)
-    const title = screen.querySelector('h2');
-    const top = [sosBox(), checkinRow()];
-    if (title) title.after(...top);
-    else screen.append(...top);
+    // Першим на екрані, над «Письмами»: сигнал «Нужна помощь» (якщо є), потім блок «Я в порядке» з повзунком допомоги
+    screen.prepend(...[sosBox(), checkinRow()].filter(Boolean));
   }
   else if (tab === 'envelopes') renderEnvelopes(screen);
   else if (tab === 'plans') {

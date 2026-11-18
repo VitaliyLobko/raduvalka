@@ -23,6 +23,18 @@ function fileOf(m, pose) {
   return (ny && m.poses[`ny-${pose}`]) || m.poses[pose] || (ny && m.poses['ny-main']) || m.poses.main;
 }
 
+// Поза кур'єра конкретного листа: від seed (id листа) — у кожного листа своя, в обох однакова, при перемальовці не скаче.
+// Святкові пози — лише для листа до дати; у новорічний сезон — головна (а вона стає новорічною)
+const SPECIAL = new Set(['festive', 'party']);
+export function letterPose(key, seed) {
+  const m = DATA.mascots[key];
+  if (!m || seed == null || newYear()) return 'main';
+  const list = Object.keys(m.poses).filter((p) => !p.startsWith('ny-') && !SPECIAL.has(p));
+  let x = 0;
+  for (const ch of String(seed)) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+  return list[x % list.length] || 'main';
+}
+
 // Перша поза зі списку, яка є в улюбленця, інакше головна
 export const firstPose = (key, ...names) => names.find((p) => DATA.mascots[key]?.poses?.[p]) || 'main';
 

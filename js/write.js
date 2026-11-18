@@ -2,12 +2,12 @@
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
-import { h, toast, cap, ARROW } from './ui.js';
+import { h, toast, cap, ARROW, reduceMotion } from './ui.js';
 import { mountHelper } from './helper.js';
 import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
-import { lastFromPartner } from './feed.js';
+import { recentThread } from './feed.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -31,6 +31,19 @@ const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', mi
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 // Над полем: сьогоднішнє — годиною, інше — днем
+// Стрічка чипів, що гортається вбік: край, за яким ще щось є, тане — видно, що можна горнути; вибраний чип — у полі зору
+function ribbon(row) {
+  row.classList.add('write-when');
+  const edges = () => {
+    const end = row.scrollWidth - row.clientWidth - row.scrollLeft;
+    row.classList.toggle('is-more-start', row.scrollLeft > 4);
+    row.classList.toggle('is-more-end', end > 4);
+  };
+  row.addEventListener('scroll', edges, { passive: true });
+  row.addEventListener('click', (e) => e.target.closest('.mk-chip')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
+  new ResizeObserver(edges).observe(row);
+}
+
 const whenShort = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? hhmm(ms) : dayMonth(ms));
 
 // preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
@@ -114,9 +127,8 @@ export function openWrite(preset = {}) {
     { v: 'date', label: '🎂 К дате' },
     { v: 'gift', label: '🎁 Подарок' },
   ], where, (v) => { where = v; paintNote(); });
-  whereRow.classList.add('write-when');
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
-  envRow.firstChild.classList.add('write-when');
+  [whereRow, envRow.firstChild].forEach(ribbon);
   paintNote();
 
   const pets = Object.keys(DATA.mascots);
@@ -159,15 +171,21 @@ export function openWrite(preset = {}) {
     }, '🎞 Гифка'),
     helper);
 
-  // Над полем — на що відповідаєш: цитата (відповідь) або останнє від другого (новий лист). Тап — цілим
-  const last = reply ? null : lastFromPartner();
-  const ctxText = reply ? reply.quote : last?.text;
-  const ctx = ctxText ? h('button', {
+  // Відповідь — над полем цитата (тап — цілим); новий лист — кусок переписки, як у месенджері: новіше внизу, біля поля
+  const ctx = reply ? h('button', {
     type: 'button', class: 'write-ctx', 'aria-expanded': 'false',
     onclick: () => ctx.setAttribute('aria-expanded', String(ctx.classList.toggle('is-open'))),
   },
-    h('span', { class: 'write-ctx-label' }, reply ? 'Отвечаешь на' : `Последнее от ${me.partner === 'он' ? 'него' : 'неё'} · ${whenShort(last.at)}`),
-    h('span', { class: 'write-ctx-text' }, ctxText)) : null;
+    h('span', { class: 'write-ctx-label' }, 'Отвечаешь на'),
+    h('span', { class: 'write-ctx-text' }, reply.quote)) : null;
+  const recent = reply ? [] : recentThread();
+  const thread = recent.length ? h('div', { class: 'write-thread', role: 'log', 'aria-label': 'Последние сообщения' },
+    ...recent.map((m) => h('div', { class: `write-msg ${m.mine ? 'is-mine' : 'is-theirs'}` },
+      h('span', { class: 'write-msg-text' }, m.text),
+      h('span', { class: 'write-msg-at' }, whenShort(m.at))))) : null;
+  // Поле росте, поки пишеш, — переписка над ним стискається
+  const grow = () => { area.style.height = 'auto'; area.style.height = `${area.scrollHeight + 2}px`; };
+  area.addEventListener('input', grow);
 
   go.addEventListener('click', async () => {
     const text = area.value.trim();
@@ -213,15 +231,16 @@ export function openWrite(preset = {}) {
     }
   });
 
-  // На весь екран, як у месенджері: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить»
+  // На весь екран, як у месенджері: заголовок, переписка (або цитата), інструменти, поле, знизу — «Когда», хто понесе, «Отправить»
   const title = reply ? 'Ответ' : `Письмо ${me.toWhom}`;
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('div', { class: 'sheet-inner' }, ...[
       h('div', { class: 'write-head' },
         h('h2', {}, title),
         h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
       ctx,
+      thread,
       reply ? null : tools,
       area,
       h('div', { class: 'write-dock' }, ...[
@@ -231,7 +250,10 @@ export function openWrite(preset = {}) {
     ].filter(Boolean)));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
-  if (!area.value) area.focus();
+  // Клавіатура стискає вікно — переписка лишається притиснутою донизу, найсвіжіше біля поля
+  if (thread) new ResizeObserver(() => { thread.scrollTop = thread.scrollHeight; }).observe(thread);
+  if (area.value) grow();
+  else area.focus();
   return { sheet, area };
 }
 

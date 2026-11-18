@@ -2283,7 +2283,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 @media (prefers-reduced-motion: reduce) { .want.is-fresh { animation: none; } }
 
 /* Під заголовком «Писем»: дрібний рядок стану, під ним в один ряд «Я в порядке» і повзунок «Нужна помощь» */
-.title:has(+ .checkin-row) { margin-bottom: 8px; }
 /* Блок безпеки: стан другого, «Я в порядке» і SOS — однією карткою, щоб читались як одне ціле */
 .checkin-row {
   --beat: #E5486F;
@@ -2420,7 +2419,18 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 }
 .screen.is-chat > .title { margin: 0 0 8px; font-size: 1.75rem; }
 .screen.is-chat > .checkin-row, .screen.is-chat > .sos-box, .screen.is-chat > .push-ask-slot { flex: none; }
-.screen.is-chat .feed { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0; }
+.screen.is-chat .feed { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0; position: relative; }
+/* «↓ Новое» — прийшло нове, поки гортали вище; тап — донизу */
+.feed-jump {
+  position: absolute; left: 50%; bottom: 10px; z-index: 2; transform: translateX(-50%);
+  min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: var(--plum); color: #fff; font: 700 .9375rem/1 inherit; cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(42, 23, 48, .7); animation: jump-in .25s ease-out;
+}
+.feed-jump[hidden] { display: none; }
+.feed-jump:focus-visible { outline: 3px solid var(--powder); outline-offset: 2px; }
+[data-side="vin"] .feed-jump { background: #E8B84A; color: #1b2b33; }
+@keyframes jump-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 .screen.is-chat .feed-box {
   /* contain: size — довжина переписки не роздуває екран, висоту дає лише flex і мінімум */
   flex: 1; min-height: 160px; contain: size; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
@@ -2521,12 +2531,14 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   font: 400 1.125rem/1.3 var(--hand); white-space: pre-line;
 }
 .write-ctx.is-open .write-ctx-text { display: block; max-height: 40dvh; overflow-y: auto; }
-.write-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.write-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .write-tools .mk-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; }
 .write-tools label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
 /* «Помочь написать» — кнопка в рядку, її панель — окремим рядком на всю ширину */
 .write-tools .write-helper { display: contents; }
-.write-tools .help-open { min-height: 40px; padding: 0 14px; border-style: dashed; }
+/* «Помочь написать» — такий самий чип, в один рядок з «Мемчик» і «Гифка» */
+.write-tools .help-open { width: auto; flex: none; min-height: 40px; margin: 0; padding: 0 10px; border-style: dashed; font-size: .875rem; }
+.write-tools .mk-chip { padding: 0 10px; font-size: .875rem; }
 .write-tools .help-panel { flex-basis: 100%; }
 /* Обгортка 🎤 росте сама — тож колонкою, щоб поле тяглося разом з нею */
 .sheet-write.sheet-full .voice-wrap.is-area { display: flex; flex-direction: column; min-height: 0; }
@@ -2535,7 +2547,14 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 /* «Когда» — одна стрічка, гортається вбік */
 .write-when { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
 .write-when::-webkit-scrollbar { display: none; }
-.write-when .mk-chip { flex: none; white-space: nowrap; }
+/* Край, за яким ще є чипи, тане — видно, що стрічку можна горнути */
+.write-when.is-more-end { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); }
+.write-when.is-more-start { -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px); mask-image: linear-gradient(90deg, transparent, #000 56px); }
+.write-when.is-more-start.is-more-end {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+}
+.write-when .mk-chip { flex: none; white-space: nowrap; padding: 0 11px; }
 .write-dock .write-note { margin: 0; font-size: .8125rem; }
 .write-dock .write-envs { margin-top: 0; }
 /* Хто понесе — мордочки в рядок біля «Отправить» */
@@ -2544,9 +2563,31 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .write-send .write-pets .mk-chip { min-height: 0; padding: 2px; border-radius: 50%; }
 .write-send .write-pets .mk-chip[aria-checked="true"] { box-shadow: 0 0 0 3px var(--wax); }
 .write-send .write-go { flex: 1; width: auto; margin: 0; min-height: 50px; }
-/* Відкрита клавіатура (екран низький): інструменти й підпис ховаються, цитата — один рядок, «Отправить» лишається видно */
+/* Новий лист із перепискою: вона займає вільне місце, поле — 4 рядки й росте, поки пишеш (тоді переписка стискається) */
+.write-thread {
+  flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+  padding: 4px 2px; overscroll-behavior: contain;
+}
+.write-thread > :first-child { margin-top: auto; }
+/* Верхнє повідомлення, що не влізло, тане, а не обрізається рискою */
+.write-thread { -webkit-mask-image: linear-gradient(180deg, transparent, #000 18px); mask-image: linear-gradient(180deg, transparent, #000 18px); }
+.write-msg {
+  display: grid; gap: 1px; max-width: 82%; padding: 6px 12px; border-radius: 16px;
+  background: color-mix(in srgb, var(--lavender) 30%, var(--paper)); color: var(--plum);
+}
+.write-msg.is-theirs { align-self: flex-start; border-bottom-left-radius: 6px; }
+.write-msg.is-mine { align-self: flex-end; border-bottom-right-radius: 6px; background: color-mix(in srgb, var(--powder) 34%, var(--paper)); }
+.write-msg-text {
+  display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  font: 400 1.0625rem/1.25 var(--hand); white-space: pre-line;
+}
+.write-msg-at { justify-self: end; font-size: .6875rem; color: #7a5a78; }
+.sheet-write.has-thread .voice-wrap.is-area { flex: none; }
+.sheet-write.has-thread .write-text { flex: none; min-height: 172px; max-height: 50dvh; overflow-y: auto; }
+/* Відкрита клавіатура (екран низький): інструменти — нижчими чипами, підпис ховається, цитата — один рядок, «Отправить» лишається видно */
 @media (max-height: 600px) {
-  .sheet-write.sheet-full .write-tools, .sheet-write.sheet-full .write-note { display: none; }
+  .sheet-write.sheet-full .write-note { display: none; }
+  .sheet-write.sheet-full .write-tools .mk-chip, .sheet-write.sheet-full .write-tools .help-open { min-height: 34px; }
   .sheet-write.sheet-full .sheet-inner { gap: 6px; }
   .sheet-write.sheet-full .write-ctx { padding: 4px 12px; }
   .sheet-write.sheet-full .write-ctx:not(.is-open) .write-ctx-text { -webkit-line-clamp: 1; }

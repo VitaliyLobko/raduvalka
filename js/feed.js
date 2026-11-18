@@ -6,7 +6,7 @@ import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
-import { mascotImg, petFor, petName, firstPose } from './icons.js';
+import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse } from './fx.js';
 import { deliver } from './outbox.js';
 
@@ -27,6 +27,14 @@ let seenAt = { memes: 0, replies: 0 };
 let box = null;
 // Скільки до низу чату було перед перемальовуванням: щоб живе оновлення не зсувало те, що зараз читають
 let fromBottom = 0;
+// Скільки було прогорнуто згори — новий box (перемальовка вкладки) стає на те саме місце, а не на початок
+let fromTop = 0;
+// Унизу чату — «прилипли»: те, що домальовується (фото, шрифт, новий лист), не відсуває низ.
+// newest — ключ найновішого рядка: змінився, поки гортали вище, — кнопка «↓ Новое»
+let stuck = true;
+let newest = null;
+let jump = null;
+const sizes = new ResizeObserver(() => { if (stuck && box?.isConnected) box.scrollTop = box.scrollHeight; });
 // З app.js: open(l) — шторка листа; welcome() — привітальний лист-заготовка (або null); like/reply — для нього
 let ops = {};
 // Листи, розкриті з конверта, — цілим і після перемальовки; живе оновлення через них не стає (is-open — лише ручне розгортання)
@@ -89,19 +97,26 @@ export const welcomeKey = (w) => `day:${w.date}`;
 export const findLetter = (id) => cache?.inbox.find((x) => x.id === id) || null;
 export const feedLoaded = () => !!cache;
 
-// Останнє від другого — над полем «Написать», щоб було видно, на що відповідаєш.
-// Невідкритий лист не показуємо: це підглянути в конверт
-export function lastFromPartner() {
+// Останні повідомлення переписки — для «Написать…», щоб бачити, на що відповідаєш.
+// Лише те, що вже видно в чаті: запечатане й заплановане на потім не показуємо
+export function recentThread(n = 6) {
   const c = [];
+  const now = Date.now();
   const w = ops.welcome?.();
-  if (w?.opened) c.push({ at: w.at, text: w.text });
-  for (const l of cache?.inbox || []) if (l.opened && l.text) c.push({ at: l.at, text: l.text });
-  for (const l of cache?.sent || []) if (l.reply) c.push({ at: l.replied || l.at, text: l.reply });
-  for (const m of DATA.memes || []) {
-    if (!m.mine) c.push({ at: m.created, text: m.caption ? `🖼 ${m.caption}` : '🖼 Мемчик' });
-    else if (m.reply) c.push({ at: m.replied || m.created, text: m.reply });
+  if (w?.opened) c.push({ at: w.at, text: w.text, mine: false });
+  for (const l of cache?.inbox || []) {
+    if (l.opened && l.text) c.push({ at: l.at, text: l.text, mine: false });
+    if (l.reply) c.push({ at: l.replied || l.at, text: l.reply, mine: true });
   }
-  return c.sort((a, b) => b.at - a.at)[0] || null;
+  for (const l of cache?.sent || []) {
+    if (l.text && ['now', 'morning', 'date'].includes(l.kind) && l.at <= now) c.push({ at: l.at, text: l.text, mine: true });
+    if (l.reply) c.push({ at: l.replied || l.at, text: l.reply, mine: false });
+  }
+  for (const m of DATA.memes || []) {
+    c.push({ at: m.created, text: m.caption ? `🖼 ${m.caption}` : '🖼 Мемчик', mine: !!m.mine });
+    if (m.reply) c.push({ at: m.replied || m.created, text: m.reply, mine: !m.mine });
+  }
+  return c.sort((x, y) => x.at - y.at).slice(-n);
 }
 
 // Перемалювати лише стрічку (після шторки листа)
@@ -127,8 +142,16 @@ function load() {
 export function letterFeed(o) {
   ops = o || {};
   fromBottom = box?.isConnected ? gap(box) : 0;
+  fromTop = box?.isConnected ? box.scrollTop : 0;
+  stuck = fromBottom < 40;
   box = h('div', { class: 'feed-box' });
-  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box);
+  jump = h('button', { type: 'button', class: 'feed-jump', hidden: true, onclick: toEnd }, '↓ Новое');
+  // Гортання рукою: дійшла донизу — знову прилипли і «Новое» вже не треба
+  box.addEventListener('scroll', () => {
+    stuck = gap(box) < 40;
+    if (stuck) jump.hidden = true;
+  }, { passive: true });
+  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box, jump);
   // Секцію ще не вставлено в сторінку — малюємо в неї примусово
   if (cache) draw(true);
   else box.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
@@ -141,6 +164,13 @@ export function letterFeed(o) {
 }
 
 const fresh = () => document.dispatchEvent(new CustomEvent('radovalka:fresh'));
+
+// До найновішого — плавно (без анімацій — одразу)
+function toEnd() {
+  stuck = true;
+  jump.hidden = true;
+  box.scrollTo({ top: box.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
+}
 
 function settle() {
   draw();
@@ -173,7 +203,7 @@ const gap = (el) => el.scrollHeight - el.scrollTop - el.clientHeight;
 // more — дописали старіше згори: тримаємо відстань до низу, щоб прочитане не втекло
 function keepPlace(more) {
   const was = box.isConnected ? gap(box) : fromBottom;
-  const top = box.scrollTop;
+  const top = box.isConnected ? box.scrollTop : fromTop;
   return () => requestAnimationFrame(() => {
     if (!box.isConnected) return;
     if (more || was < 40) box.scrollTop = box.scrollHeight - box.clientHeight - (more ? was : 0);
@@ -184,10 +214,16 @@ function keepPlace(more) {
 // force — box ще не в документі (щойно створений letterFeed); інакше старий box, що зник з екрана, не чіпаємо
 function draw(force = false, older = false) {
   if (!box || (!force && !box.isConnected)) return;
+  const wasStuck = box.isConnected ? gap(box) < 40 : stuck;
   const restore = keepPlace(older);
   const hidden = readHidden();
   const all = items();
   const shown = all.filter((it) => !hidden.has(it.key));
+  // Найновіше змінилось: своє — донизу, щоб видно, що пішло; чуже, поки гортали вище, — «↓ Новое»
+  const top = shown[0];
+  const arrived = !older && newest && top && top.key !== newest ? top : null;
+  if (top) newest = top.key;
+  const mineNew = arrived && (arrived.type === 'out' || (arrived.type === 'meme' && arrived.m.mine));
   const hiddenItems = all.filter((it) => hidden.has(it.key));
 
   // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори
@@ -221,6 +257,11 @@ function draw(force = false, older = false) {
   ].filter(Boolean));
   watchFresh(list);
   restore();
+  stuck = wasStuck || !!mineNew;
+  if (mineNew) requestAnimationFrame(toEnd);
+  else if (arrived && !wasStuck) jump.hidden = false;
+  sizes.disconnect();
+  sizes.observe(list);
   // Остання чужа (найближча до низу, де дивляться) — разок показує, що під нею зліва й справа.
   // Запечатаний конверт не гортається — на ньому не показуємо
   const first = [...list.querySelectorAll('.feed-row.is-theirs')].pop();
@@ -411,7 +452,7 @@ function envBubble(l) {
     onclick: (e) => (l.tpl || festive ? ops.open?.(l) : openHere(l, e.currentTarget)),
   },
     // Улюбленець тримає конверт; до свята — у святковому ковпаку
-    pet ? h('span', { class: 'mascot feed-env-pet', 'aria-hidden': 'true', html: mascotImg(pet, festive ? firstPose(pet, 'party', 'festive') : undefined) }) : null,
+    pet ? h('span', { class: 'mascot feed-env-pet', 'aria-hidden': 'true', html: mascotImg(pet, festive ? firstPose(pet, 'party', 'festive') : letterPose(pet, l.id ?? l.date)) }) : null,
     h('span', { class: 'feed-env-pic', 'aria-hidden': 'true' }),
     h('span', { class: 'feed-env-text' },
       h('b', {}, name),

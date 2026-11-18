@@ -62,7 +62,7 @@ export async function checkIn() {
   setTimeout(paint, 700);
 }
 
-// Під заголовком «Писем»: рядок стану, під ним в один ряд «Я в порядке» і повзунок «Нужна помощь»
+// Над заголовком «Писем»: рядок стану, під ним в один ряд «Я в порядке» і повзунок «Нужна помощь»
 export function checkinRow() {
   return h('div', { class: 'checkin-row' },
     statusLine(),
