@@ -149,7 +149,7 @@ html.is-still .bokeh, html.is-still .depth .sky i { animation: none; }
 .sgr { position: absolute; display: block; }
 /* Зірки сузірʼя мерехтять (8 маленьких — дешево); пунктир стоїть: «текучий» перемальовував би сузірʼя щокадру */
 /* В обох сузірʼя на тому самому місці й під тим самим нахилом */
-.depth .sgr { left: 10%; top: 44%; width: 54%; }
+.depth .sgr { left: 10%; top: 50%; width: 54%; }
 .depth .sgr svg { transform: rotate(-12deg); }
 .sgr-stars :is(circle, path) { transform-box: fill-box; transform-origin: center; animation: sgr-twinkle 5s ease-in-out infinite; }
 @keyframes sgr-twinkle { 50% { opacity: .45; transform: scale(.8); } }
@@ -160,7 +160,7 @@ html.is-covered :is(.sgr-stars circle, .sgr-stars path) { animation-play-state: 
 .sgr-lines line { stroke: #EDB949; stroke-width: .9; stroke-opacity: .45; stroke-dasharray: 2 2.5; }
 .sgr-stars { fill: #F6D27A; }
 .ds-mid .sgr { filter: drop-shadow(0 0 4px rgba(246, 210, 122, .55)); }
-.sgr-label { font: 700 32px var(--hand); fill: #EDB949; fill-opacity: .7; }
+.sgr-label { font: 700 22px var(--hand); fill: #EDB949; fill-opacity: .7; }
 .sgr-heart .sgr-label { fill: #9C3D74; fill-opacity: .5; letter-spacing: .5px; }
 /* Зоряна карта під усім: кола координат і екліптика — ледь помітно */
 .ds-chart { --k: 5px; opacity: .16; }
