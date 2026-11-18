@@ -392,3 +392,26 @@
 .plan-filter::-webkit-scrollbar { display: none; }
 .plan-filter .mk-chip { flex: none; white-space: nowrap; }
 .plan-hub-again { font-size: 1.05rem; }
+
+/* Його половина: жодного сливового на синьому — картки «Планов» темні з кремовим текстом,
+   лічильники й акценти золоті (її кольори перевизначено лише всередині цих карток) */
+[data-side="vin"] .plan-count { background: var(--star); color: var(--night); }
+[data-side="vin"] :is(.plan-card, .plan-match-card) {
+  --plum: var(--cream);
+  --wax: var(--star);
+  --ink-soft: #a9c3c9;
+  --paper: #164557;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--tint) 22%, #1d5469) 0%, #143e50 70%);
+  color: var(--cream);
+}
+[data-side="vin"] .plan-cat-date { --tint: #E98BB5; }
+[data-side="vin"] .plan-cat-trip { --tint: #5FB1D3; }
+[data-side="vin"] .plan-cat-home { --tint: #EDB949; }
+[data-side="vin"] .plan-cat-pets { --tint: #8FBB4C; }
+[data-side="vin"] .plan-cat-other { --tint: #7FA8C9; }
+[data-side="vin"] .plan-vote-yes { border-color: var(--star); background: rgba(237, 185, 73, .18); }
+[data-side="vin"] .plan-card-from { color: #a9c3c9; }
+/* Картки «стосом» під верхньою — теж нічні, а не світлі */
+[data-side="vin"] .plan-deck.has-more::before, [data-side="vin"] .plan-deck.has-more::after { background: #1d5469; box-shadow: 0 0 0 1px rgba(237, 185, 73, .25); }
+/* Лічильник на активній (золотій) вкладці — темний, інакше зливається */
+[data-side="vin"] [aria-checked="true"] > .plan-count { background: var(--night); color: var(--star); }

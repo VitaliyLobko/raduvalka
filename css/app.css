@@ -3125,3 +3125,9 @@ html.is-covered .confetti { animation-play-state: paused; }
 
 .fortune-list { margin: 0 0 14px; padding-left: 26px; display: grid; gap: 6px; font-size: .95rem; }
 .fortune-list li::marker { color: var(--ink-soft); }
+
+/* Його половина: конверти в синьо-бірюзових відтінках, сургуч — золотий (не сливовий на синьому) */
+[data-side="vin"] .env-card:nth-child(3n + 1) { --tint: #4F8FB0 !important; }
+[data-side="vin"] .env-card:nth-child(3n + 2) { --tint: #3E9C98 !important; }
+[data-side="vin"] .env-card:nth-child(3n) { --tint: #C9A45E !important; }
+[data-side="vin"] :is(.me-seal, .seal, .write-seal, .compose-seal) svg { filter: sepia(1) saturate(2.6) hue-rotate(-12deg) brightness(1.08); }
