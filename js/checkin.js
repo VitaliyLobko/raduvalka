@@ -2,6 +2,7 @@
 // Лише свіже (до двох діб) і без лічильника «давно не отмечался» — щоб кнопка не ставала обовʼязком
 import { DATA, who } from './data.js';
 import { h, toast, cap } from './ui.js';
+import { ripple } from './fx.js';
 import { deliver, waiting } from './outbox.js';
 import { sosSlider, sosShown } from './sos.js';
 
@@ -47,7 +48,7 @@ function checkinBtn() {
   const btn = h('button', {
     type: 'button', class: 'checkin-btn',
     'aria-label': `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо`,
-    onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
+    onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); ripple(btn.querySelector('.checkin-heart')); checkIn(); },
   }, h('span', { class: 'checkin-heart', html: HEART }), h('span', { class: 'checkin-label' }, 'Я в порядке'));
   return btn;
 }
@@ -101,7 +102,7 @@ function topHeart() {
   const btn = h('button', {
     type: 'button', class: 'top-heart',
     'aria-label': `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо`,
-    onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
+    onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); ripple(btn); checkIn(); },
   }, h('span', { class: 'checkin-heart', html: HEART }));
   return btn;
 }

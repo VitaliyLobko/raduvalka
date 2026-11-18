@@ -6,6 +6,7 @@ import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, reduceMotion, ribbon } from './ui.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { burst } from './fx.js';
+import { flashConstellation } from './depth.js';
 import { swipeable } from './feed.js';
 
 export const CATS = [
@@ -288,6 +289,8 @@ async function vote(screen, idea, v, card) {
 
 // Збіг: улюбленець радіє разом із вами
 function celebrate(idea) {
+  // Збіг — і ваше сузірʼя на фоні спалахує
+  flashConstellation();
   const pet = petFor('box');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };

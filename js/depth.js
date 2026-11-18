@@ -2,6 +2,7 @@
 // Лише transform шарів (рахує відеокарта), подія датчика — не частіше кадру, стоїть, коли згорнуто, під шторкою
 // чи «уменьшить движение». Шари — у CSS (.depth > i, --k — наскільки далеко зсувається шар)
 import { h, reduceMotion, sky } from './ui.js';
+import { DATA } from './data.js';
 
 const MAX = 1;
 // «Движение фона» вимикається в меню (раптом укачує): нахил, пелюстки, падаюча зірка, плями — стоять
@@ -24,7 +25,7 @@ function constellation(heart) {
   const lines = SGR_LINES.map(([a, b]) => `<line x1="${SGR[a][0]}" y1="${SGR[a][1]}" x2="${SGR[b][0]}" y2="${SGR[b][1]}"/>`).join('');
   const stars = Object.entries(SGR).map(([k, [x, y]], i) => {
     const r = k === 's' || k === 'e' ? 1.35 : 1;
-    const tw = `style="animation-delay:-${(i * 1.37) % 5}s;animation-duration:${4 + (i % 3) * 1.3}s"`;
+    const tw = `style="animation-delay:-${(i * 1.37) % 5}s;animation-duration:${4 + (i % 3) * 1.3}s;--i:${i}"`;
     return heart ? `<g transform="translate(${x} ${y}) scale(${r * 1.5})"><path ${tw} d="${HEART}"/></g>` : `<circle ${tw} cx="${x}" cy="${y}" r="${r * 2.6}"/>`;
   }).join('');
   // Під сузірʼям — підпис, як на зоряній карті (в обох; у неї — сливовим)
@@ -65,6 +66,34 @@ function petals(n, seed, size) {
 }
 const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
 
+// Сузірʼя спалахує зірка за зіркою (збіг у «Планах», тап по сузірʼю на фоні)
+export function flashConstellation() {
+  const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
+  if (!el || reduceMotion) return;
+  el.classList.remove('is-lit');
+  void el.offsetWidth;
+  el.classList.add('is-lit');
+  setTimeout(() => el.classList.remove('is-lit'), 2600);
+}
+
+// Особливий день (дні народження, річниця — з «Вместе»): конфеті падає, сузірʼя світиться яскравіше
+const CONFETTI = ['#F6D27A', '#F7B8D2', '#C9B6F2', '#E8473C', '#8FD3E8'];
+export function markFestive() {
+  const T = DATA.together || {};
+  const md = new Date().toLocaleDateString('sv').slice(5);
+  const today = [T.since, T.bdayVona, T.bdayVin].some((d) => d && d.slice(5) === md);
+  document.documentElement.classList.toggle('is-festive', today);
+  if (!today || !root || root.querySelector('.confetti')) return;
+  for (const layer of root.querySelectorAll('.dv-front, .ds-near')) {
+    for (let i = 0; i < 14; i += 1) {
+      const c = h('span', { class: 'confetti' });
+      const d = 9 + ((i * 7) % 9);
+      c.style.cssText = `left:${(i * 37) % 100}%;--d:${d}s;--delay:-${(i * 1.9) % d}s;--c:${CONFETTI[i % CONFETTI.length]};--drift:${-30 - (i % 5) * 18}px`;
+      layer.append(c);
+    }
+  }
+}
+
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
   const vona = h('div', { class: 'depth depth-vona' },
@@ -82,6 +111,13 @@ export function startDepth() {
   root = box;
   document.documentElement.classList.toggle('is-still', isStill());
   document.body.prepend(box);
+  document.addEventListener('click', (e) => {
+    // Не перехоплюємо справжні дії — кнопки, посилання, поля, шторки, колесо; текст і порожнє місце — можна
+    if (e.target.closest('button, a, input, textarea, select, label, summary, [role="dialog"], [onclick], .plan-wheel, .sheet')) return;
+    const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
+    const r = el?.getBoundingClientRect();
+    if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) flashConstellation();
+  });
   if (reduceMotion) return;
 
   let tx = 0; let ty = 0; let x = 0; let y = 0; let raf = 0;

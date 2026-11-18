@@ -7,7 +7,7 @@ import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
-import { flyOut, collapse } from './fx.js';
+import { flyOut, collapse, burst, petRun } from './fx.js';
 import { saveMeme } from './memesave.js';
 
 const SWIPE = 70;
@@ -297,6 +297,11 @@ function draw(force = false, older = false) {
   stuck = wasStuck || !!mineNew;
   if (mineNew) requestAnimationFrame(toEnd);
   else if (arrived && !wasStuck) jump.hidden = false;
+  // Новий лист від другого — курʼєр підбігає до нього
+  if (arrived && !mineNew && arrived.type === 'in') {
+    const pet = arrived.l.mascot || petFor('push');
+    requestAnimationFrame(() => petRun(rows.get(arrived.key)?.el, mascotImg(pet)));
+  }
   sizes.disconnect();
   sizes.observe(list);
   // Остання чужа (найближча до низу, де дивляться) — разок показує, що під нею зліва й справа.
@@ -466,6 +471,7 @@ function inBubble(l) {
       // Міняємо лише саму кнопку — перебудова всієї стрічки на кожне ❤️ гальмувала б
       const paint = (on) => { like.textContent = on ? '❤️' : '🤍'; like.setAttribute('aria-pressed', String(!!on)); };
       paint(cur.liked);
+      if (cur.liked) burst(like, '❤️', 7);
       try { await send(`letters/${l.id}`, 'PUT', { liked: cur.liked, opened: true }); liveLetter(l).opened = true; } catch {
         liveLetter(l).liked = prev;
         paint(prev);
@@ -612,6 +618,7 @@ async function react(m0, r, acts) {
   m.reaction = prev === r ? null : r;
   const paint = (cur) => acts.querySelectorAll('[aria-pressed]').forEach((b) => b.setAttribute('aria-pressed', String(b.textContent === cur)));
   paint(m.reaction);
+  if (m.reaction) burst(acts, m.reaction, 7);
   try {
     await send(`memes/${m.id}`, 'PUT', { reaction: m.reaction });
   } catch {

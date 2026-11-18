@@ -5,6 +5,7 @@ import { DATA, who } from './data.js';
 import { send } from './api.js';
 import { h, toast, reduceMotion } from './ui.js';
 import { petFor } from './icons.js';
+import { burst } from './fx.js';
 
 // Класика печеньок — короткі добрі передбачення (свої тексти, у стилі справжніх)
 const FORTUNES = [
@@ -122,9 +123,17 @@ export function maybeCookie({ force = false, gold: forceGold = null } = {}) {
   show(day, forceGold ?? isGolden(day));
 }
 
-function show(day, gold) {
+// Перегляд для нього в меню: печенька з випадковим текстом — справжню печеньку дня не чіпає
+export function previewCookie(gold) {
+  const list = gold ? GOLDEN : FORTUNES;
+  document.querySelector('.cookie-layer')?.remove();
+  show(kyivDay(), gold, list[Math.floor(Math.random() * list.length)]);
+}
+export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN });
+
+function show(day, gold, preset = null) {
   const me = who();
-  const text = fortuneFor(day, DATA.side, gold);
+  const text = preset || fortuneFor(day, DATA.side, gold);
   const close = () => { layer.classList.add('is-leaving'); setTimeout(() => layer.remove(), reduceMotion ? 0 : 300); };
   const shareBtn = h('button', {
     type: 'button', class: 'btn btn-primary',
@@ -154,6 +163,8 @@ function show(day, gold) {
     if (layer.classList.contains('is-open')) return;
     layer.classList.add('is-open');
     navigator.vibrate?.(30);
+    // Золота — розсипає іскри
+    if (gold) setTimeout(() => burst(cookie, '✨', 14), 150);
     setTimeout(() => shareBtn.focus(), 700);
   });
   document.body.append(layer);

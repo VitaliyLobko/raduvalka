@@ -24,7 +24,9 @@ import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
-import { maybeCookie } from './cookie.js';
+import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
+import { burst } from './fx.js';
+import { markFestive } from './depth.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 // Фон обох половин — шарами на різній глибині, що зсуваються від нахилу телефона
@@ -269,6 +271,7 @@ function toggleHeart() {
   const liked = !l.liked;
   patchLetter(sheet, { liked });
   fillLetter();
+  if (liked) burst(document.querySelector('.sheet .btn-heart'));
   // Привітальний — без відправника, ❤️ лишається на цьому телефоні; «увидит» — лише справжньому листу
   if (liked && !sheet.tpl) toast(`${cap(who().partner)} увидит твоё ❤️`);
 }
@@ -581,6 +584,23 @@ const aboutRowBody = (icon, label, note) => [
 ];
 const aboutRow = (icon, label, note, onclick) => h('button', { type: 'button', class: 'about-row', onclick }, ...aboutRowBody(icon, label, note));
 
+// Усі тексти печеньок — шторкою: звичайні й золоті
+function openFortunes() {
+  const { regular, golden } = allFortunes();
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { document.removeEventListener('keydown', onKey); sheet.remove(); backdrop.remove(); };
+  const list = (items) => h('ol', { class: 'fortune-list' }, ...items.map((t) => h('li', {}, t)));
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Все предсказания' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
+    h('div', { class: 'sheet-inner' },
+      h('h2', { class: 'title' }, 'Предсказания'),
+      h('h3', { class: 'about-group-title' }, `✨ Золотые · ${golden.length}`), list(golden),
+      h('h3', { class: 'about-group-title' }, `🥠 Обычные · ${regular.length}`), list(regular)));
+  document.body.append(backdrop, sheet);
+  document.addEventListener('keydown', onKey);
+}
+
 // Перемикач «Движение фона»: нахил, пелюстки, падаюча зірка
 function stillSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
@@ -635,6 +655,11 @@ function openAbout() {
         aboutRow(DATA.side === 'vin' ? '🌸' : '🌌', DATA.side === 'vin' ? 'Её половина' : 'Его половина',
           DATA.side === 'vin' ? 'Посмотреть Радовалку её глазами' : 'Посмотреть Радовалку его глазами',
           () => { swapKeys(); leave(() => location.replace(location.pathname)); })) : null,
+      // Лише на його половині: подивитися печеньки й усі передбачення
+      DATA.side === 'vin' ? aboutGroup('Печеньки (только у тебя)',
+        aboutRow('🥠', 'Показать печеньку', 'Случайное предсказание — настоящую не тратит', () => { close(); setTimeout(() => previewCookie(false), 300); }),
+        aboutRow('✨', 'Показать золотую', null, () => { close(); setTimeout(() => previewCookie(true), 300); }),
+        aboutRow('📜', 'Все предсказания', null, () => { close(); openFortunes(); })) : null,
       aboutGroup('Ещё',
         // Тур живе на «Письмах» — туди й повертаємось
         aboutRow('🐾', 'Познакомиться заново', null, () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
@@ -696,6 +721,7 @@ async function start() {
   loadSos();
   noteUpdated();
   checkUpdate();
+  markFestive();
   // У «печенькин день» — печенька з передбаченням, трохи згодом після входу
   setTimeout(maybeCookie, 1500);
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли
