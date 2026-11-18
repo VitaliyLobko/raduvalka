@@ -30,6 +30,9 @@ const SPIN_MS = 3200;
 let view = 'deck';
 // Обрані на цьому телефоні теми колеса (кілька одразу); null — ще не обирали, тоді всі
 let wheelCats = null;
+// Які теми вже траплялись на цьому телефоні (нові — обираються самі) і чи взяли теми з власного запрошення
+const wheelSeen = new Set();
+let wheelSynced = false;
 let data = null;
 // Розгорнуті списки («Сделали», «Мои идеи ждут ответа»): перемальовка екрана не має їх згортати
 const unfolded = new Set();
@@ -457,9 +460,13 @@ function wheelView(screen, me, pet) {
   const iCalled = inv?.by === DATA.side;
   const theyCalled = !!inv && !iCalled;
   const she = me.partner === 'она';
-  wheelCats ||= new Set(cats.map(([k]) => k));
-  // Свої теми після «позвать» уже не міняються — показуємо ті, що відправлені
-  const myCats = iCalled ? new Set(inv.cats) : wheelCats;
+  // Теми, яких ще не бачили (зʼявились нові спільні плани), — одразу обрані; зняті людиною — лишаються знятими
+  wheelCats ||= new Set();
+  for (const [k] of cats) if (!wheelSeen.has(k)) { wheelSeen.add(k); wheelCats.add(k); }
+  // Покликав — показуємо надіслані теми; їх можна змінити, поки другий не натиснув «Готов» (запрошення тихо оновиться)
+  if (iCalled && !wheelSynced) { wheelCats = new Set(inv.cats.length ? inv.cats : cats.map(([k]) => k)); wheelSynced = true; }
+  if (!iCalled) wheelSynced = false;
+  const myCats = wheelCats;
 
   if (open.length < 2 && !data.spin) {
     return [courier(pet, 'Барабану нужно хотя бы два общих плана. Листай идеи — каждое совпадение попадёт сюда.'),
@@ -531,8 +538,15 @@ function wheelView(screen, me, pet) {
   // Теми — кілька одразу; зняли всі — колесо бере всі
   const chips = cats.length > 1 ? h('div', { class: 'mk-chips mk-row plan-filter', role: 'group', 'aria-label': 'Темы' },
     ...cats.map(([k, emoji, label]) => h('button', {
-      type: 'button', class: 'mk-chip', 'aria-pressed': String(myCats.has(k)), 'aria-checked': String(myCats.has(k)), disabled: iCalled,
-      onclick: () => { if (wheelCats.has(k)) wheelCats.delete(k); else wheelCats.add(k); renderPlans(screen); },
+      type: 'button', class: 'mk-chip', 'aria-pressed': String(myCats.has(k)), 'aria-checked': String(myCats.has(k)),
+      onclick: async () => {
+        if (wheelCats.has(k)) wheelCats.delete(k); else wheelCats.add(k);
+        renderPlans(screen);
+        // Уже покликали — оновлюємо теми в запрошенні (без нового push)
+        if (iCalled) {
+          try { const r = await mutate('plans/invite', 'POST', { cats: [...wheelCats] }); data.invite = r.invite; } catch { toast('Темы не обновились — нет связи'); }
+        }
+      },
     }, `${emoji} ${label}`))) : null;
 
   let hub;
