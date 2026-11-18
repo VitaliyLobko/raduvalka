@@ -21,7 +21,8 @@ const WHEEL_MAX = 12;
 const SPIN_MS = 3200;
 
 let view = 'deck';
-let wheelCat = '';
+// Обрані на цьому телефоні теми колеса (кілька одразу); null — ще не обирали, тоді всі
+let wheelCats = null;
 let data = null;
 // Накопичений кут колеса: кожне обертання починається з того місця, де зупинилось попереднє
 let turned = 0;
@@ -418,97 +419,159 @@ const PICK_LINES = [
 ];
 const PET_LINES = ['Это и про меня! Без меня не начинайте 🐾', 'Ура, я тоже участвую! Уже жду 🐾'];
 
+// Колесо вдвох: один кличе «Крутим?» зі своїми темами, другий обирає свої й тисне «Готов» — тоді крутить сервер.
+// У колесо — теми, обрані обома. Одне обертання на день на двох, результат обовʼязковий
 function wheelView(screen, me, pet) {
   const open = data.ours.filter((p) => !p.done);
-  // Сьогодні вже крутили — тема більше не вибирається, колесо показує все
-  if (data.spin) wheelCat = '';
   const cats = CATS.filter(([k]) => open.some((p) => p.cat === k));
-  if (wheelCat && !cats.some(([k]) => k === wheelCat)) wheelCat = '';
-  const pool = open.filter((p) => !wheelCat || p.cat === wheelCat);
+  const inv = data.invite;
+  const iCalled = inv?.by === DATA.side;
+  const theyCalled = !!inv && !iCalled;
+  const she = me.partner === 'она';
+  wheelCats ||= new Set(cats.map(([k]) => k));
+  // Свої теми після «позвать» уже не міняються — показуємо ті, що відправлені
+  const myCats = iCalled ? new Set(inv.cats) : wheelCats;
 
-  const filter = cats.length > 1 ? h('div', { class: 'mk-chips plan-filter', role: 'radiogroup', 'aria-label': 'Что крутим' },
-    ...[['', '', 'Все'], ...cats].map(([k, emoji, label]) => h('button', {
-      type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(wheelCat === k),
-      onclick: () => { wheelCat = k; renderPlans(screen); },
-    }, emoji ? `${emoji} ${label}` : label))) : null;
-
-  if (pool.length < 2) {
-    return [filter,
-      courier(pet, open.length < 2
-        ? 'Колесу нужно хотя бы два общих плана. Листай идеи — каждое совпадение попадёт сюда.'
-        : 'В этой теме пока один план — выбирать не из чего. Возьми «Все» или полистай ещё.'),
+  if (open.length < 2 && !data.spin) {
+    return [courier(pet, 'Колесу нужно хотя бы два общих плана. Листай идеи — каждое совпадение попадёт сюда.'),
       h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'Листать идеи')];
   }
 
-  // Сьогодні вже крутили (хтось із двох) — колесо стоїть на тому плані, нового обертання до завтра
-  const spun = data.spin && open.find((p) => p.id === data.spin.id);
-  // Більше 12 секторів не прочитати — беремо випадкові 12; сьогоднішній — завжди серед них
-  let slots = pool.length > WHEEL_MAX ? [...pool].sort(() => Math.random() - 0.5).slice(0, WHEEL_MAX) : pool;
-  if (spun && !slots.includes(spun)) slots = [spun, ...slots.slice(0, WHEEL_MAX - 1)];
+  // Що на колесі: сьогоднішні сектори з сервера; інакше — превʼю з обраних тем (покликали — перетин з його/її)
+  const byId = new Map(data.ours.map((p) => [p.id, p]));
+  const preview = () => {
+    const want = theyCalled ? [...myCats].filter((c) => inv.cats.includes(c)) : [...myCats];
+    const inWant = open.filter((p) => want.includes(p.cat));
+    const pool = inWant.length ? inWant : open;
+    return pool.length > WHEEL_MAX ? [...pool].sort(() => Math.random() - 0.5).slice(0, WHEEL_MAX) : pool;
+  };
+  let slots = (data.spin?.slots || []).map((id) => byId.get(id)).filter(Boolean);
+  if (!slots.length) {
+    const picked = data.spin && byId.get(data.spin.id);
+    slots = picked ? [picked, ...preview().filter((p) => p.id !== picked.id)].slice(0, WHEEL_MAX) : preview();
+  }
   const disc = wheelSvg(slots);
   const step = 360 / slots.length;
-  // Кут, за якого стрілка вгорі стоїть на секторі i (jitter — щоб не завжди точно посередині)
   const angleTo = (i, jitter = 0) => -((i + 0.5) * step + jitter * step * 0.6);
-  if (spun) turned = angleTo(slots.indexOf(spun));
-  disc.style.transform = `rotate(${turned}deg)`;
   const result = h('div', { class: 'plan-pick', 'aria-live': 'polite' });
-  const spinBtn = h('button', { type: 'button', class: 'plan-hub', disabled: !!data.spin, onclick: () => spin() },
-    data.spin ? 'Завтра' : 'Крутить!');
-  if (spun) showPick(result, spun, data.spin);
-  else if (data.spin) result.append(h('p', { class: 'hint plan-hint' }, 'Сегодня колесо уже крутили. Крутить снова можно завтра.'));
-
-  const spin = async () => {
-    spinBtn.disabled = true;
-    result.replaceChildren();
-    // План обирає сервер (і запамʼятовує на сьогодні для обох) — перекрутити до потрібного не вийде
-    let r;
-    try {
-      r = await mutate('plans/spin', 'POST', { slots: slots.map((p) => p.id) });
-    } catch {
-      spinBtn.disabled = false;
-      toast('Колесо не крутится — нет связи');
-      return;
-    }
-    data.spin = r.spin;
-    data.next = { id: r.spin.id, by: r.spin.by, at: r.spin.at };
-    const i = slots.findIndex((p) => p.id === r.spin.id);
-    // Другий щойно встиг покрутити сам — показуємо його результат
-    if (r.again || i < 0) { renderPlans(screen); return; }
-    const base = turned + (reduceMotion ? 0 : 5 * 360);
+  const spinTo = async (id, from) => {
+    const i = slots.findIndex((p) => p.id === id);
+    if (i < 0) return;
+    const base = from + (reduceMotion ? 0 : 5 * 360);
     const target = angleTo(i, Math.random() - 0.5);
     turned = base + ((((target - base) % 360) + 360) % 360);
     disc.style.transform = `rotate(${turned}deg)`;
     if (!reduceMotion) await wait(SPIN_MS);
-    if (!disc.isConnected) return;
-    spinBtn.textContent = 'Завтра';
-    showPick(result, slots[i], r.spin);
-    if (r.reaches) toast(`${cap(who().partner)} узнает 💜`);
+    if (disc.isConnected) showPick(result, slots[i], data.spin);
   };
+  const wheel = (hub) => h('div', { class: 'plan-wheel' }, disc, h('span', { class: 'plan-pin', 'aria-hidden': 'true' }), hub);
+  const seenKey = `radovalka:wheel-seen:${DATA.side}`;
+  const markSeen = (at) => { try { localStorage.setItem(seenKey, String(at)); } catch { /* приватне вікно */ } };
 
-  return [data.spin ? null : filter,
-    h('div', { class: 'plan-wheel' },
-      disc,
-      h('span', { class: 'plan-pin', 'aria-hidden': 'true' }),
-      spinBtn),
-    pool.length > WHEEL_MAX ? h('p', { class: 'hint plan-hint' }, `На колесе ${WHEEL_MAX} из ${pool.length} — каждый раз другие.`) : null,
-    result];
+  // ── Сьогодні вже крутили: колесо стоїть на результаті; хто бачить уперше — у нього воно прокрутиться
+  if (data.spin) {
+    let seen = '';
+    try { seen = localStorage.getItem(seenKey) || ''; } catch { /* приватне вікно */ }
+    markSeen(data.spin.at);
+    const hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Завтра');
+    if (seen !== String(data.spin.at) && !reduceMotion) {
+      turned = 0;
+      disc.style.transform = 'rotate(0deg)';
+      requestAnimationFrame(() => requestAnimationFrame(() => spinTo(data.spin.id, 0)));
+    } else {
+      turned = angleTo(Math.max(0, slots.findIndex((p) => p.id === data.spin.id)));
+      disc.style.transform = `rotate(${turned}deg)`;
+      const p = byId.get(data.spin.id);
+      if (p) showPick(result, p, data.spin);
+      else result.append(h('p', { class: 'hint plan-hint' }, 'Сегодня колесо уже крутили. Крутим снова завтра.'));
+    }
+    return [wheel(hub), result];
+  }
+
+  disc.style.transform = `rotate(${turned}deg)`;
+  // Теми — кілька одразу; зняли всі — колесо бере всі
+  const chips = cats.length > 1 ? h('div', { class: 'mk-chips plan-filter', role: 'group', 'aria-label': 'Темы' },
+    ...cats.map(([k, emoji, label]) => h('button', {
+      type: 'button', class: 'mk-chip', 'aria-pressed': String(myCats.has(k)), 'aria-checked': String(myCats.has(k)), disabled: iCalled,
+      onclick: () => { if (wheelCats.has(k)) wheelCats.delete(k); else wheelCats.add(k); renderPlans(screen); },
+    }, `${emoji} ${label}`))) : null;
+  const catNames = (list) => list.map((k) => catOf(k)).map(([, e, l]) => `${e} ${l}`).join(', ');
+
+  let hub;
+  let note;
+  if (theyCalled) {
+    // Покликали мене: обираю свої теми — «Готов», і крутить сервер
+    hub = h('button', {
+      type: 'button', class: 'plan-hub',
+      onclick: async () => {
+        hub.disabled = true;
+        let r;
+        try {
+          r = await mutate('plans/spin', 'POST', { cats: [...wheelCats] });
+        } catch (e) {
+          hub.disabled = false;
+          toast(e.status === 409 ? 'Приглашение уже не действует' : 'Колесо не крутится — нет связи');
+          if (e.status === 409) reload(screen);
+          return;
+        }
+        data.spin = r.spin;
+        data.invite = null;
+        data.next = { id: r.spin.id, by: r.spin.by, at: r.spin.at };
+        // Перемалювання з тими самими секторами, що зберіг сервер, — і колесо крутиться (ще «не бачили»)
+        renderPlans(screen);
+      },
+    }, 'Готов!');
+    note = courier(pet, `${cap(me.partner)} зовёт крутить вместе!${inv.cats.length ? ` ${she ? 'Её' : 'Его'} темы: ${catNames(inv.cats)}.` : ''} Отметь свои и жми «Готов» — в колесо попадёт общее.`);
+  } else if (iCalled) {
+    hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Ждём…');
+    note = h('div', {},
+      courier(pet, `Позвали ${she ? 'её' : 'его'}! Как только ${me.partner} ${she ? 'будет готова' : 'будет готов'}, колесо закрутится — у вас обоих 🎡`),
+      h('button', {
+        type: 'button', class: 'btn plan-wide',
+        onclick: async () => {
+          try { await mutate('plans/invite', 'DELETE'); data.invite = null; renderPlans(screen); } catch { toast('Не получилось — нет связи'); }
+        },
+      }, 'Отменить приглашение'));
+  } else {
+    hub = h('button', {
+      type: 'button', class: 'plan-hub',
+      onclick: async () => {
+        hub.disabled = true;
+        try {
+          const r = await mutate('plans/invite', 'POST', { cats: [...wheelCats] });
+          data.invite = r.invite;
+          renderPlans(screen);
+          toast(r.reaches ? `${cap(me.partner)} получит приглашение 💜` : `${cap(me.partner)} увидит, когда откроет «Планы»`);
+        } catch (e) {
+          hub.disabled = false;
+          if (e.status === 409) { reload(screen); return; }
+          toast('Не отправилось — нет связи');
+        }
+      },
+    }, 'Крутим?');
+    note = h('p', { class: 'hint plan-hint' }, `Выбери темы и позови — ${me.partner} отметит свои, и колесо закрутится для вас обоих. Раз в день.`);
+  }
+
+  return [chips, wheel(hub),
+    open.length > WHEEL_MAX ? h('p', { class: 'hint plan-hint' }, `На колесе до ${WHEEL_MAX} планов — каждый раз другие.`) : null,
+    note, result];
 }
 
 function showPick(box, p, spin) {
   const pet = p.cat === 'pets' ? pick(Object.keys(DATA.mascots)) || petFor('box') : petFor('box');
   // Хто крутив: я — «решено»; другий — «он покрутил / она покрутила» (рід — за його/її половиною)
-  const mine = spin.by === DATA.side;
-  const theyDid = `${cap(who().partner)} ${DATA.side === 'vin' ? 'покрутила' : 'покрутил'} колесо`;
+  // Крутили вдвох (spin.with); старі обертання — один
   box.replaceChildren(
     cardBody(p, 'plan-pick-card'),
     courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)),
-    h('p', { class: 'hint plan-hint' }, mine
-      ? 'Решено — план уже первым в «Наших планах» у вас обоих. Крутить снова можно завтра.'
-      : `${theyDid} — решено. Крутить снова можно завтра.`));
+    h('p', { class: 'hint plan-hint' }, spin?.with
+      ? 'Колесо выбрало для вас двоих — план уже первым в «Наших планах». Крутим снова завтра.'
+      : 'Решено — план уже первым в «Наших планах» у вас обоих. Крутим снова завтра.'));
 }
 
 // Тап по сповіщенню «Колесо выбрало» — одразу «Наши планы»
 export function showOurs() { view = 'ours'; }
+export function showWheel() { view = 'wheel'; }
 
 // Колесо в SVG: сектори за годинниковою стрілкою від верху, підписи вздовж радіуса
 function wheelSvg(slots) {

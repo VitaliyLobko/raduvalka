@@ -1499,25 +1499,53 @@ async function plansRoute(req, db, side, rest, notify) {
       next: await planNext(db, results),
       // Сьогоднішнє обертання (одне на двох) — колесо показує його замість нового
       spin: await todaySpin(db),
+      // Запрошення покрутити разом (до кінця дня): хто покликав і які теми обрав
+      invite: await todayInvite(db),
     });
   }
 
-  // Колесо чесне: одне обертання на день на двох, план обирає сервер серед показаних секторів —
-  // і він одразу «идём» у обох, другому push
+  // Колесо вдвох. Один кличе («Крутим?») зі своїми темами — другому push; запрошення живе до кінця дня
+  if (m === 'POST' && rest === 'invite') {
+    if (await todaySpin(db)) throw fail(409, 'spun');
+    const inv = await todayInvite(db);
+    if (inv && inv.by !== side) throw fail(409, 'invited');
+    const invite = { by: side, cats: cleanCats((await readJson(req))?.cats), at: Date.now(), day: kyivDay() };
+    await putDoc(db, 'plan-invite', invite);
+    // Повторне «позвать» того ж дня — без нового push, щоб не смикати
+    if (!inv) notify.send(other(side), planInviteNote(side));
+    return json({ invite, reaches: await hasPush(db, other(side)) });
+  }
+  if (m === 'DELETE' && rest === 'invite') {
+    const inv = await todayInvite(db);
+    if (inv && inv.by === side) await putDoc(db, 'plan-invite', null);
+    return json({ ok: true });
+  }
+
+  // «Готов»: крутить може лише той, кого покликали. У колесо — теми, які обрали обоє (спільних нема — усі);
+  // план обирає сервер, і він одразу «идём» у обох. Сектори (slots) зберігаємо — обоє бачать те саме колесо
   if (m === 'POST' && rest === 'spin') {
     const was = await todaySpin(db);
     if (was) return json({ spin: was, again: true });
-    const b = await readJson(req);
-    const want = new Set(Array.isArray(b?.slots) ? b.slots.map(String) : []);
+    const inv = await todayInvite(db);
+    if (!inv || inv.by === side) throw fail(409, 'invite');
+    const mine = cleanCats((await readJson(req))?.cats);
+    const both = inv.cats.filter((c) => mine.includes(c));
     const { results } = await db.prepare('SELECT * FROM ideas').all();
-    const pool = results.filter((x) => want.has(x.id) && bothLike(x) && !x.done);
-    if (pool.length < 2) throw fail(409, 'pool');
-    const r = pool[crypto.getRandomValues(new Uint32Array(1))[0] % pool.length];
-    const spin = { id: r.id, by: side, at: Date.now(), day: kyivDay() };
+    const open = results.filter((x) => bothLike(x) && !x.done);
+    const inBoth = open.filter((x) => both.includes(x.cat));
+    const pool = inBoth.length ? inBoth : open;
+    if (!pool.length) throw fail(409, 'pool');
+    const rnd = () => crypto.getRandomValues(new Uint32Array(1))[0];
+    const r = pool[rnd() % pool.length];
+    // На колесі до 12 секторів: обраний і випадкові інші з тієї ж добірки
+    const rest12 = pool.filter((x) => x.id !== r.id).sort(() => rnd() - 2 ** 31).slice(0, WHEEL_SLOTS - 1);
+    const slots = [r, ...rest12].sort(() => rnd() - 2 ** 31).map((x) => x.id);
+    const spin = { id: r.id, by: side, with: inv.by, at: Date.now(), day: kyivDay(), cats: inBoth.length ? both : [], slots };
     await putDoc(db, 'plan-spin', spin);
     await putDoc(db, 'plan-next', { id: r.id, by: side, at: spin.at });
-    notify.send(other(side), planGoNote(side, r.title));
-    return json({ spin, reaches: await hasPush(db, other(side)) });
+    await putDoc(db, 'plan-invite', null);
+    notify.send(inv.by, planGoNote(side, r.title));
+    return json({ spin, reaches: await hasPush(db, inv.by) });
   }
 
   if (m === 'POST' && !rest) {
@@ -1780,6 +1808,24 @@ async function todaySpin(db) {
   return s && s.day === kyivDay() ? s : null;
 }
 
+async function todayInvite(db) {
+  const i = await getDoc(db, 'plan-invite');
+  return i && i.day === kyivDay() ? i : null;
+}
+
+const WHEEL_SLOTS = 12;
+// Теми з телефона: лише короткі ключі (food, walk…), не більше дюжини
+const cleanCats = (list) => [...new Set((Array.isArray(list) ? list : []).map(String).filter((c) => /^[a-z]{2,16}$/.test(c)))].slice(0, 12);
+
+function planInviteNote(from) {
+  return {
+    title: 'Крутим колесо? 🎡',
+    body: `${sender(from, 'Он зовёт', 'Она зовёт')} крутить вместе: выбери темы и жми «Готов».`,
+    tag: 'plan-invite',
+    go: 'wheel',
+  };
+}
+
 async function planNext(db, rows) {
   const n = await getDoc(db, 'plan-next');
   const r = n && rows.find((x) => x.id === n.id);
@@ -1790,9 +1836,9 @@ async function planNext(db, rows) {
 function planGoNote(from, title) {
   return {
     title: 'Колесо выбрало 🎡',
-    body: `${sender(from, 'Он покрутил', 'Она покрутила')} колесо: «${title}». Идём!`,
+    body: `${sender(from, 'Он готов', 'Она готова')} — колесо выбрало для вас: «${title}». Идём!`,
     tag: 'plan-go',
-    go: 'plans',
+    go: 'wheel',
   };
 }
 

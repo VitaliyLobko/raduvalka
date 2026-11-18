@@ -10,7 +10,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFres
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
-import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
+import { loadPlans, markPlans, renderPlans, showOurs, showWheel } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
@@ -313,7 +313,9 @@ function render() {
     // Хотелки: показуємо збережене й одразу дотягуємо свіже (друга половина могла дописати)
     const had = !!DATA.wishes;
     renderWishes(screen);
-    if (had) loadWishes().then(() => { if (tab === 'wish') renderWishes(screen); }).catch(() => {});
+    // Перемальовуємо, лише якщо справді змінилось: інакше «новое» вдруге підстрибує, а фото блимають
+    const before = JSON.stringify(DATA.wishes);
+    if (had) loadWishes().then(() => { if (tab === 'wish' && JSON.stringify(DATA.wishes) !== before) renderWishes(screen); }).catch(() => {});
   }
 }
 
@@ -359,9 +361,9 @@ function goTo(go) {
     openWrite(envId ? { where: 'env', envId } : {});
     return true;
   }
+  // «Крутим?» і «Колесо выбрало» — у «Планах» одразу колесо
+  if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
-  // «Колесо выбрало» — у «Планах» одразу «Наши планы»
-  if (go === 'plans') showOurs();
   if (tab !== go) selectTab(go);
   else if (go === 'plans') render();
   return true;

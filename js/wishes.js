@@ -374,8 +374,13 @@ function editWish(screen, w, sharedLink = '') {
   };
   // Стрічка гортається вбік: стрілка біля краю (тап — далі), на кінці стрілка ховається; на старті — одне «підглядання»
   const moreBtn = h('button', { type: 'button', class: 'want-due-next', 'aria-label': 'Ещё даты', onclick: () => dueChips.scrollBy({ left: dueChips.clientWidth * 0.7, behavior: 'smooth' }) }, '›');
-  const dueStrip = h('div', { class: 'want-due-strip' }, dueChips, moreBtn);
-  const atEnd = () => dueStrip.classList.toggle('is-end', dueChips.scrollLeft + dueChips.clientWidth >= dueChips.scrollWidth - 4);
+  // Назад — на компʼютері мишею вбік не погортаєш, тож стрілка й ліворуч (зʼявляється, щойно погортали)
+  const backBtn = h('button', { type: 'button', class: 'want-due-next want-due-back', 'aria-label': 'Назад', onclick: () => dueChips.scrollBy({ left: -dueChips.clientWidth * 0.7, behavior: 'smooth' }) }, '‹');
+  const dueStrip = h('div', { class: 'want-due-strip is-start' }, backBtn, dueChips, moreBtn);
+  const atEnd = () => {
+    dueStrip.classList.toggle('is-end', dueChips.scrollLeft + dueChips.clientWidth >= dueChips.scrollWidth - 4);
+    dueStrip.classList.toggle('is-start', dueChips.scrollLeft <= 4);
+  };
   dueChips.addEventListener('scroll', atEnd, { passive: true });
   requestAnimationFrame(() => {
     atEnd();
@@ -494,7 +499,7 @@ function editWish(screen, w, sharedLink = '') {
         h('div', { class: 'want-linkrow' }, link, fillBtn),
         status, pasted),
       fileIn,
-      h('div', { class: 'want-titlerow' }, picBox, title),
+      h('div', { class: 'want-titlerow' }, title, picBox),
       // Ціна — коротке поле, поруч «очень хочу»: обидва в один рядок
       h('div', { class: 'want-pricerow' }, price, hotBtn),
       note,
