@@ -16,6 +16,7 @@ import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
+import { startLive, check as checkLive } from './live.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
@@ -363,6 +364,8 @@ function goTo(go) {
 }
 navigator.serviceWorker?.addEventListener('message', (e) => {
   if (document.body.classList.contains('is-booting')) return;
+  // Прийшов push при відкритій Радовалці — свіже одразу, не чекаючи перевірки за таймером
+  if (e.data?.refresh) { checkLive(); return; }
   if (goTo(e.data?.go)) refreshAll();
 });
 // Стрічка дізналась про нове або його побачили — оновити крапку на марці
@@ -617,6 +620,7 @@ async function start() {
   takeShared();
   syncPush();
   startOutbox();
+  startLive(refreshAll, DATA.pulse);
   // Ярлик «Я в порядке» (довге натискання на іконку): відмітка одразу; адресу чистимо, щоб перезавантаження не повторило
   if (new URLSearchParams(location.search).get('do') === 'checkin') {
     history.replaceState(null, '', location.pathname);

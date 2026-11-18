@@ -88,6 +88,8 @@ self.addEventListener('push', (event) => {
     note = event.data ? event.data.json() : {};
   } catch { /* лишаємо загальний текст */ }
   const scope = self.registration.scope;
+  // Відкрита Радовалка дотягує свіже одразу, не чекаючи перевірки за таймером
+  self.clients.matchAll({ type: 'window' }).then((wins) => wins.forEach((w) => w.postMessage({ refresh: true }))).catch(() => {});
   event.waitUntil(self.registration.showNotification(note.title || 'Радовалка', {
     body: note.body || 'Тебе что-то принесли 💌',
     tag: note.tag || 'radovalka',

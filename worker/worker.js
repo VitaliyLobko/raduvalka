@@ -94,8 +94,12 @@ export default {
     const cors = corsHeaders(req);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
-      const res = await route(req, env, ctx);
+      const info = {};
+      const res = await route(req, env, ctx, info);
       for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+      if (info.side && res.status < 400 && req.method !== 'GET' && !QUIET.test(info.path)) {
+        ctx?.waitUntil?.(bumpPulse(env.DB, SIDES));
+      }
       return res;
     } catch (e) {
       const status = e.status || 500;
@@ -114,7 +118,7 @@ export default {
   },
 };
 
-async function route(req, env, ctx) {
+async function route(req, env, ctx, info = {}) {
   const url = new URL(req.url);
   if (!url.pathname.startsWith('/api/')) return json({ ok: true, app: 'raduvalka' });
 
@@ -125,6 +129,13 @@ async function route(req, env, ctx) {
   const path = url.pathname.slice(5);
   const m = req.method;
   const notify = pusher(req, env, ctx);
+  info.side = side;
+  info.path = path;
+
+  if (m === 'GET' && path === 'pulse') {
+    const [v, partnerPush] = await Promise.all([getDoc(env.DB, `pulse:${side}`), hasPush(env.DB, other(side))]);
+    return json({ v: v || 0, partnerPush });
+  }
 
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
 
@@ -142,6 +153,7 @@ async function route(req, env, ctx) {
     ]);
     return json({
       side,
+      pulse: (await getDoc(env.DB, `pulse:${side}`)) || 0,
       checkins,
       letter,
       gift,
@@ -278,6 +290,15 @@ async function imgVersions(db, mascots) {
   const { results } = await db.prepare(`SELECT name, updated FROM imgs WHERE name IN (${names.map(() => '?').join(', ')})`)
     .bind(...names).all();
   return Object.fromEntries(results.map((r) => [r.name, r.updated]));
+}
+
+// Мітка змін для живого оновлення: відкрита Радовалка раз на 15 с питає її й дотягує свіже, коли змінилась.
+// Ставиться після кожного запису й перед кожним push (так і cron). Підписка на push, ШІ-підказки й розбір
+// посилань нічого спільного не міняють — інакше два відкриті телефони будили б один одного без кінця
+const QUIET = /^(push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image)$/;
+async function bumpPulse(db, sides) {
+  const now = Date.now();
+  await Promise.all(sides.map((s) => putDoc(db, `pulse:${s}`, now)));
 }
 
 async function getDoc(db, k) {
@@ -1576,6 +1597,7 @@ async function pushOne(env, sub, note) {
 }
 
 async function pushSide(env, side, note) {
+  await bumpPulse(env.DB, [side]).catch(() => {});
   if (!env.VAPID_PRIVATE) return [];
   const { results } = await env.DB.prepare('SELECT * FROM push WHERE side = ?').bind(side).all();
   return Promise.all(results.map((sub) => pushOne(env, sub, note).catch((e) => { console.error('push', e); return 0; })));

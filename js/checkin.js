@@ -3,6 +3,7 @@
 import { DATA, who } from './data.js';
 import { h, toast, cap } from './ui.js';
 import { deliver, waiting } from './outbox.js';
+import { partnerOff } from './push.js';
 
 const FRESH = 48 * 3600 * 1000;
 const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -46,6 +47,7 @@ export function checkinRow() {
   return h('div', { class: 'checkin-row' },
     btn,
     theirLine(),
+    partnerOff(false),
     n ? h('p', { class: 'checkin-wait' }, `📮 Ждёт связи: ${n === 1 ? 'одно письмо' : `${n} ${n < 5 ? 'письма' : 'писем'}`}`) : null);
 }
 
@@ -56,3 +58,4 @@ export function paint() {
 }
 
 document.addEventListener('radovalka:outbox', paint);
+document.addEventListener('radovalka:partner-push', paint);

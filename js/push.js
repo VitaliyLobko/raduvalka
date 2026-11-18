@@ -3,8 +3,20 @@
 // спільний з іншими застосунками на цьому сайті й про Радовалку нічого не каже
 import { get, send } from './api.js';
 import { h, toast } from './ui.js';
+import { DATA, who } from './data.js';
+
+// Другому сповіщення не приходять — сказати прямо, щоб не чекали push, якого не буде
+export function partnerOff(long) {
+  if (DATA.partnerPush !== false) return null;
+  const me = who();
+  const text = `У ${me.partner === 'она' ? 'неё' : 'него'} не включены уведомления, поэтому ${me.toWhom} ничего не приходит`;
+  return h('p', { class: 'hint push-partner-off' }, long
+    ? `${text}. Включить можно на ${me.partner === 'она' ? 'её' : 'его'} телефоне: «О Радовалке» → «🔔 Присылать уведомления».`
+    : `🔕 У ${me.partner === 'она' ? 'неё' : 'него'} выключены уведомления`);
+}
 
 const ASK = 'radovalka:push-ask';
+const ASK_AGAIN = 7 * 86400000;
 const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
 // ready не настане, якщо service worker не зареєструвався, — тоді вважаємо, що push немає
@@ -81,14 +93,15 @@ export async function turnOn() {
 
 function asked() {
   try {
-    return !!localStorage.getItem(ASK);
+    // Закрила хрестиком — не набридаємо тиждень, потім питаємо знову (без сповіщень другий не дізнається нічого)
+    return Date.now() - Number(localStorage.getItem(ASK) || 0) < ASK_AGAIN;
   } catch {
     return true;
   }
 }
 function markAsked() {
   try {
-    localStorage.setItem(ASK, '1');
+    localStorage.setItem(ASK, String(Date.now()));
   } catch { /* приватний режим — спитаємо ще раз, не страшно */ }
 }
 
@@ -120,6 +133,11 @@ export function pushAsk() {
 export function pushPanel() {
   const box = h('div', { class: 'push-panel' });
   const draw = async () => {
+    await drawMine();
+    const off = partnerOff(true);
+    if (off) box.append(off);
+  };
+  const drawMine = async () => {
     const st = await pushState().catch(() => 'unsupported');
     const btn = (label, onclick, cls = 'btn') => h('button', { type: 'button', class: cls, onclick }, label);
     if (st === 'unsupported') {
