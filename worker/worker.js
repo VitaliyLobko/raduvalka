@@ -1734,8 +1734,8 @@ async function sosRoute(req, db, side, path, notify) {
   const key = `sos:${side}`;
   const theirKey = `sos:${other(side)}`;
   if (m === 'GET' && path === 'sos') {
-    const [mine, theirs, phones] = await Promise.all([getDoc(db, key), getDoc(db, theirKey), getDoc(db, 'phones')]);
-    return json({ mine: sosView(mine), theirs: sosView(theirs), reaches: await hasPush(db, other(side)), phone: phones?.[other(side)] || null });
+    const [mine, theirs] = await Promise.all([getDoc(db, key), getDoc(db, theirKey)]);
+    return json({ mine: sosView(mine), theirs: sosView(theirs), reaches: await hasPush(db, other(side)) });
   }
   const now = Date.now();
   if (m === 'POST' && path === 'sos') {

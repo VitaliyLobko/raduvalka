@@ -11,17 +11,32 @@ export const petName = (key) => DATA.mascots[key]?.name || '';
 export const petFor = (role) => Object.keys(DATA.mascots).find((k) => DATA.mascots[k].roles?.includes(role))
   || Object.keys(DATA.mascots)[0];
 
+// Новорічний сезон 15.12–14.01 за місцевою датою
+export function newYear(d = new Date()) {
+  const md = (d.getMonth() + 1) * 100 + d.getDate();
+  return md >= 1215 || md <= 114;
+}
+
+// Файл пози: у сезон «ny-<поза>» замість звичайної, «ny-main» — замість головної
+function fileOf(m, pose) {
+  const ny = newYear();
+  return (ny && m.poses[`ny-${pose}`]) || m.poses[pose] || (ny && m.poses['ny-main']) || m.poses.main;
+}
+
+// Перша поза зі списку, яка є в улюбленця, інакше головна
+export const firstPose = (key, ...names) => names.find((p) => DATA.mascots[key]?.poses?.[p]) || 'main';
+
 // blob-URL фото пози — для canvas у конструкторі мемчиків
 export function petSrc(key, pose = 'main') {
   const m = DATA.mascots[key];
-  return m ? PETS[m.poses[pose] || m.poses.main] || '' : '';
+  return m ? PETS[fileOf(m, pose)] || '' : '';
 }
 
 // data-pet — щоб фото, яке докачалось пізніше, вставилось у вже намальовані картки
 export function mascotImg(key, pose = 'main') {
   const m = DATA.mascots[key];
   if (!m) return '';
-  const file = m.poses[pose] || m.poses.main;
+  const file = fileOf(m, pose);
   return `<img src="${PETS[file] || ''}" data-pet="${file}" alt="${m.name}" width="160" height="160" style="--tilt:${m.tilt}deg" decoding="async">`;
 }
 
@@ -40,7 +55,7 @@ async function loadOne(f) {
 // решту докачує rest() у фоні після показу
 export async function loadPets() {
   await Promise.all(allFiles().map(async (f) => { PETS[f] ||= await cachedImageUrl(f, DATA.imgs?.[f]) || ''; }));
-  const main = [...new Set(Object.values(DATA.mascots).map((m) => m.poses.main))];
+  const main = [...new Set(Object.values(DATA.mascots).map((m) => fileOf(m, 'main')))];
   await Promise.all(main.map(loadOne));
   return async () => {
     await Promise.all(allFiles().map(loadOne));

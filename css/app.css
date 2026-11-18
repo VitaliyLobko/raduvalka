@@ -2433,7 +2433,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .sos-meta { font-size: .875rem; opacity: .85; }
 .sos-card .btn { color: #5A1020; justify-self: start; text-decoration: none; }
 .sos-card .btn-primary { background: #E0465A; border-color: #E0465A; color: #fff; }
-.sos-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .sos-audio { width: 100%; }
 .sos-card.is-mine { background: color-mix(in srgb, #FFE4E8 70%, transparent); border-width: 1px; }
 .sos-card.is-ok { background: #E3F6E8; color: #154A27; border: 1px solid #5DBB7A; }

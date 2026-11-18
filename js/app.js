@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved } from './api.js';
 import { VERSION, NEWS } from './version.js';
-import { mascotImg, petName, petFor, loadPets } from './icons.js';
+import { mascotImg, petName, petFor, loadPets, firstPose } from './icons.js';
 import { openWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable, dayInFeed, pinDay } from './feed.js';
 import { renderGift } from './gift.js';
@@ -107,10 +107,10 @@ const letterWhen = (l) => (l.at
   : dayLabel(l.date));
 
 function courier(letter) {
-  // Лист до особливої дати несуть усі разом, у святкових позах (де вони є)
+  // Лист до особливої дати несуть усі разом: у святковому ковпаку, інакше у святковій позі (де вони є)
   if (letter.special) {
     return h('div', { class: 'courier courier-all' },
-      h('span', { class: 'mascots' }, ...Object.keys(DATA.mascots).map((k) => h('span', { class: 'mascot', html: mascotImg(k, 'festive') }))),
+      h('span', { class: 'mascots' }, ...Object.keys(DATA.mascots).map((k) => h('span', { class: 'mascot', html: mascotImg(k, firstPose(k, 'party', 'festive')) }))),
       h('p', { class: 'bubble' }, 'Мы принесли всей командой — сегодня особенный день! 🎉'));
   }
   if (!DATA.mascots[letter.mascot]) return null;

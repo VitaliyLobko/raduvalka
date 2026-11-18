@@ -1,11 +1,11 @@
 // «Подарок на выбор»: закриті конверти з назвами; обрала — відкривається все, і видно, що було в інших
 import { DATA, who } from './data.js';
 import { send } from './api.js';
-import { mascotImg, petName } from './icons.js';
+import { mascotImg, petName, firstPose } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 
 // Улюбленець у святковому: смокінг, якщо є така поза, інакше святкова, інакше звичайна
-const giftPose = (key) => ['tux', 'festive'].find((p) => DATA.mascots[key]?.poses?.[p]) || 'main';
+const giftPose = (key) => firstPose(key, 'tux', 'festive');
 const isShe = (key) => DATA.mascots[key]?.g === 'f';
 
 export function renderGift(screen, gift, done) {

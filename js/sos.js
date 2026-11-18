@@ -212,7 +212,6 @@ function theirCard(s) {
         loadSos();
       },
     }, 'Вижу');
-  const phone = DATA.sos?.phone;
   return h('div', { class: 'sos-card', role: 'alert' },
     h('p', { class: 'sos-title' }, '🚨 Нужна помощь'),
     h('p', { class: 'sos-meta' }, `${pressed(me.partner)} ${ago(s.at)}`),
@@ -220,7 +219,7 @@ function theirCard(s) {
       ? h('a', { class: 'btn sos-map', href: mapUrl(s), target: '_blank', rel: 'noopener' }, `📍 На карте${s.acc ? ` (±${s.acc} м)` : ''}`)
       : h('p', { class: 'sos-meta' }, '📍 Места пока нет'),
     s.audio ? voiceBtn(s) : h('p', { class: 'sos-meta' }, '🎙 Голосового пока нет'),
-    h('div', { class: 'sos-acts' }, phone ? h('a', { class: 'btn sos-call', href: `tel:${phone}` }, '📞 Позвонить') : null, seenBtn));
+    seenBtn);
 }
 
 function mineCard(s) {
