@@ -3,10 +3,10 @@
 // Свайп вліво — сховати в себе, вправо — відповісти; те саме кнопками
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
-import { h, toast, cap, ARROW } from './ui.js';
+import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, refreshMemes, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
-import { mascotImg, petFor, firstPose } from './icons.js';
+import { mascotImg, petFor, petName, firstPose } from './icons.js';
 import { flyOut, collapse } from './fx.js';
 import { deliver } from './outbox.js';
 
@@ -29,6 +29,8 @@ let box = null;
 let fromBottom = 0;
 // З app.js: open(l) — шторка листа; welcome() — привітальний лист-заготовка (або null); like/reply — для нього
 let ops = {};
+// Листи, розкриті з конверта, — цілим і після перемальовки; живе оновлення через них не стає (is-open — лише ручне розгортання)
+const unfolded = new Set();
 
 const hiddenKey = () => `radovalka:hidden:${DATA.side}`;
 
@@ -86,6 +88,21 @@ export const welcomeKey = (w) => `day:${w.date}`;
 // Лист з отриманих за id — після фонового оновлення об'єкт у кеші новий, старий тримати не можна
 export const findLetter = (id) => cache?.inbox.find((x) => x.id === id) || null;
 export const feedLoaded = () => !!cache;
+
+// Останнє від другого — над полем «Написать», щоб було видно, на що відповідаєш.
+// Невідкритий лист не показуємо: це підглянути в конверт
+export function lastFromPartner() {
+  const c = [];
+  const w = ops.welcome?.();
+  if (w?.opened) c.push({ at: w.at, text: w.text });
+  for (const l of cache?.inbox || []) if (l.opened && l.text) c.push({ at: l.at, text: l.text });
+  for (const l of cache?.sent || []) if (l.reply) c.push({ at: l.replied || l.at, text: l.reply });
+  for (const m of DATA.memes || []) {
+    if (!m.mine) c.push({ at: m.created, text: m.caption ? `🖼 ${m.caption}` : '🖼 Мемчик' });
+    else if (m.reply) c.push({ at: m.replied || m.created, text: m.reply });
+  }
+  return c.sort((a, b) => b.at - a.at)[0] || null;
+}
 
 // Перемалювати лише стрічку (після шторки листа)
 export function redrawFeed() { draw(); }
@@ -208,12 +225,8 @@ function draw(force = false, older = false) {
   // Запечатаний конверт не гортається — на ньому не показуємо
   const first = [...list.querySelectorAll('.feed-row.is-theirs')].pop();
   if (!first || first.classList.contains('is-sealed')) return;
-  // Вправо пузир штовхає мордочка того, хто приніс
   const lean = (x, s) => () => {
-    const b = first.querySelector('.feed-bubble');
-    const pet = first.querySelector('.feed-pet');
-    b.style.transform = x ? `translateX(${x}px)` : '';
-    if (pet) pet.style.transform = x > 0 ? `translateX(${x - 10}px) rotate(12deg)` : '';
+    first.querySelector('.feed-bubble').style.transform = x ? `translateX(${x}px)` : '';
     first.dataset.swipe = s;
   };
   nudge('feed', first, [lean(-64, 'hide-soon'), lean(0, ''), lean(64, 'reply-soon'), lean(0, '')]);
@@ -260,12 +273,8 @@ function row(it) {
   const mine = it.type === 'out' || (it.type === 'meme' && it.m.mine);
   const closed = it.type === 'in' && sealed(it.l);
   const bubble = it.type === 'meme' ? memeBubble(it.m) : closed ? envBubble(it.l) : it.type === 'in' ? inBubble(it.l) : outBubble(it.l, it.later);
-  // Чуже повідомлення — з мордочкою того, хто приніс: лист — його кур'єр, мемчик — хто носить мемчики
-  const pet = mine ? null : it.type === 'meme' ? petFor('memes') : DATA.mascots[it.l.mascot] ? it.l.mascot : petFor('push');
-  // До свята кур'єр — у святковому ковпаку
-  const pose = pet && it.type === 'in' && it.l.kind === 'date' ? firstPose(pet, 'party', 'festive') : undefined;
-  const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${pet ? ' has-pet' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key },
-    pet ? h('span', { class: 'mascot feed-pet', 'aria-hidden': 'true', html: mascotImg(pet, pose) }) : null, bubble);
+  // Мордочки збоку нема — вона читалась як автор. Улюбленець лише приносить: сидить біля конверта, у листі — «🐾 ім'я»
+  const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key }, bubble);
   // Конверт лише відкривають: сховати чи відповісти, не прочитавши, не можна
   if (closed) return li;
   const canReply = () => replyTarget(it) != null;
@@ -331,10 +340,18 @@ function inBubble(l) {
   const gift = l.gift && l.gift.chosen != null ? l.gift.options[l.gift.chosen] : null;
   const it = { type: 'in', key: l.tpl ? welcomeKey(l) : `l:${l.id}`, l };
   const text = h('p', { class: 'feed-text' }, l.text || '');
-  const bubble = h('div', { class: `feed-bubble${l.opened ? '' : ' is-new'}` });
+  const full = unfolded.has(it.key);
+  const bubble = h('div', { class: `feed-bubble${l.opened ? '' : ' is-new'}${full ? ' is-full' : ''}` });
   const body = h('button', {
-    type: 'button', class: 'feed-body', 'aria-expanded': 'false',
+    type: 'button', class: 'feed-body', 'aria-expanded': String(full),
     onclick: () => {
+      // Розкритий з конверта — тап згортає, як звичайний
+      if (bubble.classList.contains('is-full')) {
+        unfolded.delete(it.key);
+        bubble.classList.remove('is-full');
+        body.setAttribute('aria-expanded', 'false');
+        return;
+      }
       const open = bubble.classList.toggle('is-open');
       body.setAttribute('aria-expanded', String(open));
       // Відкрив тут — прочитано; лише за тапом, не за показом
@@ -349,6 +366,7 @@ function inBubble(l) {
   },
   h('span', { class: 'feed-meta' },
     h('span', {}, `${l.kind === 'date' ? '🎉' : '💌'} ${hhmm(l.at)}`),
+    courierOf(l) ? h('span', { class: 'feed-courier' }, `🐾 ${petName(courierOf(l))}`) : null,
     l.tpl ? h('span', {}, 'первое письмо') : null,
     newMark(!l.opened),
     gift ? h('span', {}, `🎁 ты ${chose}: ${gift.emoji} ${gift.title}`) : null),
@@ -378,20 +396,46 @@ function inBubble(l) {
   return bubble;
 }
 
+// Хто приніс лист: його кур'єр, а як нема — той, хто зазвичай приносить
+const courierOf = (l) => (DATA.mascots[l.mascot] ? l.mascot : petFor('push'));
+
 // Запечатаний лист у чаті: міні-конверт із печаттю, назва й «Открыть»; тап — шторка на весь екран
 function envBubble(l) {
   const festive = l.kind === 'date';
+  const pet = courierOf(l);
+  const she = DATA.mascots[pet]?.g === 'f';
   const name = festive ? 'Праздничное письмо 🎉' : 'Тебе письмо 💌';
   return h('button', {
     type: 'button', class: `feed-bubble feed-env${festive ? ' is-festive' : ''}`,
     'aria-label': `${name}: открыть`,
-    onclick: () => ops.open?.(l),
+    onclick: (e) => (l.tpl || festive ? ops.open?.(l) : openHere(l, e.currentTarget)),
   },
+    // Улюбленець тримає конверт; до свята — у святковому ковпаку
+    pet ? h('span', { class: 'mascot feed-env-pet', 'aria-hidden': 'true', html: mascotImg(pet, festive ? firstPose(pet, 'party', 'festive') : undefined) }) : null,
     h('span', { class: 'feed-env-pic', 'aria-hidden': 'true' }),
     h('span', { class: 'feed-env-text' },
       h('b', {}, name),
-      h('span', {}, `${hhmm(l.at)}${l.tpl ? ' · первое письмо' : ''}`)),
+      h('span', {}, `${pet ? `${petName(pet)} ${she ? 'принесла' : 'принёс'} · ` : ''}${hhmm(l.at)}${l.tpl ? ' · первое письмо' : ''}`)),
     h('span', { class: 'feed-env-go', 'aria-hidden': 'true' }, 'Открыть'));
+}
+
+// Звичайний лист розкривається прямо в чаті: печатка злітає — і на місці конверта сам лист, цілим
+function openHere(l, env) {
+  const key = `l:${l.id}`;
+  const done = () => {
+    const cur = liveLetter(l);
+    cur.opened = true;
+    // Найновіший лист живе ще й у DATA.letter (з boot)
+    if (DATA.letter?.id === l.id) DATA.letter.opened = true;
+    send(`letters/${l.id}`, 'PUT', { opened: true }).catch(() => {});
+    unfolded.add(key);
+    draw();
+    fresh();
+  };
+  if (reduceMotion) { done(); return; }
+  env.classList.add('is-opening');
+  env.disabled = true;
+  setTimeout(done, 420);
 }
 
 function outBubble(l, later) {
@@ -515,35 +559,10 @@ function openReplyFor(it) {
   });
 }
 
-// Шторка відповіді: цитата, поле, «Отправить»; onSend кидає помилку — шторка лишається з текстом
+// Відповідь — той самий екран, що й «Написать» (app.js передає openWrite): цитата зверху, поле на всю висоту.
+// onSend кидає помилку — екран лишається з текстом
 function replySheet(quote, onSend) {
-  const area = h('textarea', { 'data-voice': true, 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
-  const close = () => { sheet.remove(); backdrop.remove(); };
-  const go = h('button', { type: 'button', class: 'btn btn-primary', html: `${ARROW}Отправить` });
-  go.addEventListener('click', async () => {
-    const text = area.value.trim();
-    if (!text) { area.focus(); return; }
-    go.disabled = true;
-    try {
-      const said = await onSend(text);
-      close();
-      toast(said || 'Отправлено ➶');
-    } catch {
-      go.disabled = false;
-      toast('Не отправилось — проверь интернет');
-    }
-  });
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Ответ' },
-    h('div', { class: 'sheet-inner' },
-      h('h2', {}, 'Ответ'),
-      quote ? h('p', { class: 'feed-quote' }, quote.length > 140 ? `${quote.slice(0, 140)}…` : quote) : null,
-      area,
-      h('div', { class: 'sheet-actions' },
-        h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
-        go)));
-  document.body.append(backdrop, sheet);
-  area.focus();
+  ops.compose?.({ reply: { quote: quote.length > 300 ? `${quote.slice(0, 300)}…` : quote, onSend } });
 }
 
 // Мемчик на весь екран: та сама картинка чи відео з підписом поверх

@@ -7,7 +7,7 @@ import { openWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, ARROW, waxSeal, SAGITTARIUS_GLYPH, sky, signLine } from './ui.js';
+import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
@@ -148,6 +148,7 @@ const FEED_OPS = {
   welcome: () => welcomeLetter(),
   like: () => { setWelcome({ liked: !welcomeState().liked }); redrawFeed(); markLetter(); },
   reply: () => openReply({ id: null, tpl: true }),
+  compose: (o) => openWrite(o),
 };
 
 function renderLetter() {
@@ -264,42 +265,29 @@ function toggleHeart() {
   if (liked && !sheet.tpl) toast(`${cap(who().partner)} увидит твоё ❤️`);
 }
 
-// t — { id, tpl }; шторку листа (якщо відкрита) після відповіді оновлюємо
+// t — { id, tpl }: відповідь на лист — екран «Написать» з цитатою; шторку листа (якщо відкрита) після відповіді оновлюємо
 function openReply(t) {
   const target = { id: t.id, tpl: t.tpl };
-  const area = h('textarea', { id: 'reply-text', 'data-voice': true, 'aria-label': 'Текст ответа', placeholder: 'Пару слов в ответ…' });
-  const close = () => { box.remove(); backdrop.remove(); };
-  const submit = async () => {
-    const text = area.value.trim();
-    if (!text) { area.focus(); return; }
-    // Привітальний — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
-    let queued = false;
-    if (target.tpl) {
-      try {
-        queued = !!(await deliver('letter', 'letters', { kind: 'now', text })).queued;
-      } catch {
-        toast('Не отправилось — попробуй ещё раз');
-        return;
-      }
-      invalidateFeed();
-    }
-    patchLetter(target, { reply: text, opened: true });
-    close();
-    fillLetter();
-    if (target.tpl) render();
-    else redrawFeed();
-    toast(queued ? 'Нет связи. Ответ ждёт в телефоне и уйдёт сам, когда Радовалка будет открыта с интернетом 📮' : 'Отправлено ➶');
-  };
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const box = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'reply-title' },
-    h('div', { class: 'sheet-inner' },
-      h('h2', { id: 'reply-title' }, 'Ответ'),
-      area,
-      h('div', { class: 'sheet-actions' },
-        h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
-        h('button', { type: 'button', class: 'btn btn-primary', onclick: submit, html: `${ARROW}Отправить` }))));
-  document.body.append(backdrop, box);
-  area.focus();
+  const l = target.tpl ? welcomeLetter() : findLetter(target.id);
+  if (!l) return;
+  openWrite({
+    reply: {
+      quote: l.text.length > 300 ? `${l.text.slice(0, 300)}…` : l.text,
+      onSend: async (text) => {
+        // Привітальний — без відправника: відповідь іде другому звичайним листом (з push), інакше її ніхто не побачить
+        let queued = false;
+        if (target.tpl) {
+          queued = !!(await deliver('letter', 'letters', { kind: 'now', text })).queued;
+          invalidateFeed();
+        }
+        patchLetter(target, { reply: text, opened: true });
+        fillLetter();
+        if (target.tpl) render();
+        else redrawFeed();
+        return queued ? 'Нет связи. Ответ ждёт в телефоне и уйдёт сам, когда Радовалка будет открыта с интернетом 📮' : null;
+      },
+    },
+  });
 }
 
 function render() {

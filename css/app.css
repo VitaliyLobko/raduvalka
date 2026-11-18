@@ -2022,13 +2022,8 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 .feed-row.is-theirs .feed-bubble { border-bottom-left-radius: 6px; }
 .feed-row.is-mine .feed-bubble { border-bottom-right-radius: 6px; background: color-mix(in srgb, var(--lavender) 30%, var(--paper)); }
 .feed-row.is-meme .feed-bubble { width: 66%; }
-/* Мордочка того, хто приніс, — як аватарка в чаті, внизу ліворуч від пузиря */
-.feed-row.has-pet { align-items: flex-end; gap: 6px; }
-.feed-row.has-pet .feed-bubble { width: calc(92% - 44px); }
-.feed-row.has-pet.is-meme .feed-bubble { width: calc(72% - 44px); }
-.feed-pet { width: 38px; height: 38px; margin-bottom: 2px; }
-.feed-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); }
-.feed-row.has-pet[data-swipe^="reply"]::before { left: 56px; }
+/* Хто приніс лист — дрібно в рядку часу */
+.feed-courier { opacity: .85; }
 .feed-bubble.is-drag { transition: none; }
 .feed-bubble.is-new { box-shadow: inset 4px 0 0 var(--wax), 0 10px 22px -16px rgba(74, 37, 69, .5); }
 .feed-body {
@@ -2054,7 +2049,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
-.feed-bubble.is-open .feed-text { display: block; -webkit-line-clamp: unset; }
+.feed-bubble.is-open .feed-text, .feed-bubble.is-full .feed-text { display: block; -webkit-line-clamp: unset; }
 .feed-bubble .sent-reply { padding: 6px 10px; }
 .feed-bubble .sent-reply .inbox-new { margin-left: 6px; font-size: .75rem; }
 .feed-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 6px; padding: 8px 10px 0; }
@@ -2272,7 +2267,6 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 /* Анімації свайпів: сердечка, пружина, наступна картка, рядок «Вернуть» */
 .fx-burst { position: fixed; z-index: 60; font-size: 1.6rem; line-height: 1; pointer-events: none; }
 .is-spring { transition: transform .45s cubic-bezier(.3, 1.7, .5, 1) !important; }
-.feed-pet { transition: transform .35s cubic-bezier(.3, 1.5, .5, 1); }
 .plan-card.is-next { animation: deck-pop .38s cubic-bezier(.3, 1.5, .5, 1); }
 @keyframes deck-pop { from { opacity: 0; transform: translateY(14px) scale(.9); } }
 .want-undo { animation: fade .3s ease-out; }
@@ -2440,7 +2434,6 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .screen.is-chat .feed-bubble { width: auto; min-width: 46%; max-width: 84%; }
 .screen.is-chat .feed-row.is-meme .feed-bubble { width: 66%; }
 .screen.is-chat .feed-text { font-size: 1.1875rem; line-height: 1.25; -webkit-line-clamp: 4; }
-.screen.is-chat .feed-pet { width: 32px; height: 32px; }
 /* Своє повідомлення: «коли · стан» і кнопки в одному рядку — пузир удвічі нижчий */
 .screen.is-chat .feed-row.is-mine .feed-bubble { display: grid; grid-template-columns: 1fr auto; align-items: center; }
 .screen.is-chat .feed-row.is-mine .feed-bubble > * { grid-column: 1 / -1; }
@@ -2480,11 +2473,18 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 /* Свято: золотава рамка й конверт */
 .feed-env.is-festive { border-color: #E8B84A; background: linear-gradient(160deg, #FFF8E6, #FFE9F1); }
 .feed-env.is-festive .feed-env-pic { background: linear-gradient(160deg, #FCE7A6, #F7C7DA); }
-[data-side="vin"] .feed-env { color: #f4e9d6; }
-[data-side="vin"] .feed-env-text span { color: #b9cdd2; }
+[data-side="vin"] .feed-env.is-festive { color: #f4e9d6; }
+[data-side="vin"] .feed-env.is-festive .feed-env-text span { color: #b9cdd2; }
 [data-side="vin"] .feed-env-pic { background: linear-gradient(160deg, #2E5866, #22424D); }
 [data-side="vin"] .feed-env-go { background: #E8B84A; color: #1b2b33; }
 [data-side="vin"] .feed-env.is-festive { background: linear-gradient(160deg, #3A4A3E, #2A3B47); }
+/* Улюбленець, що приніс, тримає конверт */
+.feed-env-pet { flex: none; width: 40px; height: 40px; margin-right: -18px; z-index: 1; }
+.feed-env-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); }
+/* Тап: печатка злітає, кнопка гасне — далі на цьому місці відкритий лист */
+.feed-env-pic::after, .feed-env-go { transition: transform .35s ease-in, opacity .35s ease-in; }
+.feed-env.is-opening .feed-env-pic::after { transform: translateY(-14px) scale(1.5) rotate(-20deg); opacity: 0; }
+.feed-env.is-opening .feed-env-go { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .feed-env-go { animation: none; } }
 
 /* Шторка листа: тло застосунку, конверт посередині */
@@ -2503,3 +2503,53 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .compose:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
 [data-side="vin"] .compose { background: rgba(255, 255, 255, .08); color: #cfe0e4; }
 
+/* «Написать…» на весь екран: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить» */
+.sheet-write.sheet-full { overflow-y: auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); animation: rise .25s ease-out; }
+.sheet-write.sheet-full .sheet-inner { gap: 8px; }
+.sheet-write.sheet-full .sheet-inner > :last-child { margin-bottom: 0; }
+.write-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.write-head h2 { margin: 0; }
+.write-head .sheet-close { position: static; flex: none; margin: 0; }
+/* Останнє від другого / цитата: два рядки, тап — цілим */
+.write-ctx {
+  display: grid; gap: 2px; width: 100%; padding: 8px 12px; border: 0; border-left: 3px solid var(--wax); border-radius: 12px;
+  background: color-mix(in srgb, var(--lavender) 22%, var(--paper)); color: var(--plum); text-align: left; font: inherit; cursor: pointer;
+}
+.write-ctx-label { font-size: .75rem; color: #7a5a78; }
+.write-ctx-text {
+  display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font: 400 1.125rem/1.3 var(--hand); white-space: pre-line;
+}
+.write-ctx.is-open .write-ctx-text { display: block; max-height: 40dvh; overflow-y: auto; }
+.write-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.write-tools .mk-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; }
+.write-tools label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
+/* «Помочь написать» — кнопка в рядку, її панель — окремим рядком на всю ширину */
+.write-tools .write-helper { display: contents; }
+.write-tools .help-open { min-height: 40px; padding: 0 14px; border-style: dashed; }
+.write-tools .help-panel { flex-basis: 100%; }
+/* Обгортка 🎤 росте сама — тож колонкою, щоб поле тяглося разом з нею */
+.sheet-write.sheet-full .voice-wrap.is-area { display: flex; flex-direction: column; min-height: 0; }
+.sheet-write.sheet-full .write-text { flex: 1; min-height: 96px; margin: 0; resize: none; }
+.write-dock { display: grid; gap: 6px; margin-top: auto; }
+/* «Когда» — одна стрічка, гортається вбік */
+.write-when { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+.write-when::-webkit-scrollbar { display: none; }
+.write-when .mk-chip { flex: none; white-space: nowrap; }
+.write-dock .write-note { margin: 0; font-size: .8125rem; }
+.write-dock .write-envs { margin-top: 0; }
+/* Хто понесе — мордочки в рядок біля «Отправить» */
+.write-send { display: flex; align-items: center; gap: 8px; }
+.write-send .write-pets { flex: none; flex-wrap: nowrap; gap: 4px; }
+.write-send .write-pets .mk-chip { min-height: 0; padding: 2px; border-radius: 50%; }
+.write-send .write-pets .mk-chip[aria-checked="true"] { box-shadow: 0 0 0 3px var(--wax); }
+.write-send .write-go { flex: 1; width: auto; margin: 0; min-height: 50px; }
+/* Відкрита клавіатура (екран низький): інструменти й підпис ховаються, цитата — один рядок, «Отправить» лишається видно */
+@media (max-height: 600px) {
+  .sheet-write.sheet-full .write-tools, .sheet-write.sheet-full .write-note { display: none; }
+  .sheet-write.sheet-full .sheet-inner { gap: 6px; }
+  .sheet-write.sheet-full .write-ctx { padding: 4px 12px; }
+  .sheet-write.sheet-full .write-ctx:not(.is-open) .write-ctx-text { -webkit-line-clamp: 1; }
+  .sheet-write.sheet-full .write-head h2 { font-size: 1.5rem; }
+  .sheet-write.sheet-full .write-text { min-height: 80px; }
+}

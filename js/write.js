@@ -7,6 +7,7 @@ import { mountHelper } from './helper.js';
 import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
+import { lastFromPartner } from './feed.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -29,9 +30,14 @@ const isShe = (key) => DATA.mascots[key]?.g === 'f';
 const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
+// Над полем: сьогоднішнє — годиною, інше — днем
+const whenShort = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? hhmm(ms) : dayMonth(ms));
 
-// preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт
+// preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
+// { reply: { quote, onSend } } — той самий екран для відповіді: цитата зверху, без «Когда» й «Кто понесёт»,
+// onSend(text) відправляє й повертає текст тосту (або null)
 export function openWrite(preset = {}) {
+  const reply = preset.reply || null;
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
   const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
@@ -40,9 +46,12 @@ export function openWrite(preset = {}) {
   let pet = petFor('push');
 
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
-  const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': 'Текст письма', placeholder: said });
-  area.value = draft.get();
-  area.addEventListener('input', () => draft.set(area.value));
+  const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': reply ? 'Текст ответа' : 'Текст письма', placeholder: reply ? 'Пару слов в ответ…' : said });
+  // Чернетка — лише в листа: відповідь коротка й прив'язана до свого повідомлення
+  if (!reply) {
+    area.value = draft.get();
+    area.addEventListener('input', () => draft.set(area.value));
+  }
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
@@ -72,13 +81,13 @@ export function openWrite(preset = {}) {
   const paintNote = () => {
     const m = nextMorning();
     giftBox.hidden = where !== 'gift';
-    area.placeholder = where === 'gift' ? 'Пару слов к подарку (можно без)' : said;
+    area.placeholder = reply ? 'Пару слов в ответ…' : where === 'gift' ? 'Пару слов к подарку (можно без)' : said;
     note.textContent = where === 'gift'
       ? `${cap(me.partner)} увидит закрытые конверты и выберет один. Что внутри — узнает после выбора, остальные тоже откроются.`
       : where === 'now'
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
-        ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} — встанет наверху «Писем».`
+        ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} запечатанным конвертом.`
       : where === 'date'
         ? (dateAt() ? `Придёт ${dayMonth(dateAt())} в ${hhmm(dateAt())} — праздничным письмом, принесут все вместе 🎉` : 'Выбери день — день рождения, годовщину, праздник.')
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
@@ -97,8 +106,7 @@ export function openWrite(preset = {}) {
     return row;
   };
 
-  // Рідкісне («К дате», «Подарок») — за «Ещё…», щоб щоденний вибір був із трьох
-  const RARE = ['date', 'gift'];
+  // «Когда» — одна стрічка: усі п'ять варіантів, гортається вбік
   const whereRow = chips([
     { v: 'now', label: 'Сейчас' },
     { v: 'morning', label: 'На утро' },
@@ -106,24 +114,22 @@ export function openWrite(preset = {}) {
     { v: 'date', label: '🎂 К дате' },
     { v: 'gift', label: '🎁 Подарок' },
   ], where, (v) => { where = v; paintNote(); });
-  const rare = [...whereRow.querySelectorAll('button')].filter((b) => RARE.includes(b.dataset.v));
-  rare.forEach((b) => { b.hidden = true; });
-  const more = h('button', {
-    type: 'button', class: 'mk-chip write-more',
-    onclick: () => { rare.forEach((b) => { b.hidden = false; }); more.remove(); },
-  }, 'Ещё…');
-  whereRow.append(more);
+  whereRow.classList.add('write-when');
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
+  envRow.firstChild.classList.add('write-when');
   paintNote();
 
   const pets = Object.keys(DATA.mascots);
+  // Хто понесе — лише мордочки; ім'я — у підказці й для читалки екрана
   const petRow = chips(pets.map((k) => ({
-    v: k, html: `<img src="${petSrc(k)}" alt="" width="40" height="40"><span>${petName(k)}</span>`,
+    v: k, html: `<img src="${petSrc(k)}" alt="${petName(k)}" width="40" height="40">`,
   })), pet, (v) => { pet = v; });
   petRow.classList.add('write-pets');
+  petRow.setAttribute('aria-label', 'Кто понесёт');
+  petRow.querySelectorAll('button').forEach((b) => { b.title = petName(b.dataset.v); });
 
   const helper = h('div', { class: 'write-helper' });
-  mountHelper(helper, area);
+  if (!reply) mountHelper(helper, area);
   const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
 
   const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -145,16 +151,39 @@ export function openWrite(preset = {}) {
       composeMeme(file, memeSent);
     },
   });
-  const memeRow = h('div', { class: 'write-meme' },
-    h('span', {}, 'Или мемчик:'),
-    h('label', { class: 'mk-chip' }, picker, '📷 Из галереи'),
+  const tools = h('div', { class: 'write-tools' },
+    h('label', { class: 'mk-chip' }, picker, '📷 Мемчик'),
     h('button', {
       type: 'button', class: 'mk-chip',
       onclick: () => { close(); openGifs((gif) => composeGif(gif, memeSent)); },
-    }, '🎞 Гифка'));
+    }, '🎞 Гифка'),
+    helper);
+
+  // Над полем — на що відповідаєш: цитата (відповідь) або останнє від другого (новий лист). Тап — цілим
+  const last = reply ? null : lastFromPartner();
+  const ctxText = reply ? reply.quote : last?.text;
+  const ctx = ctxText ? h('button', {
+    type: 'button', class: 'write-ctx', 'aria-expanded': 'false',
+    onclick: () => ctx.setAttribute('aria-expanded', String(ctx.classList.toggle('is-open'))),
+  },
+    h('span', { class: 'write-ctx-label' }, reply ? 'Отвечаешь на' : `Последнее от ${me.partner === 'он' ? 'него' : 'неё'} · ${whenShort(last.at)}`),
+    h('span', { class: 'write-ctx-text' }, ctxText)) : null;
 
   go.addEventListener('click', async () => {
     const text = area.value.trim();
+    if (reply) {
+      if (!text) { area.focus(); return; }
+      go.disabled = true;
+      try {
+        const said = await reply.onSend(text);
+        close();
+        toast(said || 'Отправлено ➶');
+      } catch {
+        go.disabled = false;
+        toast('Не отправилось — проверь интернет');
+      }
+      return;
+    }
     const gift = where === 'gift' ? giftOptions() : null;
     if (gift && gift.length < 2) { toast('Нужно хотя бы два варианта'); giftRows[gift.length].title.focus(); return; }
     if (!text && !gift) { area.focus(); return; }
@@ -184,17 +213,22 @@ export function openWrite(preset = {}) {
     }
   });
 
+  // На весь екран, як у месенджері: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить»
+  const title = reply ? 'Ответ' : `Письмо ${me.toWhom}`;
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-maker sheet-write', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Письмо ${me.toWhom}` },
-    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
-    h('div', { class: 'sheet-inner' },
-      h('h2', {}, `Письмо ${me.toWhom}`),
-      memeRow,
-      helper,
+  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    h('div', { class: 'sheet-inner' }, ...[
+      h('div', { class: 'write-head' },
+        h('h2', {}, title),
+        h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
+      ctx,
+      reply ? null : tools,
       area,
-      h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Когда'), whereRow, envRow, dateRow, giftBox, note),
-      pets.length ? h('div', { class: 'mk-group' }, h('p', { class: 'mk-label' }, 'Кто понесёт'), petRow) : null,
-      go));
+      h('div', { class: 'write-dock' }, ...[
+        ...(reply ? [] : [whereRow, envRow, dateRow, giftBox, note]),
+        h('div', { class: 'write-send' }, ...[reply || !pets.length ? null : petRow, go].filter(Boolean)),
+      ]),
+    ].filter(Boolean)));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
   if (!area.value) area.focus();
