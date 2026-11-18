@@ -380,9 +380,10 @@ function newsRow(n) {
   // «Нежність» — з натяком і підморгуванням
   if (n.love) {
     const offers = she ? 'предлагает' : 'предлагает';
-    const line = n.title === 'Заняться любовью' ? `${cap(who().partner)} ${offers} клубничку 😉` : `${cap(who().partner)} ${offers}: «${n.title}» 😉`;
+    const line = n.title === 'Заняться любовью' ? `${cap(who().partner)} ${offers} 🍓😉` : `${cap(who().partner)} ${offers}: «${n.title}» 😉`;
+    // Для «Заняться любовью» 🍓 уже в самому тексті — окремий значок попереду не дублюємо
     return h('li', { class: 'feed-news feed-news-love' },
-      h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.('deck') }, h('span', { 'aria-hidden': 'true' }, '🍓'), ` ${line}`));
+      h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.('deck') }, n.title === 'Заняться любовью' ? line : `🍓 ${line}`));
   }
   const text = n.kind === 'invite' ? `${cap(who().partner)} ${she ? 'зовёт' : 'зовёт'} крутить колесо — жми «Готов»`
     : n.kind === 'spin' ? `Колесо выбрало: «${n.title}»`

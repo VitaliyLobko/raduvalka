@@ -10,7 +10,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFres
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
-import { loadPlans, markPlans, renderPlans, showOurs, showWheel, showDeck } from './plans.js';
+import { loadPlans, markPlans, renderPlans, showOurs, showWheel, showDeck, CATS } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
@@ -602,6 +602,26 @@ function openFortunes() {
   document.addEventListener('keydown', onKey);
 }
 
+// Увесь запас ідей «Планов» — з сервера, за темами (лише для нього)
+async function openPool() {
+  let pool;
+  try { pool = await get('plan-pool'); } catch { toast('Не загрузилось — нет связи'); return; }
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { document.removeEventListener('keydown', onKey); sheet.remove(); backdrop.remove(); };
+  const total = Object.values(pool).reduce((n, l) => n + l.length, 0);
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Идеи для планов' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
+    h('div', { class: 'sheet-inner' },
+      h('h2', { class: 'title' }, `Идеи · ${total}`),
+      ...CATS.filter(([k]) => pool[k]?.length).flatMap(([k, emoji, label]) => [
+        h('h3', { class: 'about-group-title' }, `${emoji} ${label} · ${pool[k].length}`),
+        h('ol', { class: 'fortune-list' }, ...pool[k].map(([t, n]) => h('li', {}, h('b', {}, t), n ? h('br') : null, n ? h('small', {}, n) : null))),
+      ])));
+  document.body.append(backdrop, sheet);
+  document.addEventListener('keydown', onKey);
+}
+
 // Перемикач «Движение фона»: нахил, пелюстки, падаюча зірка
 function stillSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
@@ -657,10 +677,11 @@ function openAbout() {
           DATA.side === 'vin' ? 'Посмотреть Радовалку её глазами' : 'Посмотреть Радовалку его глазами',
           () => { swapKeys(); leave(() => location.replace(location.pathname)); })) : null,
       // Лише на його половині: подивитися печеньки й усі передбачення
-      DATA.side === 'vin' ? aboutGroup('Печеньки (только у тебя)',
+      DATA.side === 'vin' ? aboutGroup('Отладка (только у тебя)',
         aboutRow('🥠', 'Показать печеньку', 'Случайное предсказание — настоящую не тратит', () => { close(); setTimeout(() => previewCookie(false), 300); }),
         aboutRow('✨', 'Показать золотую', null, () => { close(); setTimeout(() => previewCookie(true), 300); }),
-        aboutRow('📜', 'Все предсказания', null, () => { close(); openFortunes(); })) : null,
+        aboutRow('📜', 'Все предсказания', null, () => { close(); openFortunes(); }),
+        aboutRow('💡', 'Все идеи для планов', 'Запас для «Подкинуть идеи»', () => { close(); openPool(); })) : null,
       aboutGroup('Ещё',
         // Тур живе на «Письмах» — туди й повертаємось
         aboutRow('🐾', 'Познакомиться заново', null, () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),

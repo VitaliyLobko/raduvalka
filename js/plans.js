@@ -11,8 +11,13 @@ import { swipeable } from './feed.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
+  ['culture', '🎭', 'Культура'],
+  ['active', '🏃', 'Активное'],
   ['trip', '🧳', 'Поездка'],
   ['home', '🏠', 'Дома вдвоём'],
+  ['family', '👨‍👩‍👧', 'С друзьями и семьёй'],
+  ['holidays', '🎉', 'Праздники'],
+  ['dreams', '🌟', 'Мечты и цели'],
   ['pets', '🐾', 'С питомцами'],
   ['love', '🍓', 'Нежность'],
   ['other', '✨', 'Другое'],
@@ -731,47 +736,50 @@ const AI_ERRORS = {
   502: 'Не придумалось — попробуй ещё раз или другую тему.',
 };
 
+// «✨ Подкинуть идеи»: по 3 пропозиції (спершу із заздалегідь написаного запасу, потім ШІ); у колоду — лише ті, що ❤️.
+// Обрані йдуть тихо (без push другому) — вони й так зʼявляться в його/її колоді
 function askIdeas(screen) {
   const me = who();
   let cat = 'date';
+  const shown = [];
   const hint = h('input', { type: 'text', maxlength: '120', placeholder: 'Пожелание: зимой, недорого, рядом с домом…', 'aria-label': 'Пожелание' });
   const status = h('p', { class: 'plan-sheet-note', 'aria-live': 'polite' });
-  const goBtn = h('button', { type: 'button', class: 'btn btn-primary plan-wide' }, '✨ Придумать');
+  const goBtn = h('button', { type: 'button', class: 'btn btn-primary plan-wide' }, '✨ Подкинуть');
   const out = h('div', { class: 'plan-ai-out' });
-  const { close } = openSheet(screen, 'Подкинуть идеи',
+  openSheet(screen, 'Подкинуть идеи',
     h('h2', {}, 'Подкинуть идеи'),
-    catChips(() => cat, (k) => { cat = k; }),
+    catChips(() => cat, (k) => { cat = k; shown.length = 0; }),
     hint, goBtn, status, out);
 
-  const drawAdded = (added) => {
-    out.replaceChildren(
-      h('ul', { class: 'plan-list' }, ...added.map((p) => planRow(p, h('button', {
-        type: 'button', class: 'plan-row-btn', 'aria-label': `Убрать «${p.title}»`,
-        onclick: async (e) => {
-          const btn = e.currentTarget;
-          btn.disabled = true;
-          try {
-            await mutate(`plans/${p.id}`, 'DELETE');
-            added.splice(added.indexOf(p), 1);
-            if (data) data.mine = data.mine.filter((x) => x.id !== p.id);
-            drawAdded(added);
-          } catch {
-            btn.disabled = false;
-            toast('Не удалилось — нет связи');
-          }
-        },
-      }, '✕')))),
-      h('div', { class: 'sheet-actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Готово')));
+  const pickCard = (idea) => {
+    const like = h('button', {
+      type: 'button', class: 'plan-vote plan-vote-yes plan-ai-like', 'aria-label': `Хочу: ${idea.title}`,
+      onclick: async () => {
+        like.disabled = true;
+        try {
+          const saved = await mutate('plans', 'POST', { ...idea, ai: true });
+          addMine([saved]);
+          like.textContent = '✓';
+          like.classList.add('is-on');
+          burst(like, '❤️', 6);
+        } catch {
+          like.disabled = false;
+          toast('Не сохранилось — нет связи');
+        }
+      },
+    }, '❤️');
+    return h('div', { class: 'plan-ai-card' }, cardBody({ ...idea, id: '' }, 'plan-ai-body'), like);
   };
 
   goBtn.addEventListener('click', async () => {
     goBtn.disabled = true;
-    status.textContent = 'Придумываю…';
+    status.textContent = 'Подбираю…';
     try {
-      const { added } = await mutate('plan-ideas', 'POST', { cat, hint: hint.value });
-      addMine(added);
-      status.textContent = `Готово: ${added.length}. ${cap(me.partner)} увидит их в колоде. Лишнее убери ✕`;
-      drawAdded(added);
+      const { ideas } = await mutate('plan-ideas', 'POST', { cat, hint: hint.value, skip: shown });
+      ideas.forEach((x) => shown.push(x.title));
+      status.textContent = `Отметь ❤️ то, что хочется, — попадёт в колоду, и ${me.partner} увидит.`;
+      out.replaceChildren(...ideas.map(pickCard));
+      goBtn.textContent = '✨ Ещё варианты';
       out.scrollIntoView?.({ block: 'nearest' });
     } catch (e) {
       status.textContent = AI_ERRORS[e.status] || 'Нет связи — попробуй ещё раз.';

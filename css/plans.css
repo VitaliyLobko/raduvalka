@@ -84,6 +84,11 @@
 .plan-cat-pets { --tint: #C3E5B8; }
 .plan-cat-other { --tint: var(--lavender); }
 .plan-cat-love { --tint: #F49CC4; }
+.plan-cat-culture { --tint: #D9B7F5; }
+.plan-cat-active { --tint: #A8E0C8; }
+.plan-cat-family { --tint: #FFD8A8; }
+.plan-cat-holidays { --tint: #FFE08A; }
+.plan-cat-dreams { --tint: #BFD7FF; }
 
 .plan-card.is-drag { transition: none; cursor: grabbing; }
 .plan-card.is-gone { opacity: 0; }
@@ -413,9 +418,21 @@
 [data-side="vin"] .plan-cat-pets { --tint: #8FBB4C; }
 [data-side="vin"] .plan-cat-other { --tint: #7FA8C9; }
 [data-side="vin"] .plan-cat-love { --tint: #E8473C; }
+[data-side="vin"] .plan-cat-culture { --tint: #B48CE0; }
+[data-side="vin"] .plan-cat-active { --tint: #4FB38A; }
+[data-side="vin"] .plan-cat-family { --tint: #E0A060; }
+[data-side="vin"] .plan-cat-holidays { --tint: #EDB949; }
+[data-side="vin"] .plan-cat-dreams { --tint: #5FB1D3; }
 [data-side="vin"] .plan-vote-yes { border-color: var(--star); background: rgba(237, 185, 73, .18); }
 [data-side="vin"] .plan-card-from { color: #a9c3c9; }
 /* Картки «стосом» під верхньою — теж нічні, а не світлі */
 [data-side="vin"] .plan-deck.has-more::before, [data-side="vin"] .plan-deck.has-more::after { background: #1d5469; box-shadow: 0 0 0 1px rgba(237, 185, 73, .25); }
 /* Лічильник на активній (золотій) вкладці — темний, інакше зливається */
 [data-side="vin"] [aria-checked="true"] > .plan-count { background: var(--night); color: var(--star); }
+
+/* «Подкинуть идеи»: картка-пропозиція з ❤️ збоку */
+.plan-ai-out { display: grid; gap: 10px; margin-top: 12px; }
+.plan-ai-card { display: flex; align-items: center; gap: 10px; }
+.plan-ai-card .plan-card { flex: 1; min-height: 0; padding: 12px 14px; }
+.plan-ai-like { flex: none; width: 52px; height: 52px; font-size: 1.4rem; }
+.plan-ai-like.is-on { background: var(--wax); color: #fff; }
