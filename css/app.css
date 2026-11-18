@@ -3036,3 +3036,48 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   .sheet-write.sheet-full .write-head h2 { font-size: 1.5rem; }
   .sheet-write.sheet-full .write-text { min-height: 80px; }
 }
+
+/* Печенька з передбаченням (js/cookie.js): поверх усього по центру, тап — розламується, виїжджає папірець */
+/* Розмиття — лише поки печенька на екрані (кілька секунд), тож не важке */
+.cookie-layer { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.cookie-layer { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgba(42, 23, 48, .82); animation: fade .3s; transition: opacity .3s; }
+[data-side="vin"] .cookie-layer { background: rgba(4, 20, 28, .85); }
+.cookie-layer.is-leaving { opacity: 0; }
+.ck-box { display: grid; justify-items: center; gap: 10px; width: min(100%, 340px); text-align: center; }
+.ck-title { margin: 0; font: 700 2rem/1.1 var(--hand); color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .35); }
+.ck-cookie {
+  position: relative; z-index: 1; width: 230px; height: 172px; padding: 0; border: 0; background: none; cursor: pointer;
+  filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .35));
+  animation: ck-in .8s cubic-bezier(.2, .9, .3, 1.25), ck-wobble 2.4s ease-in-out .8s infinite;
+}
+.ck-half {
+  position: absolute; inset: 0; display: grid; place-items: center; font-size: 150px; line-height: 1;
+  transition: transform .7s cubic-bezier(.3, .7, .3, 1), opacity .5s .4s;
+}
+.ck-l { clip-path: inset(0 50% 0 0); }
+.ck-r { clip-path: inset(0 0 0 50%); }
+.cookie-layer.is-open .ck-cookie { animation: none; cursor: default; }
+/* Половинки розʼїжджаються в різні боки й опускаються */
+.cookie-layer.is-open .ck-l { transform: translate(-70px, 40px) rotate(-28deg); opacity: .55; }
+.cookie-layer.is-open .ck-r { transform: translate(70px, 40px) rotate(28deg); opacity: .55; }
+.ck-paper {
+  position: relative; z-index: 2; max-width: 300px; height: fit-content; margin-top: -110px; border-radius: 3px;
+  background: #FFFDF6; color: #8A2E4E; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .45);
+  transform: scaleX(0); opacity: 0; transition: transform .6s cubic-bezier(.3, .7, .3, 1) .3s, opacity .3s .3s;
+}
+.ck-paper p { margin: 0; padding: 10px 18px; font: 700 1.35rem/1.2 var(--hand); }
+.cookie-layer.is-open .ck-paper { transform: scaleX(1); opacity: 1; }
+.ck-hint { margin: 0; color: #fff; opacity: .85; font-size: .9rem; }
+.cookie-layer.is-open .ck-hint { display: none; }
+.ck-acts { margin-top: 30px; opacity: 0; pointer-events: none; transition: opacity .4s .8s; }
+.ck-acts .btn:not(.btn-primary) { color: #fff; }
+.cookie-layer.is-open .ck-acts { opacity: 1; pointer-events: auto; }
+/* Золота — сяє */
+/* Золота: той самий 🥠, підфарбований у золото й сяє */
+.cookie-layer.is-gold .ck-cookie { filter: drop-shadow(0 0 24px rgba(255, 214, 110, .9)) drop-shadow(0 16px 18px rgba(0, 0, 0, .3)); }
+.cookie-layer.is-gold .ck-half { filter: sepia(1) saturate(3.2) hue-rotate(-8deg) brightness(1.12); }
+.cookie-layer.is-gold .ck-title { color: #FFE08A; }
+.cookie-layer.is-gold .ck-paper { background: linear-gradient(135deg, #FFF8DC, #FFE9A8); box-shadow: 0 0 0 2px #E0A93A, 0 8px 22px -8px rgba(0, 0, 0, .45); }
+@keyframes ck-in { from { transform: translateY(-60vh) rotate(-35deg) scale(.6); } }
+@keyframes ck-wobble { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .ck-cookie { animation: none; } .ck-half, .ck-paper { transition: none; } }

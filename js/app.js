@@ -24,6 +24,7 @@ import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
+import { maybeCookie } from './cookie.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 // Фон обох половин — шарами на різній глибині, що зсуваються від нахилу телефона
@@ -537,6 +538,7 @@ async function checkUpdate() {
 let hiddenAt = 0;
 function refreshAll() {
   checkUpdate();
+  setTimeout(maybeCookie, 1500);
   refreshLetter();
   loadSos();
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
@@ -692,6 +694,8 @@ async function start() {
   loadSos();
   noteUpdated();
   checkUpdate();
+  // У «печенькин день» — печенька з передбаченням, трохи згодом після входу
+  setTimeout(maybeCookie, 1500);
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли
   setTimeout(restPets, 1500);
   setTimeout(primeShell, 3000);
