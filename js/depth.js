@@ -16,6 +16,41 @@ export function setStill(on) {
 }
 // Пелюстка сакури — та сама форма, що в гілочці на її фоні
 const PETAL = '<svg viewBox="-7 -13 14 14" aria-hidden="true"><path d="M0 0C-3.5-1-7.5-5-6.2-9.2C-5.3-12-2.4-12.6-.9-11.6L0-10.4L.9-11.6C2.4-12.6 5.3-12 6.2-9.2C7.5-5 3.5-1 0 0Z"/></svg>';
+// Сузірʼя Стрільця — астеризм «чайник» (як на зоряних картах): зірки й лінії між ними; heart — зірки-сердечка (її)
+const SGR = { g: [20, 70], d: [55, 58], e: [44, 102], l: [86, 28], p: [106, 70], s: [152, 50], t: [162, 86], z: [122, 102] };
+const SGR_LINES = ['gd', 'de', 'eg', 'dl', 'lp', 'pd', 'ps', 'st', 'tz', 'zp', 'ez'];
+const HEART = 'M0 1.6C-1.2.3-3.2-.6-3.2-2.3-3.2-3.6-1.6-4.2 0-2.8 1.6-4.2 3.2-3.6 3.2-2.3 3.2-.6 1.2.3 0 1.6Z';
+function constellation(heart) {
+  const lines = SGR_LINES.map(([a, b]) => `<line x1="${SGR[a][0]}" y1="${SGR[a][1]}" x2="${SGR[b][0]}" y2="${SGR[b][1]}"/>`).join('');
+  const stars = Object.entries(SGR).map(([k, [x, y]], i) => {
+    const r = k === 's' || k === 'e' ? 1.35 : 1;
+    const tw = `style="animation-delay:-${(i * 1.37) % 5}s;animation-duration:${4 + (i % 3) * 1.3}s"`;
+    return heart ? `<g transform="translate(${x} ${y}) scale(${r * 1.5})"><path ${tw} d="${HEART}"/></g>` : `<circle ${tw} cx="${x}" cy="${y}" r="${r * 2.6}"/>`;
+  }).join('');
+  // Під сузірʼям — підпис, як на зоряній карті (в обох; у неї — сливовим)
+  const label = '<text class="sgr-label" x="18" y="132">Sagittarius</text>';
+  return h('span', { class: `sgr${heart ? ' sgr-heart' : ''}`, html: `<svg viewBox="0 0 180 140" aria-hidden="true"><g class="sgr-lines">${lines}</g><g class="sgr-stars">${stars}</g>${label}</svg>` });
+}
+// Його фон — зоряна карта: кола координат, лінії й пунктир екліптики (тонко, золотом)
+const CHART = '<svg viewBox="0 0 250 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#EDB949" stroke-width=".7">'
+  + '<circle cx="125" cy="300" r="120"/><circle cx="125" cy="300" r="200"/><circle cx="125" cy="300" r="290"/>'
+  + '<line x1="125" y1="0" x2="125" y2="500"/><line x1="-40" y1="300" x2="290" y2="300"/><line x1="-30" y1="150" x2="280" y2="450"/></g>'
+  + '<path d="M-10 360C70 300 160 230 270 180" fill="none" stroke="#EDB949" stroke-width=".9" stroke-dasharray="5 5" opacity="1.6"/></svg>';
+
+// Боке: мʼякі кружечки світла різного розміру, як вогні не у фокусі; кожен ледь пливе й дихає
+function bokeh(n, seed) {
+  let s = seed;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const tones = ['255, 255, 255', '233, 210, 255', '255, 205, 228', '214, 190, 250'];
+  return Array.from({ length: n }, () => {
+    const b = h('span', { class: 'bokeh' });
+    const size = 26 + rnd() * rnd() * 130;
+    b.style.cssText = `left:${(rnd() * 100).toFixed(1)}%;top:${(rnd() * 100).toFixed(1)}%;width:${size.toFixed(0)}px;height:${size.toFixed(0)}px;`
+      + `--c:${tones[Math.floor(rnd() * tones.length)]};--a:${(0.28 + rnd() * 0.35).toFixed(2)};`
+      + `--d:${(9 + rnd() * 10).toFixed(1)}s;--delay:${(-rnd() * 15).toFixed(1)}s;--mx:${(rnd() * 30 - 15).toFixed(0)}px;--my:${(rnd() * 24 - 12).toFixed(0)}px`;
+    return b;
+  });
+}
 // Падають повільно, кожна — своїм шляхом; сталі значення, щоб при перезапуску картина не стрибала
 function petals(n, seed, size) {
   let s = seed;
@@ -33,14 +68,14 @@ const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
   const vona = h('div', { class: 'depth depth-vona' },
-    h('i', { class: 'dv-back' }, h('b')),
-    h('i', { class: 'dv-mid' }, ...petals(5, 7, 0.75)),
+    h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
+    h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
     h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2)));
-  // Його космос: туманність, далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
+  // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
-    h('i', { class: 'ds-nebula' }),
+    h('i', { class: 'ds-chart', html: CHART }),
     h('i', { class: 'ds-far' }, sky(70, 21)),
-    h('i', { class: 'ds-mid' }, sky(26, 3)),
+    h('i', { class: 'ds-mid' }, sky(26, 3), constellation(false)),
     h('i', { class: 'ds-near' }, sky(9, 5), h('span', { class: 'meteor' })));
   // Обидві половини в одній обгортці: зсув (--dx/--dy) успадковують шари обох; показується — своя (CSS)
   const box = h('div', { class: 'depth-root', 'aria-hidden': 'true' }, vona, vin);

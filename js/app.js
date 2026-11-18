@@ -297,6 +297,8 @@ function render() {
   document.querySelector('.top')?.classList.remove('has-checkin');
   // «Вместе» — у шапці; «Письма» забирають його в рядок «Написать…»
   document.getElementById('top-status').after(chip);
+  // На «Письмах» «вместе N дн.» не показуємо — там і так тісно; на інших вкладках — у шапці
+  chip.classList.toggle('is-off', tab === 'letter');
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
   const chat = tab === 'letter' && !DATA.gift;
   screen.classList.toggle('is-chat', chat);
