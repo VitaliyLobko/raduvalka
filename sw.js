@@ -95,6 +95,8 @@ self.addEventListener('push', (event) => {
     tag: note.tag || 'radovalka',
     renotify: true,
     silent: !!note.silent,
+    // «Нужна помощь» висить, доки не відкриють, і довго вібрує
+    ...(note.urgent ? { requireInteraction: true, vibrate: [500, 200, 500, 200, 900] } : {}),
     icon: new URL('icons/icon-192.png', scope).href,
     data: { url: scope, go: note.go || 'letter' },
   }));

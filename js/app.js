@@ -21,6 +21,7 @@ import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
+import { sosBox, sosSlider, loadSos, sosCheck } from './sos.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 document.body.prepend(sky(46, 3, 'sky-page'));
@@ -297,10 +298,11 @@ function render() {
     // «Написать» — сургуч у куті вкладки «Письма» (раніше — посередині нижнього меню)
     screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: () => openWrite() },
       h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
-    // «Я в порядке» — під заголовком (у подарунка й порожнього екрана теж є h2)
+    // Під заголовком: сигнал «Нужна помощь» (якщо є), «Я в порядке» і повзунок допомоги (у подарунка й порожнього екрана теж є h2)
     const title = screen.querySelector('h2');
-    if (title) title.after(checkinRow());
-    else screen.append(checkinRow());
+    const top = [sosBox(), checkinRow(), sosSlider()];
+    if (title) title.after(...top);
+    else screen.append(...top);
   }
   else if (tab === 'envelopes') renderEnvelopes(screen);
   else if (tab === 'plans') {
@@ -523,6 +525,7 @@ let hiddenAt = 0;
 function refreshAll() {
   checkUpdate();
   refreshLetter();
+  loadSos();
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
   get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
   if (tab !== 'wish') loadWishes().then(markWishes).catch(() => {});
@@ -580,6 +583,8 @@ function openAbout() {
       newsList(NEWS.slice(0, 3)),
       NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null,
       pushPanel(),
+      // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
+      h('button', { type: 'button', class: 'btn', onclick: sosCheck }, '🆘 Проверить «Нужна помощь»'),
       // Тур живе на «Письмах» — туди й повертаємось
       h('button', { type: 'button', class: 'btn about-logout', onclick: () => { close(); selectTab('letter'); setTimeout(startTour, 400); } }, '🐾 Познакомиться заново'),
       getAltKey() ? h('button', {
@@ -622,10 +627,19 @@ async function start() {
   startOutbox();
   startLive(refreshAll, DATA.pulse);
   // Ярлик «Я в порядке» (довге натискання на іконку): відмітка одразу; адресу чистимо, щоб перезавантаження не повторило
-  if (new URLSearchParams(location.search).get('do') === 'checkin') {
+  const act = new URLSearchParams(location.search).get('do');
+  if (act === 'checkin') {
     history.replaceState(null, '', location.pathname);
     checkIn();
   }
+  // Ярлик «Нужна помощь» лише показує повзунок — одним дотиком сигнал не йде
+  if (act === 'sos') {
+    history.replaceState(null, '', location.pathname);
+    const slider = document.querySelector('.sos-slider');
+    slider?.scrollIntoView({ block: 'center' });
+    slider?.classList.add('is-called');
+  }
+  loadSos();
   noteUpdated();
   checkUpdate();
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли

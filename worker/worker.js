@@ -55,6 +55,10 @@ const CID = /^[a-z0-9]{16,32}$/;
 const CHECKIN_MAX_AGE = 24 * 3600 * 1000;
 const CHECKIN_PUSH_AGE = 12 * 3600 * 1000;
 const CHECKIN_PUSH_GAP = 20 * 60 * 1000;
+// «Нужна помощь»: живе добу, координати й голос стираються на «Отбой» і після доби (cron)
+const SOS_MAX_AGE = 24 * 3600 * 1000;
+const SOS_AUDIO = /^audio\/(webm|ogg|mp4|mpeg|aac)(;[a-z0-9=.,\s-]*)?$/i;
+const MAX_AUDIO_B64 = 900_000;
 const MAX_AHEAD = 3 * 24 * 3600 * 1000;
 const MAX_DATE_AHEAD = 400 * 24 * 3600 * 1000; // «К дате» — до року вперед
 
@@ -114,6 +118,7 @@ export default {
       await ensureSchema(env.DB);
       await releaseStock(env.DB, event.scheduledTime || Date.now());
       await cronPush(env);
+      await sosCleanup(env.DB);
     })());
   },
 };
@@ -133,8 +138,13 @@ async function route(req, env, ctx, info = {}) {
   info.path = path;
 
   if (m === 'GET' && path === 'pulse') {
-    const [v, partnerPush] = await Promise.all([getDoc(env.DB, `pulse:${side}`), hasPush(env.DB, other(side))]);
-    return json({ v: v || 0, partnerPush });
+    const [v, partnerPush, sos] = await Promise.all([
+      getDoc(env.DB, `pulse:${side}`),
+      hasPush(env.DB, other(side)),
+      // «Нужна помощь» — окрема мітка: телефон малює її одразу, навіть коли решта оновлення чекає
+      env.DB.prepare("SELECT MAX(updated) u FROM docs WHERE k IN ('sos:vona', 'sos:vin')").first('u'),
+    ]);
+    return json({ v: v || 0, partnerPush, sos: sos || 0 });
   }
 
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
@@ -178,6 +188,7 @@ async function route(req, env, ctx, info = {}) {
     return json({ letter, gift, checkins });
   }
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
+  if (path === 'sos' || path.startsWith('sos/')) return sosRoute(req, env.DB, side, path, notify);
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
   if (m === 'POST' && envEvent) return envelopeEvent(env.DB, side, envEvent[1], envEvent[2], notify);
@@ -1580,7 +1591,8 @@ function quietAt(tz) {
 
 // Одна підписка: 404/410 — телефон відписався, прибираємо
 async function pushOne(env, sub, note) {
-  const body = await encryptPush(sub, JSON.stringify({ ...note, silent: quietAt(sub.tz) }));
+  // «Нужна помощь» — і вночі зі звуком, і з високим пріоритетом (Android не відкладає до пробудження)
+  const body = await encryptPush(sub, JSON.stringify({ ...note, silent: !note.urgent && quietAt(sub.tz) }));
   const res = await fetch(sub.endpoint, {
     method: 'POST',
     headers: {
@@ -1588,7 +1600,7 @@ async function pushOne(env, sub, note) {
       'content-encoding': 'aes128gcm',
       'content-type': 'application/octet-stream',
       ttl: '86400',
-      urgency: 'normal',
+      urgency: note.urgent ? 'high' : 'normal',
     },
     body,
   });
@@ -1700,6 +1712,132 @@ async function checkin(req, db, side, notify) {
   await putDoc(db, `checkin:${side}`, { at, pushed: push ? now : prev?.pushed || null });
   if (push) notify.send(other(side), checkinNote(side, at, now));
   return json({ at, reaches, sent: push });
+}
+
+// «Нужна помощь»: doc sos:<side> — останній сигнал цієї половини; голос — рядок imgs sos-<side>.
+// Сигнал іде одразу, місце й голос доганяють окремими запитами. Координати — лише тут, не в push і не в boot
+const sosAudioName = (side) => `sos-${side}`;
+
+async function sosWipe(db, side) {
+  await db.prepare('DELETE FROM imgs WHERE name = ?').bind(sosAudioName(side)).run();
+}
+
+// Що віддаємо телефону: свіже (до доби), без даних голосу — лише чи він є
+function sosView(s, now = Date.now()) {
+  if (!s || now - s.at > SOS_MAX_AGE) return null;
+  const { id, at, created, lat, lon, acc, audio, audioType, seen, ok } = s;
+  return { id, at, created, lat: lat ?? null, lon: lon ?? null, acc: acc ?? null, audio: !!audio, audioType: audioType || null, seen: seen || null, ok: ok || null };
+}
+
+async function sosRoute(req, db, side, path, notify) {
+  const m = req.method;
+  const key = `sos:${side}`;
+  const theirKey = `sos:${other(side)}`;
+  if (m === 'GET' && path === 'sos') {
+    const [mine, theirs, phones] = await Promise.all([getDoc(db, key), getDoc(db, theirKey), getDoc(db, 'phones')]);
+    return json({ mine: sosView(mine), theirs: sosView(theirs), reaches: await hasPush(db, other(side)), phone: phones?.[other(side)] || null });
+  }
+  const now = Date.now();
+  if (m === 'POST' && path === 'sos') {
+    const b = await readJson(req);
+    const id = String(b.id || '');
+    if (!CID.test(id)) throw fail(400, 'id');
+    const prev = await getDoc(db, key);
+    const reaches = await hasPush(db, other(side));
+    // Повтор із черги без зв'язку — той самий сигнал, другого push не треба
+    if (prev?.id === id) return json({ sos: sosView(prev, now), reaches, again: true });
+    const at = Math.min(now, Number(b.at) || now);
+    if (at < now - SOS_MAX_AGE) throw fail(400, 'old');
+    await sosWipe(db, side);
+    const s = { id, at, created: now };
+    await putDoc(db, key, s);
+    notify.send(other(side), sosNote(side, at, now));
+    return json({ sos: sosView(s, now), reaches }, 201);
+  }
+  const mm = path.match(/^sos\/([a-z0-9]{16,32})(?:\/(seen|ok|audio))?$/);
+  if (!mm) throw fail(404, 'not found');
+  const [, id, act] = mm;
+  // Голос другого — звичайним запитом із ключем, без кешу (у телефоні не лишається)
+  if (m === 'GET' && act === 'audio') {
+    const s = await getDoc(db, theirKey);
+    if (!s || s.id !== id || !s.audio) throw fail(404, 'not found');
+    const row = await db.prepare('SELECT type, data FROM imgs WHERE name = ?').bind(sosAudioName(other(side))).first();
+    if (!row) throw fail(404, 'not found');
+    const bin = Uint8Array.from(atob(row.data), (c) => c.charCodeAt(0));
+    return new Response(bin, { headers: { 'content-type': row.type, 'cache-control': 'no-store' } });
+  }
+  // «Вижу» — тисне той, кому прийшов сигнал
+  if (m === 'POST' && act === 'seen') {
+    const s = await getDoc(db, theirKey);
+    if (!s || s.id !== id) throw fail(404, 'not found');
+    if (!s.seen) await putDoc(db, theirKey, { ...s, seen: now });
+    return json({ ok: true });
+  }
+  const s = await getDoc(db, key);
+  if (!s || s.id !== id) throw fail(404, 'not found');
+  if (s.ok) throw fail(409, 'over');
+  // «Отбой: всё хорошо» — місце й голос стираємо одразу
+  if (m === 'POST' && act === 'ok') {
+    await sosWipe(db, side);
+    await putDoc(db, key, { id: s.id, at: s.at, created: s.created, seen: s.seen || null, ok: now });
+    notify.send(other(side), sosOkNote(side));
+    return json({ ok: true });
+  }
+  if (m === 'PUT' && !act) {
+    const b = await readJson(req, MAX_AUDIO_B64 + 4096);
+    if (b.audio) {
+      const type = String(b.audio.type || '');
+      const data = String(b.audio.data || '');
+      if (!SOS_AUDIO.test(type)) throw fail(415, 'type');
+      if (!data || data.length > MAX_AUDIO_B64 || !/^[A-Za-z0-9+/]+=*$/.test(data)) throw fail(413, 'size');
+      await db.prepare('INSERT INTO imgs (name, type, data, updated) VALUES (?, ?, ?, ?) '
+        + 'ON CONFLICT (name) DO UPDATE SET type = excluded.type, data = excluded.data, updated = excluded.updated')
+        .bind(sosAudioName(side), type, data, now).run();
+      await putDoc(db, key, { ...s, audio: true, audioType: type });
+      notify.send(other(side), sosVoiceNote(side));
+      return json({ ok: true });
+    }
+    const lat = Number(b.lat);
+    const lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw fail(400, 'coords');
+    const acc = Number.isFinite(Number(b.acc)) ? Math.round(Number(b.acc)) : null;
+    await putDoc(db, key, { ...s, lat: Math.round(lat * 1e6) / 1e6, lon: Math.round(lon * 1e6) / 1e6, acc });
+    return json({ ok: true });
+  }
+  throw fail(404, 'not found');
+}
+
+// Сигнал старший за добу — прибрати разом із місцем і голосом
+async function sosCleanup(db) {
+  const now = Date.now();
+  for (const side of SIDES) {
+    const s = await getDoc(db, `sos:${side}`);
+    if (s && now - s.at > SOS_MAX_AGE) {
+      await sosWipe(db, side);
+      await db.prepare('DELETE FROM docs WHERE k = ?').bind(`sos:${side}`).run();
+    }
+  }
+}
+
+// Без координат: push видно на заблокованому екрані. Час — коли натиснули (міг дійти із запізненням)
+function sosNote(from, at, now) {
+  const time = new Intl.DateTimeFormat('ru', { timeZone: STOCK_TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(at));
+  const late = now - at > 5 * 60 * 1000;
+  return {
+    title: '🚨 Нужна помощь',
+    body: `${sender(from, 'Он нажал', 'Она нажала')} «Нужна помощь»${late ? ` в ${time}` : ''}. Открой Радовалку`,
+    tag: 'sos',
+    go: 'letter',
+    urgent: true,
+  };
+}
+
+function sosVoiceNote(from) {
+  return { title: '🎙 Голосовое к «Нужна помощь»', body: sender(from, 'Он записал голосовое', 'Она записала голосовое'), tag: 'sos', go: 'letter', urgent: true };
+}
+
+function sosOkNote(from) {
+  return { title: 'Отбой ❤️', body: sender(from, 'Он нажал «Всё хорошо»', 'Она нажала «Всё хорошо»'), tag: 'sos', go: 'letter' };
 }
 
 // Час відмітки — у тексті, якщо вона дійшла із запізненням: давню «всё хорошо» не видаємо за свіжу

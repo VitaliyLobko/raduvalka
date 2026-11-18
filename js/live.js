@@ -2,9 +2,11 @@
 // Push будить одразу (повідомлення від service worker). Поки щось читають чи пишуть — чекаємо, щоб не збити
 import { DATA } from './data.js';
 import { get, isOffline } from './api.js';
+import { loadSos } from './sos.js';
 
 const EVERY = 15000;
 let seen = 0;
+let sosSeen = 0;
 let busy = false;
 let waiting = false;
 let refresh = () => {};
@@ -22,15 +24,17 @@ function run() {
 
 export async function check() {
   if (busy || document.visibilityState !== 'visible' || isOffline() || document.body.classList.contains('is-booting')) return;
-  if (waiting) { run(); return; }
   busy = true;
   try {
-    const { v, partnerPush } = await get('pulse');
+    // Мітку питаємо й тоді, коли оновлення чекає, — інакше «Нужна помощь» не дійшла б, поки відкрито лист
+    const { v, partnerPush, sos } = await get('pulse');
     if (partnerPush !== DATA.partnerPush) {
       DATA.partnerPush = partnerPush;
       document.dispatchEvent(new CustomEvent('radovalka:partner-push'));
     }
-    if (v && v !== seen) { seen = v; run(); }
+    // «Нужна помощь» малюємо одразу — навіть коли решта чекає, поки дочитають чи допишуть
+    if (sos && sos !== sosSeen) { sosSeen = sos; loadSos(); }
+    if (v && v !== seen) { seen = v; run(); } else if (waiting) run();
   } catch { /* старий сервер чи нема зв'язку — мовчки до наступного разу */ }
   busy = false;
 }

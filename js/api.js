@@ -152,6 +152,11 @@ export async function send(path, method, body, { timeout } = {}) {
   }
 }
 
+// Файл із ключем, без кешу (голос «Нужна помощь» у телефоні не зберігаємо)
+export async function getBlob(path) {
+  return (await request(path, { cache: 'no-store' })).blob();
+}
+
 // Запис — у фоні: інтерфейс уже показав зміну, сервер лише наздоганяє
 export function save(path, body) {
   return request(path, {

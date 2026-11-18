@@ -2399,3 +2399,52 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 /* Без зв'язку: показуємо збережене — тонка плашка під шапкою */
 .offline-bar { width: calc(100% - 32px); max-width: 448px; margin: 0 auto 4px; padding: 6px 12px; border-radius: 12px; background: var(--chip); color: var(--ink-soft); font-size: .8125rem; line-height: 1.3; text-align: center; }
 .offline-bar[hidden] { display: none; }
+
+/* «Нужна помощь»: повзунок під «Я в порядке» — тягнути кружечок управо; випадковий дотик нічого не шле */
+.sos-slider {
+  --p: 0;
+  position: relative; display: flex; align-items: center; height: 48px; margin: 0 0 14px; padding: 4px;
+  border-radius: 999px; overflow: hidden; user-select: none; -webkit-user-select: none;
+  background: color-mix(in srgb, #E0465A calc(10% + var(--p) * 45%), transparent);
+  border: 1px solid color-mix(in srgb, #E0465A 45%, transparent);
+}
+.sos-label {
+  position: absolute; inset: 0 12px 0 56px; display: flex; align-items: center; justify-content: center;
+  font-size: .875rem; color: var(--ink-soft); opacity: calc(1 - var(--p) * 1.4); pointer-events: none;
+}
+.sos-thumb {
+  position: relative; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 50%; background: #E0465A; color: #fff; font-size: 1.15rem; cursor: grab;
+  touch-action: none; box-shadow: 0 2px 8px rgba(224, 70, 90, .35);
+}
+.sos-slider:not(.is-drag) .sos-thumb { transition: transform .25s ease-out; }
+.sos-thumb:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sos-slider.is-called { animation: sos-call 1s ease-in-out 3; }
+@keyframes sos-call { 50% { box-shadow: 0 0 0 6px rgba(224, 70, 90, .3); } }
+
+/* Картки сигналу вгорі «Писем» */
+.sos-box:empty { display: none; }
+.sos-card {
+  display: grid; gap: 8px; margin: 0 0 14px; padding: 14px 16px; border-radius: 20px;
+  background: #FFE4E8; color: #5A1020; border: 2px solid #E0465A;
+}
+.sos-card p { margin: 0; line-height: 1.3; }
+.sos-title { font-size: 1.25rem; font-weight: 700; }
+.sos-meta { font-size: .875rem; opacity: .85; }
+.sos-card .btn { color: #5A1020; justify-self: start; text-decoration: none; }
+.sos-card .btn-primary { background: #E0465A; border-color: #E0465A; color: #fff; }
+.sos-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.sos-audio { width: 100%; }
+.sos-card.is-mine { background: color-mix(in srgb, #FFE4E8 70%, transparent); border-width: 1px; }
+.sos-card.is-ok { background: #E3F6E8; color: #154A27; border: 1px solid #5DBB7A; }
+[data-side="vin"] .sos-card { background: #4A1622; color: #FFE4E8; }
+[data-side="vin"] .sos-card .btn { color: #FFE4E8; }
+[data-side="vin"] .sos-card.is-ok { background: #173B26; color: #E3F6E8; }
+.sos-sheet .sos-line { margin: 0 0 10px; line-height: 1.35; }
+.sos-sheet .sos-line.is-bad { color: #C4283E; font-weight: 600; }
+[data-side="vin"] .sos-sheet .sos-line.is-bad { color: #FF8A9A; }
+.sos-actions { flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) {
+  .sos-slider.is-called { animation: none; }
+  .sos-slider:not(.is-drag) .sos-thumb { transition: none; }
+}
