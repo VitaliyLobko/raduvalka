@@ -12,8 +12,6 @@ const ERRORS = {
   'no-speech': 'Ничего не слышно. Нажми 🎤 и говори',
 };
 
-export const voiceSupported = !!SR;
-
 let active = null;
 
 function stop() {

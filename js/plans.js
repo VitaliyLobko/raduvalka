@@ -674,26 +674,6 @@ function stack(backdrop, sheet) {
   document.body.append(backdrop, sheet);
 }
 
-// «Планы» у шторці — якщо вхід не вкладкою, а кнопкою (наприклад, у «Вместе»); тема своєї половини
-export function openPlans(onClose) {
-  const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.plan-form, .plan-match')) close(); };
-  const close = () => {
-    document.removeEventListener('keydown', onKey);
-    sheet.remove();
-    backdrop.remove();
-    onClose?.();
-  };
-  const body = h('div', { class: 'sheet-inner' });
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-together plan-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Планы' },
-    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
-    body);
-  stack(backdrop, sheet);
-  document.addEventListener('keydown', onKey);
-  renderPlans(body);
-  if (data) loadPlans().then(() => { markPlans(); if (alive(body)) renderPlans(body); }).catch(() => {});
-}
-
 function editIdea(screen) {
   const me = who();
   let cat = 'date';

@@ -543,6 +543,7 @@ async function checkUpdate() {
 let hiddenAt = 0;
 function refreshAll() {
   checkUpdate();
+  markFestive();
   setTimeout(maybeCookie, 1500);
   refreshLetter();
   loadSos();

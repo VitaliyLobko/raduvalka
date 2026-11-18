@@ -172,4 +172,3 @@ export function planetsSvg() {
 </g>`;
 }
 
-export const SPIN = { jupiter: JUP.P, earth: EARTH.P };

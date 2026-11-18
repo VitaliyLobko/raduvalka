@@ -1575,12 +1575,13 @@ async function plansRoute(req, db, side, rest, notify) {
     if ('vote' in b) {
       if (b.vote !== 0 && b.vote !== 1) throw fail(400, 'vote');
       // Голос — один раз; збіг фіксуємо тим самим запитом, щоб два одночасні ❤️ не розминулись
+      const votedAt = Date.now();
       await db.prepare(`UPDATE ideas SET ${me} = ?, `
         + `matched = CASE WHEN ? = 1 AND ${them} = 1 THEN ? ELSE matched END WHERE id = ? AND ${me} IS NULL`)
-        .bind(b.vote, b.vote, Date.now(), r.id).run();
+        .bind(b.vote, b.vote, votedAt, r.id).run();
       const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
-      // Збіг щойно стався цим голосом — другому push (сам бачить збіг на екрані)
-      if (after && bothLike(after) && !bothLike(r)) notify.send(other(side), planMatchNote(after.title));
+      // Збіг поставив саме цей запит (matched = наш час) — другому push; два одночасні ❤️ не дадуть двох
+      if (after && bothLike(after) && after.matched === votedAt) notify.send(other(side), planMatchNote(after.title));
       // Без збігу — лише false: ні «ще не дивився», ні «✕» назовні не виходить
       return json(after && bothLike(after) ? { match: true, idea: matchView(after, side) } : { match: false });
     }
