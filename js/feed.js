@@ -266,13 +266,22 @@ function draw(force = false, older = false) {
     (DATA.partnerEnvelopes || []).map((e) => [e.id, e.emoji, e.label])]);
   const nodes = [];
   let lastDay = '';
+  const hiddenIn = new Map();
   for (const it of shown.slice(0, limit).reverse()) {
     const d = dayTitle(it.at);
     if (d !== lastDay) {
       nodes.push(dayFor(d));
       lastDay = d;
     }
+    if (foldedDays.has(d)) { hiddenIn.set(d, (hiddenIn.get(d) || 0) + 1); continue; }
     nodes.push(rowFor(it));
+  }
+  // Підпис дати: згорнутий день — зі скількома повідомленнями всередині
+  for (const [d, li] of days) {
+    const n = hiddenIn.get(d);
+    li.classList.toggle('is-folded', !!n);
+    li.firstChild.textContent = n ? `${d} · ${n} ${n % 10 === 1 && n % 100 !== 11 ? 'сообщение' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'сообщения' : 'сообщений'} ▸` : d;
+    li.firstChild.setAttribute('aria-expanded', String(!n));
   }
   const want = new Set(nodes);
   [...list.children].forEach((c) => { if (!want.has(c)) c.remove(); });
@@ -353,8 +362,13 @@ function rowFor(it) {
   rows.set(it.key, { sig, el });
   return el;
 }
+// Тап по даті («Вчера», «12 ноября») — увесь цей день згортається в один рядок «Вчера · 5 ▸», ще тап — розгортається
+const foldedDays = new Set();
 function dayFor(d) {
-  if (!days.has(d)) days.set(d, h('li', { class: 'feed-day' }, d));
+  if (!days.has(d)) {
+    const btn = h('button', { type: 'button', class: 'feed-day-btn', onclick: () => { if (foldedDays.has(d)) foldedDays.delete(d); else foldedDays.add(d); draw(); } }, d);
+    days.set(d, h('li', { class: 'feed-day' }, btn));
+  }
   return days.get(d);
 }
 

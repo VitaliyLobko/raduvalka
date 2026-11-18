@@ -31,8 +31,8 @@ function constellation(heart) {
     return heart ? `<g transform="translate(${x} ${y}) scale(${r * 1.5})"><path ${tw} d="${HEART}"/></g>` : `<circle ${tw} cx="${x}" cy="${y}" r="${r * 2.6}"/>`;
   }).join('');
   // Під сузірʼям — підпис, як на зоряній карті (в обох; у неї — сливовим)
-  const label = '<text class="sgr-label" x="8" y="146">Sagittarius</text>';
-  return h('span', { class: `sgr${heart ? ' sgr-heart' : ''}`, html: `<svg viewBox="0 0 180 150" aria-hidden="true"><g class="sgr-lines">${lines}</g><g class="sgr-stars">${stars}</g>${label}</svg>` });
+  const label = '<text class="sgr-label" x="6" y="172">Sagittarius</text>';
+  return h('span', { class: `sgr${heart ? ' sgr-heart' : ''}`, html: `<svg viewBox="0 0 180 182" aria-hidden="true"><g class="sgr-lines">${lines}</g><g class="sgr-stars">${stars}</g>${label}</svg>` });
 }
 // Його фон — зоряна карта: кола координат, лінії й пунктир екліптики (тонко, золотом)
 const CHART = '<svg viewBox="0 0 250 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#EDB949" stroke-width=".7">'
