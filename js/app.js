@@ -628,6 +628,11 @@ function openAbout() {
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('На всякий случай',
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
+      // Другий ключ на цьому телефоні (він перевіряє обидві половини) — перемикач окремою карткою з упізнаваним значком
+      getAltKey() ? aboutGroup('Половина',
+        aboutRow(DATA.side === 'vin' ? '🌸' : '🌌', DATA.side === 'vin' ? 'Её половина' : 'Его половина',
+          DATA.side === 'vin' ? 'Посмотреть Радовалку её глазами' : 'Посмотреть Радовалку его глазами',
+          () => { swapKeys(); leave(() => location.replace(location.pathname)); })) : null,
       aboutGroup('Ещё',
         // Тур живе на «Письмах» — туди й повертаємось
         aboutRow('🐾', 'Познакомиться заново', null, () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
@@ -637,11 +642,6 @@ function openAbout() {
           newsList(NEWS.slice(0, 3)),
           NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null)),
       h('div', { class: 'about-foot' },
-        getAltKey() ? h('button', {
-          type: 'button',
-          class: 'about-link',
-          onclick: () => { swapKeys(); leave(() => location.replace(location.pathname)); },
-        }, DATA.side === 'vin' ? 'Переключиться на её половину' : 'Переключиться на его половину') : null,
         h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне'))));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
