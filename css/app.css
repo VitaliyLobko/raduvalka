@@ -1014,13 +1014,35 @@ html.is-covered body::before { animation-play-state: paused; }
 .about-link.is-out { color: #A8324C; }
 [data-side="vin"] .about-link.is-out { color: #FF8A9A; }
 .about-foot .about-logout { width: auto; justify-content: center; }
-.text-size-row { display: flex; align-items: center; gap: 10px; }
-.text-size-range { flex: 1; min-width: 0; accent-color: var(--plum); }
+/* Рядок повзунка: «А», доріжка з засічками під нею, «А», пікселі; букви й пікселі — на висоті повзунка, не засічок */
+.text-size-row { display: flex; align-items: flex-start; gap: 10px; }
+.text-size-track { flex: 1; min-width: 0; }
+.text-size-range { display: block; width: 100%; height: 28px; margin: 0; accent-color: var(--plum); }
 [data-side="vin"] .text-size-range { accent-color: var(--star); }
-.text-size-a { flex: none; font-weight: 600; line-height: 1; }
+.text-size-a, .text-size-px { flex: none; display: flex; align-items: center; height: 28px; line-height: 1; }
+.text-size-a { font-weight: 600; }
 .text-size-a.is-small { font-size: .8125rem; }
 .text-size-a.is-big { font-size: 1.375rem; }
-.text-size-px { flex: none; min-width: 3.2em; text-align: right; font-size: .8125rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.text-size-px { min-width: 3.2em; justify-content: flex-end; font-size: .8125rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* Засічки: центр повзунка ходить від 8px до (ширина − 8px); крайні підписи тиснуться до країв, риска лишається на місці */
+.text-size-marks { position: relative; height: 40px; }
+.text-size-mark {
+  --x: calc(8px + (100% - 16px) * var(--at)); --shift: -50%; --tick: 50%;
+  position: absolute; top: 0; left: var(--x); transform: translateX(var(--shift));
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 40px; padding: 12px 4px 0; border: 0; background: none; color: var(--ink-soft);
+  font: 500 .75rem/1.1 var(--ui); white-space: nowrap; cursor: pointer;
+}
+.text-size-mark:first-child { --shift: -8px; --tick: 8px; padding-left: 0; align-items: flex-start; }
+.text-size-mark:last-child { --shift: calc(-100% + 8px); --tick: calc(100% - 8px); padding-right: 0; align-items: flex-end; text-align: right; white-space: normal; width: min-content; }
+.text-size-mark::before {
+  content: ''; position: absolute; top: 2px; left: var(--tick); width: 2px; height: 7px; margin-left: -1px;
+  border-radius: 1px; background: currentColor; opacity: .55;
+}
+.text-size-mark small { display: block; margin-top: 1px; font-size: .6875rem; font-weight: 400; }
+.text-size-mark[aria-pressed="true"] { color: var(--plum); font-weight: 700; }
+.text-size-mark[aria-pressed="true"]::before { opacity: 1; }
+[data-side="vin"] .text-size-mark[aria-pressed="true"] { color: var(--star); }
+.text-size-mark:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; border-radius: 6px; }
 .sheet-about h3 { margin: 0 0 10px; font-family: var(--hand); font-size: 1.7rem; }
 .news { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 10px; }
 .news li { display: grid; grid-template-columns: 3.4em 1fr; gap: 8px; line-height: 1.4; }
