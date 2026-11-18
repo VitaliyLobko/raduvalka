@@ -2968,11 +2968,8 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .write-decor { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; opacity: .55; }
 .write-decor > i { position: absolute; inset: 0; transform: none; }
 .write-decor .sky i { animation: none; }
-.write-decor .sgr { position: absolute; left: 10%; top: 9%; width: 56%; }
 /* У нього поле листа напівпрозоре — під ним прикраси не мають проступати крізь текст */
 [data-side="vin"] .sheet-write .write-text { background-color: #174a5e; }
-.write-decor .sgr svg { transform: rotate(-12deg); }
-.write-decor .sgr-stars :is(circle, path) { animation: none; }
 .sheet-write.sheet-full .sheet-inner > :last-child { margin-bottom: 0; }
 .write-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .write-head h2 { margin: 0; }
