@@ -96,6 +96,14 @@ export function markFestive() {
   }
 }
 
+// Нерухомі прикраси для «Написать» на весь екран: та сама половина, що на фоні, але без руху (дешево)
+export function writeDecor() {
+  const vin = DATA.side === 'vin';
+  return vin
+    ? h('div', { class: 'write-decor', 'aria-hidden': 'true' }, h('i', { class: 'ds-chart', html: CHART }), sky(40, 9), constellation(false))
+    : h('div', { class: 'write-decor', 'aria-hidden': 'true' }, h('i', { class: 'dv-mid' }), h('i', { class: 'dv-front' }), constellation(true));
+}
+
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
   const vona = h('div', { class: 'depth depth-vona' },

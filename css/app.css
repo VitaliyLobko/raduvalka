@@ -2963,6 +2963,16 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 /* «Написать…» на весь екран: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить» */
 .sheet-write.sheet-full { overflow-y: auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); animation: rise .25s ease-out; }
 .sheet-write.sheet-full .sheet-inner { gap: 8px; }
+/* «Написать»: тло суцільне (текст читається), а під вмістом — нерухомі прикраси своєї половини (js/depth.js writeDecor) */
+.sheet-write.sheet-full { isolation: isolate; }
+.write-decor { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; opacity: .55; }
+.write-decor > i { position: absolute; inset: 0; transform: none; }
+.write-decor .sky i { animation: none; }
+.write-decor .sgr { position: absolute; left: 10%; top: 9%; width: 56%; }
+/* У нього поле листа напівпрозоре — під ним прикраси не мають проступати крізь текст */
+[data-side="vin"] .sheet-write .write-text { background-color: #174a5e; }
+.write-decor .sgr svg { transform: rotate(-12deg); }
+.write-decor .sgr-stars :is(circle, path) { animation: none; }
 .sheet-write.sheet-full .sheet-inner > :last-child { margin-bottom: 0; }
 .write-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .write-head h2 { margin: 0; }

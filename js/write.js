@@ -8,6 +8,7 @@ import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishe
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
 import { recentThread } from './feed.js';
+import { writeDecor } from './depth.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -264,6 +265,7 @@ export function openWrite(preset = {}) {
   const title = reply ? 'Ответ' : `Письмо ${me.toWhom}`;
   const backdrop = h('div', { class: 'backdrop', onclick: () => close() });
   const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    writeDecor(),
     h('div', { class: 'sheet-inner' }, ...[
       h('div', { class: 'write-head' },
         h('h2', {}, title),
