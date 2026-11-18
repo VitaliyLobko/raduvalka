@@ -7,7 +7,8 @@ import { rememberGif, captionHelper } from './maker.js';
 
 const MAX_SIDE = 1280;
 const GIF_MAX = 1_300_000;
-export const REACTIONS = ['😂', '❤️'];
+// Реакції в чаті (довге натискання) — той самий набір, що на сервері
+export const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏'];
 
 // id мемчика → blob-URL; свої щойно надіслані кладемо сюди одразу, щоб не тягнути назад
 const urls = new Map();

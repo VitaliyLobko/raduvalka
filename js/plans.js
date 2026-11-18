@@ -31,8 +31,6 @@ let view = 'deck';
 // Обрані на цьому телефоні теми колеса (кілька одразу); null — ще не обирали, тоді всі
 let wheelCats = null;
 let data = null;
-// Накопичений кут колеса: кожне обертання починається з того місця, де зупинилось попереднє
-let turned = 0;
 // Розгорнуті списки («Сделали», «Мои идеи ждут ответа»): перемальовка екрана не має їх згортати
 const unfolded = new Set();
 
@@ -139,7 +137,7 @@ export function renderPlans(screen) {
   const counts = data ? { deck: data.deck.length, ours: data.ours.filter((p) => !p.done).length } : {};
 
   const seg = h('div', { class: 'mk-chips mk-kind plan-seg', role: 'radiogroup', 'aria-label': 'Раздел планов' },
-    ...[['deck', 'Листать'], ['ours', 'Наши планы'], ['wheel', 'Колесо']].map(([v, label]) => h('button', {
+    ...[['deck', 'Листать'], ['ours', 'Наши планы'], ['wheel', 'Барабан']].map(([v, label]) => h('button', {
       type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(view === v),
       onclick: () => { view = v; renderPlans(screen); },
     }, label, counts[v] ? h('span', { class: 'plan-count' }, String(counts[v])) : null)));
@@ -399,7 +397,7 @@ function oursView(screen, me, pet) {
       h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'Листать идеи')];
   }
   return [
-    open.length >= 2 ? h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'wheel'; renderPlans(screen); } }, data.spin ? '🎡 Что выпало сегодня' : '🎡 Что сегодня? Крутить колесо') : null,
+    open.length >= 2 ? h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'wheel'; renderPlans(screen); } }, data.spin ? '🎰 Что выпало' : '🎰 Что сегодня? Крутить барабан') : null,
     open.length
       ? h('ul', { class: 'plan-list' }, ...open.map((p) => {
         const row = swipeRow(screen, p, doneBtn(p));
@@ -443,7 +441,7 @@ async function setDone(screen, p, done) {
 // ── Колесо «что сегодня» ──────────────────────────────────────────────────
 
 const PICK_LINES = [
-  'Колесо сказало — значит, так тому и быть 🎡',
+  'Барабан сказал — значит, так тому и быть 🎰',
   'Решено! Осталось выбрать день 📅',
   'Отличный выбор — моя лапа за! 🐾',
   'Вот и план. Не забудьте мне потом всё рассказать 😉',
@@ -464,7 +462,7 @@ function wheelView(screen, me, pet) {
   const myCats = iCalled ? new Set(inv.cats) : wheelCats;
 
   if (open.length < 2 && !data.spin) {
-    return [courier(pet, 'Колесу нужно хотя бы два общих плана. Листай идеи — каждое совпадение попадёт сюда.'),
+    return [courier(pet, 'Барабану нужно хотя бы два общих плана. Листай идеи — каждое совпадение попадёт сюда.'),
       h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'Листать идеи')];
   }
 
@@ -481,21 +479,16 @@ function wheelView(screen, me, pet) {
     const picked = data.spin && byId.get(data.spin.id);
     slots = picked ? [picked, ...preview().filter((p) => p.id !== picked.id)].slice(0, WHEEL_MAX) : preview();
   }
-  const disc = wheelSvg(slots);
-  const step = 360 / slots.length;
-  const angleTo = (i, jitter = 0) => -((i + 0.5) * step + jitter * step * 0.6);
+  const reel = makeReel(slots);
   const result = h('div', { class: 'plan-pick', 'aria-live': 'polite' });
-  const spinTo = async (id, from) => {
+  const spinTo = async (id) => {
     const i = slots.findIndex((p) => p.id === id);
     if (i < 0) return;
-    const base = from + (reduceMotion ? 0 : 5 * 360);
-    const target = angleTo(i, Math.random() - 0.5);
-    turned = base + ((((target - base) % 360) + 360) % 360);
-    disc.style.transform = `rotate(${turned}deg)`;
-    if (!reduceMotion) await wait(SPIN_MS);
-    if (disc.isConnected) showPick(result, slots[i], data.spin);
+    await reel.spin(i);
+    if (reel.el.isConnected) showPick(result, slots[i], data.spin);
   };
-  const wheel = (hub) => h('div', { class: 'plan-wheel' }, disc, h('span', { class: 'plan-pin', 'aria-hidden': 'true' }), hub);
+  // Барабан і кнопка під ним (замість маточини колеса)
+  const wheel = (hub) => h('div', { class: 'plan-reel-box' }, reel.el, hub);
   const seenKey = `radovalka:wheel-seen:${DATA.side}`;
   const markSeen = (at) => { try { localStorage.setItem(seenKey, String(at)); } catch { /* приватне вікно */ } };
 
@@ -523,20 +516,18 @@ function wheelView(screen, me, pet) {
       },
     }, 'Ещё раз?');
     if (seen !== String(data.spin.at) && !reduceMotion) {
-      turned = 0;
-      disc.style.transform = 'rotate(0deg)';
-      requestAnimationFrame(() => requestAnimationFrame(() => spinTo(data.spin.id, 0)));
+      reel.set(0);
+      requestAnimationFrame(() => requestAnimationFrame(() => spinTo(data.spin.id)));
     } else {
-      turned = angleTo(Math.max(0, slots.findIndex((p) => p.id === data.spin.id)));
-      disc.style.transform = `rotate(${turned}deg)`;
+      reel.set(Math.max(0, slots.findIndex((p) => p.id === data.spin.id)));
       const p = byId.get(data.spin.id);
       if (p) showPick(result, p, data.spin);
-      else result.append(h('p', { class: 'hint plan-hint' }, 'Колесо уже крутили. Захотите ещё — жмите «Ещё раз?».'));
+      else result.append(h('p', { class: 'hint plan-hint' }, 'Барабан уже крутили. Захотите ещё — жмите «Ещё раз?».'));
     }
     return [wheel(hub), result];
   }
 
-  disc.style.transform = `rotate(${turned}deg)`;
+  reel.set(0);
   // Теми — кілька одразу; зняли всі — колесо бере всі
   const chips = cats.length > 1 ? h('div', { class: 'mk-chips mk-row plan-filter', role: 'group', 'aria-label': 'Темы' },
     ...cats.map(([k, emoji, label]) => h('button', {
@@ -557,7 +548,7 @@ function wheelView(screen, me, pet) {
           r = await mutate('plans/spin', 'POST', { cats: [...wheelCats] });
         } catch (e) {
           hub.disabled = false;
-          toast(e.status === 409 ? 'Приглашение уже не действует' : 'Колесо не крутится — нет связи');
+          toast(e.status === 409 ? 'Приглашение уже не действует' : 'Барабан не крутится — нет связи');
           if (e.status === 409) reload(screen);
           return;
         }
@@ -572,7 +563,7 @@ function wheelView(screen, me, pet) {
   } else if (iCalled) {
     hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Ждём…');
     note = h('div', {},
-      courier(pet, `Позвали ${she ? 'её' : 'его'}! ${cap(me.partner)} ${she ? 'будет готова' : 'будет готов'} — и колесо закрутится у обоих 🎡`),
+      courier(pet, `Позвали ${she ? 'её' : 'его'}! ${cap(me.partner)} ${she ? 'будет готова' : 'будет готов'} — и барабан закрутится у обоих 🎰`),
       h('button', {
         type: 'button', class: 'btn plan-wide',
         onclick: async () => {
@@ -596,13 +587,13 @@ function wheelView(screen, me, pet) {
         }
       },
     }, 'Крутим?');
-    note = h('p', { class: 'hint plan-hint' }, `Выбери темы и позови — ${me.partner} отметит свои, и колесо закрутится для вас обоих.`);
+    note = h('p', { class: 'hint plan-hint' }, `Выбери темы и позови — ${me.partner} отметит свои, и барабан закрутится для вас обоих.`);
   }
 
   if (chips) ribbon(chips);
   // Що робити — над колесом, щоб не сховалось під меню
   return [chips, h('div', { class: 'plan-note' }, note), wheel(hub),
-    open.length > WHEEL_MAX ? h('p', { class: 'hint plan-hint' }, `На колесе до ${WHEEL_MAX} планов — каждый раз другие.`) : null,
+    open.length > WHEEL_MAX ? h('p', { class: 'hint plan-hint' }, `На барабане до ${WHEEL_MAX} планов — каждый раз другие.`) : null,
     result];
 }
 
@@ -615,7 +606,7 @@ function showPick(box, p, spin) {
     courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)),
     cardBody(p, 'plan-pick-card'),
     h('p', { class: 'hint plan-hint' }, spin?.with
-      ? 'Колесо выбрало для вас двоих — план уже первым в «Наших планах». Ещё раз — снова вдвоём.'
+      ? 'Барабан выбрал для вас двоих — план уже первым в «Наших планах». Ещё раз — снова вдвоём.'
       : 'Решено — план уже первым в «Наших планах» у вас обоих.'));
 }
 
@@ -624,44 +615,32 @@ export function showOurs() { view = 'ours'; }
 export function showWheel() { view = 'wheel'; }
 export function showDeck() { view = 'deck'; }
 
-// Колесо в SVG: сектори за годинниковою стрілкою від верху, підписи вздовж радіуса
-function wheelSvg(slots) {
-  const NS = 'http://www.w3.org/2000/svg';
-  const el = (tag, attrs, text) => {
-    const n = document.createElementNS(NS, tag);
-    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-    if (text) n.textContent = text;
-    return n;
+// Барабан: смужка з назвами (повторена кілька разів), у віконці видно три рядки — посередині обраний.
+// spin(i) — прокрутка з кількох обертів до плану i; set(i) — одразу на ньому
+const REEL_ROW = 52;
+const REEL_REPS = 9;
+function makeReel(slots) {
+  const n = slots.length;
+  const strip = h('ul', { class: 'reel-strip' }, ...Array.from({ length: n * REEL_REPS }, (_, j) => {
+    const p = slots[j % n];
+    return h('li', {}, h('span', { class: 'reel-emoji', 'aria-hidden': 'true' }, catOf(p.cat)[1]), h('span', { class: 'reel-title' }, p.title));
+  }));
+  const el = h('div', { class: 'plan-reel', role: 'img', 'aria-label': `Барабан: ${slots.map((p) => p.title).join(', ')}` }, strip);
+  const at = (k, ms = 0) => {
+    strip.style.transition = ms ? `transform ${ms}ms cubic-bezier(.12, .78, .18, 1)` : 'none';
+    strip.style.transform = `translateY(${(1 - k) * REEL_ROW}px)`;
   };
-  const R = 96;
-  const step = 360 / slots.length;
-  const at = (deg) => {
-    const a = (deg * Math.PI) / 180;
-    return `${(R * Math.sin(a)).toFixed(2)} ${(-R * Math.cos(a)).toFixed(2)}`;
+  return {
+    el,
+    set: (i) => at(n + i),
+    spin: async (i) => {
+      at(i % n);
+      void strip.offsetHeight;
+      if (reduceMotion) { at(n + i); return; }
+      requestAnimationFrame(() => at((REEL_REPS - 2) * n + i, SPIN_MS));
+      await wait(SPIN_MS + 60);
+    },
   };
-  const svg = el('svg', { viewBox: '-100 -100 200 200', class: 'plan-disc', role: 'img', 'aria-label': `Колесо: ${slots.map((p) => p.title).join(', ')}` });
-  svg.append(el('circle', { r: '99', class: 'plan-rim' }));
-  slots.forEach((p, i) => {
-    const a0 = i * step;
-    // Останній сектор не повинен збігтися кольором із першим, з яким він сусідить
-    const tone = i && i === slots.length - 1 && i % 4 === 0 ? 2 : i % 4;
-    const g = el('g', { class: `plan-sector plan-sector-${tone}` });
-    g.append(el('path', { d: `M0 0L${at(a0)}A${R} ${R} 0 ${step > 180 ? 1 : 0} 1 ${at(a0 + step)}Z` }));
-    // Від маточини до обода ~60 одиниць — влазить близько 11 знаків
-    const title = p.title.length > 11 ? `${p.title.slice(0, 10).trim()}…` : p.title;
-    const mid = (a0 + step / 2) % 360;
-    // Ліва половина колеса — розвертаємо, щоб підпис не стояв догори дриґом
-    const flip = mid > 180;
-    g.append(el('text', {
-      x: flip ? '-31' : '31',
-      y: '0',
-      'dominant-baseline': 'central',
-      'text-anchor': flip ? 'end' : 'start',
-      transform: `rotate(${mid + (flip ? 90 : -90)})`,
-    }, `${catOf(p.cat)[1]} ${title}`));
-    svg.append(g);
-  });
-  return svg;
 }
 
 // ── Шторки: своя ідея і «Подкинуть идеи» ───────────────────────────────────
@@ -751,20 +730,32 @@ function askIdeas(screen) {
     catChips(() => cat, (k) => { cat = k; shown.length = 0; }),
     hint, goBtn, status, out);
 
+  // ❤️ — у колоду; ще тап по ✓ — передумали: ідея прибирається
   const pickCard = (idea) => {
+    let saved = null;
     const like = h('button', {
-      type: 'button', class: 'plan-vote plan-vote-yes plan-ai-like', 'aria-label': `Хочу: ${idea.title}`,
+      type: 'button', class: 'plan-vote plan-vote-yes plan-ai-like', 'aria-label': `Хочу: ${idea.title}`, 'aria-pressed': 'false',
       onclick: async () => {
         like.disabled = true;
         try {
-          const saved = await mutate('plans', 'POST', { ...idea, ai: true });
-          addMine([saved]);
-          like.textContent = '✓';
-          like.classList.add('is-on');
-          burst(like, '❤️', 6);
-        } catch {
+          if (saved) {
+            await mutate(`plans/${saved.id}`, 'DELETE');
+            if (data) data.mine = data.mine.filter((x) => x.id !== saved.id);
+            saved = null;
+            like.textContent = '❤️';
+            like.classList.remove('is-on');
+          } else {
+            saved = await mutate('plans', 'POST', { ...idea, ai: true });
+            addMine([saved]);
+            like.textContent = '✓';
+            like.classList.add('is-on');
+            burst(like, '❤️', 6);
+          }
+          like.setAttribute('aria-pressed', String(!!saved));
+        } catch (e) {
+          toast(e.status === 409 ? 'Уже совпало — теперь это ваш общий план 💞' : 'Не сохранилось — нет связи');
+        } finally {
           like.disabled = false;
-          toast('Не сохранилось — нет связи');
         }
       },
     }, '❤️');

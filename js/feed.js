@@ -385,13 +385,71 @@ function newsRow(n) {
     return h('li', { class: 'feed-news feed-news-love' },
       h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.('deck') }, n.title === 'Заняться любовью' ? line : `🍓 ${line}`));
   }
-  const text = n.kind === 'invite' ? `${cap(who().partner)} ${she ? 'зовёт' : 'зовёт'} крутить колесо — жми «Готов»`
-    : n.kind === 'spin' ? `Колесо выбрало: «${n.title}»`
+  const text = n.kind === 'invite' ? `${cap(who().partner)} зовёт крутить барабан — жми «Готов»`
+    : n.kind === 'spin' ? `Барабан выбрал: «${n.title}»`
     : `${cap(who().partner)} ${n.kind === 'wish' ? `${she ? 'добавила' : 'добавил'} хотелку` : `${she ? 'предложила' : 'предложил'} план`} «${n.title}»`;
-  const [icon, tab] = n.kind === 'wish' ? ['🎁', 'wish'] : n.kind === 'plan' ? ['🧭', 'deck'] : ['🎡', 'wheel'];
+  const [icon, tab] = n.kind === 'wish' ? ['🎁', 'wish'] : n.kind === 'plan' ? ['🧭', 'deck'] : ['🎰', 'wheel'];
   return h('li', { class: 'feed-news' },
     h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.(tab) },
       h('span', { 'aria-hidden': 'true' }, icon), ` ${text}`));
+}
+
+// Реакції: довге натискання на чуже повідомлення — рядок значків над ним; тап — поставити, ще тап — зняти
+const canReact = (it) => (it.type === 'in' && !it.l.tpl) || (it.type === 'meme' && !it.m.mine);
+const reactionOf = (it) => (it.type === 'meme' ? it.m.reaction : it.l?.reaction) || null;
+function holdToReact(bubble, it) {
+  let timer = 0;
+  let x0 = 0;
+  let y0 = 0;
+  const stop = () => clearTimeout(timer);
+  bubble.addEventListener('pointerdown', (e) => {
+    x0 = e.clientX;
+    y0 = e.clientY;
+    stop();
+    timer = setTimeout(() => {
+      // Після довгого натискання клік не має ще й розгорнути лист
+      bubble.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+      navigator.vibrate?.(15);
+      openReactions(bubble, it);
+    }, 450);
+  });
+  bubble.addEventListener('pointermove', (e) => { if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 10) stop(); });
+  bubble.addEventListener('pointerup', stop);
+  bubble.addEventListener('pointercancel', stop);
+  bubble.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+function openReactions(bubble, it) {
+  document.querySelector('.react-layer')?.remove();
+  const cur = reactionOf(it);
+  const r = bubble.getBoundingClientRect();
+  const close = () => layer.remove();
+  const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Реакция' },
+    ...REACTIONS.map((e) => h('button', {
+      type: 'button', role: 'menuitem', class: `react-opt${e === cur ? ' is-on' : ''}`, 'aria-label': e,
+      onclick: (ev) => { ev.stopPropagation(); close(); setReaction(it, e === cur ? null : e, bubble); },
+    }, e)));
+  // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
+  const opened = Date.now();
+  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
+  document.body.append(layer);
+  // Над повідомленням, а коли нагорі місця нема — під ним; не виходимо за краї екрана
+  const w = pick.offsetWidth;
+  pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+  pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
+}
+async function setReaction(it, value, bubble) {
+  const live = it.type === 'meme' ? liveMeme(it.m) : liveLetter(it.l);
+  const prev = live.reaction || null;
+  live.reaction = value;
+  if (value) burst(bubble, value, 7);
+  draw();
+  try {
+    await send(it.type === 'meme' ? `memes/${live.id}` : `letters/${live.id}`, 'PUT', { reaction: value });
+  } catch {
+    live.reaction = prev;
+    draw();
+    toast('Не получилось — нет связи');
+  }
 }
 
 function row(it) {
@@ -400,6 +458,10 @@ function row(it) {
   const closed = it.type === 'in' && sealed(it.l);
   const bubble = it.type === 'meme' ? memeBubble(it.m) : closed ? envBubble(it.l) : it.type === 'in' ? inBubble(it.l) : outBubble(it.l, it.later);
   // Мордочки збоку нема — вона читалась як автор. Улюбленець лише приносить: сидить біля конверта, у листі — «🐾 ім'я»
+  // Значок реакції в куті: на чужому — моя, на моєму — його/її
+  const reaction = reactionOf(it);
+  if (reaction) bubble.append(h('span', { class: 'feed-react', 'aria-label': `Реакция: ${reaction}` }, reaction));
+  if (!closed && canReact(it)) holdToReact(bubble, it);
   const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key }, bubble);
   // Конверт лише відкривають: сховати чи відповісти, не прочитавши, не можна
   if (closed) return li;
@@ -606,18 +668,11 @@ function memeBubble(m) {
   let acts;
   if (m.mine) {
     acts = [
-      m.reaction ? h('span', { class: 'meme-their' }, `${cap(me.partner)}: ${m.reaction}`) : null,
       m.reply ? againBtn(m.reply) : null,
       h('button', { type: 'button', class: 'feed-act', 'aria-label': 'Удалить у обоих', onclick: () => removeMeme(m) }, '🗑'),
     ];
   } else {
-    acts = [
-      ...REACTIONS.map((r) => h('button', {
-        type: 'button', class: 'feed-act', 'aria-pressed': String(m.reaction === r),
-        'aria-label': r === '😂' ? 'Смешно' : 'Нравится', onclick: (e) => react(m, r, e.currentTarget.parentElement),
-      }, r)),
-      replyBtn(it),
-    ];
+    acts = [replyBtn(it)];
   }
   const replyLine = m.reply
     ? h('p', { class: `sent-reply${m.mine && isNew ? ' is-fresh' : ''}`, 'data-replied': m.replied || 0 },
@@ -633,22 +688,6 @@ function memeBubble(m) {
       ...acts));
 }
 
-// acts — рядок кнопок цього мемчика: позначаємо натиснуту в ньому, стрічку не перебудовуємо
-async function react(m0, r, acts) {
-  const m = liveMeme(m0);
-  const prev = m.reaction;
-  m.reaction = prev === r ? null : r;
-  const paint = (cur) => acts.querySelectorAll('[aria-pressed]').forEach((b) => b.setAttribute('aria-pressed', String(b.textContent === cur)));
-  paint(m.reaction);
-  if (m.reaction) burst(acts, m.reaction, 7);
-  try {
-    await send(`memes/${m.id}`, 'PUT', { reaction: m.reaction });
-  } catch {
-    liveMeme(m0).reaction = prev;
-    paint(prev);
-    toast('Не сохранилось — нет связи');
-  }
-}
 
 async function removeMeme(m) {
   if (!confirm(`Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`)) return;

@@ -42,7 +42,8 @@ const MAX_IMG = 1.4 * 1024 * 1024;
 // рядок D1 — до 2 МБ, тож base64 до 1,9 млн символів (≈1,4 МБ картинки)
 const MAX_B64 = 1_900_000;
 const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
-const REACTIONS = ['😂', '❤️'];
+// Реакції на лист і фото (ставить отримувач; старі 😂 і ❤️ мемчиків — серед них)
+const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏'];
 // stock — «в запас»: без дати; утром, коли листа на сьогодні нема, cron робить із найстарішого «На утро»
 const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date', 'stock'];
 // Ранок як у «На утро» на телефоні (js/write.js MORNING_HOUR); пояс — якщо отримувач ще не дав сповіщень
@@ -86,6 +87,8 @@ const MIGRATIONS = [
   'ALTER TABLE memes ADD COLUMN quote TEXT',
   // Коли фото мемчика стерто, щоб звільнити місце в базі (сам мемчик із підписом лишається)
   'ALTER TABLE memes ADD COLUMN gone INTEGER',
+  // Реакція отримувача на лист (з REACTIONS) — відправник бачить її значком на своєму повідомленні
+  'ALTER TABLE letters ADD COLUMN reaction TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -887,7 +890,7 @@ async function lettersRoute(req, db, side, rest, notify) {
     ).bind(side, Date.now()).all();
     return json(results.map((r) => ({
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
-      opened: !!r.opened, liked: !!r.liked, reply: r.reply,
+      opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
       ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
     })));
   }
@@ -963,6 +966,11 @@ async function lettersRoute(req, db, side, rest, notify) {
     const args = [];
     if (b.opened) { sets.push('opened = COALESCE(opened, ?)'); args.push(Date.now()); }
     if ('liked' in b) { sets.push('liked = ?'); args.push(b.liked ? 1 : 0); }
+    if ('reaction' in b) {
+      if (b.reaction !== null && !REACTIONS.includes(b.reaction)) throw fail(400, 'reaction');
+      sets.push('reaction = ?');
+      args.push(b.reaction);
+    }
     // ❤️ — відправнику push, але раз на лист: зняла й поставила знову — без повтору
     if (b.liked && !r.liked && !(await getDoc(db, `likepush:${r.id}`))) {
       await putDoc(db, `likepush:${r.id}`, Date.now());
@@ -1008,10 +1016,10 @@ async function feedPage(db, side, url) {
   const take = n + 1;
   const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
   const [inbox, sent, memes, news] = await Promise.all([
-    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, gift, chosen, at AS t FROM letters '
+    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, gift, chosen, at AS t FROM letters '
       + "WHERE dst = ? AND at <= ? AND at < ? AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
-    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, gift, chosen, stocked, ${sentAt} AS t `
+    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, reaction, gift, chosen, stocked, ${sentAt} AS t `
       + `FROM letters WHERE src = ? AND kind != 'stock' AND ${sentAt} < ? ORDER BY t DESC LIMIT ?`).bind(side, before, take).all(),
     db.prepare('SELECT *, created AS t FROM memes WHERE (src = ? OR dst = ?) AND created < ? ORDER BY created DESC LIMIT ?')
       .bind(side, side, before, take).all(),
@@ -2125,7 +2133,7 @@ const cleanCats = (list) => [...new Set((Array.isArray(list) ? list : []).map(St
 
 function planInviteNote(from) {
   return {
-    title: 'Крутим колесо? 🎡',
+    title: 'Крутим барабан? 🎰',
     body: `${sender(from, 'Он зовёт', 'Она зовёт')} крутить вместе: выбери темы и жми «Готов».`,
     tag: 'plan-invite',
     go: 'wheel',
@@ -2141,8 +2149,8 @@ async function planNext(db, rows) {
 // Тап — «Наши планы», де цей план угорі
 function planGoNote(from, title) {
   return {
-    title: 'Колесо выбрало 🎡',
-    body: `${sender(from, 'Он готов', 'Она готова')} — колесо выбрало для вас: «${title}». Идём!`,
+    title: 'Барабан выбрал 🎰',
+    body: `${sender(from, 'Он готов', 'Она готова')} — барабан выбрал для вас: «${title}». Идём!`,
     tag: 'plan-go',
     go: 'wheel',
   };

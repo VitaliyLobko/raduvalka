@@ -2233,7 +2233,8 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 }
 .due-emoji { font-size: 1.45rem; }
 /* Стрічка (ribbon): однакова всюди — краї тануть, стрілки ‹ › видно лише туди, куди є що гортати */
-.rib-wrap { position: relative; min-width: 0; }
+/* Обгортка може опинитись у flex-рядку (конверти в «Написать») — тоді без width вона розтягується на весь вміст */
+.rib-wrap { position: relative; min-width: 0; width: 100%; max-width: 100%; flex: 1 1 100%; }
 .rib-arrow {
   position: absolute;
   top: 50%;
@@ -3001,6 +3002,8 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .write-when .mk-chip { flex: none; white-space: nowrap; padding: 0 11px; }
 .write-dock .write-note { margin: 0; font-size: .8125rem; }
 .write-dock .write-envs { margin-top: 0; }
+/* Елемент сітки за замовчуванням не стискається вужче вмісту — і стрічка конвертів вилазила за край */
+.write-dock > *, .write-envs { min-width: 0; }
 /* Хто понесе — мордочки в рядок біля «Отправить» */
 .write-send { display: flex; align-items: center; gap: 8px; }
 .write-send .write-pets { flex: none; flex-wrap: nowrap; gap: 4px; }
@@ -3129,3 +3132,23 @@ html.is-covered .confetti { animation-play-state: paused; }
 [data-side="vin"] .env-card:nth-child(3n) { --tint: #C9A45E !important; }
 [data-side="vin"] :is(.me-seal, .seal, .write-seal, .compose-seal) svg { filter: sepia(1) saturate(2.6) hue-rotate(-12deg) brightness(1.08); }
 .feed-news-love .feed-news-btn { border-color: rgba(232, 71, 60, .45); }
+
+/* Реакції в чаті: значок у куті повідомлення й рядок вибору над ним */
+.feed-bubble { position: relative; }
+.feed-react {
+  position: absolute; right: 8px; bottom: 6px; z-index: 2;
+  min-width: 28px; height: 28px; padding: 0 4px; display: grid; place-items: center;
+  border-radius: 999px; background: var(--paper); box-shadow: 0 2px 8px rgba(42, 23, 48, .25); font-size: 1rem; line-height: 1;
+}
+.is-mine .feed-react { right: auto; left: 8px; }
+[data-side="vin"] .feed-react { background: #1d5469; }
+.react-layer { position: fixed; inset: 0; z-index: 90; }
+.react-pick {
+  position: fixed; display: flex; gap: 2px; padding: 6px; border-radius: 999px;
+  background: var(--paper); box-shadow: 0 10px 28px -8px rgba(42, 23, 48, .45); animation: fade .15s;
+}
+[data-side="vin"] .react-pick { background: #1d5469; }
+.react-opt { width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: none; font-size: 1.5rem; cursor: pointer; transition: transform .12s; }
+.react-opt:active { transform: scale(1.3); }
+.react-opt.is-on { background: color-mix(in srgb, var(--wax) 22%, transparent); }
+[data-side="vin"] .react-opt.is-on { background: rgba(237, 185, 73, .25); }
