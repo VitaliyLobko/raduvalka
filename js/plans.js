@@ -17,8 +17,6 @@ export const CATS = [
   ['love', '🍓', 'Нежность'],
   ['other', '✨', 'Другое'],
 ];
-// «Нежность» — готові ідеї одним дотиком (натяком, без відвертостей: їх видно на екрані й у push)
-const LOVE_IDEAS = ['Ночь только для нас', 'Свидание без телефонов', 'Утро, когда никуда не надо', 'Ванна с пеной на двоих', 'Танец на кухне под нашу песню'];
 const catOf = (key) => CATS.find(([k]) => k === key) || CATS[CATS.length - 1];
 
 const WHEEL_MAX = 12;
@@ -705,13 +703,9 @@ function editIdea(screen) {
   const title = h('input', { type: 'text', maxlength: '120', placeholder: 'Куда пойдём или что сделаем', 'aria-label': 'Идея' });
   const note = h('input', { type: 'text', maxlength: '300', placeholder: 'Подробности — по желанию', 'aria-label': 'Подробности' });
   const saveBtn = h('button', { type: 'button', class: 'btn btn-primary' }, 'Предложить');
-  const ready = h('div', { class: 'mk-chips mk-row plan-ready', hidden: true, 'aria-label': 'Готовые идеи' },
-    ...LOVE_IDEAS.map((t) => h('button', { type: 'button', class: 'mk-chip', onclick: () => { title.value = t; title.focus(); } }, t)));
-  ribbon(ready);
   const { close } = openSheet(screen, 'Новая идея',
     h('h2', {}, 'Идея'),
-    catChips(() => cat, (k) => { cat = k; ready.hidden = k !== 'love'; }),
-    ready,
+    catChips(() => cat, (k) => { cat = k; }),
     title, note,
     h('p', { class: 'plan-sheet-note' }, `${cap(me.partner)} увидит её у себя и ответит ❤️ или ✕. Что ответит — узнаешь, только если совпадёт.`),
     h('div', { class: 'sheet-actions' }, saveBtn));

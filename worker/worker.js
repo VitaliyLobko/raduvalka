@@ -1010,8 +1010,8 @@ async function feedPage(db, side, url) {
     db.prepare('SELECT *, created AS t FROM memes WHERE (src = ? OR dst = ?) AND created < ? ORDER BY created DESC LIMIT ?')
       .bind(side, side, before, take).all(),
     // Новини в чаті: другий додав хотілку чи план (ідеї від ШІ — не новина)
-    db.prepare("SELECT 'wish' AS kind, id, title, created AS t FROM wishes WHERE owner = ? AND created < ? "
-      + "UNION ALL SELECT 'plan' AS kind, id, title, created AS t FROM ideas WHERE author = ? AND ai = 0 AND created < ? "
+    db.prepare("SELECT 'wish' AS kind, id, title, NULL AS cat, created AS t FROM wishes WHERE owner = ? AND created < ? "
+      + "UNION ALL SELECT 'plan' AS kind, id, title, cat, created AS t FROM ideas WHERE author = ? AND ai = 0 AND created < ? "
       + 'ORDER BY t DESC LIMIT ?').bind(other(side), before, other(side), before, take).all(),
   ]);
   // Колесо в чаті: запрошення від другого (поки чекає) і останнє обертання — в обох
@@ -1042,7 +1042,7 @@ async function feedPage(db, side, url) {
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
-    news: of('news').map((r) => ({ kind: r.kind, id: r.id, title: r.title, at: r.t })),
+    news: of('news').map((r) => ({ kind: r.kind, id: r.id, title: r.title, at: r.t, ...(r.cat === 'love' ? { love: true } : {}) })),
     more,
     horizon,
   };
@@ -1560,7 +1560,7 @@ async function plansRoute(req, db, side, rest, notify) {
     if (!f.title) throw fail(400, 'title');
     const { row, stmt } = ideaInsert(db, side, f, 0, Date.now());
     await stmt.run();
-    notify.send(other(side), planNewNote(side, f.title));
+    notify.send(other(side), planNewNote(side, f.title, f.cat));
     return json(ideaView(row, side), 201);
   }
 
@@ -1811,7 +1811,16 @@ function envOpenedNote(from, e) {
 function wishNote(from, title) {
   return { title: 'Новая хотелка 🎁', body: `${sender(from, 'Он хочет', 'Она хочет')}: «${title}»`, tag: 'wish', go: 'wish' };
 }
-function planNewNote(from, title) {
+// «Нежность» — з натяком: «клубничка» замість протокольного «предложил план»
+const LOVE_TITLE = 'Заняться любовью';
+function planNewNote(from, title, cat) {
+  if (cat === 'love') {
+    return {
+      title: 'Клубничка 🍓',
+      body: title === LOVE_TITLE ? `${sender(from, 'Он предлагает', 'Она предлагает')} клубничку 😉` : `${sender(from, 'Он предлагает', 'Она предлагает')}: «${title}» 😉`,
+      tag: 'plan-new', go: 'deck',
+    };
+  }
   return { title: 'Новый план 🧭', body: `${sender(from, 'Он предложил', 'Она предложила')}: «${title}». Листай — может, совпадёт 💞`, tag: 'plan-new', go: 'deck' };
 }
 function planMatchNote(title) {

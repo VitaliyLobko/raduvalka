@@ -377,6 +377,13 @@ function dayFor(d) {
 function newsRow(n) {
   const she = who().partner === 'она';
   // Колесо: запрошення від другого й останнє обертання; тап — одразу колесо
+  // «Нежність» — з натяком і підморгуванням
+  if (n.love) {
+    const offers = she ? 'предлагает' : 'предлагает';
+    const line = n.title === 'Заняться любовью' ? `${cap(who().partner)} ${offers} клубничку 😉` : `${cap(who().partner)} ${offers}: «${n.title}» 😉`;
+    return h('li', { class: 'feed-news feed-news-love' },
+      h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.('deck') }, h('span', { 'aria-hidden': 'true' }, '🍓'), ` ${line}`));
+  }
   const text = n.kind === 'invite' ? `${cap(who().partner)} ${she ? 'зовёт' : 'зовёт'} крутить колесо — жми «Готов»`
     : n.kind === 'spin' ? `Колесо выбрало: «${n.title}»`
     : `${cap(who().partner)} ${n.kind === 'wish' ? `${she ? 'добавила' : 'добавил'} хотелку` : `${she ? 'предложила' : 'предложил'} план`} «${n.title}»`;

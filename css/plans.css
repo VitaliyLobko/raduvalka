@@ -84,7 +84,6 @@
 .plan-cat-pets { --tint: #C3E5B8; }
 .plan-cat-other { --tint: var(--lavender); }
 .plan-cat-love { --tint: #F49CC4; }
-.plan-ready { margin: 4px 0 10px; }
 
 .plan-card.is-drag { transition: none; cursor: grabbing; }
 .plan-card.is-gone { opacity: 0; }
