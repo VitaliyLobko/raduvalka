@@ -165,8 +165,11 @@ function renderLetter() {
     h('h2', { class: 'title' }, 'Письма'),
     pushAsk(),
     letterFeed(FEED_OPS),
-    h('button', { type: 'button', class: 'compose', id: 'write-btn', onclick: () => openWrite() },
-      h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…'),
+    // «Написать…» лише відкриває вікно — справа в тому ж рядку «до встречи» (з шапки, на інших вкладках він там)
+    h('div', { class: 'compose-row' },
+      h('button', { type: 'button', class: 'compose', id: 'write-btn', onclick: () => openWrite() },
+        h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…'),
+      chip),
   ].filter(Boolean));
 }
 
@@ -290,6 +293,8 @@ function openReply(t) {
 function render() {
   // Згорнутий «Я в порядке» живе в шапці лише на «Письмах»; інші вкладки — звичайна шапка
   document.querySelector('.top')?.classList.remove('has-checkin');
+  // «Вместе» — у шапці; «Письма» забирають його в рядок «Написать…»
+  document.getElementById('top-status').after(chip);
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
   const chat = tab === 'letter' && !DATA.gift;
   screen.classList.toggle('is-chat', chat);
@@ -558,6 +563,16 @@ document.addEventListener('visibilitychange', () => {
 
 const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
 
+// «О Радовалке» групами: підпис групи, під ним картка; рядок — значок, назва (і пояснення дрібно), стрілка
+const aboutGroup = (title, ...kids) => h('section', { class: 'about-group', 'aria-label': title },
+  h('h3', { class: 'about-group-title' }, title), h('div', { class: 'about-card' }, ...kids.filter(Boolean)));
+const aboutRowBody = (icon, label, note) => [
+  h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, icon),
+  h('span', { class: 'about-row-label' }, label, note ? h('small', {}, note) : null),
+  h('span', { class: 'about-row-go', 'aria-hidden': 'true' }, '›'),
+];
+const aboutRow = (icon, label, note, onclick) => h('button', { type: 'button', class: 'about-row', onclick }, ...aboutRowBody(icon, label, note));
+
 // Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні
 function openAbout() {
   const btn = document.getElementById('about-btn');
@@ -580,26 +595,30 @@ function openAbout() {
   const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'О Радовалке' },
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     h('div', { class: 'sheet-inner' },
-      h('h2', { class: 'title' }, 'Радовалка'),
-      h('p', { class: 'about-version' }, `Версия ${VERSION}`),
-      // Спершу налаштування — по них сюди й заходять; «Что нового» — під кнопкою нижче
-      textSizePanel(),
-      pushPanel(),
+      h('div', { class: 'about-head' },
+        h('h2', { class: 'title' }, 'Радовалка'),
+        h('p', { class: 'about-version' }, `версия ${VERSION}`)),
+      // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
+      aboutGroup('Размер букв в письмах', textSizePanel()),
+      aboutGroup('Уведомления', pushPanel()),
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
-      h('button', { type: 'button', class: 'btn', onclick: sosCheck }, '🆘 Проверить «Нужна помощь»'),
-      // Тур живе на «Письмах» — туди й повертаємось
-      h('button', { type: 'button', class: 'btn about-logout', onclick: () => { close(); selectTab('letter'); setTimeout(startTour, 400); } }, '🐾 Познакомиться заново'),
-      // Три свіжі версії, решта — під «Ранее»
-      h('details', { class: 'about-news' },
-        h('summary', { class: 'btn about-logout' }, '📰 Что нового'),
-        newsList(NEWS.slice(0, 3)),
-        NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null),
-      getAltKey() ? h('button', {
-        type: 'button',
-        class: 'btn about-logout',
-        onclick: () => { swapKeys(); leave(() => location.replace(location.pathname)); },
-      }, DATA.side === 'vin' ? 'Переключиться на её половину' : 'Переключиться на его половину') : null,
-      h('button', { type: 'button', class: 'btn about-logout', onclick: logout }, 'Выйти на этом телефоне')));
+      aboutGroup('На всякий случай',
+        aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
+      aboutGroup('Ещё',
+        // Тур живе на «Письмах» — туди й повертаємось
+        aboutRow('🐾', 'Познакомиться заново', null, () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
+        // Три свіжі версії, решта — під «Ранее»
+        h('details', { class: 'about-news' },
+          h('summary', { class: 'about-row' }, ...aboutRowBody('📰', 'Что нового', null)),
+          newsList(NEWS.slice(0, 3)),
+          NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null)),
+      h('div', { class: 'about-foot' },
+        getAltKey() ? h('button', {
+          type: 'button',
+          class: 'about-link',
+          onclick: () => { swapKeys(); leave(() => location.replace(location.pathname)); },
+        }, DATA.side === 'vin' ? 'Переключиться на её половину' : 'Переключиться на его половину') : null,
+        h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне'))));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
 }

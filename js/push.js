@@ -152,7 +152,8 @@ export function pushAsk() {
 
 // Блок у «О Радовалке»: увімкнути / перевірити / вимкнути
 export function pushPanel() {
-  const box = h('div', { class: 'push-panel' });
+  // Поки телефон відповідає, чи є підписка, — не порожня картка
+  const box = h('div', { class: 'push-panel' }, h('p', { class: 'hint' }, 'Проверяю уведомления…'));
   const draw = async () => {
     await drawMine();
     const off = partnerOff();

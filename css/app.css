@@ -978,6 +978,49 @@ html.is-covered body::before { animation-play-state: paused; }
 }
 
 .about-version { margin: -6px 0 18px; color: var(--ink-soft); }
+/* «О Радовалке»: групи — дрібний підпис, під ним картка з рядками через тонку лінію */
+.about-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 48px 12px 0; }
+.about-head .title { margin: 0; }
+.sheet-about .about-head .about-version { margin: 0; font-size: .875rem; }
+.about-group { margin: 0 0 12px; }
+.sheet-about .about-group-title { margin: 0 0 4px 4px; font: 400 1.4rem/1.15 var(--hand); }
+.about-card { display: grid; padding: 0 14px; border-radius: 18px; background: var(--chip); }
+.about-card > * + * { border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.about-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 6px 0; border: 0;
+  background: none; color: inherit; font: 500 1rem/1.2 var(--ui); text-align: left; cursor: pointer; list-style: none;
+}
+.about-row::-webkit-details-marker { display: none; }
+.about-row:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; border-radius: 10px; }
+.about-row-ic { flex: none; width: 28px; text-align: center; font-size: 1.25rem; }
+.about-row-label { flex: 1; min-width: 0; }
+.about-row-label small { display: block; margin-top: 2px; font-size: .8125rem; font-weight: 400; color: var(--ink-soft); }
+.about-row-go { flex: none; color: var(--ink-soft); font-size: 1.4rem; line-height: 1; transition: transform .2s; }
+.about-news[open] > summary .about-row-go { transform: rotate(90deg); }
+.about-card .text-size { padding: 12px 0; }
+.about-card .text-size-row { margin-bottom: 8px; }
+.about-card .text-size-sample { margin: 0; background: color-mix(in srgb, currentColor 7%, transparent); }
+.about-card .push-panel { margin: 0; padding: 12px 0; grid-template-columns: 1fr 1fr; }
+.about-card .push-panel > :only-child, .about-card .push-panel .hint { grid-column: 1 / -1; }
+.about-card .push-panel .hint { margin: 0; font-size: .875rem; color: var(--ink-soft); }
+.about-card .push-panel .btn { min-height: 44px; padding: 0 10px; font-size: .875rem; }
+.about-card .about-news .news { margin: 2px 0 12px; }
+.about-card .about-news .news-more { margin: -4px 0 8px; }
+.about-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 18px; margin-top: 2px; }
+.about-link {
+  min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--ink-soft);
+  font: 500 .9375rem/1 var(--ui); text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.about-link.is-out { color: #A8324C; }
+[data-side="vin"] .about-link.is-out { color: #FF8A9A; }
+.about-foot .about-logout { width: auto; justify-content: center; }
+.text-size-row { display: flex; align-items: center; gap: 10px; }
+.text-size-range { flex: 1; min-width: 0; accent-color: var(--plum); }
+[data-side="vin"] .text-size-range { accent-color: var(--star); }
+.text-size-a { flex: none; font-weight: 600; line-height: 1; }
+.text-size-a.is-small { font-size: .8125rem; }
+.text-size-a.is-big { font-size: 1.375rem; }
+.text-size-px { flex: none; min-width: 3.2em; text-align: right; font-size: .8125rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .sheet-about h3 { margin: 0 0 10px; font-family: var(--hand); font-size: 1.7rem; }
 .news { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 10px; }
 .news li { display: grid; grid-template-columns: 3.4em 1fr; gap: 8px; line-height: 1.4; }
@@ -2647,8 +2690,8 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 [data-side="vin"] .feed-env-go { background: #E8B84A; color: #1b2b33; }
 [data-side="vin"] .feed-env.is-festive { background: linear-gradient(160deg, #3A4A3E, #2A3B47); }
 /* Улюбленець, що приніс, тримає конверт */
-.feed-env-pet { flex: none; width: 56px; height: 56px; margin: -4px -20px -4px -4px; z-index: 1; }
-.feed-env-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); }
+.feed-env-pet { flex: none; width: 72px; height: 72px; margin: -8px -24px -8px -6px; z-index: 1; }
+.feed-env-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); color: transparent; font-size: 0; }
 /* Тап: печатка злітає, кнопка гасне — далі на цьому місці відкритий лист */
 .feed-env-pic::after, .feed-env-go { transition: transform .35s ease-in, opacity .35s ease-in; }
 .feed-env.is-opening .feed-env-pic::after { transform: translateY(-14px) scale(1.5) rotate(-20deg); opacity: 0; }
@@ -2670,6 +2713,16 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 }
 .compose:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
 [data-side="vin"] .compose { background: rgba(255, 255, 255, .08); color: #cfe0e4; }
+/* На «Письмах» «Написать…» і «до встречи» — одна смуга: зліва поле, справа чип */
+.compose-row {
+  flex: none; display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-right: 4px;
+  border-radius: 999px; border: 1px solid var(--chip); background: var(--paper);
+  box-shadow: 0 6px 16px -12px rgba(74, 37, 69, .5);
+}
+[data-side="vin"] .compose-row { background: rgba(255, 255, 255, .08); }
+.compose-row > .compose, [data-side="vin"] .compose-row > .compose { flex: 1; min-width: 0; margin: 0; border: 0; background: none; box-shadow: none; }
+.compose-row > .together-chip { flex: none; min-height: 40px; }
+@media (max-width: 374px) { .compose-row .chip-planets { display: none; } }
 
 /* «Написать…» на весь екран: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить» */
 .sheet-write.sheet-full { overflow-y: auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); animation: rise .25s ease-out; }
