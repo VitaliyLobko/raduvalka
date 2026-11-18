@@ -2367,7 +2367,21 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
   font-size: .8125rem; line-height: 1.3; color: var(--ink-soft);
 }
 .checkin-status:empty { display: none; }
+/* Відмітка другого — рожева пігулка з лінією пульсу, що пробігає зліва направо */
+.checkin-theirs {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: -4px; padding: 3px 12px 3px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--beat) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--beat) 28%, transparent);
+}
+.checkin-pulse { display: grid; width: 33px; height: 12px; }
+.checkin-pulse svg { width: 33px; height: 12px; overflow: visible; }
+.checkin-pulse polyline { fill: none; stroke: var(--beat); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.checkin-pulse .pulse-base { opacity: .3; }
+.checkin-pulse .pulse-run { stroke-dasharray: 18 72; stroke-dashoffset: 18; animation: pulse-run 2.2s linear infinite; }
+@keyframes pulse-run { 0% { stroke-dashoffset: 18; } 70%, 100% { stroke-dashoffset: -72; } }
 .checkin-theirs b { font-weight: 600; color: var(--ink); }
+.checkin-when { color: var(--ink-soft); }
+.checkin-status:has(.checkin-theirs) { align-items: center; }
 .checkin-strip { display: flex; align-items: center; gap: 8px; }
 .checkin-strip .sos-slider { flex: 1; min-width: 0; height: 44px; margin: 0; padding: 3px; }
 .checkin-strip .sos-thumb { width: 36px; height: 36px; font-size: 1rem; }
@@ -2393,6 +2407,7 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 @keyframes heart-ring { 0% { transform: scale(.6); opacity: .8; } 100% { transform: scale(2.2); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .checkin-heart svg, .checkin-btn.is-beat .checkin-heart svg, .checkin-btn.is-beat .checkin-heart::after { animation: none; }
+  .checkin-pulse .pulse-run { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
 }
 
 /* Без зв'язку: показуємо збережене — тонка плашка під шапкою */

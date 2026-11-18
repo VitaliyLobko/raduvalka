@@ -68,11 +68,31 @@ export async function testPush() {
   return send('push-test', 'POST', { endpoint: sub.endpoint });
 }
 
-// Старт: телефон уже підписаний — нагадати серверу, за якою він половиною і в якому поясі
+// Вимкнула сама в «О Радовалке» — тоді на старті не вмикаємо знову
+const OFF = 'radovalka:push-off';
+const offByHand = () => {
+  try {
+    return localStorage.getItem(OFF) === '1';
+  } catch {
+    return false;
+  }
+};
+const setOffByHand = (v) => {
+  try {
+    if (v) localStorage.setItem(OFF, '1');
+    else localStorage.removeItem(OFF);
+  } catch { /* приватний режим — не страшно */ }
+};
+
+// Старт: телефон уже підписаний — нагадати серверу, за якою він половиною і в якому поясі.
+// Дозвіл браузер уже дав, а підписки нема (після «Выйти» чи нового ключа) — підписати мовчки, без питань
 export async function syncPush() {
   if (!supported()) return;
   const sub = await current().catch(() => null);
   if (sub) register(sub).catch(() => { /* спробуємо наступного разу */ });
+  else if (Notification.permission === 'granted' && !offByHand()) {
+    enablePush().catch(() => { /* спробуємо наступного разу */ });
+  }
 }
 
 const errText = (e) => (e?.name === 'NotAllowedError'
@@ -82,6 +102,7 @@ const errText = (e) => (e?.name === 'NotAllowedError'
 export async function turnOn() {
   try {
     await enablePush();
+    setOffByHand(false);
     toast('Готово — пришлю, когда будет письмо 🔔');
     return true;
   } catch (e) {
@@ -109,7 +130,8 @@ export function pushAsk() {
   const slot = h('div', { class: 'push-ask-slot' });
   if (asked()) return slot;
   pushState().then((st) => {
-    if (st !== 'off' || !slot.isConnected) return;
+    // Дозвіл є — syncPush підпише сам, питати нема про що
+    if (st !== 'off' || !slot.isConnected || (Notification.permission === 'granted' && !offByHand())) return;
     const close = () => { markAsked(); slot.replaceChildren(); };
     slot.replaceChildren(h('div', { class: 'push-ask', role: 'group', 'aria-label': 'Уведомления' },
       h('span', { class: 'push-ask-text' }, '🔔 Сообщать, когда придёт письмо?'),
@@ -156,7 +178,7 @@ export function pushPanel() {
           }
           draw();
         }),
-        btn('🔕 Выключить уведомления', async () => { await disablePush(); toast('Уведомления выключены'); draw(); }));
+        btn('🔕 Выключить уведомления', async () => { await disablePush(); setOffByHand(true); toast('Уведомления выключены'); draw(); }));
     }
   };
   draw();

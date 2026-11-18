@@ -51,10 +51,9 @@ const STOCK_TZ = 'Europe/Kyiv';
 const MAX_LETTER = 4000;
 // id листа, придуманий телефоном (черга без зв'язку): лише малі латинські й цифри
 const CID = /^[a-z0-9]{16,32}$/;
-// «Я в порядке»: старіше доби не приймаємо; push — якщо відмітка не старша 12 год і не частіше раз на 20 хв
+// «Я в порядке»: старіше доби не приймаємо; push — на кожну відмітку, не старшу 12 год (давню з черги — тихо)
 const CHECKIN_MAX_AGE = 24 * 3600 * 1000;
 const CHECKIN_PUSH_AGE = 12 * 3600 * 1000;
-const CHECKIN_PUSH_GAP = 20 * 60 * 1000;
 // «Нужна помощь»: живе добу, координати й голос стираються на «Отбой» і після доби (cron)
 const SOS_MAX_AGE = 24 * 3600 * 1000;
 const SOS_AUDIO = /^audio\/(webm|ogg|mp4|mpeg|aac)(;[a-z0-9=.,\s-]*)?$/i;
@@ -1708,7 +1707,7 @@ async function checkin(req, db, side, notify) {
   const reaches = await hasPush(db, other(side));
   // Старіша за вже записану (повтор із черги) — нічого не міняє
   if (prev?.at >= at) return json({ at: prev.at, reaches, sent: false });
-  const push = reaches && now - at < CHECKIN_PUSH_AGE && !(prev?.pushed && now - prev.pushed < CHECKIN_PUSH_GAP);
+  const push = reaches && now - at < CHECKIN_PUSH_AGE;
   await putDoc(db, `checkin:${side}`, { at, pushed: push ? now : prev?.pushed || null });
   if (push) notify.send(other(side), checkinNote(side, at, now));
   return json({ at, reaches, sent: push });
