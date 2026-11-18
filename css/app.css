@@ -107,6 +107,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* На ноутбуці — та сама колонка, що й екран, а не кути вікна */
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
   padding: max(14px, env(safe-area-inset-top)) 16px 6px;
 }
 
@@ -853,7 +857,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   z-index: 10;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding: 10px 4px max(10px, env(safe-area-inset-bottom));
+  /* Тло — на всю ширину, самі вкладки — у колонці 480px по центру (на широкому екрані не розлітаються) */
+  padding: 10px max(4px, calc((100% - 480px) / 2)) max(10px, env(safe-area-inset-bottom));
   background: var(--tab-bg);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--chip);
@@ -2428,6 +2433,9 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   box-shadow: 0 8px 20px -8px rgba(42, 23, 48, .7); animation: jump-in .25s ease-out;
 }
 .feed-jump[hidden] { display: none; }
+/* Смуга прокрутки на ноутбуці — тонка й у кольорі теми, без сірих стрілок Windows */
+.screen.is-chat .feed-box, .write-thread { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--plum) 30%, transparent) transparent; }
+[data-side="vin"] .screen.is-chat .feed-box { scrollbar-color: rgba(232, 184, 74, .35) transparent; }
 .feed-jump:focus-visible { outline: 3px solid var(--powder); outline-offset: 2px; }
 [data-side="vin"] .feed-jump { background: #E8B84A; color: #1b2b33; }
 @keyframes jump-in { from { opacity: 0; transform: translate(-50%, 8px); } }
@@ -2531,7 +2539,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   font: 400 1.125rem/1.3 var(--hand); white-space: pre-line;
 }
 .write-ctx.is-open .write-ctx-text { display: block; max-height: 40dvh; overflow-y: auto; }
-.write-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.write-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
 .write-tools .mk-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; }
 .write-tools label:focus-within { outline: 3px solid var(--powder); outline-offset: 2px; }
 /* «Помочь написать» — кнопка в рядку, її панель — окремим рядком на всю ширину */

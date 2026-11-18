@@ -379,7 +379,7 @@ async function memesRoute(req, db, side, rest, notify) {
       if (!GIF_URL.test(gifUrl)) throw fail(400, 'gif');
       meme.url = gifUrl;
       await insertMeme().run();
-      notify.send(meme.dst, memeNote(side));
+      notify.send(meme.dst, memeNote(side, true));
       return json(view(meme, side), 201);
     }
 
@@ -426,7 +426,7 @@ async function memesRoute(req, db, side, rest, notify) {
     }
     await db.prepare('UPDATE memes SET reaction = ?, reply = ?, replied = ? WHERE id = ?')
       .bind(next.reaction ?? null, next.reply ?? null, next.replied ?? null, id).run();
-    if (next.reply && next.reply !== meme.reply) notify.send(meme.src, replyNote(side, 'meme'));
+    if (next.reply && next.reply !== meme.reply) notify.send(meme.src, replyNote(side, meme.url ? 'gif' : 'photo'));
     return json(view(next, side));
   }
 
@@ -1643,8 +1643,8 @@ function letterNote(kind, pet) {
 
 // Мемчик і відповідь: хто й на що, без самого тексту — сповіщення видно на заблокованому екрані
 const sender = (side, he, she) => (side === 'vin' ? he : she);
-function memeNote(from) {
-  return { title: 'Тебе мемчик 😹', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
+function memeNote(from, gif) {
+  return { title: gif ? 'Тебе гифка 🎞' : 'Тебе фото 📷', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
 // go — куди відкрити застосунок за тапом
 // Тап — «Написать» одразу в цей конверт
@@ -1867,7 +1867,7 @@ function likeNote(from, kind) {
 function replyNote(from, on) {
   return {
     title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
-    body: on === 'meme' ? 'на твой мемчик' : 'на твоё письмо',
+    body: on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : 'на твоё письмо',
     tag: 'reply',
   };
 }

@@ -164,7 +164,7 @@ export function openWrite(preset = {}) {
     },
   });
   const tools = h('div', { class: 'write-tools' },
-    h('label', { class: 'mk-chip' }, picker, '📷 Мемчик'),
+    h('label', { class: 'mk-chip' }, picker, '📷 Фото'),
     h('button', {
       type: 'button', class: 'mk-chip',
       onclick: () => { close(); openGifs((gif) => composeGif(gif, memeSent)); },

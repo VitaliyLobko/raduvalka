@@ -108,6 +108,8 @@ export function composeGif(gif, done) {
 // post(caption, style) повертає збережений мемчик; style0 — де підпис спочатку (GIF — поверх знизу);
 // about — що відомо про картинку (назва гифки) для ШІ
 function sendSheet(preview, post, done, style0 = null, about = '') {
+  // Гифка з пошуку приходить посиланням, фото з галереї — blob: так і називаємо
+  const gif = !preview.startsWith('blob:');
   let style = style0;
   const over = h('span', { class: 'meme-over', 'aria-hidden': 'true' });
   const caption = h('input', {
@@ -139,7 +141,7 @@ function sendSheet(preview, post, done, style0 = null, about = '') {
       DATA.memes = [meme, ...(DATA.memes || [])];
       close();
       const key = pet();
-      toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} мемчик ➶`);
+      toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} ${gif ? 'гифку' : 'фото'} ➶`);
       done?.();
     } catch (e) {
       go.disabled = false;
@@ -147,9 +149,9 @@ function sendSheet(preview, post, done, style0 = null, about = '') {
     }
   });
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-maker sheet-meme', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новый мемчик' },
+  const sheet = h('div', { class: 'sheet sheet-maker sheet-meme', role: 'dialog', 'aria-modal': 'true', 'aria-label': gif ? 'Новая гифка' : 'Новое фото' },
     h('div', { class: 'sheet-inner' },
-      h('h2', {}, 'Мемчик'),
+      h('h2', {}, gif ? 'Гифка' : 'Фото'),
       h('div', { class: 'meme-frame' }, Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }), over),
       h('div', { class: 'meme-cap-row' }, caption, helper.button),
       helper.captions,

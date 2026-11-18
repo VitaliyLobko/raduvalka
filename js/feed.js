@@ -113,7 +113,7 @@ export function recentThread(n = 6) {
     if (l.reply) c.push({ at: l.replied || l.at, text: l.reply, mine: false });
   }
   for (const m of DATA.memes || []) {
-    c.push({ at: m.created, text: m.caption ? `🖼 ${m.caption}` : '🖼 Мемчик', mine: !!m.mine });
+    c.push({ at: m.created, text: m.caption ? `🖼 ${m.caption}` : memeWord(m, true), mine: !!m.mine });
     if (m.reply) c.push({ at: m.replied || m.created, text: m.reply, mine: !m.mine });
   }
   return c.sort((x, y) => x.at - y.at).slice(-n);
@@ -164,6 +164,9 @@ export function letterFeed(o) {
 }
 
 const fresh = () => document.dispatchEvent(new CustomEvent('radovalka:fresh'));
+
+// Гифка з пошуку — за посиланням, решта — фото з галереї; icon — з значком, для рядка переписки
+const memeWord = (m, icon = false) => (m.url ? `${icon ? '🎞 ' : ''}Гифка` : `${icon ? '🖼 ' : ''}Фото`);
 
 // До найновішого — плавно (без анімацій — одразу)
 function toEnd() {
@@ -275,7 +278,7 @@ function draw(force = false, older = false) {
 
 function emptyText() {
   const me = who();
-  return `Здесь будет ваша переписка: письма, ответы и мемчики. ${cap(me.partner)} тоже их тут увидит.`;
+  return `Здесь будет ваша переписка: письма, ответы, фото и гифки. ${cap(me.partner)} тоже их тут увидит.`;
 }
 
 function restoreBtn(key) {
@@ -287,8 +290,9 @@ function restoreBtn(key) {
 
 function hiddenLabel(it) {
   if (it.type === 'meme') {
-    const whose = it.m.mine ? 'Твой' : (who().partner === 'она' ? 'Её' : 'Его');
-    return `🖼 ${whose} мемчик${it.m.caption ? `: ${it.m.caption.slice(0, 40)}` : ''}`;
+    const gif = !!it.m.url;
+    const whose = it.m.mine ? (gif ? 'Твоя' : 'Твоё') : (who().partner === 'она' ? 'Её' : 'Его');
+    return `${gif ? '🎞' : '🖼'} ${whose} ${gif ? 'гифка' : 'фото'}${it.m.caption ? `: ${it.m.caption.slice(0, 40)}` : ''}`;
   }
   if (it.l.tpl) return '💌 Первое письмо';
   const text = (it.l.text || (it.l.kind === 'gift' ? '🎁 Подарок' : '')).slice(0, 40);
@@ -524,16 +528,16 @@ function memeBubble(m) {
   const it = { type: 'meme', key: `m:${m.id}`, m };
   const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
   const pic = h('button', {
-    type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть мемчик на весь экран',
+    type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть на весь экран',
     onclick: () => showMeme(m, pic),
-  }, media(m.url, m.caption || 'Мемчик'), over);
+  }, media(m.url, m.caption || memeWord(m)), over);
   const isNew = m.mine ? (m.replied || 0) > seenAt.replies : m.created > seenAt.memes;
   let acts;
   if (m.mine) {
     acts = [
       m.reaction ? h('span', { class: 'meme-their' }, `${cap(me.partner)}: ${m.reaction}`) : null,
       m.reply ? againBtn(m.reply) : null,
-      h('button', { type: 'button', class: 'feed-act', 'aria-label': 'Удалить мемчик у обоих', onclick: () => removeMeme(m) }, '🗑'),
+      h('button', { type: 'button', class: 'feed-act', 'aria-label': 'Удалить у обоих', onclick: () => removeMeme(m) }, '🗑'),
     ];
   } else {
     acts = [
@@ -574,7 +578,7 @@ async function react(m0, r, acts) {
 }
 
 async function removeMeme(m) {
-  if (!confirm('Удалить этот мемчик у обоих?')) return;
+  if (!confirm(`Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`)) return;
   try {
     await send(`memes/${m.id}`, 'DELETE');
     DATA.memes = DATA.memes.filter((x) => x.id !== m.id);
@@ -589,7 +593,7 @@ function openReplyFor(it) {
   if (!target) return;
   // Привітальний — без відправника: відповідь іде звичайним листом, це робить app.js
   if (target.tpl) { ops.reply?.(it.l); return; }
-  const quote = it.type === 'meme' ? (it.m.caption || 'на мемчик') : (it.l.text || '');
+  const quote = it.type === 'meme' ? (it.m.caption || (it.m.url ? 'на гифку' : 'на фото')) : (it.l.text || '');
   replySheet(quote, async (text) => {
     await send(target.path, 'PUT', { reply: text });
     const cur = it.type === 'in' ? liveLetter(target.obj) : liveMeme(target.obj);
@@ -612,8 +616,8 @@ function showMeme(m, pic) {
   if (!src) return;
   const close = () => { view.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const el = media(m.url, m.caption || 'Мемчик', src);
-  const view = h('div', { class: 'photo-view feed-full', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Мемчик', onclick: close },
+  const el = media(m.url, m.caption || memeWord(m), src);
+  const view = h('div', { class: 'photo-view feed-full', role: 'dialog', 'aria-modal': 'true', 'aria-label': memeWord(m), onclick: close },
     h('div', { class: 'feed-full-frame' }, el,
       m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null),
     m.caption && !m.style ? h('p', { class: 'feed-full-cap' }, m.caption) : null,
