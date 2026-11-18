@@ -67,7 +67,6 @@ export const signLine = (sign, from) => (sign
   : h('p', { class: 'letter-sign', html: `${from} <span class="sign-arrow">${SAGITTARIUS}</span>` }));
 
 export const SAGITTARIUS_GLYPH = '<path d="M5 19 19 5"/><path d="M11 5h8v8"/><path d="M7 11l6 6"/>';
-export const QUILL_GLYPH = '<path d="M19.5 3.5c-6 1-10.5 5.5-12 12.5l1.6 1.6C16 16 20.5 11.5 21 4.9z"/><path d="M8.2 16.6 4 21"/><path d="M11 13c2-1.6 4-3.6 5.6-6"/>';
 
 export const ARROW = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 19 5"/><path d="M12 5h7v7"/><path d="M4 20l1.5-4.5M4 20l4.5-1.5"/></svg>`;
 

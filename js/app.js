@@ -7,7 +7,7 @@ import { openWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable, dayInFeed, pinDay } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky, signLine } from './ui.js';
+import { h, toast, cap, reduceMotion, ARROW, waxSeal, SAGITTARIUS_GLYPH, sky, signLine } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
@@ -130,27 +130,82 @@ function readCourier(letter) {
     h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), line));
 }
 
+// «Письма» — міні-чат: заголовок, блок «Я в порядке + SOS» (render), смужка листа дня, переписка, «Написать…».
+// Сам лист дня — у шторці на весь екран (конверт із печаттю, потім лист)
+let daySheet = null;
+let dayBox = null;
+
 function renderLetter() {
   // Подарунок, що чекає вибору, — першим; після «Ура!» видно звичайний лист дня
   if (DATA.gift) {
+    closeDay();
     renderGift(screen, DATA.gift, () => { DATA.gift = null; markLetter(); render(); });
     return;
   }
   const { letter } = DATA;
   // Лист дня сховано свайпом (повернути — у «Спрятанные») або прочитано, а в переписці вже є новіше —
-  // тоді лише переписка, найновіше нагорі
-  if (letter && (isHidden(dayKey()) || dayInFeed())) {
-    screen.replaceChildren(h('p', { class: 'day' }, dayLabel(isoDay(new Date()))), h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(render));
-    return;
-  }
-  if (!letter) {
-    renderEmpty('Письмо', `Писем пока нет. Как только ${who().partner} напишет, я сразу принесу.`, petFor('push'), 'guilty');
-    screen.append(pushAsk(), letterFeed(render));
-    return;
-  }
+  // тоді смужки нема, він — звичайне повідомлення в чаті
+  const showDay = !!letter && !isHidden(dayKey()) && !dayInFeed();
+  if (!showDay) closeDay();
+  screen.replaceChildren(...[
+    h('h2', { class: 'title' }, 'Письма'),
+    showDay ? dayPin(letter) : null,
+    pushAsk(),
+    letterFeed(render),
+    h('button', { type: 'button', class: 'compose', id: 'write-btn', onclick: () => openWrite() },
+      h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…'),
+  ].filter(Boolean));
+  if (dayBox) fillDay();
+}
+
+// Коротко для смужки: сьогоднішній — лише час, інакше день
+const pinWhen = (l) => (l.at && l.date === isoDay(new Date())
+  ? `сегодня в ${new Date(l.at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}`
+  : dayLabel(l.date));
+
+// Смужка над чатом: хто приніс, міні-конверт, «Открыть» / «Читать»
+function dayPin(letter) {
+  const st = letterState();
+  const pet = DATA.mascots[letter.mascot] ? letter.mascot : petFor('push');
+  const name = letter.special ? 'С праздником 🎉' : st.opened ? 'Письмо дня' : 'Тебе письмо 💌';
+  return h('button', {
+    type: 'button', class: `day-pin${st.opened ? '' : ' is-sealed'}`, onclick: openDay,
+    'aria-label': `${name}: ${st.opened ? 'читать' : 'открыть'}`,
+  },
+    pet ? h('span', { class: 'mascot', html: mascotImg(pet) }) : null,
+    h('span', { class: 'day-pin-env', 'aria-hidden': 'true' }),
+    h('span', { class: 'day-pin-text' },
+      h('b', {}, name),
+      h('span', {}, `${pinWhen(letter)}${st.liked ? ' ❤️' : ''}`)),
+    h('span', { class: 'day-pin-go', 'aria-hidden': 'true' }, st.opened ? 'Читать' : 'Открыть'));
+}
+
+function openDay() {
+  if (daySheet) return;
+  dayBox = h('div', { class: 'day-body' });
+  const backdrop = h('div', { class: 'backdrop', onclick: closeDay });
+  daySheet = h('div', { class: 'sheet sheet-full day-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Письмо дня' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: closeDay }, '✕'),
+    h('div', { class: 'sheet-inner' }, dayBox));
+  daySheet.backdrop = backdrop;
+  document.body.append(backdrop, daySheet);
+  fillDay();
+}
+
+function closeDay() {
+  if (!daySheet) return;
+  daySheet.backdrop.remove();
+  daySheet.remove();
+  daySheet = null;
+  dayBox = null;
+}
+
+// Вміст шторки: запечатаний конверт або сам лист
+function fillDay() {
+  const { letter } = DATA;
+  if (!letter) { closeDay(); return; }
   const st = letterState();
   const full = expanded === letterKey();
-
   const head = [
     h('p', { class: 'day' }, letterWhen(letter)),
     h('h2', { class: 'title' }, letter.special ? 'Праздничное письмо 🎉' : st.opened ? 'Письмо для тебя' : 'Тебе письмо 💌'),
@@ -168,15 +223,15 @@ function renderLetter() {
     h('span', { class: 'env-front', html: POCKET }),
     h('span', { class: 'env-flap' }),
     h('span', { class: 'seal', 'aria-hidden': 'true', html: waxSeal(SAGITTARIUS_GLYPH) }));
-    screen.replaceChildren(...head, h('div', { class: 'stage' },
+    dayBox.replaceChildren(...head, h('div', { class: 'stage' },
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
-      courier(letter)), pushAsk(), letterFeed(render));
+      courier(letter)));
     return;
   }
 
   // replaceChildren не пропускає null, на відміну від h()
-  screen.replaceChildren(...[
+  dayBox.replaceChildren(...[
     ...head,
     // Обгортка — підкладка з підписом, що станеться від змаху (як у стрічці)
     h('div', { class: `letter-swipe${full ? '' : ' is-compact'}` }, h('article', {
@@ -204,28 +259,27 @@ function renderLetter() {
         type: 'button',
         class: 'btn btn-fold',
         'aria-expanded': String(full),
-        onclick: () => { setExpanded(!full); if (full) window.scrollTo({ top: 0 }); },
+        onclick: () => { setExpanded(!full); if (full) daySheet?.scrollTo({ top: 0 }); },
       }, full ? '▴ Свернуть' : '▾ Целиком')),
     st.reply && full ? h('div', { class: 'reply-sent' }, h('span', {}, 'Твой ответ'), st.reply) : null,
     letter.special ? null : readCourier(letter),
-    pushAsk(),
-    letterFeed(render),
   ].filter(Boolean));
-  // Свайп листа дня: вліво — сховати (лишиться в стрічці), вправо — відповісти
-  const card = screen.querySelector('article.letter');
+  // Свайп листа дня: вліво — сховати (лишиться в чаті), вправо — відповісти
+  const card = dayBox.querySelector('article.letter');
   swipeable(card.parentElement, card, {
     place: 'feed',
     canRight: () => !letterState().reply,
     onLeft: () => {
       hide(dayKey());
+      closeDay();
       markLetter();
       render();
-      toast('Письмо дня спрятано. Вернуть — внизу «Спрятанные»');
+      toast('Письмо дня спрятано. Вернуть — вверху чата «Спрятанные»');
     },
     onRight: openReply,
   });
   // Згасання знизу — лише коли текст справді обрізано, коротке письмо лишається чистим
-  const text = screen.querySelector('.letter.is-compact .letter-text');
+  const text = dayBox.querySelector('.letter.is-compact .letter-text');
   if (text) text.classList.toggle('is-clamped', text.scrollHeight > text.clientHeight + 2);
 }
 
@@ -285,20 +339,15 @@ function openReply() {
   area.focus();
 }
 
-function renderEmpty(title, text, mascot, pose) {
-  screen.replaceChildren(h('div', { class: 'empty' },
-    mascot ? h('span', { class: 'mascot', html: mascotImg(mascot, pose) }) : null,
-    h('h2', {}, title),
-    h('p', {}, text)));
-}
-
 function render() {
+  // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
+  const chat = tab === 'letter' && !DATA.gift;
+  screen.classList.toggle('is-chat', chat);
+  document.body.classList.toggle('is-chat', chat);
+  if (chat) document.documentElement.style.setProperty('--tabs-h', `${document.querySelector('.tabs').offsetHeight}px`);
   if (tab === 'letter') {
     renderLetter();
-    // «Написать» — сургуч у куті вкладки «Письма» (раніше — посередині нижнього меню)
-    screen.prepend(h('button', { type: 'button', class: 'write-seal', id: 'write-btn', onclick: () => openWrite() },
-      h('span', { class: 'write-seal-wax', 'aria-hidden': 'true', html: waxSeal(QUILL_GLYPH) }), 'Написать'));
-    // Під заголовком: сигнал «Нужна помощь» (якщо є), потім «Я в порядке» з повзунком допомоги (у подарунка й порожнього екрана теж є h2)
+    // Під заголовком: сигнал «Нужна помощь» (якщо є), потім блок «Я в порядке» з повзунком допомоги (у подарунка теж є h2)
     const title = screen.querySelector('h2');
     const top = [sosBox(), checkinRow()];
     if (title) title.after(...top);

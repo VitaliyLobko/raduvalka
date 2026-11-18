@@ -1,4 +1,4 @@
-// Стрічка «Письма»: листи (отримані й надіслані) і мемчики разом, нові згори, по днях.
+// Чат «Письма»: листи (отримані й надіслані) і мемчики разом, по днях — старе вгорі, нове внизу, як у месенджері.
 // Свайп вліво — сховати в себе, вправо — відповісти; те саме кнопками
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
@@ -9,12 +9,10 @@ import { mascotImg, petFor } from './icons.js';
 import { flyOut, collapse } from './fx.js';
 import { deliver } from './outbox.js';
 
-const FILTERS = [['all', 'Все'], ['letters', 'Письма'], ['memes', 'Мемчики']];
 const SWIPE = 70;
 // Від краю екрана Android гортає «Назад» — там свайп не починаємо
 const EDGE = 24;
 
-let filter = 'all';
 // Скільки рядків на екрані: стрічку перемальовує кожна дія, сотні мемчиків гальмували б телефон
 const PAGE = 30;
 let limit = PAGE;
@@ -26,6 +24,8 @@ let loading = null;
 // Позначки «бачив» на момент завантаження: «новое» на пузирях не гасне, поки стрічка на екрані
 let seenAt = { memes: 0, replies: 0 };
 let box = null;
+// Скільки до низу чату було перед перемальовуванням: щоб живе оновлення не зсувало те, що зараз читають
+let fromBottom = 0;
 let redrawAll = null;
 // Лист дня, відкритий за цей захід, лишається нагорі; drawnInFeed — де він був при малюванні екрана
 let pinned = null;
@@ -113,9 +113,9 @@ function load() {
 export function letterFeed(rerender) {
   redrawAll = rerender;
   drawnInFeed = dayInFeed();
+  fromBottom = box?.isConnected ? gap(box) : 0;
   box = h('div', { class: 'feed-box' });
-  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' },
-    h('h3', { class: 'archive-title' }, 'Переписка'), box);
+  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box);
   // Секцію ще не вставлено в сторінку — малюємо в неї примусово
   if (cache) draw(true);
   else box.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
@@ -144,64 +144,56 @@ function items() {
   const now = Date.now();
   const day = dayId();
   const list = [];
-  if (filter !== 'memes') {
-    for (const l of cache?.inbox || []) if (l.id !== day) list.push({ type: 'in', key: `l:${l.id}`, at: l.at, l });
-    for (const l of cache?.sent || []) {
-      list.push({ type: 'out', key: `l:${l.id}`, at: l.kind === 'env' ? l.created : (l.at || l.created), l, later: l.at > now });
-    }
+  for (const l of cache?.inbox || []) if (l.id !== day) list.push({ type: 'in', key: `l:${l.id}`, at: l.at, l });
+  for (const l of cache?.sent || []) {
+    list.push({ type: 'out', key: `l:${l.id}`, at: l.kind === 'env' ? l.created : (l.at || l.created), l, later: l.at > now });
   }
-  if (filter !== 'letters') {
-    for (const m of DATA.memes || []) list.push({ type: 'meme', key: `m:${m.id}`, at: m.created, m });
-  }
+  for (const m of DATA.memes || []) list.push({ type: 'meme', key: `m:${m.id}`, at: m.created, m });
   return list.sort((a, b) => b.at - a.at);
 }
 
+const gap = (el) => el.scrollHeight - el.scrollTop - el.clientHeight;
+
+// Після перемальовування: був унизу — лишається внизу (нове видно одразу); гортав вище — те саме місце.
+// more — дописали старіше згори: тримаємо відстань до низу, щоб прочитане не втекло
+function keepPlace(more) {
+  const was = box.isConnected ? gap(box) : fromBottom;
+  const top = box.scrollTop;
+  return () => requestAnimationFrame(() => {
+    if (!box.isConnected) return;
+    if (more || was < 40) box.scrollTop = box.scrollHeight - box.clientHeight - (more ? was : 0);
+    else box.scrollTop = top;
+  });
+}
+
 // force — box ще не в документі (щойно створений letterFeed); інакше старий box, що зник з екрана, не чіпаємо
-function draw(force = false) {
+function draw(force = false, older = false) {
   if (!box || (!force && !box.isConnected)) return;
+  const restore = keepPlace(older);
   const hidden = readHidden();
   const all = items();
   const shown = all.filter((it) => !hidden.has(it.key));
   const hiddenItems = all.filter((it) => hidden.has(it.key));
   const dayHidden = DATA.letter && hidden.has(dayKey());
 
-  const seg = h('div', { class: 'mk-chips mk-kind archive-seg', role: 'radiogroup', 'aria-label': 'Что показать' },
-    ...FILTERS.map(([v, label]) => h('button', {
-      type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(filter === v),
-      onclick: () => { filter = v; limit = PAGE; draw(); },
-    }, label)));
-
+  // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори
   const list = h('ol', { class: 'feed-list' });
   let lastDay = '';
-  // Решта — кнопкою «Показать ещё»: дописуємо рядки в кінець, не чіпаючи вже показані
-  const put = (part) => {
-    for (const it of part) {
-      const d = dayTitle(it.at);
-      if (d !== lastDay) {
-        list.append(h('li', { class: 'feed-day' }, d));
-        lastDay = d;
-      }
-      list.append(row(it));
+  for (const it of shown.slice(0, limit).reverse()) {
+    const d = dayTitle(it.at);
+    if (d !== lastDay) {
+      list.append(h('li', { class: 'feed-day' }, d));
+      lastDay = d;
     }
-  };
-  put(shown.slice(0, limit));
-  const more = h('button', { type: 'button', class: 'feed-hidden-toggle feed-more' });
-  const showMore = () => {
-    const from = list.children.length;
-    put(shown.slice(limit, limit + PAGE));
-    limit += PAGE;
-    watchFresh(list, from);
-    if (shown.length <= limit) more.remove();
-    else more.textContent = `Показать ещё · ${shown.length - limit}`;
-  };
-  more.addEventListener('click', showMore);
-  more.textContent = `Показать ещё · ${shown.length - limit}`;
+    list.append(row(it));
+  }
+  const more = h('button', {
+    type: 'button', class: 'feed-hidden-toggle feed-more',
+    onclick: () => { limit += PAGE; draw(false, true); },
+  }, `Показать раньше · ${shown.length - limit}`);
 
   const nHidden = hiddenItems.length + (dayHidden ? 1 : 0);
   box.replaceChildren(...[
-    seg,
-    shown.length && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
-    shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
     shown.length > limit ? more : null,
     nHidden ? h('button', {
       type: 'button', class: 'feed-hidden-toggle', 'aria-expanded': String(showHidden),
@@ -210,10 +202,13 @@ function draw(force = false) {
     showHidden && nHidden ? h('ul', { class: 'feed-hidden' },
       dayHidden ? h('li', {}, h('span', {}, '💌 Письмо дня'), restoreBtn(dayKey(), true)) : null,
       ...hiddenItems.map((it) => h('li', {}, h('span', {}, hiddenLabel(it)), restoreBtn(it.key)))) : null,
+    shown.length ? list : h('p', { class: 'mk-wait' }, emptyText()),
+    shown.length && !learned('feed') ? hintBar('feed-swipe-hint', 'спрятать у себя', 'ответить') : null,
   ].filter(Boolean));
   watchFresh(list);
-  // Перша чужа — разок показує, що під нею зліва й справа
-  const first = list.querySelector('.feed-row.is-theirs');
+  restore();
+  // Остання чужа (найближча до низу, де дивляться) — разок показує, що під нею зліва й справа
+  const first = [...list.querySelectorAll('.feed-row.is-theirs')].pop();
   // Вправо пузир штовхає мордочка того, хто приніс
   const lean = (x, s) => () => {
     const b = first.querySelector('.feed-bubble');
@@ -227,7 +222,6 @@ function draw(force = false) {
 
 function emptyText() {
   const me = who();
-  if (filter === 'memes') return 'Мемчиков пока нет. Печать «Написать» → «📷» или «🎞».';
   return `Здесь будет ваша переписка: письма, ответы и мемчики. ${cap(me.partner)} тоже их тут увидит.`;
 }
 
@@ -277,7 +271,7 @@ function row(it) {
       hide(it.key);
       draw();
       fresh();
-      toast('Спрятано у тебя. Вернуть — внизу «Спрятанные»');
+      toast('Спрятано у тебя. Вернуть — вверху чата «Спрятанные»');
     },
     onRight: () => openReplyFor(it),
   });
@@ -298,7 +292,7 @@ function newMark(on) {
 function hideBtn(key) {
   return h('button', {
     type: 'button', class: 'feed-act feed-hide', 'aria-label': 'Спрятать у себя',
-    onclick: (e) => { e.stopPropagation(); hide(key); draw(); fresh(); toast('Спрятано у тебя. Вернуть — внизу «Спрятанные»'); },
+    onclick: (e) => { e.stopPropagation(); hide(key); draw(); fresh(); toast('Спрятано у тебя. Вернуть — вверху чата «Спрятанные»'); },
   }, '🙈');
 }
 
@@ -544,7 +538,7 @@ function showMeme(m, pic) {
 }
 
 // Картинки тягнемо, коли пузир під'їжджає до екрана; нове гасне, коли його справді побачили.
-// from — з якого рядка дивитись (після «Показать ещё» — лише дописані)
+// from — з якого рядка дивитись
 function watchFresh(list, from = 0) {
   const rows = [...list.children].slice(from);
   const pick = (sel) => rows.flatMap((r) => [...(r.matches(sel) ? [r] : []), ...r.querySelectorAll(sel)]);

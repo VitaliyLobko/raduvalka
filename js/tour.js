@@ -8,10 +8,17 @@ const KEY = 'radovalka:toured';
 
 // sel — що підсвітити (перше видиме), who — роль улюбленця; кого немає на екрані — крок пропускаємо
 const STEPS = [
-  { sel: '.envelope, article.letter', who: 'push', text: 'Здесь — последнее письмо тебе. Придёт новое — я принесу и постучу уведомлением 🐾' },
-  { sel: '#write-btn', who: 'memes', text: 'А тут — написать в ответ: письмо, записку в конверт или мемчик. Мемчики ношу я 😹' },
-  { sel: '.checkin-strip', who: 'push', text: () => `Тап по «Я в порядке», и ${who().partner} узнает, что всё хорошо. А если нужна помощь, проведи красный кружок вправо.` },
-  { sel: '.feed-row.is-theirs, .feed .archive-title', who: 'memes', text: 'Ниже — вся ваша переписка. Смахни влево — спрятать, вправо — ответить.' },
+  { sel: '.day-pin', who: 'push', text: 'Здесь — письмо дня. Придёт новое — я принесу и постучу уведомлением 🐾' },
+  { sel: '.checkin-row', who: 'push', text: () => `Тап по «Я в порядке», и ${who().partner} узнает, что всё хорошо. А если нужна помощь, проведи красный кружок вправо.` },
+  // Порожня переписка (перший день) — підсвічуємо рядок-заглушку, про свайпи ще рано
+  {
+    sel: '.feed-row.is-theirs, .feed-box .mk-wait, .feed-box',
+    who: 'memes',
+    text: () => (document.querySelector('.feed-row')
+      ? 'Это ваш чат: новое внизу. Смахни сообщение влево — спрятать, вправо — ответить.'
+      : 'Это ваш чат. Письма, ответы и мемчики будут появляться здесь, новое внизу.'),
+  },
+  { sel: '#write-btn', who: 'memes', text: 'А тут — написать: письмо, записку в конверт или мемчик. Мемчики ношу я 😹' },
   { sel: '.tab[data-tab=envelopes]', who: 'push', text: 'Конверты «Открой, когда…»: тяжёлый день, скучаешь, не спится. Открывай подходящий.' },
   { sel: '.tab[data-tab=plans]', who: 'memes', text: 'Планы: листай идеи, куда пойти. Совпало у вас обоих — значит, идём!' },
   { sel: '.tab[data-tab=wish]', who: 'push', text: () => `Хотелки: пиши, чего хочется, и подглядывай, что хочется ${who().toWhom}.` },
@@ -31,7 +38,15 @@ const visible = (el) => {
   const r = el.getBoundingClientRect();
   return r.width > 0 && r.height > 0;
 };
-const find = (sel) => [...document.querySelectorAll(sel)].find(visible) || null;
+// Варіанти через кому — за пріоритетом, а не за порядком у документі (обгортка інакше завжди перша)
+const find = (sel) => {
+  for (const one of sel.split(',')) {
+    // У чаті свіже — внизу: беремо останній видимий, інакше тур прокрутив би стрічку до найстаршого
+    const el = [...document.querySelectorAll(one)].findLast(visible);
+    if (el) return el;
+  }
+  return null;
+};
 
 export function startTour() {
   if (document.querySelector('.tour')) return;
@@ -61,6 +76,9 @@ export function startTour() {
     removeEventListener('resize', onResize);
     root.remove();
     window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    // Чат — знову на свіжому
+    const box = document.querySelector('.feed-box');
+    box?.scrollTo({ top: box.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
   }
 
   function place(el) {
