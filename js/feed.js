@@ -135,6 +135,7 @@ const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes
 const tIn = (l) => l.at;
 const tOut = (l) => (l.kind === 'env' ? l.created : (l.at || l.created));
 const tMeme = (m) => m.created;
+const tNews = (n) => n.at;
 const ids = (list) => new Set(list.map((x) => x.id));
 // Свіжа перша сторінка + те, що підвантажили раніше й старіше за її межу
 const joinNew = (fresh, old, t, horizon) => { const s = ids(fresh); return [...fresh, ...old.filter((x) => !s.has(x.id) && t(x) < horizon)]; };
@@ -144,14 +145,14 @@ const joinOld = (cur, older) => { const s = ids(cur); return [...cur, ...older.f
 function merge(p, older = false) {
   const memes = DATA.memes || [];
   if (older) {
-    cache = { inbox: joinOld(cache.inbox, p.inbox), sent: joinOld(cache.sent, p.sent) };
+    cache = { inbox: joinOld(cache.inbox, p.inbox), sent: joinOld(cache.sent, p.sent), news: joinOld(cache.news || [], p.news || []) };
     DATA.memes = joinOld(memes, p.memes);
     page = { more: p.more, horizon: p.horizon };
   } else if (cache && p.more && page.horizon < p.horizon) {
-    cache = { inbox: joinNew(p.inbox, cache.inbox, tIn, p.horizon), sent: joinNew(p.sent, cache.sent, tOut, p.horizon) };
+    cache = { inbox: joinNew(p.inbox, cache.inbox, tIn, p.horizon), sent: joinNew(p.sent, cache.sent, tOut, p.horizon), news: joinNew(p.news || [], cache.news || [], tNews, p.horizon) };
     DATA.memes = joinNew(p.memes, memes, tMeme, p.horizon);
   } else {
-    cache = { inbox: p.inbox, sent: p.sent };
+    cache = { inbox: p.inbox, sent: p.sent, news: p.news || [] };
     DATA.memes = p.memes;
     page = { more: p.more, horizon: p.horizon };
   }
@@ -254,6 +255,7 @@ function items() {
     list.push({ type: 'out', key: `l:${l.id}`, at: l.kind === 'env' ? l.created : (l.at || l.created), l, later: l.at > now });
   }
   for (const m of DATA.memes || []) list.push({ type: 'meme', key: `m:${m.id}`, at: m.created, m });
+  for (const n of cache?.news || []) list.push({ type: 'news', key: `n:${n.kind}:${n.id}`, at: n.at, n });
   // Привітальний завжди перший, навіть якщо другий написав раніше, ніж її вперше відкрили
   if (w) list[0].at = Math.min(w.at, ...list.slice(1).map((it) => it.at - 1));
   return list.sort((a, b) => b.at - a.at);
@@ -396,7 +398,7 @@ function isFresh(it) {
   return it.type === 'out' && (it.l.replied || 0) > seenAt.replies;
 }
 function rowFor(it) {
-  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m, unfolded.has(it.key), isFresh(it), around]);
+  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
   const el = row(it);
@@ -409,7 +411,19 @@ function dayFor(d) {
 }
 
 // Рядок стрічки: li стоїть на місці (під ним — підказка свайпу), пузир їде за пальцем
+// Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
+function newsRow(n) {
+  const she = who().partner === 'она';
+  const [icon, what, tab] = n.kind === 'wish'
+    ? ['🎁', `${she ? 'добавила' : 'добавил'} хотелку`, 'wish']
+    : ['🧭', `${she ? 'предложила' : 'предложил'} план`, 'plans'];
+  return h('li', { class: 'feed-news' },
+    h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.(tab) },
+      h('span', { 'aria-hidden': 'true' }, icon), ` ${cap(who().partner)} ${what} «${n.title}»`));
+}
+
 function row(it) {
+  if (it.type === 'news') return newsRow(it.n);
   const mine = it.type === 'out' || (it.type === 'meme' && it.m.mine);
   const closed = it.type === 'in' && sealed(it.l);
   const bubble = it.type === 'meme' ? memeBubble(it.m) : closed ? envBubble(it.l) : it.type === 'in' ? inBubble(it.l) : outBubble(it.l, it.later);

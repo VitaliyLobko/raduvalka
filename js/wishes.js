@@ -31,7 +31,9 @@ export function budgetSlider(prices, value, onInput) {
   const lo = thumb('Бюджет от', loAt);
   const hi = thumb('Бюджет до', hiAt);
   const out = h('output', { class: 'want-budget-val' });
-  const bar = h('div', { class: 'want-range' }, h('span', { class: 'want-range-fill' }), lo, hi);
+  // Крапки-кроки на смузі: видно, куди можна поставити повзунок
+  const ticks = steps.map((_, i) => h('span', { class: 'want-range-tick', style: `--at: ${i / last}` }));
+  const bar = h('div', { class: 'want-range' }, h('span', { class: 'want-range-fill' }), ...ticks, lo, hi);
   const show = () => {
     const min = steps[Number(lo.value)];
     const max = steps[Number(hi.value)];
@@ -59,8 +61,9 @@ export function budgetSlider(prices, value, onInput) {
   const now = show();
   if (now.min !== value.min || now.max !== value.max) onInput(now);
   return h('div', { class: 'want-budget' },
-    h('div', { class: 'want-budget-head' }, h('span', { class: 'mk-label' }, 'Бюджет'), out),
-    bar);
+    h('div', { class: 'want-budget-head' }, h('span', { class: 'mk-label' }, '💰 Бюджет'), out),
+    bar,
+    h('div', { class: 'want-range-ends', 'aria-hidden': 'true' }, h('span', {}, '0 ₴'), h('span', {}, 'без предела')));
 }
 
 // «К дате»: свята за днем і місяцем — назвою, решта — датою; минула дата вже не показується

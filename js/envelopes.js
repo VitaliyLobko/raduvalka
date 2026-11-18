@@ -72,7 +72,7 @@ export function renderEnvelopes(screen) {
     h('h2', { class: 'title' }, 'Открой, когда…'),
     pet ? h('div', { class: 'courier want-courier env-courier' },
       h('span', { class: 'mascot', html: mascotImg(pet) }),
-      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), 'Выбирай, какой открыть, — я сразу принесу 🐾')) : null,
+      h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), 'Выбирай — принесу 🐾')) : null,
     h('div', { class: 'env-grid' }, ...cards),
   ].filter(Boolean));
 }

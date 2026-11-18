@@ -151,6 +151,7 @@ const FEED_OPS = {
   like: () => { setWelcome({ liked: !welcomeState().liked }); redrawFeed(); markLetter(); },
   reply: () => openReply({ id: null, tpl: true }),
   compose: (o) => openWrite(o),
+  go: (t) => selectTab(t),
 };
 
 function renderLetter() {

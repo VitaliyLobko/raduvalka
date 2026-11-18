@@ -1001,7 +1001,7 @@ async function feedPage(db, side, url) {
   const n = Math.min(100, Math.max(10, Number(url.searchParams.get('limit')) || FEED_PAGE));
   const take = n + 1;
   const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
-  const [inbox, sent, memes] = await Promise.all([
+  const [inbox, sent, memes, news] = await Promise.all([
     db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, gift, chosen, at AS t FROM letters '
       + "WHERE dst = ? AND at <= ? AND at < ? AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
@@ -1009,8 +1009,12 @@ async function feedPage(db, side, url) {
       + `FROM letters WHERE src = ? AND kind != 'stock' AND ${sentAt} < ? ORDER BY t DESC LIMIT ?`).bind(side, before, take).all(),
     db.prepare('SELECT *, created AS t FROM memes WHERE (src = ? OR dst = ?) AND created < ? ORDER BY created DESC LIMIT ?')
       .bind(side, side, before, take).all(),
+    // Новини в чаті: другий додав хотілку чи план (ідеї від ШІ — не новина)
+    db.prepare("SELECT 'wish' AS kind, id, title, created AS t FROM wishes WHERE owner = ? AND created < ? "
+      + "UNION ALL SELECT 'plan' AS kind, id, title, created AS t FROM ideas WHERE author = ? AND ai = 0 AND created < ? "
+      + 'ORDER BY t DESC LIMIT ?').bind(other(side), before, other(side), before, take).all(),
   ]);
-  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results]];
+  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', news.results]];
   const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
   let page = all;
   let horizon = 0;
@@ -1029,6 +1033,7 @@ async function feedPage(db, side, url) {
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
+    news: of('news').map((r) => ({ kind: r.kind, id: r.id, title: r.title, at: r.t })),
     more,
     horizon,
   };
