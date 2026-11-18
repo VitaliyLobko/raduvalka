@@ -52,16 +52,18 @@ export function startDepth() {
   let tx = 0; let ty = 0; let x = 0; let y = 0; let raf = 0;
   const idle = () => document.hidden || document.documentElement.classList.contains('is-covered');
   const step = () => {
-    x += (tx - x) * 0.12;
-    y += (ty - y) * 0.12;
+    // Мʼяко доганяємо ціль — шари пливуть, а не смикаються
+    x += (tx - x) * 0.055;
+    y += (ty - y) * 0.055;
     box.style.setProperty('--dx', x.toFixed(3));
     box.style.setProperty('--dy', y.toFixed(3));
-    raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.004 ? requestAnimationFrame(step) : 0;
+    raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.002 ? requestAnimationFrame(step) : 0;
   };
   const aim = (nx, ny) => {
     if (document.documentElement.classList.contains('is-still')) return;
-    tx = clamp(nx);
-    ty = clamp(ny);
+    // Датчик тремтить — ціль теж згладжуємо
+    tx = tx * 0.75 + clamp(nx) * 0.25;
+    ty = ty * 0.75 + clamp(ny) * 0.25;
     if (!raf && !idle()) raf = requestAnimationFrame(step);
   };
 
