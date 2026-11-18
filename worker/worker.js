@@ -165,6 +165,8 @@ async function route(req, env, ctx, info = {}) {
       mascots: mascots || {},
       // Чи дійде до другого push — від цього залежить, чи обіцяти «узнает»
       partnerPush: await hasPush(env.DB, other(side)),
+      // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
+      partnerSign: (await getDoc(env.DB, 'signs'))?.[other(side)] || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
       imgs: await imgVersions(env.DB, mascots),
       memes,

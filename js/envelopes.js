@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { save, send } from './api.js';
 import { mascotImg, petName } from './icons.js';
-import { h, toast, cap, SAGITTARIUS, waxSeal, reduceMotion } from './ui.js';
+import { h, toast, cap, waxSeal, reduceMotion, signLine } from './ui.js';
 
 // Скільки листів уже прочитано в кожному конверті: { hard: 1 } — зберігається на сервері
 const seen = () => (DATA.mine.seen ||= {});
@@ -124,7 +124,7 @@ function openCard(screen, env) {
     h('article', { class: 'letter' },
       h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
       h('p', { class: 'letter-text' }, text),
-      h('p', { class: 'letter-sign', html: `${me.from} <span class="sign-arrow">${SAGITTARIUS}</span>` })),
+      signLine(DATA.partnerSign, me.from)),
     h('div', { class: 'actions' },
       heart,
       h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));

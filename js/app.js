@@ -7,7 +7,7 @@ import { openWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, hide, dayKey, swipeable, dayInFeed, pinDay } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, SAGITTARIUS, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky } from './ui.js';
+import { h, toast, cap, reduceMotion, ARROW, waxSeal, SAGITTARIUS_GLYPH, QUILL_GLYPH, sky, signLine } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs } from './plans.js';
@@ -189,7 +189,7 @@ function renderLetter() {
       }),
     },
       h('p', { class: 'letter-text' }, letter.text),
-      h('p', { class: 'letter-sign', html: `${who().from} <span class="sign-arrow">${SAGITTARIUS}</span>` }))),
+      signLine(DATA.partnerSign, who().from))),
     h('div', { class: 'actions' },
       h('button', {
         type: 'button',

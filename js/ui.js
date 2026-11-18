@@ -61,6 +61,11 @@ export function waxSeal(glyph) {
 </svg>`;
 }
 
+// Підпис під листом другого: свій, якщо його задано на сервері (signs), інакше «Твой/Твоя» і стрілець
+export const signLine = (sign, from) => (sign
+  ? h('p', { class: 'letter-sign' }, sign)
+  : h('p', { class: 'letter-sign', html: `${from} <span class="sign-arrow">${SAGITTARIUS}</span>` }));
+
 export const SAGITTARIUS_GLYPH = '<path d="M5 19 19 5"/><path d="M11 5h8v8"/><path d="M7 11l6 6"/>';
 export const QUILL_GLYPH = '<path d="M19.5 3.5c-6 1-10.5 5.5-12 12.5l1.6 1.6C16 16 20.5 11.5 21 4.9z"/><path d="M8.2 16.6 4 21"/><path d="M11 13c2-1.6 4-3.6 5.6-6"/>';
 
