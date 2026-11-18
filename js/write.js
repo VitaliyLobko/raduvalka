@@ -215,8 +215,14 @@ export function openWrite(preset = {}) {
     ...recent.map((m) => h('div', { class: `write-msg ${m.mine ? 'is-mine' : 'is-theirs'}` },
       h('span', { class: 'write-msg-text' }, m.text),
       h('span', { class: 'write-msg-at' }, whenShort(m.at))))) : null;
-  // Поле росте, поки пишеш, — переписка над ним стискається
-  const grow = () => { area.style.height = 'auto'; area.style.height = `${area.scrollHeight + 2}px`; };
+  // Межа між верхом (переписка чи цитата) і полем — тягнеться пальцем
+  const split = thread || ctx ? splitter(thread || ctx, area) : null;
+  // Поле росте, поки пишеш, — переписка над ним стискається; межу перетягнули — поле просто займає решту
+  const grow = () => {
+    if (split?.on()) return;
+    area.style.height = 'auto';
+    area.style.height = `${area.scrollHeight + 2}px`;
+  };
   area.addEventListener('input', grow);
 
   go.addEventListener('click', async () => {
@@ -264,6 +270,7 @@ export function openWrite(preset = {}) {
         h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: () => close() }, '✕')),
       ctx,
       thread,
+      split?.bar,
       tools,
       area,
       h('div', { class: 'write-dock' }, ...[
@@ -273,6 +280,7 @@ export function openWrite(preset = {}) {
     ].filter(Boolean)));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
+  split?.mount(sheet);
   // Спливає знизу, від кнопки «Написать…»; клавіатура — вже після, щоб вікно не перебудовувалось посеред руху
   sheet.style.animation = 'none';
   const shown = reduceMotion ? null
@@ -290,6 +298,59 @@ export function openWrite(preset = {}) {
   else { settled(); if (!area.value) area.focus(); }
   if (area.value) grow();
   return { sheet, area };
+}
+
+// Межа між верхом вікна (переписка чи цитата) і полем: тягнеш угору чи вниз — міняються висоти, поле бере решту.
+// Телефон пам'ятає висоту верху; поле не нижче 80px (CSS), вікно не прокручується (з клавіатурою теж)
+const SPLIT_KEY = 'radovalka:write-split';
+const MIN_TOP = 44;
+function splitter(top, area) {
+  let sheet = null;
+  const grip = h('div', {
+    class: 'write-split', role: 'separator', 'aria-orientation': 'horizontal', tabindex: '0',
+    'aria-label': 'Граница между перепиской и полем: потяни вверх или вниз',
+  }, h('span', { class: 'write-split-grip', 'aria-hidden': 'true' }));
+  const on = () => !!sheet?.classList.contains('is-split');
+  const set = (px) => {
+    sheet.classList.add('is-split');
+    area.style.height = '';
+    const want = Math.max(MIN_TOP, Math.round(px));
+    sheet.style.setProperty('--top-h', `${want}px`);
+    // Вікно не прокручується: що не влізло (поле вже мінімальне) — забираємо з верху
+    const over = sheet.scrollHeight - sheet.clientHeight;
+    if (over > 0) sheet.style.setProperty('--top-h', `${Math.max(MIN_TOP, want - over)}px`);
+  };
+  const topH = () => top.getBoundingClientRect().height;
+  const save = () => { try { localStorage.setItem(SPLIT_KEY, String(Math.round(topH()))); } catch { /* не запам'ятає */ } };
+  let y0 = 0;
+  let h0 = 0;
+  grip.addEventListener('pointerdown', (e) => {
+    y0 = e.clientY;
+    h0 = topH();
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add('is-drag');
+    e.preventDefault();
+  });
+  grip.addEventListener('pointermove', (e) => { if (grip.hasPointerCapture(e.pointerId)) set(h0 + e.clientY - y0); });
+  const end = () => { if (!grip.classList.contains('is-drag')) return; grip.classList.remove('is-drag'); save(); };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+  grip.addEventListener('keydown', (e) => {
+    const d = e.key === 'ArrowUp' ? -24 : e.key === 'ArrowDown' ? 24 : 0;
+    if (!d) return;
+    e.preventDefault();
+    set(topH() + d);
+    save();
+  });
+  const mount = (s) => {
+    sheet = s;
+    let saved = 0;
+    try { saved = Number(localStorage.getItem(SPLIT_KEY)) || 0; } catch { /* як уперше */ }
+    if (saved) set(saved);
+    // Клавіатура стискає вікно — поле не зникає: верх поступається
+    new ResizeObserver(() => { if (on() && sheet.scrollHeight > sheet.clientHeight) set(topH()); }).observe(sheet);
+  };
+  return { bar: grip, mount, on };
 }
 
 // Список її/його хотілок із фільтром бюджету; «Взять» заповнює рядки подарунка

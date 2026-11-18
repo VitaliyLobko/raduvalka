@@ -138,11 +138,16 @@ function load() {
   return loading;
 }
 
+// Тап по вкладці «Письма» — наступна стрічка стає на найновіше, навіть якщо гортали вище
+let toLatest = false;
+export function feedToLatest() { toLatest = true; }
+
 // Стрічка «Писем». o — зв'язок з app.js (див. ops)
 export function letterFeed(o) {
   ops = o || {};
-  fromBottom = box?.isConnected ? gap(box) : 0;
-  fromTop = box?.isConnected ? box.scrollTop : 0;
+  fromBottom = box?.isConnected && !toLatest ? gap(box) : 0;
+  fromTop = box?.isConnected && !toLatest ? box.scrollTop : 0;
+  toLatest = false;
   stuck = fromBottom < 40;
   box = h('div', { class: 'feed-box' });
   jump = h('button', { type: 'button', class: 'feed-jump', hidden: true, onclick: toEnd }, '↓ Новое');

@@ -4,7 +4,7 @@ import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, remembe
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
-import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed } from './feed.js';
+import { letterFeed, refreshFeed, invalidateFeed, feedFresh, isHidden, welcomeKey, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, sky, signLine } from './ui.js';
@@ -328,6 +328,8 @@ function selectTab(name, fromBack = false) {
   if (tab === 'wish' && name !== 'wish') forgetFreshWishes();
   tab = name;
   if (name === 'letter') { refreshLetter(); invalidateFeed(); }
+  // Тап по «Письма» — до найсвіжішого; «Назад» повертає туди, де читали
+  if (name === 'letter' && !fromBack) feedToLatest();
   document.querySelectorAll('.tab').forEach((x) => {
     const on = x.dataset.tab === name;
     x.classList.toggle('is-active', on);
@@ -580,16 +582,18 @@ function openAbout() {
     h('div', { class: 'sheet-inner' },
       h('h2', { class: 'title' }, 'Радовалка'),
       h('p', { class: 'about-version' }, `Версия ${VERSION}`),
-      h('h3', {}, 'Что нового'),
-      // Три свіжі версії на виду, решта — під «Ранее», щоб кнопки нижче не тонули
-      newsList(NEWS.slice(0, 3)),
-      NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null,
+      // Спершу налаштування — по них сюди й заходять; «Что нового» — під кнопкою нижче
       textSizePanel(),
       pushPanel(),
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       h('button', { type: 'button', class: 'btn', onclick: sosCheck }, '🆘 Проверить «Нужна помощь»'),
       // Тур живе на «Письмах» — туди й повертаємось
       h('button', { type: 'button', class: 'btn about-logout', onclick: () => { close(); selectTab('letter'); setTimeout(startTour, 400); } }, '🐾 Познакомиться заново'),
+      // Три свіжі версії, решта — під «Ранее»
+      h('details', { class: 'about-news' },
+        h('summary', { class: 'btn about-logout' }, '📰 Что нового'),
+        newsList(NEWS.slice(0, 3)),
+        NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null),
       getAltKey() ? h('button', {
         type: 'button',
         class: 'btn about-logout',

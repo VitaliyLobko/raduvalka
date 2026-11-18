@@ -67,6 +67,16 @@ export function renderTogether(screen) {
       h('span', { class: 'countdown-days' }, trip.value)) : null],
   });
 
+  // Дату стерти одним тапом: ✕ поруч, поки щось вписано (у календарі телефона «очистити» не скрізь є)
+  const clearable = (input, label, onClear) => {
+    const btn = h('button', {
+      type: 'button', class: 'date-clear', 'aria-label': `Стереть: ${label}`, hidden: !input.value,
+      onclick: (e) => { e.preventDefault(); input.value = ''; btn.hidden = true; onClear(); },
+    }, '✕');
+    input.addEventListener('input', () => { btn.hidden = !input.value; });
+    return h('span', { class: 'date-field' }, input, btn);
+  };
+
   // Дату зустрічі вписує будь-хто з двох, щойно вона з'явиться
   const meetInput = h('input', {
     type: 'date',
@@ -83,12 +93,14 @@ export function renderTogether(screen) {
   // Дні народження — для «🎂 Мой ДР» у хотілках; свій і другого вписує будь-хто
   const bday = (side, label) => {
     const key = side === 'vona' ? 'bdayVona' : 'bdayVin';
-    return h('label', { class: 'bday' }, h('span', {}, label), h('input', {
+    const input = h('input', {
       type: 'date',
       value: T[key] || '',
       'aria-label': `День рождения: ${label}`,
       onchange: (e) => { T[key] = e.target.value || null; save('together', { [key]: T[key] }); },
-    }));
+    });
+    return h('label', { class: 'bday' }, h('span', {}, label),
+      clearable(input, label, () => { T[key] = null; save('together', { [key]: null }); }));
   };
   const mine = side === 'vona' ? ['vona', 'vin'] : ['vin', 'vona'];
 
@@ -96,7 +108,8 @@ export function renderTogether(screen) {
   screen.replaceChildren(...[
     h('h2', { class: 'title' }, 'Вместе'),
     card,
-    h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'), meetInput),
+    h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'),
+      clearable(meetInput, 'дату встречи', () => { T.meet = null; save('together', { meet: null }); renderTogether(screen); })),
     h('div', { class: 'bday-row' }, bday(mine[0], '🎂 Твой ДР'), bday(mine[1], side === 'vona' ? '🎂 Его ДР' : '🎂 Её ДР')),
     togetherDays(now, T.since),
   ].filter(Boolean));

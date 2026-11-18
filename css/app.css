@@ -961,6 +961,12 @@ html.is-covered body::before { animation-play-state: paused; }
 .news li { display: grid; grid-template-columns: 3.4em 1fr; gap: 8px; line-height: 1.4; }
 .news b { font-weight: 500; color: var(--ink-soft); }
 .about-logout { width: 100%; justify-content: center; border-color: var(--chip); color: var(--ink-soft); }
+/* «Что нового» — кнопкою під налаштуваннями, список розкривається під нею */
+.about-news > summary { list-style: none; cursor: pointer; }
+.about-news > summary::-webkit-details-marker { display: none; }
+.about-news[open] > summary { margin-bottom: 14px; }
+.sheet-about .sheet-inner > :is(.btn, .about-news) + :is(.btn, .about-news) { margin-top: 8px; }
+.about-news .news-more { margin-top: 0; }
 
 /* «Вместе» у шапці: мініатюра листівки й скільки днів */
 .together-chip {
@@ -2008,6 +2014,15 @@ a.want-body:active { background: rgba(201, 182, 242, .25); }
 
 /* «Вместе»: дні народження — два поля в один рядок */
 .bday-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+/* Дата + ✕ «Стереть» поруч */
+.date-field { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.date-field input { flex: 1; min-width: 0; }
+.date-clear {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--paper); color: var(--ink-soft); font-size: .875rem; cursor: pointer;
+}
+[data-side="vin"] .date-clear { color: var(--plum); }
+.date-clear:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; }
 .bday { display: grid; gap: 2px; padding: 6px 10px 8px; border-radius: 16px; background: var(--chip); font-size: .8125rem; color: var(--ink-soft); }
 .bday input { width: 100%; min-height: 34px; padding: 0 8px; border: 0; border-radius: 999px; background: var(--paper); color: var(--plum); font: inherit; font-size: .875rem; }
 [data-side="vin"] .bday input { color-scheme: light; }
@@ -2701,6 +2716,24 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .write-msg-at { justify-self: end; font-size: .6875rem; color: #7a5a78; }
 .sheet-write.has-thread .voice-wrap.is-area { flex: none; }
 .sheet-write.has-thread .write-text { flex: none; min-height: 172px; max-height: 50dvh; overflow-y: auto; }
+/* Межа між верхом (переписка чи цитата) і полем — смужка, за яку тягнуть; є лише там, де є верх */
+.write-split {
+  flex: none; display: grid; place-items: center; height: 24px; margin: -8px 0; border-radius: 12px;
+  touch-action: none; cursor: row-resize; -webkit-user-select: none; user-select: none;
+}
+.write-split-grip {
+  width: 44px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--plum) 28%, transparent);
+  transition: width .15s, background-color .15s;
+}
+.write-split.is-drag .write-split-grip, .write-split:focus-visible .write-split-grip { width: 64px; background: var(--wax); }
+.write-split:focus-visible { outline: none; }
+.sheet-write.is-helping .write-split { display: none; }
+/* Межу перетягнули: верх — заданої висоти, поле займає решту */
+.sheet-write.is-split .write-thread { flex: none; height: var(--top-h); }
+.sheet-write.is-split .write-ctx { height: var(--top-h); grid-template-rows: auto minmax(0, 1fr); align-content: start; overflow: hidden; }
+.sheet-write.is-split .write-ctx .write-ctx-text { display: block; max-height: none; overflow-y: auto; -webkit-line-clamp: unset; }
+.sheet-write.is-split .voice-wrap.is-area { flex: 1 1 0; min-height: 80px; }
+.sheet-write.is-split .write-text { flex: 1; height: auto; min-height: 80px; max-height: none; }
 /* Відкрита клавіатура (екран низький): інструменти — нижчими чипами, підпис ховається, цитата — один рядок, «Отправить» лишається видно */
 @media (max-height: 600px) {
   .sheet-write.sheet-full .write-note { display: none; }
