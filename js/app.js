@@ -9,7 +9,7 @@ import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
-import { renderTogether, chipLabel } from './together.js';
+import { renderTogether, chipLabel, chipFestive } from './together.js';
 import { loadPlans, markPlans, renderPlans, showOurs, showWheel, showDeck, CATS } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
@@ -21,7 +21,7 @@ import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
 import { applyTextSize, textSizePanel } from './textsize.js';
-import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
+import { checkinRow, checkIn, awayTop, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
 import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
@@ -296,8 +296,9 @@ function openReply(t) {
 }
 
 function render() {
-  // Згорнутий «Я в порядке» живе в шапці лише на «Письмах»; інші вкладки — звичайна шапка
+  // Шапку перемальовує блок «Я в порядке»: на «Письмах» — коли згорнутий, на інших вкладках — завжди (❤ і 🆘)
   document.querySelector('.top')?.classList.remove('has-checkin');
+  if (tab !== 'letter') awayTop(() => selectTab('letter'));
   // «Вместе» — у шапці; «Письма» забирають його в рядок «Написать…»
   document.getElementById('top-status').after(chip);
   // На «Письмах» «вместе N дн.» не показуємо — там і так тісно; на інших вкладках — у шапці
@@ -334,18 +335,15 @@ function applySide() {
   // Встановлять застосунок у цій же сесії — заставка вже його кольору, не з першого завантаження
   document.querySelector('link[rel="manifest"]').href = DATA.side === 'vin' ? 'manifest-vin.webmanifest' : 'manifest.webmanifest';
   rememberSide(DATA.side);
-  sideSwitch();
 }
 
-// Обидва ключі на цьому телефоні (він перевіряє обидві половини) — перемикач «Я | Она» одразу в шапці
+// Обидва ключі на цьому телефоні (він перевіряє обидві половини) — перемикач «🪐 Я | 🌸 Она» у меню Радовалки
 function sideSwitch() {
-  document.getElementById('side-seg')?.remove();
-  if (!getAltKey()) return;
   const vin = DATA.side === 'vin';
-  const seg = h('button', { type: 'button', id: 'side-seg', class: 'side-seg', 'aria-label': vin ? 'Открыть её половину' : 'Открыть его половину',
+  const seg = h('button', { type: 'button', class: 'side-seg', 'aria-label': vin ? 'Открыть её половину' : 'Открыть его половину',
     onclick: () => { swapKeys(); leave(() => location.replace(location.pathname)); } },
   h('span', { class: 'is-on' }, vin ? '🪐' : '🌸', h('i', {}, ' Я')), h('span', {}, vin ? '🌸' : '🪐', h('i', {}, vin ? ' Она' : ' Он')));
-  document.querySelector('.top .wordmark').after(seg);
+  return seg;
 }
 
 // fromBack — вкладку повернула кнопка «Назад»: історію вже зсунув телефон
@@ -445,7 +443,11 @@ const chip = document.getElementById('together-chip');
 function drawChip() {
   // «до встречи» окремо від «75 дн.»: у шапці зі згорнутим «Я в порядке» лишається лише число
   const [, word = '', num = chipLabel()] = chipLabel().match(/^(.*?)(\d+ дн\.)$/) || [];
-  chip.querySelector('.chip-text').replaceChildren(...(word ? [h('span', { class: 'chip-word' }, word)] : []), num);
+  const festive = chipFestive();
+  chip.querySelector('.chip-text').replaceChildren(...(word ? [h('span', { class: 'chip-word' }, word)] : []), num, festive ? ' 🎉' : '');
+  // Щодня — компактно, лише число; слово «вместе» лише в круглу дату («до встречи» лишається — без нього число незрозуміле)
+  chip.classList.toggle('is-compact', word.startsWith('вместе') && !festive);
+  chip.classList.toggle('is-festive', festive);
   chip.setAttribute('aria-label', `Вместе: ${chipLabel()}`);
   chip.hidden = false;
   markPlans();
@@ -676,10 +678,9 @@ function openAbout() {
         h('h2', { class: 'title' }, 'Радовалка'),
         h('p', { class: 'about-version' }, `версия ${VERSION}`)),
       // Другий ключ на цьому телефоні (він перевіряє обидві половини) — перемикач першим, окремою карткою з упізнаваним значком
-      getAltKey() ? aboutGroup('Половина',
-        aboutRow(DATA.side === 'vin' ? '🌸' : '🪐', DATA.side === 'vin' ? 'Её половина' : 'Его половина',
-          DATA.side === 'vin' ? 'Посмотреть Радовалку её глазами' : 'Посмотреть Радовалку его глазами',
-          () => { swapKeys(); leave(() => location.replace(location.pathname)); })) : null,
+      getAltKey() ? aboutGroup('Половина', sideSwitch()) : null,
+      // Вхід у «Вместе» й тут — у шапці лише значок із числом
+      aboutGroup('Вместе', aboutRow('💞', cap(chipLabel()), 'Наша открытка, встреча и куда пойдём', () => { close(); setTimeout(openTogether, 300); })),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Размер букв в письмах', textSizePanel()),
       aboutGroup('Уведомления', pushPanel()),

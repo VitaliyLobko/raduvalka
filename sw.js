@@ -98,13 +98,24 @@ self.addEventListener('push', (event) => {
     // «Нужна помощь» висить, доки не відкриють, і довго вібрує
     ...(note.urgent ? { requireInteraction: true, vibrate: [500, 200, 500, 200, 900] } : {}),
     icon: new URL('icons/icon-192.png', scope).href,
-    data: { url: scope, go: note.go || 'letter' },
+    // «Как ты?»: кнопка «❤️ Я в порядке» прямо в сповіщенні (Android); ok — адреса й разовий токен замість ключа
+    ...(Array.isArray(note.actions) ? { actions: note.actions.slice(0, 2) } : {}),
+    data: { url: scope, go: note.go || 'letter', ok: note.ok || null },
   }));
 });
+
+// Відповідь із кнопки сповіщення: застосунок не відкриваємо, лише коротко підтверджуємо
+function answerOk(ok) {
+  const icon = new URL('icons/icon-192.png', scope()).href;
+  return fetch(ok.url, { method: 'POST', mode: 'no-cors', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ token: ok.token }) })
+    .then(() => self.registration.showNotification('Отмечено ❤️', { body: 'Всё хорошо — уже знает', tag: 'ask', silent: true, icon }))
+    .catch(() => self.registration.showNotification('Не получилось отметиться', { body: 'Нет связи — открой Радовалку и нажми «Я в порядке»', tag: 'ask', icon }));
+}
 
 // Тап по сповіщенню: уже відкриту Радовалку — на передній план, інакше відкрити. Ключ у застосунку, не в адресі
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if (event.action === 'ok' && event.notification.data?.ok) { event.waitUntil(answerOk(event.notification.data.ok)); return; }
   const url = event.notification.data?.url || self.registration.scope;
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

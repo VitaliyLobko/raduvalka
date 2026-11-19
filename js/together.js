@@ -47,6 +47,15 @@ export function chipLabel(now = today()) {
   return 'Вместе';
 }
 
+// Кругла дата «вместе» (кожні 100 днів і річниця): у шапці тоді повна святкова плашка, в інші дні — лише число
+export function chipFestive(now = today()) {
+  const T = DATA.together;
+  if (!T.since || !chipLabel(now).startsWith('вместе')) return false;
+  const days = -daysTo(now, T.since);
+  const s = new Date(T.since + 'T00:00');
+  return days > 0 && (days % 100 === 0 || (s.getMonth() === now.getMonth() && s.getDate() === now.getDate()));
+}
+
 // «Планы» — своя вкладка внизу, звідси вхід не потрібен
 export function renderTogether(screen) {
   const T = DATA.together;

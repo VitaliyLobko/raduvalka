@@ -3,6 +3,7 @@
 import { DATA, who } from './data.js';
 import { h, toast, cap } from './ui.js';
 import { deliver, waiting } from './outbox.js';
+import { send } from './api.js';
 import { sosSlider, sosShown } from './sos.js';
 
 const FRESH = 48 * 3600 * 1000;
@@ -15,6 +16,8 @@ function when(ms) {
   const yesterday = new Date(Date.now() - 86400000);
   if (d.toDateString() === today.toDateString()) return `сегодня в ${hhmm(ms)}`;
   if (d.toDateString() === yesterday.toDateString()) return `вчера в ${hhmm(ms)}`;
+  // Давніше тижня день тижня вже плутає — дата
+  if (Date.now() - ms > 6 * 86400000) return d.toLocaleDateString('ru', { day: 'numeric', month: 'long' });
   return `${d.toLocaleDateString('ru', { weekday: 'short' })} в ${hhmm(ms)}`;
 }
 
@@ -26,41 +29,139 @@ const LINE = '<polyline points="0,9 11,9 14,7 17,9 20,9 22,1 25,15 28,9 32,9 35,
 const PULSE = `<svg class="pulse-base" viewBox="0 0 44 16" aria-hidden="true">${LINE}</svg>`
   + `<span class="pulse-win" aria-hidden="true"><span class="pulse-in"><svg class="pulse-run" viewBox="0 0 44 16">${LINE}</svg></span></span>`;
 
-// Дрібний рядок над кнопками: свіжа відмітка другого, вимкнені в нього сповіщення, що чекає зв'язку
+// Давня відмітка — сіра рівна лінія: видно, що блок живий, але без докору
+const FLAT = '<svg class="pulse-base" viewBox="0 0 44 16" aria-hidden="true"><polyline points="0,9 44,9"/></svg>';
+
+// Настрій до відмітки — довге натискання на ❤ (як реакції в чаті); слово — за родом того, хто відмітився
+const MOODS = { '😊': ['хорошо', 'хорошо'], '😴': ['сонный', 'сонная'], '🥱': ['устал', 'устала'], '🤒': ['приболел', 'приболела'], '😔': ['грустно', 'грустно'], '🥰': ['скучает', 'скучает'] };
+const moodText = (mood, she) => (MOODS[mood] ? ` · ${mood} ${MOODS[mood][she ? 1 : 0]}` : '');
+const iAmHe = () => DATA.side === 'vin';
+
+// Відмітку другого побачили на екрані — сказати серверу один раз, у нього зʼявиться «увидела ✓»
+const SEEN = 'radovalka:checkin-seen';
+function markSeen(at) {
+  if (!at || document.hidden) return;
+  try {
+    if (localStorage.getItem(`${SEEN}:${DATA.side}`) === String(at)) return;
+    localStorage.setItem(`${SEEN}:${DATA.side}`, String(at));
+  } catch { /* без сховища — скажемо ще раз, сервер повтор ігнорує */ }
+  send('checkin/seen', 'POST', { at }).catch(() => {});
+}
+
+// Дрібний рядок над кнопками: відмітка другого (свіжість — кольором пульсу), «Как ты?», моя відмітка, сповіщення, черга
 function statusLine() {
   const me = who();
-  const at = DATA.checkins?.theirs;
+  const c = DATA.checkins || {};
+  const at = c.theirs;
+  const she = me.partner === 'она';
   const n = waiting();
+  markSeen(at);
+  const fresh = at && Date.now() - at <= FRESH;
+  // Сьогодні — пульс біжить; учора — блідий і спокійний; давніше — сіра рівна лінія
+  const age = !at ? 'none' : isToday(at) ? 'today' : fresh ? 'old' : 'stale';
   return h('div', { class: 'checkin-status' },
-    at && Date.now() - at <= FRESH
-      ? h('span', { class: 'checkin-theirs' },
-        h('span', { class: 'checkin-pulse', html: PULSE }),
-        h('b', {}, me.partner === 'он' ? 'Он в порядке' : 'Она в порядке'),
-        // «сегодня в» у згорнутому рядку ховається — лишається час
-        h('span', { class: 'checkin-when' }, ...(isToday(at) ? [h('span', { class: 'checkin-day' }, 'сегодня в '), hhmm(at)] : [when(at)])))
-      : null,
-    DATA.partnerPush === false ? h('span', {}, `🔕 У ${me.partner === 'она' ? 'неё' : 'него'} выключены уведомления`) : null,
+    h('span', { class: `checkin-theirs is-${age}${fresh && MOODS[c.theirsMood] ? ' has-mood' : ''}` },
+      h('span', { class: 'checkin-pulse', html: fresh ? PULSE : FLAT }),
+      fresh ? h('b', {}, `${she ? 'Она' : 'Он'} в порядке${moodText(c.theirsMood, she)}`)
+        : h('span', {}, at ? (she ? 'Отмечалась' : 'Отмечался') : 'Отметок пока не было'),
+      // «сегодня в» у згорнутому рядку ховається — лишається час
+      at ? h('span', { class: 'checkin-when' }, ...(isToday(at) ? [h('span', { class: 'checkin-day' }, 'сегодня в '), hhmm(at)] : [when(at)])) : null),
+    askBtn(she),
+    c.asked ? h('span', { class: 'checkin-asked' }, `💬 ${she ? 'Она' : 'Он'} спрашивает, как ты`) : null,
+    // Моя сьогоднішня відмітка і чи її вже побачили
+    c.mine && isToday(c.mine) ? h('span', { class: 'checkin-mine' },
+      `❤ ты в ${hhmm(c.mine)}${MOODS[c.mineMood] ? ` ${c.mineMood}` : ''}`,
+      c.mineSeen ? h('b', {}, ` · ${she ? 'увидела' : 'увидел'} ✓`) : null) : null,
+    DATA.partnerPush === false ? h('span', {}, `🔕 У ${she ? 'неё' : 'него'} выключены уведомления`) : null,
     n ? h('span', { class: 'checkin-wait' }, `📮 Ждёт связи: ${n === 1 ? 'одно письмо' : `${n} ${n < 5 ? 'письма' : 'писем'}`}`) : null);
 }
 
-function checkinBtn() {
+// «Как ты?»: другому push, у якому «❤️ Я в порядке» — одним тапом, не відкриваючи застосунок
+function askBtn(she) {
   const btn = h('button', {
-    type: 'button', class: 'checkin-btn',
-    'aria-label': `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо`,
-    onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
-  }, h('span', { class: 'checkin-heart', html: HEART }), h('span', { class: 'checkin-label' }, 'Я в порядке'));
+    type: 'button', class: 'checkin-ask', 'aria-label': `Спросить, как ${she ? 'она' : 'он'}`,
+    onclick: async () => {
+      btn.disabled = true;
+      const asked = iAmHe() ? 'Спросил' : 'Спросила';
+      try {
+        const r = await send('checkin/ask', 'POST', {});
+        if (r.again) toast(`Уже ${asked.toLowerCase()} — ${she ? 'она' : 'он'} ответит одним тапом`);
+        else if (!r.reaches) toast(`У ${she ? 'неё' : 'него'} выключены уведомления — увидит, когда откроет Радовалку`);
+        else toast(`${asked} 🫶 ${cap(she ? 'она' : 'он')} ответит одним тапом`);
+      } catch {
+        toast('Не получилось — нет связи');
+      }
+      btn.disabled = false;
+    },
+  }, '💬 Как ты?');
   return btn;
 }
 
-// Кнопка на «Письмах» і ярлик з іконки (?do=checkin) — одне й те саме
-export async function checkIn() {
-  const at = Date.now();
-  DATA.checkins = { ...DATA.checkins, mine: at };
+// Довге натискання на ❤ — вибрати настрій; після нього клік не має ще й відмітити без настрою
+function holdForMood(btn) {
+  let timer = 0;
+  let held = false;
+  btn.addEventListener('pointerdown', () => {
+    held = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => { held = true; navigator.vibrate?.(15); openMoods(btn); }, 450);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => clearTimeout(timer));
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  btn.addEventListener('click', (e) => { if (held) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  return btn;
+}
+
+function openMoods(btn) {
+  document.querySelector('.react-layer')?.remove();
+  const r = btn.getBoundingClientRect();
+  const close = () => layer.remove();
+  const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Как ты?' },
+    ...Object.keys(MOODS).map((e) => h('button', {
+      type: 'button', role: 'menuitem', class: 'react-opt', 'aria-label': e,
+      onclick: (ev) => { ev.stopPropagation(); close(); btn.disabled = true; btn.classList.add('is-beat'); checkIn(e); },
+    }, e)));
+  // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
+  const opened = Date.now();
+  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
+  document.body.append(layer);
+  const w = pick.offsetWidth;
+  pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+  pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
+}
+
+const HEART_LABEL = () => `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо. Подержи — добавить настроение`;
+
+function checkinBtn() {
+  const btn = h('button', {
+    type: 'button', class: 'checkin-btn', 'aria-label': HEART_LABEL(),
+    onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
+  }, h('span', { class: 'checkin-heart', html: HEART }), h('span', { class: 'checkin-label' }, 'Я в порядке'));
+  return holdForMood(btn);
+}
+
+// Підказка про настрій — один раз, після першої звичайної відмітки
+const MOOD_TIP = 'radovalka:mood-tip';
+function moodTip() {
   try {
-    const r = await deliver('checkin', 'checkin', { at });
+    if (localStorage.getItem(MOOD_TIP)) return '';
+    localStorage.setItem(MOOD_TIP, '1');
+    return ' Подержи ❤, чтобы добавить настроение';
+  } catch { return ''; }
+}
+
+// Кнопка на «Письмах» і ярлик з іконки (?do=checkin) — одне й те саме
+export async function checkIn(mood = null) {
+  const at = Date.now();
+  // Нова відмітка: «увидела ✓» ще нема, «как ты?» уже відповіли
+  DATA.checkins = { ...DATA.checkins, mine: at, mineMood: mood, mineSeen: false, asked: null };
+  const tip = mood ? '' : moodTip();
+  try {
+    const r = await deliver('checkin', 'checkin', mood ? { at, mood } : { at });
     if (r.queued) toast(`Нет связи. Отметка уйдёт сама, когда будет интернет, — с временем ${hhmm(at)}`);
-    else if (r.sent) toast(`${cap(who().partner)} узнает ❤️`);
-    else if (!r.reaches) toast(`Отмечено. ${cap(who().partner)} увидит, когда откроет Радовалку`);    else toast('Отмечено ❤️');
+    else if (r.sent) toast(`${cap(who().partner)} узнает ❤️${tip}`);
+    else if (!r.reaches) toast(`Отмечено. ${cap(who().partner)} увидит, когда откроет Радовалку`);
+    else toast(`Отмечено ❤️${tip}`);
   } catch {
     toast('Не получилось — попробуй ещё раз');
   }
@@ -99,35 +200,45 @@ function setFold(on) {
 
 function topHeart() {
   const btn = h('button', {
-    type: 'button', class: 'top-heart',
-    'aria-label': `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо`,
+    type: 'button', class: 'top-heart', 'aria-label': HEART_LABEL(),
     onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
   }, h('span', { class: 'checkin-heart', html: HEART }));
-  return btn;
+  return holdForMood(btn);
 }
 
-// Шапка: заповнена лише поки блок згорнутий (клас .has-checkin на .top) —
+// Інші вкладки: шапка завжди як згорнутий блок (❤ 🆘 і стан), 🆘 веде на «Письма» до повзунка. away — як туди перейти
+let away = null;
+export function awayTop(goLetters) {
+  away = goLetters;
+  paintTop(null);
+}
+
+// Шапка: заповнена, поки блок згорнутий (клас .has-checkin на .top) або ми не на «Письмах» —
 // розгорнутий не дублює стан і кнопки
 function paintTop(row = theRow()) {
   const box = document.getElementById('top-checkin');
   const status = document.getElementById('top-status');
   if (!box || !status) return;
-  const on = !!row?.classList.contains('is-folded');
+  const on = !!away || !!row?.classList.contains('is-folded');
   // Клас, а не body:has(...): :has на body змушував перераховувати стилі всієї сторінки на кожній вставці (гальмувало «Написать…»)
   document.querySelector('.top')?.classList.toggle('has-checkin', on);
   if (!on) { box.replaceChildren(); status.replaceChildren(); return; }
   status.replaceChildren(statusLine());
+  const toSos = () => {
+    setFold(false);
+    if (away) away();
+    setTimeout(() => theRow()?.querySelector('.sos-thumb')?.focus(), 50);
+  };
   box.replaceChildren(
     topHeart(),
     // 🆘 у шапці лише розгортає: сигнал іде тільки повзунком, щоб не натиснути випадково
-    h('button', {
-      type: 'button', class: 'top-sos', 'aria-label': 'Нужна помощь — открыть ползунок',
-      onclick: () => { setFold(false); theRow()?.querySelector('.sos-thumb')?.focus(); },
-    }, '🆘'),
-    h('button', { type: 'button', class: 'top-fold', html: CHEVRON, 'aria-expanded': 'false', 'aria-label': UNFOLD, onclick: () => setFold(false) }));
+    h('button', { type: 'button', class: 'top-sos', 'aria-label': 'Нужна помощь — открыть ползунок', onclick: toSos }, '🆘'),
+    // Розгорнути є куди лише на «Письмах»
+    ...(away ? [] : [h('button', { type: 'button', class: 'top-fold', html: CHEVRON, 'aria-expanded': 'false', 'aria-label': UNFOLD, onclick: () => setFold(false) })]));
 }
 
 export function checkinRow() {
+  away = null;
   const row = h('div', { class: 'checkin-row' });
   const fold = h('button', { type: 'button', class: 'checkin-fold', html: CHEVRON, onclick: () => setFold(true) });
   row.append(statusLine(), h('div', { class: 'checkin-strip' }, checkinBtn(), sosSlider(), fold));
@@ -140,7 +251,7 @@ document.addEventListener('radovalka:sos', () => { if (!sosOn()) sosOpened = fal
 // Перемалювати стан і кнопку; повзунок не чіпаємо — його можуть саме тягнути
 export function paint() {
   const row = theRow();
-  if (!row) return;
+  if (!row) { if (away) paintTop(null); return; }
   row.querySelector('.checkin-status').replaceWith(statusLine());
   row.querySelector('.checkin-btn').replaceWith(checkinBtn());
   paintTop(row);

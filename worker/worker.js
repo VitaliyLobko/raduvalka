@@ -135,6 +135,12 @@ async function route(req, env, ctx, info = {}) {
   const url = new URL(req.url);
   if (!url.pathname.startsWith('/api/')) return json({ ok: true, app: 'raduvalka' });
 
+  // «❤️ Я в порядке» просто з push «Как ты?»: service worker ключа не знає — замість ключа разовий токен із того push
+  if (req.method === 'POST' && url.pathname === '/api/checkin-ok') {
+    await ensureSchema(env.DB);
+    return checkinOk(req, env, ctx, info);
+  }
+
   const side = await whoIs(req, env);
   if (!side) throw fail(401, 'key');
   await ensureSchema(env.DB);
@@ -200,6 +206,8 @@ async function route(req, env, ctx, info = {}) {
     return json({ letter, gift, checkins });
   }
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
+  if (m === 'POST' && path === 'checkin/seen') return checkinSeen(req, env.DB, side);
+  if (m === 'POST' && path === 'checkin/ask') return checkinAsk(req, env.DB, side, notify);
   if (path === 'sos' || path.startsWith('sos/')) return sosRoute(req, env.DB, side, path, notify);
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
@@ -2157,9 +2165,24 @@ function planGoNote(from, title) {
 }
 
 // «Я в порядке»: час — коли натиснули (з черги без зв'язку відмітка може дійти пізніше), не коли дійшла
+// Настрій до відмітки (довге натискання на ❤) — лише з цього списку
+const MOODS = ['😊', '😴', '🥱', '🤒', '😔', '🥰'];
+// «Как ты?» не частіше, ніж раз на 10 хвилин: щоб не засипати push
+const ASK_GAP = 10 * 60 * 1000;
+
+// mineSeen — другий побачив мою останню відмітку; asked — другий спитав «как ты?» після моєї останньої відмітки
 async function checkinsOf(db, side) {
-  const [mine, theirs] = await Promise.all([getDoc(db, `checkin:${side}`), getDoc(db, `checkin:${other(side)}`)]);
-  return { mine: mine?.at || null, theirs: theirs?.at || null };
+  const [mine, theirs, ask] = await Promise.all([
+    getDoc(db, `checkin:${side}`), getDoc(db, `checkin:${other(side)}`), getDoc(db, `checkin-ask:${other(side)}`)]);
+  const asked = ask?.at && ask.at > (mine?.at || 0) && Date.now() - ask.at < CHECKIN_MAX_AGE ? ask.at : null;
+  return {
+    mine: mine?.at || null,
+    mineMood: mine?.mood || null,
+    mineSeen: !!mine?.at && mine.seen === mine.at,
+    theirs: theirs?.at || null,
+    theirsMood: theirs?.mood || null,
+    asked,
+  };
 }
 
 async function checkin(req, db, side, notify) {
@@ -2167,14 +2190,57 @@ async function checkin(req, db, side, notify) {
   const now = Date.now();
   const at = Math.min(now, Number(b.at) || now);
   if (at < now - CHECKIN_MAX_AGE) throw fail(400, 'old');
+  return saveCheckin(db, side, at, MOODS.includes(b.mood) ? b.mood : null, notify);
+}
+
+async function saveCheckin(db, side, at, mood, notify) {
+  const now = Date.now();
   const prev = await getDoc(db, `checkin:${side}`);
   const reaches = await hasPush(db, other(side));
   // Старіша за вже записану (повтор із черги) — нічого не міняє
   if (prev?.at >= at) return json({ at: prev.at, reaches, sent: false });
   const push = reaches && now - at < CHECKIN_PUSH_AGE;
-  await putDoc(db, `checkin:${side}`, { at, pushed: push ? now : prev?.pushed || null });
-  if (push) notify.send(other(side), checkinNote(side, at, now));
+  await putDoc(db, `checkin:${side}`, { at, mood, pushed: push ? now : prev?.pushed || null });
+  if (push) notify.send(other(side), checkinNote(side, at, now, mood));
   return json({ at, reaches, sent: push });
+}
+
+// Другий побачив мою відмітку на екрані — у мене поруч зʼявиться «увидела ✓»
+async function checkinSeen(req, db, side) {
+  const b = await readJson(req);
+  const k = `checkin:${other(side)}`;
+  const doc = await getDoc(db, k);
+  if (!doc?.at || doc.at !== Number(b.at) || doc.seen === doc.at) return json({ ok: true });
+  await putDoc(db, k, { ...doc, seen: doc.at });
+  return json({ ok: true });
+}
+
+async function checkinAsk(req, db, side, notify) {
+  const now = Date.now();
+  const reaches = await hasPush(db, other(side));
+  const prev = await getDoc(db, `checkin-ask:${side}`);
+  if (prev?.at && now - prev.at < ASK_GAP) return json({ reaches, sent: false, again: true });
+  const token = [...crypto.getRandomValues(new Uint8Array(18))].map((x) => x.toString(16).padStart(2, '0')).join('');
+  await putDoc(db, `checkin-ask:${side}`, { at: now, token });
+  if (reaches) notify.send(other(side), askNote(side, token, new URL(req.url).origin));
+  return json({ reaches, sent: reaches && notify.on });
+}
+
+// Токен разовий і живе добу; відмітка — від того, кого питали
+async function checkinOk(req, env, ctx, info) {
+  const b = await readJson(req);
+  const token = String(b.token || '');
+  if (!/^[0-9a-f]{36}$/.test(token)) throw fail(400, 'token');
+  for (const asker of SIDES) {
+    const ask = await getDoc(env.DB, `checkin-ask:${asker}`);
+    if (ask?.token !== token || Date.now() - ask.at > CHECKIN_MAX_AGE) continue;
+    await putDoc(env.DB, `checkin-ask:${asker}`, { at: ask.at });
+    const side = other(asker);
+    info.side = side;
+    info.path = 'checkin';
+    return saveCheckin(env.DB, side, Date.now(), null, pusher(req, env, ctx));
+  }
+  throw fail(404, 'token');
 }
 
 // «Нужна помощь»: doc sos:<side> — останній сигнал цієї половини; голос — рядок imgs sos-<side>.
@@ -2338,14 +2404,26 @@ function sosOkNote(from) {
 }
 
 // Час відмітки — у тексті, якщо вона дійшла із запізненням: давню «всё хорошо» не видаємо за свіжу
-function checkinNote(from, at, now) {
+function checkinNote(from, at, now, mood) {
   const late = now - at > 15 * 60 * 1000;
   const time = new Intl.DateTimeFormat('ru', { timeZone: STOCK_TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(at));
   return {
     title: `${sender(from, 'Он отметился', 'Она отметилась')} ❤️`,
-    body: late ? `В ${time}: всё хорошо` : 'Всё хорошо',
+    body: (late ? `В ${time}: всё хорошо` : 'Всё хорошо') + (mood ? ` ${mood}` : ''),
     tag: 'checkin',
     go: 'letter',
+  };
+}
+
+// «Как ты?»: кнопка в самому сповіщенні відмічає «Я в порядке», не відкриваючи застосунок (Android; на iPhone — тап відкриває)
+function askNote(from, token, origin) {
+  return {
+    title: sender(from, 'Он спрашивает: как ты? 🫶', 'Она спрашивает: как ты? 🫶'),
+    body: `Нажми «Я в порядке» — ${sender(from, 'он', 'она')} узнает`,
+    tag: 'ask',
+    go: 'letter',
+    actions: [{ action: 'ok', title: '❤️ Я в порядке' }],
+    ok: { url: `${origin}/api/checkin-ok`, token },
   };
 }
 
