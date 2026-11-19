@@ -1969,6 +1969,15 @@ const APP_URL = 'https://vitaliylobko.github.io/raduvalka/';
 const enc = new TextEncoder();
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = (str) => Uint8Array.from(atob(String(str).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+
+// Відкритий ключ VAPID — з самого закритого (у JWK є x і y): деплой стирає звичайні змінні, а секрет лишається.
+// Ключ виходить той самий, тож підписки телефонів не ламаються
+function vapidPublic(env) {
+  if (env.VAPID_PUBLIC) return env.VAPID_PUBLIC;
+  if (!env.VAPID_PRIVATE) return null;
+  const { x, y } = JSON.parse(env.VAPID_PRIVATE);
+  return b64u(Uint8Array.from([4, ...unb64u(x), ...unb64u(y)]));
+}
 const concat = (...parts) => {
   const out = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
   let o = 0;
@@ -2014,7 +2023,7 @@ export async function vapidAuth(env, endpoint) {
     sub: APP_URL,
   })));
   const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(`${head}.${claims}`));
-  return `vapid t=${head}.${claims}.${b64u(sig)}, k=${env.VAPID_PUBLIC}`;
+  return `vapid t=${head}.${claims}.${b64u(sig)}, k=${vapidPublic(env)}`;
 }
 
 // Ніч у поясі телефону отримувача — без звуку й вібрації, але сповіщення лишається
@@ -2452,7 +2461,7 @@ const quoteOn = (b) => (['gif', 'photo'].includes(b.on) ? b.on : 'letter');
 
 async function pushRoute(req, env, side, path) {
   const m = req.method;
-  if (m === 'GET' && path === 'push-key') return json({ key: env.VAPID_PUBLIC || null });
+  if (m === 'GET' && path === 'push-key') return json({ key: vapidPublic(env) });
   const b = await readJson(req);
   const endpoint = String(b.endpoint || '');
   if (m === 'DELETE' && path === 'push') {
