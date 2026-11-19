@@ -3232,3 +3232,36 @@ html.is-covered .confetti { animation-play-state: paused; }
   .top.has-checkin .together-chip { padding: 2px 8px; font-size: .75rem; }
   .top.has-checkin .chip-planets { display: none; }
 }
+/* Згорнутий блок у шапці — лише головне: відмітка другого, «спрашивает», черга. Моя відмітка й вимкнені сповіщення — у розгорнутому */
+.top-status :is(.checkin-mine, .checkin-nopush) { display: none; }
+/* Згорнутий — лише відмітка другого; решта (спрашивает, моя відмітка, сповіщення) — у розгорнутому */
+.top-status .checkin-asked { display: none; }
+.top-heart { position: relative; }
+.top-heart.is-asked::after {
+  content: ''; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px; border-radius: 50%;
+  background: #E5486F; box-shadow: 0 0 0 2px var(--paper);
+}
+[data-side="vin"] .top-heart.is-asked::after { background: #FF6B8B; box-shadow: 0 0 0 2px #0F4257; }
+/* Його тло темне: питання кремове, хмаринка й обвідка яскравіші */
+[data-side="vin"] .checkin-ask { border-color: rgba(255, 107, 139, .7); background: rgba(255, 107, 139, .12); }
+[data-side="vin"] .ask-cloud { fill: rgba(255, 107, 139, .3); stroke: #FF8FA8; }
+[data-side="vin"] .ask-q { stroke: #F4E6C4; }
+[data-side="vin"] .ask-dot { fill: #F4E6C4; }
+/* Значок «Как ты?» контрастніше в обох: щільна хмаринка, питання кольором тексту, товстіші лінії */
+.ask-icon svg { width: 23px; height: 23px; }
+.ask-cloud { fill: color-mix(in srgb, var(--beat) 28%, transparent); stroke-width: 1.8; }
+.ask-q { stroke: var(--ink); stroke-width: 2.3; }
+.ask-dot { fill: var(--ink); }
+.checkin-ask { border-color: color-mix(in srgb, var(--beat) 60%, transparent); }
+/* Відповідь на «как ты?» смайликом — рядком під питанням */
+.checkin-asked { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; flex-basis: 100%; }
+.checkin-answer { display: flex; gap: 4px; }
+.checkin-answer .react-opt { width: 34px; height: 34px; font-size: 1.2rem; }
+/* Облачко «?»: світле, з обвідкою кольором пульсу; питання того ж кольору й тонке — не чорне й не грубе (обидві половини) */
+.ask-cloud, [data-side="vin"] .ask-cloud { fill: color-mix(in srgb, var(--beat) 22%, transparent); stroke: var(--beat); stroke-width: 1.8; }
+.ask-q, [data-side="vin"] .ask-q { stroke: var(--beat); stroke-width: 1.8; }
+.ask-dot, [data-side="vin"] .ask-dot { fill: var(--beat); }
+/* Остаточно: хмаринка залита кольором пульсу, біле «?» — рівна дуга й кругла крапка */
+.ask-cloud, [data-side="vin"] .ask-cloud { fill: var(--beat); stroke: var(--beat); stroke-width: 1.4; }
+.ask-q, [data-side="vin"] .ask-q { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ask-dot, [data-side="vin"] .ask-dot { fill: #fff; }

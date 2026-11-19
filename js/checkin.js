@@ -67,17 +67,22 @@ function statusLine() {
       // «сегодня в» у згорнутому рядку ховається — лишається час
       at ? h('span', { class: 'checkin-when' }, ...(isToday(at) ? [h('span', { class: 'checkin-day' }, 'сегодня в '), hhmm(at)] : [when(at)])) : null),
     askBtn(she),
-    c.asked ? h('span', { class: 'checkin-asked' }, `💬 ${she ? 'Она' : 'Он'} спрашивает, как ты`) : null,
+    // Спитали «как ты?» — відповісти одним тапом смайликом (це й відмітка «в порядке» з настроєм)
+    c.asked ? h('span', { class: 'checkin-asked' }, `💬 ${she ? 'Она' : 'Он'} спрашивает, как ты:`,
+      h('span', { class: 'checkin-answer' }, ...Object.keys(MOODS).map((e) => h('button', {
+        type: 'button', class: 'react-opt', 'aria-label': `Ответить: ${e}`,
+        onclick: (ev) => { ev.currentTarget.parentNode.querySelectorAll('button').forEach((b) => { b.disabled = true; }); checkIn(e); },
+      }, e)))) : null,
     // Моя сьогоднішня відмітка і чи її вже побачили
     c.mine && isToday(c.mine) ? h('span', { class: 'checkin-mine' },
       `❤ ты в ${hhmm(c.mine)}${MOODS[c.mineMood] ? ` ${c.mineMood}` : ''}`,
       c.mineSeen ? h('b', {}, ` · ${she ? 'увидела' : 'увидел'} ✓`) : null) : null,
-    DATA.partnerPush === false ? h('span', {}, `🔕 У ${she ? 'неё' : 'него'} выключены уведомления`) : null,
+    DATA.partnerPush === false ? h('span', { class: 'checkin-nopush' }, `🔕 У ${she ? 'неё' : 'него'} выключены уведомления`) : null,
     n ? h('span', { class: 'checkin-wait' }, `📮 Ждёт связи: ${n === 1 ? 'одно письмо' : `${n} ${n < 5 ? 'письма' : 'писем'}`}`) : null);
 }
 
-// Значок «Как ты?»: хмаринка-питання з сердечком замість крапки — у колір пульсу
-const ASK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ask-cloud" d="M12 3C6.8 3 3 6.4 3 10.6c0 2.3 1.2 4.4 3.1 5.8L5.3 20l4.1-2.2c.8.2 1.7.3 2.6.3 5.2 0 9-3.4 9-7.5S17.2 3 12 3z"/><path class="ask-q" d="M9.6 8.6c.2-1.2 1.2-2 2.5-2 1.4 0 2.5.9 2.5 2.1 0 1-.6 1.5-1.4 2-.6.4-1 .8-1 1.5"/><path class="ask-dot" d="M12.2 15.6s-1.3-.8-1.6-1.5c-.2-.6.1-1.1.7-1.1.4 0 .7.2.9.5.2-.3.5-.5.9-.5.6 0 .9.5.7 1.1-.3.7-1.6 1.5-1.6 1.5z"/></svg>';
+// Значок «Как ты?»: залита хмаринка кольором пульсу з білим знаком питання
+const ASK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ask-cloud" d="M12 3C6.8 3 3 6.4 3 10.6c0 2.3 1.2 4.4 3.1 5.8L5.3 20l4.1-2.2c.8.2 1.7.3 2.6.3 5.2 0 9-3.4 9-7.5S17.2 3 12 3z"/><path class="ask-q" d="M9.6 8.2a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2-2.4 3.4"/><circle class="ask-dot" cx="12.1" cy="15" r="1.2"/></svg>';
 
 // «Как ты?»: другому push, у якому «❤️ Я в порядке» — одним тапом, не відкриваючи застосунок
 function askBtn(she) {
@@ -203,7 +208,8 @@ function setFold(on) {
 
 function topHeart() {
   const btn = h('button', {
-    type: 'button', class: 'top-heart', 'aria-label': HEART_LABEL(),
+    // Другий спитав «как ты?» — крапка на серці: відповідь — тап по ньому
+    type: 'button', class: `top-heart${DATA.checkins?.asked ? ' is-asked' : ''}`, 'aria-label': HEART_LABEL(),
     onclick: () => { btn.disabled = true; btn.classList.add('is-beat'); checkIn(); },
   }, h('span', { class: 'checkin-heart', html: HEART }));
   return holdForMood(btn);
