@@ -258,8 +258,11 @@ async function route(req, env, ctx, info = {}) {
     const prev = (await getDoc(env.DB, 'together')) || {};
     const next = { ...prev, ...patch };
     await putDoc(env.DB, 'together', next);
-    // Зустріч призначили, перенесли чи зняли — другому push
-    if ('meet' in patch && (prev.meet || null) !== (next.meet || null)) notify.send(other(side), meetNote(side, prev.meet || null, next.meet || null));
+    // Зустріч призначили, перенесли чи зняли — другому push. Стерли вже минулу («Снова врозь») — не «встреча снята»
+    const wasPast = prev.meet && prev.meet < kyivDay();
+    if ('meet' in patch && (prev.meet || null) !== (next.meet || null) && !(wasPast && !next.meet)) {
+      notify.send(other(side), meetNote(side, wasPast ? null : prev.meet || null, next.meet || null));
+    }
     return json(next);
   }
 

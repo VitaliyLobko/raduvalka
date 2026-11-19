@@ -28,7 +28,7 @@ import { sosBox, loadSos, sosCheck, sosSlider } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
 import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
 import { burst } from './fx.js';
-import { markFestive } from './depth.js';
+import { markFestive, writeDecor } from './depth.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 // Фон обох половин — шарами на різній глибині, що зсуваються від нахилу телефона
@@ -473,7 +473,9 @@ function openTogether() {
   };
   const body = h('div', { class: 'sheet-inner' });
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-together sheet-full', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Вместе' },
+  // Тло — те саме, що в застосунку (нерухоме, як під «Написать»), а не однотонне
+  const sheet = h('div', { class: 'sheet sheet-together sheet-full sheet-decor', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Вместе' },
+    writeDecor(),
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     body);
   document.body.append(backdrop, sheet);

@@ -27,8 +27,11 @@ export function journey(now = today()) {
   const apart = Math.max(0, -daysTo(now, T.apartFrom));
   if (!T.meet) {
     // Без дати сердечко щодня трохи ближче до Землі, але не доходить, поки не зустрінуться
-    return { progress: 1 - Math.exp(-apart / 60), label: 'Сердечко в пути', value: dayWord(apart) };
+    // У день розставання — «с сегодня», а не «0 дней»
+    return { progress: 1 - Math.exp(-apart / 60), label: apart ? 'Скучаем уже' : 'Скучаем', value: apart ? dayWord(apart) : 'с сегодня' };
   }
+  // Зустріч уже була — сердечко вдома, доки не поставлять нове «врозь с»
+  if (daysTo(now, T.meet) < 0) return { progress: 1, label: 'Вы вместе', value: '💞', together: true };
   const left = Math.max(0, daysTo(now, T.meet));
   if (!left) return { progress: 1, label: 'Сегодня', value: 'встреча! 🎉' };
   const total = Math.max(1, daysTo(new Date(T.apartFrom + 'T00:00'), T.meet));
@@ -113,12 +116,31 @@ export function renderTogether(screen) {
   };
   const mine = side === 'vona' ? ['vona', 'vin'] : ['vin', 'vona'];
 
+  // З якого дня врозь — від нього сердечко рахує шлях; змінити може будь-хто
+  const apartInput = h('input', {
+    type: 'date', value: T.apartFrom || '', max: now.toLocaleDateString('sv'), 'aria-label': 'Врозь с',
+    onchange: (e) => { T.apartFrom = e.target.value || null; save('together', { apartFrom: T.apartFrom }); renderTogether(screen); },
+  });
+  // Зустрілись і знову роз'їхались — одним тапом: врозь із сьогодні, стара дата зустрічі геть
+  const apartAgain = trip?.together ? h('button', {
+    type: 'button', class: 'btn apart-again',
+    onclick: () => {
+      T.apartFrom = now.toLocaleDateString('sv');
+      T.meet = null;
+      save('together', { apartFrom: T.apartFrom, meet: null });
+      renderTogether(screen);
+    },
+  }, '✈️ Снова врозь — с сегодня') : null;
+
   // replaceChildren не пропускає null, на відміну від h()
   screen.replaceChildren(...[
     h('h2', { class: 'title' }, 'Вместе'),
     card,
     h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'),
       clearable(meetInput, 'дату встречи', () => { T.meet = null; save('together', { meet: null }); renderTogether(screen); })),
+    apartAgain,
+    h('label', { class: 'meet-row' }, h('span', {}, 'Врозь с'),
+      clearable(apartInput, 'дату', () => { T.apartFrom = null; save('together', { apartFrom: null }); renderTogether(screen); })),
     h('div', { class: 'bday-row' }, bday(mine[0], '🎂 Твой ДР'), bday(mine[1], side === 'vona' ? '🎂 Его ДР' : '🎂 Её ДР')),
     togetherDays(now, T.since),
   ].filter(Boolean));
