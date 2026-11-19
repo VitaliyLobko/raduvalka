@@ -60,6 +60,41 @@ export async function open(v) {
   } catch { return LOCKED_TEXT; }
 }
 
+// Файли (фото, голос): байти «RAD1» ‖ iv ‖ шифротекст, у base64 як раніше — сервер зберігає їх, не заглядаючи
+const MAGIC = [0x52, 0x41, 0x44, 0x31];
+const isMagic = (u8) => MAGIC.every((b, i) => u8[i] === b);
+const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+function toB64(u8) {
+  let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+export async function sealBytes(b64) {
+  const k = await aes();
+  if (!k || typeof b64 !== 'string' || !b64) return b64;
+  const raw = fromB64(b64);
+  if (isMagic(raw)) return b64;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, raw));
+  const out = new Uint8Array(4 + 12 + ct.length);
+  out.set(MAGIC);
+  out.set(iv, 4);
+  out.set(ct, 16);
+  return toB64(out);
+}
+// Прийшов файл: зашифрований — розшифрувати (тип лишається той самий), звичайний — як є
+export async function openBlob(blob) {
+  const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+  if (!isMagic(head)) return blob;
+  const k = await aes();
+  if (!k) return blob;
+  try {
+    const raw = new Uint8Array(await blob.arrayBuffer());
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(4, 16) }, k, raw.slice(16));
+    return new Blob([pt], { type: blob.type });
+  } catch { return blob; }
+}
+
 // Усе, що прийшло із сервера: будь-який рядок «e1.…» (будь-де у відповіді) — розшифрувати на місці
 export async function openDeep(x) {
   if (isSealed(x)) return open(x);
@@ -72,19 +107,32 @@ export async function openDeep(x) {
 
 // Що шифрувати при відправці: шлях запиту → поля тіла з межею довжини. Обрізаємо ДО шифрування —
 // сервер шифротекст не ріже (раніше різав відкритий текст за тими ж межами)
+// Опис поля: число — текст із межею; 'bin' — файл у base64; { … } — вкладений обʼєкт; [{ … }] — список обʼєктів
 const FIELDS = [
-  [/^letters(\/[\w-]+)?$/, { text: 4000, quote: 300, reply: 4000 }],
-  [/^memes(\/[\w-]+)?$/, { caption: 300, quote: 300, reply: 4000 }],
+  // gift — варіанти подарунка: назва й що всередині (емодзі відкриті)
+  [/^letters(\/[\w-]+)?$/, { text: 4000, quote: 300, reply: 4000, gift: [{ title: 40, inside: 500 }] }],
+  [/^memes(\/[\w-]+)?$/, { caption: 300, quote: 300, reply: 4000, data: 'bin' }],
   // Ціна хотілки лишається відкритою (сервер тримає її числом)
-  [/^wishes(\/[\w-]+)?$/, { title: 120, note: 500, link: 500 }],
+  [/^wishes(\/[\w-]+)?$/, { title: 120, note: 500, link: 500, img: { data: 'bin' } }],
+  // Голос до «Нужна помощь»; місце шифрує sos.js одним рядком loc
+  [/^sos\/[\w-]+$/, { audio: { data: 'bin' } }],
 ];
+export async function sealBy(spec, v) {
+  if (typeof spec === 'number') return typeof v === 'string' && v.trim() && !isSealed(v) ? seal(v.trim().slice(0, spec)) : v;
+  if (spec === 'bin') return sealBytes(v);
+  if (Array.isArray(spec)) return Array.isArray(v) ? Promise.all(v.map((x) => sealBy(spec[0], x))) : v;
+  if (!v || typeof v !== 'object') return v;
+  const out = { ...v };
+  for (const [f, s] of Object.entries(spec)) if (f in out) out[f] = await sealBy(s, out[f]);
+  return out;
+}
 export async function sealBody(path, body) {
   if (!body || typeof body !== 'object' || !hasSecret()) return body;
   const rule = FIELDS.find(([re]) => re.test(path));
-  if (!rule) return body;
-  const out = { ...body };
-  for (const [f, max] of Object.entries(rule[1])) {
-    if (typeof out[f] === 'string' && out[f].trim() && !isSealed(out[f])) out[f] = await seal(out[f].trim().slice(0, max));
-  }
-  return out;
+  return rule ? sealBy(rule[1], body) : body;
+}
+
+// Перехід: уже завантажене відкрите фото → зашифрований base64
+export async function sealBlob(blob) {
+  return sealBytes(toB64(new Uint8Array(await blob.arrayBuffer())));
 }

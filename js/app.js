@@ -1,8 +1,8 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, send, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved, parseKey } from './api.js';
+import { get, send, getBlob, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved, parseKey } from './api.js';
 import { lock, watchResume, pinPanel, clearPin } from './pin.js';
-import { forgetSecret, hasSecret, seal } from './seal.js';
+import { forgetSecret, hasSecret, seal, sealBy, sealBlob } from './seal.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
@@ -726,14 +726,19 @@ document.getElementById('about-btn').addEventListener('click', openAbout);
 // віддаємо назад. На кожному запуску, доки не вдасться; вдалось — позначка й більше не питаємо
 async function sealOld() {
   if (!hasSecret()) return;
-  const mark = `radovalka:sealed:${DATA.side}`;
+  // sealed2: з 0.2.29 ще подарунки й фото — телефон, що вже перейшов на 0.2.28, пройде ще раз
+  const mark = `radovalka:sealed2:${DATA.side}`;
   try { if (localStorage.getItem(mark) === '1') return; } catch { /* приватне вікно */ }
   try {
-    const { rows } = await get('seal/todo');
+    const { rows, imgs = [] } = await get('seal/todo');
     if (rows.length) {
-      const sealed = await Promise.all(rows.map(async (r) => Object.fromEntries(await Promise.all(Object.entries(r).map(async ([k, v]) => [k, k === 'id' || k === 't' ? v : await seal(v)])))));
+      const sealed = await Promise.all(rows.map(async (r) => (r.t === 'gift'
+        ? { ...r, gift: await sealBy([{ title: 40, inside: 500 }], r.gift) }
+        : Object.fromEntries(await Promise.all(Object.entries(r).map(async ([k, v]) => [k, k === 'id' || k === 't' ? v : await seal(v)]))))));
       await send('seal', 'POST', { rows: sealed });
     }
+    // Фото — по одному (кожне до 1,4 МБ): завантажити своє відкрите, зашифрувати, віддати назад
+    for (const name of imgs) await send('seal-img', 'POST', { name, data: await sealBlob(await getBlob(`img/${name}`)) });
     localStorage.setItem(mark, '1');
   } catch { /* нема звʼязку — наступного разу */ }
 }

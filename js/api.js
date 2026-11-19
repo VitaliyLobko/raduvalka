@@ -1,6 +1,6 @@
 // Звʼязок із сервером: ключ приходить у посиланні після # і зберігається лише на цьому телефоні
 import { toast } from './ui.js';
-import { openDeep, sealBody, setSecret } from './seal.js';
+import { openDeep, sealBody, setSecret, openBlob } from './seal.js';
 
 const STORE = 'radovalka:key';
 // Половина цього телефону — щоб index.html увімкнув тему ще до першого кадру
@@ -165,7 +165,7 @@ export async function send(path, method, plain, { timeout } = {}) {
 
 // Файл із ключем, без кешу (голос «Нужна помощь» у телефоні не зберігаємо)
 export async function getBlob(path) {
-  return (await request(path, { cache: 'no-store' })).blob();
+  return openBlob(await (await request(path, { cache: 'no-store' })).blob());
 }
 
 // Запис — у фоні: інтерфейс уже показав зміну, сервер лише наздоганяє
@@ -184,13 +184,14 @@ const IMG_CACHE = 'img-radovalka';
 const imgKey = (name, v) => `${API}/api/img/${name}?v=${v}`;
 
 export async function imageUrl(name, v) {
-  if (!v || !self.caches) return URL.createObjectURL(await (await request(`img/${name}`)).blob());
+  // У кеші — як прийшло (зашифроване); розшифровуємо лише для показу
+  if (!v || !self.caches) return URL.createObjectURL(await openBlob(await (await request(`img/${name}`)).blob()));
   const cache = await caches.open(IMG_CACHE).catch(() => null);
   const hit = await cache?.match(imgKey(name, v)).catch(() => null);
-  if (hit) return URL.createObjectURL(await hit.blob());
+  if (hit) return URL.createObjectURL(await openBlob(await hit.blob()));
   const blob = await (await request(`img/${name}?v=${v}`)).blob();
   cache?.put(imgKey(name, v), new Response(blob, { headers: { 'content-type': blob.type } })).catch(() => {});
-  return URL.createObjectURL(blob);
+  return URL.createObjectURL(await openBlob(blob));
 }
 
 // Лише з кешу телефона, без мережі: нема — null
@@ -198,7 +199,7 @@ export async function cachedImageUrl(name, v) {
   if (!v || !self.caches) return null;
   try {
     const hit = await (await caches.open(IMG_CACHE)).match(imgKey(name, v));
-    return hit ? URL.createObjectURL(await hit.blob()) : null;
+    return hit ? URL.createObjectURL(await openBlob(await hit.blob())) : null;
   } catch {
     return null;
   }

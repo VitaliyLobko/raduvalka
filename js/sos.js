@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send, getBlob } from './api.js';
 import { h, toast, cap } from './ui.js';
 import { deliver, newCid } from './outbox.js';
+import { hasSecret, seal } from './seal.js';
 
 const REC_MAX = 30;
 const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -12,6 +13,11 @@ const ago = (ms) => {
   return min < 1 ? 'только что' : min < 60 ? `${min} мин назад` : `в ${hhmm(ms)}`;
 };
 const mapUrl = (s) => `https://www.google.com/maps?q=${s.lat},${s.lon}`;
+// Місце шифрується одним рядком loc (JSON) — телефон його вже розшифрував; старі сигнали — відкриті lat/lon
+function place(s) {
+  if (s.lat != null || !s.loc) return s;
+  try { const p = JSON.parse(s.loc); return { ...s, lat: p.lat ?? null, lon: p.lon ?? null, acc: p.acc ?? null }; } catch { return s; }
+}
 const pressed = (p) => (p === 'он' ? 'Он нажал' : 'Она нажала');
 
 // «Отбой» другого — новина на годину: далі (або після «Понятно») картка зникає, хоч сервер тримає сигнал добу
@@ -142,7 +148,8 @@ export async function openSos() {
       const { latitude: lat, longitude: lon, accuracy } = pos.coords;
       if (!(await signal)) { linePlace.textContent = '📍 Место есть, но без связи не ушло'; return; }
       try {
-        await send(`sos/${id}`, 'PUT', { lat, lon, acc: accuracy });
+        // Із секретом — одним зашифрованим рядком: сервер не знає, де ти
+        await send(`sos/${id}`, 'PUT', hasSecret() ? { loc: await seal(JSON.stringify({ lat, lon, acc: Math.round(accuracy) })) } : { lat, lon, acc: accuracy });
         linePlace.textContent = `📍 Место ушло ✓ (точность ±${Math.round(accuracy)} м)`;
       } catch {
         linePlace.textContent = '📍 Место не ушло — нет связи';
@@ -221,7 +228,8 @@ function voiceBtn(s) {
   return btn;
 }
 
-function theirCard(s) {
+function theirCard(raw) {
+  const s = place(raw);
   const me = who();
   if (s.ok) {
     if (!okLive(s)) return null;

@@ -214,7 +214,7 @@ async function route(req, env, ctx, info = {}) {
     const [letter, gift, checkins] = await Promise.all([dayLetter(env.DB, side), pendingGift(env.DB, side), checkinsOf(env.DB, side)]);
     return json({ letter, gift, checkins });
   }
-  if (path === 'seal/todo' || path === 'seal') return sealRoute(req, env.DB, side, path);
+  if (path === 'seal/todo' || path === 'seal' || path === 'seal-img') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
   if (m === 'POST' && path === 'checkin/seen') return checkinSeen(req, env.DB, side);
   if (m === 'POST' && path === 'checkin/ask') return checkinAsk(req, env.DB, side, notify);
@@ -345,7 +345,7 @@ async function imgVersions(db, mascots) {
 // Мітка змін для живого оновлення: відкрита Радовалка раз на 15 с питає її й дотягує свіже, коли змінилась.
 // Ставиться після кожного запису й перед кожним push (так і cron). Підписка на push, ШІ-підказки й розбір
 // посилань нічого спільного не міняють — інакше два відкриті телефони будили б один одного без кінця
-const QUIET = /^(seal|seal\/todo|push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image)$/;
+const QUIET = /^(seal|seal-img|seal\/todo|push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image)$/;
 async function bumpPulse(db, sides) {
   const now = Date.now();
   await Promise.all(sides.map((s) => putDoc(db, `pulse:${s}`, now)));
@@ -840,8 +840,8 @@ function giftView(r) {
 function cleanGift(list) {
   const opts = (Array.isArray(list) ? list : []).map((o) => ({
     emoji: String(o?.emoji || '🎁').trim().slice(0, 8) || '🎁',
-    title: String(o?.title || '').trim().slice(0, 40),
-    inside: String(o?.inside || '').trim().slice(0, 500),
+    title: clip(o?.title, 40),
+    inside: clip(o?.inside, 500),
   })).filter((o) => o.title).slice(0, 3);
   if (opts.length < 2) throw fail(400, 'gift');
   return opts;
@@ -2208,13 +2208,45 @@ async function sealRoute(req, db, side, path) {
         if (Object.keys(row).length > 2) rows.push(row);
       }
     }
-    return json({ rows });
+    // Варіанти подарунка (JSON у letters.gift) — автору, якщо хоч одна назва ще відкрита
+    const { results: gifts } = await db.prepare("SELECT id, gift FROM letters WHERE src = ? AND kind = 'gift' AND gift IS NOT NULL").bind(side).all();
+    for (const g of gifts) {
+      let opts = [];
+      try { opts = JSON.parse(g.gift) || []; } catch { /* зіпсоване — пропускаємо */ }
+      if (opts.some((o) => (o.title && !SEALED.test(o.title)) || (o.inside && !SEALED.test(o.inside)))) rows.push({ t: 'gift', id: g.id, gift: opts });
+    }
+    // Свої фото (мемчики й хотілки), ще не зашифровані: «RAD1» у base64 починається з UkFEM
+    const { results: imgs } = await db.prepare(
+      "SELECT i.name FROM imgs i WHERE i.data NOT LIKE 'UkFEM%' AND (i.name IN (SELECT img FROM memes WHERE src = ? AND img IS NOT NULL) OR i.name IN (SELECT img FROM wishes WHERE owner = ? AND img IS NOT NULL))",
+    ).bind(side, side).all();
+    return json({ rows, imgs: imgs.map((x) => x.name) });
+  }
+  // Одне фото — зашифроване телефоном; лише своє
+  if (req.method === 'POST' && path === 'seal-img') {
+    const b = await readJson(req, MAX_B64 + 4096);
+    const name = String(b.name || '');
+    const data = String(b.data || '');
+    if (!data.startsWith('UkFEM') || data.length > MAX_B64 + 200 || !/^[A-Za-z0-9+/]+=*$/.test(data)) throw fail(400, 'data');
+    const mine = await db.prepare('SELECT 1 FROM memes WHERE img = ? AND src = ? UNION SELECT 1 FROM wishes WHERE img = ? AND owner = ?').bind(name, side, name, side).first();
+    if (!mine) throw fail(404, 'not found');
+    await db.prepare('UPDATE imgs SET data = ?, updated = ? WHERE name = ?').bind(data, Date.now(), name).run();
+    return json({ ok: true });
   }
   if (req.method === 'POST' && path === 'seal') {
     const b = await readJson(req, 4 * 1024 * 1024);
     const rows = Array.isArray(b.rows) ? b.rows.slice(0, 3000) : [];
     let done = 0;
     for (const x of rows) {
+      // Подарунок: усі назви й «що всередині» — уже шифр
+      if (x.t === 'gift') {
+        const r = await db.prepare("SELECT id FROM letters WHERE id = ? AND src = ? AND kind = 'gift'").bind(String(x.id || ''), side).first();
+        if (!r || !Array.isArray(x.gift)) continue;
+        const ok = x.gift.every((o) => SEALED.test(String(o?.title || '')) && (!o.inside || SEALED.test(String(o.inside))));
+        if (!ok) continue;
+        await db.prepare('UPDATE letters SET gift = ? WHERE id = ?').bind(JSON.stringify(cleanGift(x.gift)), r.id).run();
+        done += 1;
+        continue;
+      }
       const cols = SEAL_COLS[x.t || 'letters'];
       if (!cols) continue;
       const owners = [...new Set(Object.values(cols))];
@@ -2326,8 +2358,8 @@ async function sosWipe(db, side) {
 // Що віддаємо телефону: свіже (до доби), без даних голосу — лише чи він є
 function sosView(s, now = Date.now()) {
   if (!s || now - s.at > SOS_MAX_AGE) return null;
-  const { id, at, created, lat, lon, acc, audio, audioType, seen, ok } = s;
-  return { id, at, created, lat: lat ?? null, lon: lon ?? null, acc: acc ?? null, audio: !!audio, audioType: audioType || null, seen: seen || null, ok: ok || null };
+  const { id, at, created, lat, lon, acc, loc, audio, audioType, seen, ok } = s;
+  return { id, at, created, lat: lat ?? null, lon: lon ?? null, acc: acc ?? null, loc: loc || null, audio: !!audio, audioType: audioType || null, seen: seen || null, ok: ok || null };
 }
 
 async function sosRoute(req, db, side, path, notify) {
@@ -2396,6 +2428,11 @@ async function sosRoute(req, db, side, path, notify) {
         .bind(sosAudioName(side), type, data, now).run();
       await putDoc(db, key, { ...s, audio: true, audioType: type });
       notify.send(other(side), sosVoiceNote(side));
+      return json({ ok: true });
+    }
+    // Зашифроване місце (loc: «e1.…») — сервер не знає координат, лише зберігає
+    if (typeof b.loc === 'string' && SEALED.test(b.loc)) {
+      await putDoc(db, key, { ...s, loc: clip(b.loc, 2000) });
       return json({ ok: true });
     }
     const lat = Number(b.lat);
