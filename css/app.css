@@ -3193,11 +3193,15 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-theirs:is(.is-stale, .is-none) { background: transparent; border-color: color-mix(in srgb, var(--ink-soft) 30%, transparent); color: var(--ink-soft); }
 .checkin-theirs:is(.is-stale, .is-none) .checkin-pulse polyline { stroke: var(--ink-soft); }
 .checkin-theirs:is(.is-stale, .is-none) .checkin-pulse .pulse-base { opacity: .5; }
-/* «Как ты?» — маленька кнопка поруч зі станом */
+/* «Как ты?» — круглий значок 💬: на «Письмах» угорі праворуч у блоці, у шапці — праворуч від ❤ */
 .checkin-ask {
-  padding: 3px 10px; border: 1px solid color-mix(in srgb, var(--beat) 35%, transparent); border-radius: 999px;
-  background: transparent; color: var(--ink); font: inherit; font-weight: 500; cursor: pointer;
+  display: grid; place-items: center; flex: none; width: 34px; height: 34px; margin-left: auto; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--beat) 35%, transparent); border-radius: 50%;
+  background: transparent; font-size: 1rem; line-height: 1; cursor: pointer;
 }
+/* У шапці значок уже біля серця — у рядку стану під нею не дублюємо */
+.top-status .checkin-ask { display: none; }
+.top.has-checkin .top-checkin .checkin-ask { order: 1; width: 40px; height: 40px; margin-left: 0; }
 .checkin-ask:disabled { opacity: .5; }
 .checkin-asked { font-weight: 600; color: var(--ink); }
 .checkin-mine b { font-weight: 600; color: var(--ink); }
@@ -3205,3 +3209,26 @@ html.is-covered .confetti { animation-play-state: paused; }
 /* З настроєм рядок довший: «сегодня в» ховаємо, лишається час; самі шматки не ламаються посередині */
 .checkin-theirs.has-mood .checkin-day { display: none; }
 .checkin-theirs b, .checkin-when { white-space: nowrap; }
+@media (max-width: 374px) {
+  .top.has-checkin .top-checkin .checkin-ask { width: 36px; height: 36px; }
+}
+/* На «Письмах» 💬 — у правому верхньому куті блоку, рядок стану під нього не залазить */
+.checkin-row { position: relative; }
+.checkin-row .checkin-ask { position: absolute; top: 10px; right: 10px; }
+.checkin-row .checkin-status { padding-right: 40px; }
+/* Блок «Я в порядке» на інших вкладках — над екраном, тією ж колонкою */
+.checkin-slot { width: 100%; max-width: 480px; margin: 0 auto; padding: 8px 16px 0; }
+.checkin-slot:empty { display: none; }
+.checkin-slot > .checkin-row { margin-bottom: 0; }
+/* Значок «Как ты?»: хмаринка в колір пульсу, питання й сердечко */
+.ask-icon { display: grid; place-items: center; }
+.ask-icon svg { width: 20px; height: 20px; }
+.ask-cloud { fill: color-mix(in srgb, var(--beat) 18%, transparent); stroke: var(--beat); stroke-width: 1.6; stroke-linejoin: round; }
+.ask-q { fill: none; stroke: var(--beat); stroke-width: 1.8; stroke-linecap: round; }
+.ask-dot { fill: var(--beat); }
+/* Згорнутий блок у шапці: ❤ 💬 🆘 «Вместе» ˅ — на вузькому телефоні назва трохи менша, щоб усе влізло в рядок */
+@media (max-width: 400px) {
+  .top.has-checkin .wordmark { font-size: 1.6rem; }
+  .top.has-checkin .together-chip { padding: 2px 8px; font-size: .75rem; }
+  .top.has-checkin .chip-planets { display: none; }
+}

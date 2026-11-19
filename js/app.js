@@ -21,7 +21,7 @@ import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
 import { applyTextSize, textSizePanel } from './textsize.js';
-import { checkinRow, checkIn, awayTop, paint as paintCheckin } from './checkin.js';
+import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
 import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
@@ -296,13 +296,13 @@ function openReply(t) {
 }
 
 function render() {
-  // Шапку перемальовує блок «Я в порядке»: на «Письмах» — коли згорнутий, на інших вкладках — завжди (❤ і 🆘)
+  // Шапку перемальовує блок «Я в порядке», коли згорнутий
   document.querySelector('.top')?.classList.remove('has-checkin');
-  if (tab !== 'letter') awayTop(() => selectTab('letter'));
-  // «Вместе» — у шапці; «Письма» забирають його в рядок «Написать…»
+  // «Вместе» — у шапці на всіх вкладках, поруч із ❤ 💬 🆘
   document.getElementById('top-status').after(chip);
-  // На «Письмах» «вместе N дн.» не показуємо — там і так тісно; на інших вкладках — у шапці
-  chip.classList.toggle('is-off', tab === 'letter');
+  // Блок «Я в порядке» однаковий на всіх вкладках: на «Письмах» — у самому екрані (чат під ним), на інших — над екраном,
+  // щоб вкладка, перемальовуючи себе, його не стирала
+  checkinSlot.replaceChildren(...(tab === 'letter' ? [] : [checkinRow()]));
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
   const chat = tab === 'letter' && !DATA.gift;
   screen.classList.toggle('is-chat', chat);
@@ -439,6 +439,9 @@ function registerWorker() {
 
 // «Вместе» — значок у шапці; тап відкриває шторку з листівкою, датою зустрічі й списком
 const chip = document.getElementById('together-chip');
+const checkinSlot = document.createElement('div');
+checkinSlot.className = 'checkin-slot';
+document.getElementById('screen').before(checkinSlot);
 
 function drawChip() {
   // «до встречи» окремо від «75 дн.»: у шапці зі згорнутим «Я в порядке» лишається лише число

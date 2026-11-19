@@ -76,10 +76,13 @@ function statusLine() {
     n ? h('span', { class: 'checkin-wait' }, `📮 Ждёт связи: ${n === 1 ? 'одно письмо' : `${n} ${n < 5 ? 'письма' : 'писем'}`}`) : null);
 }
 
+// Значок «Как ты?»: хмаринка-питання з сердечком замість крапки — у колір пульсу
+const ASK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ask-cloud" d="M12 3C6.8 3 3 6.4 3 10.6c0 2.3 1.2 4.4 3.1 5.8L5.3 20l4.1-2.2c.8.2 1.7.3 2.6.3 5.2 0 9-3.4 9-7.5S17.2 3 12 3z"/><path class="ask-q" d="M9.6 8.6c.2-1.2 1.2-2 2.5-2 1.4 0 2.5.9 2.5 2.1 0 1-.6 1.5-1.4 2-.6.4-1 .8-1 1.5"/><path class="ask-dot" d="M12.2 15.6s-1.3-.8-1.6-1.5c-.2-.6.1-1.1.7-1.1.4 0 .7.2.9.5.2-.3.5-.5.9-.5.6 0 .9.5.7 1.1-.3.7-1.6 1.5-1.6 1.5z"/></svg>';
+
 // «Как ты?»: другому push, у якому «❤️ Я в порядке» — одним тапом, не відкриваючи застосунок
 function askBtn(she) {
   const btn = h('button', {
-    type: 'button', class: 'checkin-ask', 'aria-label': `Спросить, как ${she ? 'она' : 'он'}`,
+    type: 'button', class: 'checkin-ask', 'aria-label': `Спросить, как ${she ? 'она' : 'он'}`, title: 'Как ты?',
     onclick: async () => {
       btn.disabled = true;
       const asked = iAmHe() ? 'Спросил' : 'Спросила';
@@ -93,7 +96,7 @@ function askBtn(she) {
       }
       btn.disabled = false;
     },
-  }, '💬 Как ты?');
+  }, h('span', { class: 'ask-icon', html: ASK }));
   return btn;
 }
 
@@ -206,39 +209,31 @@ function topHeart() {
   return holdForMood(btn);
 }
 
-// Інші вкладки: шапка завжди як згорнутий блок (❤ 🆘 і стан), 🆘 веде на «Письма» до повзунка. away — як туди перейти
-let away = null;
-export function awayTop(goLetters) {
-  away = goLetters;
-  paintTop(null);
-}
-
-// Шапка: заповнена, поки блок згорнутий (клас .has-checkin на .top) або ми не на «Письмах» —
-// розгорнутий не дублює стан і кнопки
+// Шапка: заповнена, поки блок згорнутий (клас .has-checkin на .top) — розгорнутий не дублює стан і кнопки.
+// Блок однаковий на всіх вкладках
 function paintTop(row = theRow()) {
   const box = document.getElementById('top-checkin');
   const status = document.getElementById('top-status');
   if (!box || !status) return;
-  const on = !!away || !!row?.classList.contains('is-folded');
+  const on = !!row?.classList.contains('is-folded');
   // Клас, а не body:has(...): :has на body змушував перераховувати стилі всієї сторінки на кожній вставці (гальмувало «Написать…»)
   document.querySelector('.top')?.classList.toggle('has-checkin', on);
   if (!on) { box.replaceChildren(); status.replaceChildren(); return; }
   status.replaceChildren(statusLine());
   const toSos = () => {
     setFold(false);
-    if (away) away();
-    setTimeout(() => theRow()?.querySelector('.sos-thumb')?.focus(), 50);
+    theRow()?.querySelector('.sos-thumb')?.focus();
   };
   box.replaceChildren(
     topHeart(),
+    // «Как ты?» — значком одразу праворуч від серця
+    askBtn(who().partner === 'она'),
     // 🆘 у шапці лише розгортає: сигнал іде тільки повзунком, щоб не натиснути випадково
     h('button', { type: 'button', class: 'top-sos', 'aria-label': 'Нужна помощь — открыть ползунок', onclick: toSos }, '🆘'),
-    // Розгорнути є куди лише на «Письмах»
-    ...(away ? [] : [h('button', { type: 'button', class: 'top-fold', html: CHEVRON, 'aria-expanded': 'false', 'aria-label': UNFOLD, onclick: () => setFold(false) })]));
+    h('button', { type: 'button', class: 'top-fold', html: CHEVRON, 'aria-expanded': 'false', 'aria-label': UNFOLD, onclick: () => setFold(false) }));
 }
 
 export function checkinRow() {
-  away = null;
   const row = h('div', { class: 'checkin-row' });
   const fold = h('button', { type: 'button', class: 'checkin-fold', html: CHEVRON, onclick: () => setFold(true) });
   row.append(statusLine(), h('div', { class: 'checkin-strip' }, checkinBtn(), sosSlider(), fold));
@@ -251,7 +246,7 @@ document.addEventListener('radovalka:sos', () => { if (!sosOn()) sosOpened = fal
 // Перемалювати стан і кнопку; повзунок не чіпаємо — його можуть саме тягнути
 export function paint() {
   const row = theRow();
-  if (!row) { if (away) paintTop(null); return; }
+  if (!row) return;
   row.querySelector('.checkin-status').replaceWith(statusLine());
   row.querySelector('.checkin-btn').replaceWith(checkinBtn());
   paintTop(row);
