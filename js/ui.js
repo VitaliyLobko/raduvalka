@@ -46,6 +46,34 @@ export function ribbon(row) {
   };
   mount();
   row.addEventListener('scroll', edges, { passive: true });
+  // Компʼютер: коліщатко миші гортає стрічку вбік, поки є куди; на краю — сторінку як завжди
+  row.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    const max = row.scrollWidth - row.clientWidth;
+    if (max <= 0 || (e.deltaY < 0 && row.scrollLeft <= 0) || (e.deltaY > 0 && row.scrollLeft >= max - 1)) return;
+    e.preventDefault();
+    row.scrollLeft += e.deltaY;
+  }, { passive: false });
+  // Компʼютер: потягнути мишею; після перетягування клік по чипу не спрацьовує
+  let drag = null;
+  row.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag = { x: e.clientX, left: row.scrollLeft, moved: false };
+  });
+  addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < 6) return;
+    drag.moved = true;
+    row.classList.add('is-dragging');
+    row.scrollLeft = drag.left - dx;
+  });
+  addEventListener('pointerup', () => {
+    if (!drag) return;
+    if (drag.moved) row.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, { capture: true, once: true });
+    setTimeout(() => row.classList.remove('is-dragging'));
+    drag = null;
+  });
   row.addEventListener('click', (e) => e.target.closest('.mk-chip')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
   new ResizeObserver(edges).observe(row);
   // Чипи підмінили (нові варіанти від ШІ) — ширина вмісту інша

@@ -334,6 +334,18 @@ function applySide() {
   // Встановлять застосунок у цій же сесії — заставка вже його кольору, не з першого завантаження
   document.querySelector('link[rel="manifest"]').href = DATA.side === 'vin' ? 'manifest-vin.webmanifest' : 'manifest.webmanifest';
   rememberSide(DATA.side);
+  sideSwitch();
+}
+
+// Обидва ключі на цьому телефоні (він перевіряє обидві половини) — перемикач «Я | Она» одразу в шапці
+function sideSwitch() {
+  document.getElementById('side-seg')?.remove();
+  if (!getAltKey()) return;
+  const vin = DATA.side === 'vin';
+  const seg = h('button', { type: 'button', id: 'side-seg', class: 'side-seg', 'aria-label': vin ? 'Открыть её половину' : 'Открыть его половину',
+    onclick: () => { swapKeys(); leave(() => location.replace(location.pathname)); } },
+  h('span', { class: 'is-on' }, vin ? '🪐' : '🌸', h('i', {}, ' Я')), h('span', {}, vin ? '🌸' : '🪐', h('i', {}, vin ? ' Она' : ' Он')));
+  document.querySelector('.top .wordmark').after(seg);
 }
 
 // fromBack — вкладку повернула кнопка «Назад»: історію вже зсунув телефон
@@ -663,6 +675,11 @@ function openAbout() {
       h('div', { class: 'about-head' },
         h('h2', { class: 'title' }, 'Радовалка'),
         h('p', { class: 'about-version' }, `версия ${VERSION}`)),
+      // Другий ключ на цьому телефоні (він перевіряє обидві половини) — перемикач першим, окремою карткою з упізнаваним значком
+      getAltKey() ? aboutGroup('Половина',
+        aboutRow(DATA.side === 'vin' ? '🌸' : '🪐', DATA.side === 'vin' ? 'Её половина' : 'Его половина',
+          DATA.side === 'vin' ? 'Посмотреть Радовалку её глазами' : 'Посмотреть Радовалку его глазами',
+          () => { swapKeys(); leave(() => location.replace(location.pathname)); })) : null,
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Размер букв в письмах', textSizePanel()),
       aboutGroup('Уведомления', pushPanel()),
@@ -671,11 +688,6 @@ function openAbout() {
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('На всякий случай',
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
-      // Другий ключ на цьому телефоні (він перевіряє обидві половини) — перемикач окремою карткою з упізнаваним значком
-      getAltKey() ? aboutGroup('Половина',
-        aboutRow(DATA.side === 'vin' ? '🌸' : '🌌', DATA.side === 'vin' ? 'Её половина' : 'Его половина',
-          DATA.side === 'vin' ? 'Посмотреть Радовалку её глазами' : 'Посмотреть Радовалку его глазами',
-          () => { swapKeys(); leave(() => location.replace(location.pathname)); })) : null,
       // Лише на його половині: подивитися печеньки й усі передбачення
       DATA.side === 'vin' ? aboutGroup('Отладка (только у тебя)',
         aboutRow('🥠', 'Показать печеньку', 'Случайное предсказание — настоящую не тратит', () => { close(); setTimeout(() => previewCookie(false), 300); }),
