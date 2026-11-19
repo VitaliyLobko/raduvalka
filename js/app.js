@@ -298,8 +298,8 @@ function openReply(t) {
 function render() {
   // Шапку перемальовує блок «Я в порядке», коли згорнутий
   document.querySelector('.top')?.classList.remove('has-checkin');
-  // «Вместе» — у шапці на всіх вкладках, поруч із ❤ 💬 🆘
-  document.getElementById('top-status').after(chip);
+  // «Вместе N дн.» у шапці поки не показуємо (місце придумаємо); вхід — у меню Радовалки
+  chip.classList.add('is-off');
   // Блок «Я в порядке» однаковий на всіх вкладках: на «Письмах» — у самому екрані (чат під ним), на інших — над екраном,
   // щоб вкладка, перемальовуючи себе, його не стирала
   checkinSlot.replaceChildren(...(tab === 'letter' ? [] : [checkinRow()]));
