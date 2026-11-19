@@ -19,7 +19,8 @@ function when(ms) {
   if (d.toDateString() === yesterday.toDateString()) return `вчера в ${hhmm(ms)}`;
   // Давніше тижня день тижня вже плутає — дата
   if (Date.now() - ms > 6 * 86400000) return d.toLocaleDateString('ru', { day: 'numeric', month: 'long' });
-  return `${d.toLocaleDateString('ru', { weekday: 'short' })} в ${hhmm(ms)}`;
+  // «в воскресенье, 10:14» — повністю й у правильному відмінку, а не «вс в 10:14»
+  return `${['в воскресенье', 'в понедельник', 'во вторник', 'в среду', 'в четверг', 'в пятницу', 'в субботу'][d.getDay()]}, ${hhmm(ms)}`;
 }
 
 const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
@@ -148,18 +149,21 @@ function openMoods(btn) {
   document.querySelector('.react-layer')?.remove();
   const r = btn.getBoundingClientRect();
   const close = () => layer.remove();
-  const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Как ты?' },
+  // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди ні шар, ні смайлики не реагують
+  const opened = Date.now();
+  const fresh = () => Date.now() - opened < 500;
+  const pick = h('div', { class: 'react-pick mood-pick', role: 'menu', 'aria-label': 'Как ты?' },
     ...PICK.map((e) => h('button', {
       type: 'button', role: 'menuitem', class: 'react-opt', 'aria-label': e,
-      onclick: (ev) => { ev.stopPropagation(); burst(ev.currentTarget, e, 8); close(); btn.disabled = true; btn.classList.add('is-beat'); checkIn(e); },
+      onclick: (ev) => { ev.stopPropagation(); if (fresh()) return; burst(ev.currentTarget, e, 8); close(); btn.disabled = true; btn.classList.add('is-beat'); checkIn(e); },
     }, e)));
-  // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
-  const opened = Date.now();
-  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
+  const layer = h('div', { class: 'react-layer', onclick: () => { if (!fresh()) close(); } }, pick);
   document.body.append(layer);
   const w = pick.offsetWidth;
   pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
+  // Над кнопкою цілком (у вікні два рядки) — щоб палець не опинився на смайлику; нема місця згори — під кнопкою
+  const ph = pick.offsetHeight;
+  pick.style.top = `${r.top > ph + 16 ? r.top - ph - 8 : r.bottom + 8}px`;
 }
 
 const HEART_LABEL = () => `Я в порядке: один тап, и ${who().partner} узнает, что всё хорошо. Подержи — добавить настроение`;

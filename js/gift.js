@@ -30,7 +30,8 @@ export function renderGift(screen, gift, done) {
     ? `${cap(me.partner)} узнает, что ты ${me.youOpened === 'открыла' ? 'выбрала' : 'выбрал'} 💌`
     : 'Выбирай сердцем — что внутри, узнаешь после.';
 
-  screen.replaceChildren(...[
+  // Сигнал SOS і блок «Я в порядке» над подарунком лишаються — перемальовуємо лише сам подарунок
+  screen.replaceChildren(...screen.querySelectorAll(':scope > .sos-box, :scope > .checkin-row'), ...[
     h('p', { class: 'day' }, 'Подарок на выбор'),
     h('h2', { class: 'title' }, picked ? 'Вот что было внутри' : 'Тебе подарок 🎁'),
     pet ? h('div', { class: 'courier gift-courier' },

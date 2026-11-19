@@ -460,7 +460,8 @@ function row(it) {
   // Мордочки збоку нема — вона читалась як автор. Улюбленець лише приносить: сидить біля конверта, у листі — «🐾 ім'я»
   // Значок реакції в куті: на чужому — моя, на моєму — його/її
   const reaction = reactionOf(it);
-  if (reaction) bubble.append(h('span', { class: 'feed-react', 'aria-label': `Реакция: ${reaction}` }, reaction));
+  // Значок реакції — у власному рядку під вмістом (has-react дає місце), щоб не накривав час і «Ответить»
+  if (reaction) { bubble.classList.add('has-react'); bubble.append(h('span', { class: 'feed-react', 'aria-label': `Реакция: ${reaction}` }, reaction)); }
   if (!closed && canReact(it)) holdToReact(bubble, it);
   const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key }, bubble);
   // Конверт лише відкривають: сховати чи відповісти, не прочитавши, не можна

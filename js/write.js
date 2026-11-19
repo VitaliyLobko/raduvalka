@@ -58,8 +58,8 @@ export function prewarmWrite() {
     const box = h('div', { class: 'write-warm', 'aria-hidden': 'true', inert: true });
     if (snap?.html) {
       const copy = h('div', { class: snap.cls });
-      // Знімок лише для розкладки: без id і без автофокуса, щоб не зачепити справжні елементи
-      copy.innerHTML = snap.html.replace(/\s(id|autofocus)="[^"]*"/g, '');
+      // Знімок лише для розкладки: без id і без автофокуса, щоб не зачепити справжні елементи; blob-картинки після перезапуску мертві
+      copy.innerHTML = snap.html.replace(/\s(id|autofocus)="[^"]*"/g, '').replace(/\ssrc="blob:[^"]*"/g, '');
       box.append(copy);
     } else {
       const pics = (DATA.partnerEnvelopes || []).map((e) => e.emoji).join(' ');

@@ -1,6 +1,7 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved } from './api.js';
+import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved, parseKey } from './api.js';
+import { lock, watchResume, pinPanel, clearPin } from './pin.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
@@ -22,7 +23,7 @@ import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
 import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
-import { sosBox, loadSos, sosCheck } from './sos.js';
+import { sosBox, loadSos, sosCheck, sosSlider } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
 import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
 import { burst } from './fx.js';
@@ -300,9 +301,9 @@ function render() {
   document.querySelector('.top')?.classList.remove('has-checkin');
   // «Вместе N дн.» у шапці поки не показуємо (місце придумаємо); вхід — у меню Радовалки
   chip.classList.add('is-off');
-  // Блок «Я в порядке» однаковий на всіх вкладках: на «Письмах» — у самому екрані (чат під ним), на інших — над екраном,
+  // Чужий сигнал SOS і блок «Я в порядке» — однакові на всіх вкладках: на «Письмах» — у самому екрані (чат під ним), на інших — над екраном,
   // щоб вкладка, перемальовуючи себе, його не стирала
-  checkinSlot.replaceChildren(...(tab === 'letter' ? [] : [checkinRow()]));
+  checkinSlot.replaceChildren(...(tab === 'letter' ? [] : [sosBox(), checkinRow()]));
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
   const chat = tab === 'letter' && !DATA.gift;
   screen.classList.toggle('is-chat', chat);
@@ -324,7 +325,9 @@ function render() {
     renderWishes(screen);
     // Перемальовуємо, лише якщо справді змінилось: інакше «новое» вдруге підстрибує, а фото блимають
     const before = JSON.stringify(DATA.wishes);
-    if (had) loadWishes().then(() => { if (tab === 'wish' && JSON.stringify(DATA.wishes) !== before) renderWishes(screen); }).catch(() => {});
+    // Те саме — лишаємо старі обʼєкти: на них тримаються кнопки «присмотрел / куплено», інакше перший тап губиться
+    const old = DATA.wishes;
+    if (had) loadWishes().then(() => { if (JSON.stringify(DATA.wishes) === before) DATA.wishes = old; else if (tab === 'wish') renderWishes(screen); }).catch(() => {});
   }
 }
 
@@ -670,6 +673,7 @@ function openAbout() {
     // Без ключа телефон більше нічий — і сповіщення йому слати нікому
     await disablePush().catch(() => { /* сервер прибере підписку сам, коли push-сервіс відповість 410 */ });
     await forgetSaved();
+    clearPin();
     setKey(null);
     leave(() => location.replace(location.pathname));
   };
@@ -683,7 +687,9 @@ function openAbout() {
       // Другий ключ на цьому телефоні (він перевіряє обидві половини) — перемикач першим, окремою карткою з упізнаваним значком
       getAltKey() ? aboutGroup('Половина', sideSwitch()) : null,
       // Вхід у «Вместе» й тут — у шапці лише значок із числом
-      aboutGroup('Вместе', aboutRow('💞', cap(chipLabel()), 'Наша открытка, встреча и куда пойдём', () => { close(); setTimeout(openTogether, 300); })),
+      aboutGroup('Вместе', aboutRow('💞', cap(chipLabel()), 'Наша открытка и дата встречи', () => { close(); setTimeout(openTogether, 300); })),
+      // Замок на вхід: PIN або відбиток (кожен телефон — свій)
+      aboutGroup('Замок', pinPanel()),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Размер букв в письмах', textSizePanel()),
       aboutGroup('Уведомления', pushPanel()),
@@ -714,6 +720,9 @@ function openAbout() {
 
 document.getElementById('about-btn').addEventListener('click', openAbout);
 
+// «Нужна помощь» на екрані замка: у біді PIN не заважає (шторка SOS — поверх замка, замок після неї лишається)
+const lockSos = () => sosSlider();
+
 async function start() {
   if (!getKey()) {
     showLock(null, start);
@@ -727,6 +736,8 @@ async function start() {
     showLock(e.status === 401 ? 'bad' : 'offline', start);
     return;
   }
+  // Замок (PIN / відбиток) — до будь-якого екрана з листами; на ньому — «Нужна помощь»
+  await lock(lockSos);
   prepLetter(DATA.letter);
   // Старий воркер (або збережений до 0.1.74 boot без мережі) привітального окремо не віддає
   if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
@@ -743,6 +754,7 @@ async function start() {
   syncPush();
   startOutbox();
   startLive(refreshAll, DATA.pulse);
+  watchResume(lockSos);
   // Ярлик «Я в порядке» (довге натискання на іконку): відмітка одразу; адресу чистимо, щоб перезавантаження не повторило
   const act = new URLSearchParams(location.search).get('do');
   if (act === 'checkin') {
@@ -768,5 +780,7 @@ async function start() {
 }
 
 registerWorker();
+// Відкрили свою повну ссылку — замок на цьому телефоні знімається (так скидають забутий PIN)
+if (parseKey(location.hash)) clearPin();
 takeKeyFromUrl();
 start();

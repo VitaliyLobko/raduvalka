@@ -3293,7 +3293,7 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-row .checkin-theirs { min-width: 0; overflow: hidden; }
 .checkin-row .checkin-theirs b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Вибір настрою (11): у віконці — двома рядками, а не гортанням без підказки */
-.react-pick { flex-wrap: wrap; overflow: visible; max-width: min(calc(100vw - 16px), 300px); }
+.react-pick.mood-pick { flex-wrap: wrap; overflow: visible; max-width: min(calc(100vw - 16px), 300px); }
 .checkin-moodword { font-weight: 500; }
 /* Перший рядок тісніше: «?» щільніше до ^, час дрібніше — слово настрою влазить і в розгорнутому */
 .checkin-row .checkin-ask { right: 40px; }
@@ -3320,3 +3320,41 @@ html.is-covered .confetti { animation-play-state: paused; }
   .sos-slider.is-nudge .sos-thumb, .top-heart.is-asked::after, .checkin-ask.is-sent .ask-icon, .checkin-theirs.is-fresh { animation: none; }
 }
 html.is-still .top-heart.is-asked::after { animation: none; }
+/* Реакція — окремим рядком унизу повідомлення, а не поверх часу чи «Ответить» */
+.feed-bubble.has-react { padding-bottom: 36px; }
+.feed-bubble.has-react .feed-react { bottom: 6px; }
+
+/* Замок на вхід (PIN / відбиток): на весь екран, тло — як у застосунку; поверх усього, крім шторки SOS і підказок */
+.pin-lock {
+  position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 24px 16px;
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom)); overflow-y: auto; animation: fade .2s ease-out;
+}
+.pin-lock ~ .backdrop { z-index: 160; }
+.pin-lock ~ .sos-sheet { z-index: 161; }
+.toast { z-index: 200; }
+.pin-box { display: grid; justify-items: center; gap: 12px; width: 100%; max-width: 320px; }
+.pin-brand { margin: 0; font-family: var(--hand); font-weight: 700; font-size: 2.2rem; color: var(--ink); }
+.pin-title { margin: 0; font-size: 1rem; color: var(--ink); }
+.pin-dots { display: flex; gap: 12px; min-height: 16px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--ink) 55%, transparent); }
+.pin-dots i.is-on { background: var(--ink); border-color: var(--ink); }
+.pin-msg { min-height: 1.3em; margin: 0; font-size: .875rem; color: #E0465A; }
+.pin-keys { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; }
+.pin-key {
+  width: 72px; height: 72px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background: color-mix(in srgb, var(--paper) 85%, transparent); color: var(--ink); font-family: inherit; font-size: 1.6rem; font-weight: 500; cursor: pointer;
+}
+.pin-key:active { transform: scale(.94); }
+.pin-soft { background: transparent; border-color: transparent; font-size: 1.3rem; }
+.pin-ok { background: var(--plum, #4A2545); color: #fff; border-color: transparent; }
+[data-side="vin"] .pin-ok { background: #EDB949; color: #0B384B; }
+.pin-forgot { margin: 4px 0 0; max-width: 280px; font-size: .75rem; text-align: center; color: var(--ink-soft); }
+.pin-box .sos-slider { width: 100%; margin-top: 6px; }
+.pin-cancel { margin-top: 4px; }
+.pin-panel { display: grid; gap: 8px; justify-items: start; }
+/* Його тема: клавіші темні напівпрозорі, цифри кремові — читаються */
+[data-side="vin"] .pin-key { background: rgba(255, 255, 255, .08); border-color: rgba(244, 230, 196, .25); color: #F4E6C4; }
+[data-side="vin"] .pin-soft { background: transparent; border-color: transparent; }
+[data-side="vin"] .pin-ok { background: #EDB949; color: #0B384B; }
+[data-side="vin"] .pin-dots i { border-color: rgba(244, 230, 196, .6); }
+[data-side="vin"] .pin-dots i.is-on { background: #F4E6C4; border-color: #F4E6C4; }

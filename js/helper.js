@@ -139,8 +139,11 @@ export function mountHelper(box, area) {
         h('p', { class: 'mk-label' }, `${drafts.length} варианта — листай вбок, тап — в письмо`),
         cards,
         h('button', { type: 'button', class: 'btn mk-reroll', onclick: draft }, '🎲 Ещё варианты'));
-    } catch {
-      results.replaceChildren(h('p', { class: 'mk-wait' }, 'Не получилось — проверь интернет и попробуй ещё раз.'));
+    } catch (e) {
+      // Сервер відповів, але без варіантів — це не інтернет
+      results.replaceChildren(h('p', { class: 'mk-wait' }, e?.message === 'empty'
+        ? 'Не придумалось — поменяй слова или попробуй ещё раз.'
+        : 'Не получилось — проверь интернет и попробуй ещё раз.'));
     }
     go.disabled = false;
   };
