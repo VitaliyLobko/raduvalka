@@ -3292,3 +3292,10 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-asked .rib-wrap { min-width: 0; max-width: 100%; }
 .checkin-row .checkin-theirs { min-width: 0; overflow: hidden; }
 .checkin-row .checkin-theirs b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Вибір настрою (11): у віконці — двома рядками, а не гортанням без підказки */
+.react-pick { flex-wrap: wrap; overflow: visible; max-width: min(calc(100vw - 16px), 300px); }
+.checkin-moodword { font-weight: 500; }
+/* Перший рядок тісніше: «?» щільніше до ^, час дрібніше — слово настрою влазить і в розгорнутому */
+.checkin-row .checkin-ask { right: 40px; }
+.checkin-row .checkin-theirs { max-width: calc(100% - 76px); padding-right: 10px; gap: 5px; }
+.checkin-row .checkin-when { font-size: .75rem; }
