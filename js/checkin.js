@@ -1,7 +1,7 @@
 // «❤️ Я в порядке»: один тап — другому push «всё хорошо», а на «Письмах» у нього видно, коли відмітились.
 // Лише свіже (до двох діб) і без лічильника «давно не отмечался» — щоб кнопка не ставала обовʼязком
 import { DATA, who } from './data.js';
-import { h, toast, cap } from './ui.js';
+import { h, toast, cap, ribbon } from './ui.js';
 import { deliver, waiting } from './outbox.js';
 import { send } from './api.js';
 import { sosSlider, sosShown } from './sos.js';
@@ -33,8 +33,15 @@ const PULSE = `<svg class="pulse-base" viewBox="0 0 44 16" aria-hidden="true">${
 const FLAT = '<svg class="pulse-base" viewBox="0 0 44 16" aria-hidden="true"><polyline points="0,9 44,9"/></svg>';
 
 // Настрій до відмітки — довге натискання на ❤ (як реакції в чаті); слово — за родом того, хто відмітився
-const MOODS = { '😊': ['хорошо', 'хорошо'], '😴': ['сонный', 'сонная'], '🥱': ['устал', 'устала'], '🤒': ['приболел', 'приболела'], '😔': ['грустно', 'грустно'], '🥰': ['скучает', 'скучает'] };
-const moodText = (mood, she) => (MOODS[mood] ? ` · ${mood} ${MOODS[mood][she ? 1 : 0]}` : '');
+const MOODS = {
+  '😊': ['хорошо', 'хорошо'], '😴': ['устал', 'устала'], '🤒': ['приболел', 'приболела'], '😔': ['грустно', 'грустно'],
+  '🥰': ['скучает', 'скучает'], '🤯': ['завал', 'завал'], '🤗': ['хочет обнимашек', 'хочет обнимашек'], '😤': ['злится', 'злится'],
+  // Уже не пропонується (злили з 😴), але давні відмітки з ним показуємо як було
+  '🥱': ['устал', 'устала'],
+};
+// Що пропонувати: 8 — влазить в один рядок на вузькому телефоні
+const PICK = ['😊', '😴', '🤒', '😔', '🥰', '🤯', '🤗', '😤'];
+const moodText = (mood, she) => (MOODS[mood] ? `${mood} ${MOODS[mood][she ? 1 : 0]}` : '');
 const iAmHe = () => DATA.side === 'vin';
 
 // Відмітку другого побачили на екрані — сказати серверу один раз, у нього зʼявиться «увидела ✓»
@@ -60,19 +67,17 @@ function statusLine() {
   // Сьогодні — пульс біжить; учора — блідий і спокійний; давніше — сіра рівна лінія
   const age = !at ? 'none' : isToday(at) ? 'today' : fresh ? 'old' : 'stale';
   return h('div', { class: 'checkin-status' },
-    h('span', { class: `checkin-theirs is-${age}${fresh && MOODS[c.theirsMood] ? ' has-mood' : ''}` },
+    h('span', { class: `checkin-theirs is-${age}` },
       h('span', { class: 'checkin-pulse', html: fresh ? PULSE : FLAT }),
-      fresh ? h('b', {}, `${she ? 'Она' : 'Он'} в порядке${moodText(c.theirsMood, she)}`)
+      // Настрій — значком у пігулці; словом — окремим рядком нижче (у згорнутому лише значок)
+      fresh ? h('b', {}, `${she ? 'Она' : 'Он'} в порядке${MOODS[c.theirsMood] ? ` ${c.theirsMood}` : ''}`)
         : h('span', {}, at ? (she ? 'Отмечалась' : 'Отмечался') : 'Отметок пока не было'),
       // «сегодня в» у згорнутому рядку ховається — лишається час
       at ? h('span', { class: 'checkin-when' }, ...(isToday(at) ? [h('span', { class: 'checkin-day' }, 'сегодня в '), hhmm(at)] : [when(at)])) : null),
+    fresh && MOODS[c.theirsMood] ? h('span', { class: 'checkin-mood' }, moodText(c.theirsMood, she)) : null,
     askBtn(she),
     // Спитали «как ты?» — відповісти одним тапом смайликом (це й відмітка «в порядке» з настроєм)
-    c.asked ? h('span', { class: 'checkin-asked' }, `💬 ${she ? 'Она' : 'Он'} спрашивает, как ты:`,
-      h('span', { class: 'checkin-answer' }, ...Object.keys(MOODS).map((e) => h('button', {
-        type: 'button', class: 'react-opt', 'aria-label': `Ответить: ${e}`,
-        onclick: (ev) => { ev.currentTarget.parentNode.querySelectorAll('button').forEach((b) => { b.disabled = true; }); checkIn(e); },
-      }, e)))) : null,
+    c.asked ? h('span', { class: 'checkin-asked' }, `💬 ${she ? 'Она' : 'Он'} спрашивает, как ты:`, answerRow()) : null,
     // Моя сьогоднішня відмітка і чи її вже побачили
     c.mine && isToday(c.mine) ? h('span', { class: 'checkin-mine' },
       `❤ ты в ${hhmm(c.mine)}${MOODS[c.mineMood] ? ` ${c.mineMood}` : ''}`,
@@ -83,6 +88,16 @@ function statusLine() {
 
 // Значок «Как ты?»: залита хмаринка кольором пульсу з білим знаком питання
 const ASK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ask-cloud" d="M12 3C6.8 3 3 6.4 3 10.6c0 2.3 1.2 4.4 3.1 5.8L5.3 20l4.1-2.2c.8.2 1.7.3 2.6.3 5.2 0 9-3.4 9-7.5S17.2 3 12 3z"/><path class="ask-q" d="M9.6 8.2a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2-2.4 3.4"/><circle class="ask-dot" cx="12.1" cy="15" r="1.2"/></svg>';
+
+// Відповідь на «как ты?» смайликами: один рядок, а не влазять — стрічкою, як усі стрічки застосунку
+function answerRow() {
+  const row = h('div', { class: 'checkin-answer' }, ...PICK.map((e) => h('button', {
+    type: 'button', class: 'react-opt', 'aria-label': `Ответить: ${e}`,
+    onclick: () => { row.querySelectorAll('button').forEach((b) => { b.disabled = true; }); checkIn(e); },
+  }, e)));
+  ribbon(row);
+  return row;
+}
 
 // «Как ты?»: другому push, у якому «❤️ Я в порядке» — одним тапом, не відкриваючи застосунок
 function askBtn(she) {
@@ -125,7 +140,7 @@ function openMoods(btn) {
   const r = btn.getBoundingClientRect();
   const close = () => layer.remove();
   const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Как ты?' },
-    ...Object.keys(MOODS).map((e) => h('button', {
+    ...PICK.map((e) => h('button', {
       type: 'button', role: 'menuitem', class: 'react-opt', 'aria-label': e,
       onclick: (ev) => { ev.stopPropagation(); close(); btn.disabled = true; btn.classList.add('is-beat'); checkIn(e); },
     }, e)));

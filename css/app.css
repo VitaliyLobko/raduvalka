@@ -3265,3 +3265,30 @@ html.is-covered .confetti { animation-play-state: paused; }
 .ask-cloud, [data-side="vin"] .ask-cloud { fill: var(--beat); stroke: var(--beat); stroke-width: 1.4; }
 .ask-q, [data-side="vin"] .ask-q { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ask-dot, [data-side="vin"] .ask-dot { fill: #fff; }
+/* 8 настроїв: на вузькому телефоні — трохи менші кнопки, і рядок переноситься, а не вилазить за край */
+.react-pick { max-width: calc(100vw - 16px); flex-wrap: wrap; justify-content: center; border-radius: 26px; }
+.checkin-answer { flex-wrap: wrap; }
+@media (max-width: 374px) { .react-pick .react-opt { width: 36px; height: 36px; font-size: 1.35rem; } }
+/* Стрілка «згорнути» — у правому верхньому куті блоку, «Как ты?» — ліворуч від неї; повзунок SOS тягнеться до самого краю */
+.checkin-row .checkin-fold { position: absolute; top: 12px; right: 8px; }
+.checkin-row .checkin-ask { right: 46px; }
+.checkin-row .checkin-status { padding-right: 80px; }
+/* Перший рядок блоку — пігулка, праворуч від неї місце для «?» і ^; решта рядків — на всю ширину */
+.checkin-row .checkin-status { padding-right: 0; }
+.checkin-row .checkin-theirs { max-width: calc(100% - 84px); }
+.checkin-row .checkin-status > :not(.checkin-theirs):not(.checkin-ask) { flex-basis: 100%; }
+.checkin-row .checkin-day { display: none; }
+.checkin-mood { color: var(--ink); font-weight: 500; }
+.top-status .checkin-mood { display: none; }
+/* Смайлики відповіді й вибору настрою — одним рядком; не влазять — гортаються вбік */
+.checkin-answer { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.checkin-answer::-webkit-scrollbar { display: none; }
+.checkin-asked .rib-wrap { flex: 1 1 100%; }
+.checkin-answer .react-opt { flex: none; }
+.react-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.react-pick .react-opt { flex: none; }
+/* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
+.checkin-asked { min-width: 0; }
+.checkin-asked .rib-wrap { min-width: 0; max-width: 100%; }
+.checkin-row .checkin-theirs { min-width: 0; overflow: hidden; }
+.checkin-row .checkin-theirs b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
