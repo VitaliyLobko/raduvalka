@@ -1,8 +1,8 @@
 // «Вместе»: шлях від Юпітера (він) до Землі (вона), відлік до зустрічі, спільний список.
 // Не окремий розділ: значок у шапці, повна листівка — у шторці
 import { DATA } from './data.js';
-import { save } from './api.js';
-import { h } from './ui.js';
+import { save, send, get } from './api.js';
+import { h, toast } from './ui.js';
 import { spaceCard, flyHeart, dragHeart } from './space.js';
 
 const DAY = 86400000;
@@ -123,9 +123,39 @@ export function renderTogether(screen) {
     togetherDays(now, T.since),
   ].filter(Boolean));
 
+  // Планета другого: у нього — Земля (кінець шляху, 1), у неї — Юпітер (початок, 0)
+  const theirPlanet = side === 'vin' ? 'earth' : 'jupiter';
+  const theirEnd = side === 'vin' ? 1 : 0;
   flyHeart(card, heart, trip.progress);
-  // ponytail: на планеті поки лише пульс планети; ролики для Юпітера й Землі — передати сюди onPlanet
-  dragHeart(card, heart, trip.progress);
+  heartFrom(card, heart, trip.progress, theirEnd);
+  // Донесли сердечко до планети другого — воно летить до нього (push «💞»); до своєї — лише ролик планети
+  dragHeart(card, heart, trip.progress, (planet) => { if (planet === theirPlanet) sendHeart(); });
+}
+
+async function sendHeart() {
+  const she = DATA.side === 'vin';
+  try {
+    const r = await send('together/heart', 'POST', {});
+    if (r.again) toast('Сердечко уже летит — следующее можно через полминуты 💞');
+    else if (!r.reaches) toast(`Отправлено 💞 ${she ? 'Она' : 'Он'} увидит, когда откроет «Вместе»`);
+    else toast(`Сердечко улетело ${she ? 'к ней' : 'к нему'} 💞`);
+  } catch {
+    toast('Не улетело — нет связи');
+  }
+}
+
+// Другий надіслав сердечко, а ми його ще не бачили — воно прилітає від його планети
+const HEART_SEEN = 'radovalka:heart-seen';
+async function heartFrom(card, heart, home, from) {
+  try {
+    const { at } = await get('together/heart');
+    let seen = 0;
+    try { seen = Number(localStorage.getItem(`${HEART_SEEN}:${DATA.side}`)) || 0; } catch { /* приватне вікно */ }
+    if (!at || at <= seen || !card.isConnected) return;
+    try { localStorage.setItem(`${HEART_SEEN}:${DATA.side}`, String(at)); } catch { /* нічого */ }
+    flyHeart(card, heart, home, { from, duration: 1800, delay: 400 });
+    toast(`💞 Сердечко от ${DATA.side === 'vin' ? 'неё' : 'него'}`);
+  } catch { /* нема звʼязку — побачить наступного разу */ }
 }
 
 // «N дней вместе» з датою початку; без дати рядка немає

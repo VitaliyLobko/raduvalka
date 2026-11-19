@@ -235,12 +235,31 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'GET' && path === 'gifs') return gifSearch(url, env);
   if (m === 'GET' && path === 'feed') return json(await feedPage(env.DB, side, url));
 
+  // «Вместе» окремо — щоб відкритий застосунок дотягував дату зустрічі без повного boot
+  if (m === 'GET' && path === 'together') return json((await getDoc(env.DB, 'together')) || {});
+  // Сердечко з листівки: донесли до планети другого — йому push, а в його листівці воно прилетить.
+  // heart:<side> — останнє сердечко ДЛЯ цієї сторони; не частіше ніж раз на 30 с, щоб не засипати push
+  if (path === 'together/heart') {
+    if (m === 'GET') return json((await getDoc(env.DB, `heart:${side}`)) || {});
+    if (m === 'POST') {
+      const now = Date.now();
+      const prev = await getDoc(env.DB, `heart:${other(side)}`);
+      const reaches = await hasPush(env.DB, other(side));
+      if (prev?.at && now - prev.at < 30000) return json({ reaches, sent: false, again: true });
+      await putDoc(env.DB, `heart:${other(side)}`, { at: now, from: side });
+      if (reaches) notify.send(other(side), heartNote(side));
+      return json({ reaches, sent: reaches && notify.on });
+    }
+  }
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
     for (const k of ['bdayVona', 'bdayVin']) if (k in patch && patch[k] !== null && !DATE_FIELD.test(String(patch[k]))) delete patch[k];
-    const next = { ...((await getDoc(env.DB, 'together')) || {}), ...patch };
+    const prev = (await getDoc(env.DB, 'together')) || {};
+    const next = { ...prev, ...patch };
     await putDoc(env.DB, 'together', next);
+    // Зустріч призначили, перенесли чи зняли — другому push
+    if ('meet' in patch && (prev.meet || null) !== (next.meet || null)) notify.send(other(side), meetNote(side, prev.meet || null, next.meet || null));
     return json(next);
   }
 
@@ -2534,6 +2553,19 @@ function askNote(from, token, origin) {
     actions: [{ action: 'ok', title: '❤️ Я в порядке' }],
     ok: { url: `${origin}/api/checkin-ok`, token },
   };
+}
+
+// Сердечко з листівки «Вместе»: тап — одразу шторка, там воно прилетить
+function heartNote(from) {
+  return { title: '💞 Сердечко', body: sender(from, 'Он отправил тебе сердечко с Юпитера', 'Она отправила тебе сердечко с Земли'), tag: 'heart', go: 'together' };
+}
+
+// Дата зустрічі: «12 декабря» (дата без часу — рахуємо в UTC, щоб не зсунулась на день)
+const meetDay = (d) => new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${d}T00:00Z`));
+function meetNote(from, was, now) {
+  if (!now) return { title: 'Встреча снята', body: sender(from, 'Он убрал дату встречи', 'Она убрала дату встречи'), tag: 'meet', go: 'together' };
+  if (was) return { title: 'Встреча перенесена 💞', body: `${sender(from, 'Он перенёс', 'Она перенесла')} встречу на ${meetDay(now)}`, tag: 'meet', go: 'together' };
+  return { title: 'Встреча 💞', body: `${sender(from, 'Он назначил', 'Она назначила')} встречу: ${meetDay(now)}`, tag: 'meet', go: 'together' };
 }
 
 // Тап — «Письма», де в надісланих видно ❤️

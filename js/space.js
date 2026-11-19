@@ -42,6 +42,31 @@ export function flyHeart(card, heart, progress, { delay = 0, duration = 1400, fr
   requestAnimationFrame(step);
 }
 
+// Ролики планет, коли сердечко долетіло (координати — з planets.js, viewBox 300×400):
+// Юпітер — золоте сяйво по краю й серце на широті Великої червоної плями (смуги з плямою пливуть, тож — по центру);
+// Земля — розпускається сакура, пелюстки розлітаються. Тимчасові елементи в SVG листівки, через 2 с — геть
+const NS = 'http://www.w3.org/2000/svg';
+const HEART_D = 'M0 3.2C-2.4.6-6.4-1.2-6.4-4.6-6.4-7.2-3.2-8.4 0-5.6 3.2-8.4 6.4-7.2 6.4-4.6 6.4-1.2 2.4.6 0 3.2Z';
+export function planetFx(card, planet) {
+  if (reduceMotion) return;
+  const svg = card.querySelector('.space-path');
+  if (!svg) return;
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('class', `fx-${planet}`);
+  g.setAttribute('aria-hidden', 'true');
+  if (planet === 'jupiter') {
+    g.innerHTML = '<circle class="fx-glow" cx="222" cy="84" r="60"/>'
+      + `<g transform="translate(222 108)"><path class="fx-spot-heart" d="${HEART_D}"/></g>`;
+  } else {
+    const petals = [0, 72, 144, 216, 288].map((a) => `<ellipse rx="7" ry="13" cy="-14" transform="rotate(${a})"/>`).join('');
+    const flying = [[-70, -60], [40, -80], [75, -20], [-80, 10], [10, -110], [-30, -95]]
+      .map(([x, y], i) => `<path class="fx-petal" style="--x:${x}px;--y:${y}px;animation-delay:${0.25 + i * 0.04}s" d="M0 0c5-8 13-8 13 0s-8 8-13 0z"/>`).join('');
+    g.innerHTML = `<g transform="translate(78 300)"><g class="fx-bloom">${petals}<circle r="5" class="fx-bloom-core"/></g>${flying}</g>`;
+  }
+  svg.append(g);
+  setTimeout(() => g.remove(), 2200);
+}
+
 // Сердечко тягнуть пальцем уздовж пунктиру. Донесли до планети — onPlanet('jupiter' | 'earth')
 // (там згодом буде свій ролик), відпустили посередині — повертається на своє місце home.
 export function dragHeart(card, heart, home, onPlanet) {
@@ -83,6 +108,7 @@ export function dragHeart(card, heart, home, onPlanet) {
     const end = planet === 'jupiter' ? 0 : 1;
     place(card, heart, end);
     card.classList.add(`hit-${planet}`);
+    planetFx(card, planet);
     onPlanet?.(planet);
     setTimeout(() => {
       card.classList.remove(`hit-${planet}`);

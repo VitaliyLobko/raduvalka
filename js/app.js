@@ -385,6 +385,8 @@ function goTo(go) {
   }
   // «Крутим?» і «Колесо выбрало» — у «Планах» одразу колесо
   // «Новый план» — у колоду «Листать», щоб одразу проголосувати
+  // «Встреча 💞» — одразу шторка «Вместе»
+  if (go === 'together') { openTogether(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
   if (tab !== go) selectTab(go);
@@ -476,10 +478,15 @@ function openTogether() {
     body);
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
+  togetherBody = body;
   renderTogether(body);
 }
+// Відкрита шторка «Вместе» — щоб перемалювати, коли другий змінив дату зустрічі
+let togetherBody = null;
 
 chip.addEventListener('click', openTogether);
+// Картка «Вместе» у «Планах»
+document.addEventListener('radovalka:open-together', openTogether);
 
 
 // Рядок у шапці під логотипом: «є нова версія» / «оновилась». Нічого не перекриває, ✕ — сховати
@@ -570,6 +577,13 @@ function refreshAll() {
   loadSos();
   // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
   get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
+  // «Вместе»: другий призначив чи переніс зустріч — лічильник і відкрита шторка одразу нові
+  get('together').then((t) => {
+    if (!t || JSON.stringify(t) === JSON.stringify(DATA.together)) return;
+    DATA.together = t;
+    drawChip();
+    if (togetherBody?.isConnected && !togetherBody.contains(document.activeElement)) renderTogether(togetherBody);
+  }).catch(() => {});
   if (tab !== 'wish') loadWishes().then(markWishes).catch(() => {});
   loadPlans().then(markPlans).catch(() => {});
   // Стрічка перемальовує лише себе — відкритий лист дня не зсувається

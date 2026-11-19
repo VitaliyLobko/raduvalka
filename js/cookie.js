@@ -101,7 +101,20 @@ function hash(str) {
   return x >>> 0;
 }
 const kyivDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(new Date());
-export const isCookieDay = (day) => hash(`cookie:${day}`) % 5 < 2;
+// Жереб — приблизно 2 дні з 5, але не більше двох днів поспіль без печеньки: третій — точно з нею.
+// Рахуємо від однієї опорної дати вперед, тож розклад однаковий на обох телефонах
+const COOKIE_FROM = '2026-11-01';
+const lucky = (day) => hash(`cookie:${day}`) % 5 < 2;
+export function isCookieDay(day) {
+  if (day < COOKIE_FROM) return lucky(day);
+  let gap = 0;
+  for (const d = new Date(`${COOKIE_FROM}T12:00Z`); ; d.setUTCDate(d.getUTCDate() + 1)) {
+    const k = d.toISOString().slice(0, 10);
+    const yes = lucky(k) || gap >= 2;
+    if (k === day) return yes;
+    gap = yes ? 0 : gap + 1;
+  }
+}
 export const isGolden = (day) => hash(`gold:${day}`) % 12 === 0;
 const fortuneFor = (day, side, gold) => { const list = gold ? GOLDEN : FORTUNES; return list[hash(`${day}:${side}`) % list.length]; };
 

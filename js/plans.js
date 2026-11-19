@@ -8,6 +8,7 @@ import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { burst } from './fx.js';
 import { flashConstellation } from './depth.js';
 import { swipeable } from './feed.js';
+import { chipLabel, chipFestive } from './together.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -145,7 +146,7 @@ export function renderPlans(screen) {
       onclick: () => { view = v; renderPlans(screen); },
     }, label, counts[v] ? h('span', { class: 'plan-count' }, String(counts[v])) : null)));
 
-  const head = [h('h2', { class: 'title' }, 'Планы'), seg];
+  const head = [h('h2', { class: 'title' }, 'Планы'), togetherCard(), seg];
   const paint = (...body) => screen.replaceChildren(h('div', { class: 'plan-screen' }, ...head, ...body.filter(Boolean)));
 
   if (!data) {
@@ -450,6 +451,16 @@ const PICK_LINES = [
   'Вот и план. Не забудьте мне потом всё рассказать 😉',
 ];
 const PET_LINES = ['Это и про меня! Без меня не начинайте 🐾', 'Ура, я тоже участвую! Уже жду 🐾'];
+
+// «Вместе» — у «Планах» угорі: зустріч — теж план. Значок планет той самий, що був у шапці; тап — шторка «Вместе»
+function togetherCard() {
+  const festive = chipFestive();
+  const planets = document.querySelector('#together-chip .chip-planets')?.cloneNode(true);
+  return h('button', {
+    type: 'button', class: `plan-together${festive ? ' is-festive' : ''}`, 'aria-label': `Вместе: ${chipLabel()}`,
+    onclick: () => document.dispatchEvent(new Event('radovalka:open-together')),
+  }, planets || h('span', { 'aria-hidden': 'true' }, '🪐'), h('span', { class: 'plan-together-text' }, chipLabel(), festive ? ' 🎉' : ''), h('span', { class: 'plan-together-go', 'aria-hidden': 'true' }, '›'));
+}
 
 // Колесо вдвох: один кличе «Крутим?» зі своїми темами, другий обирає свої й тисне «Готов» — тоді крутить сервер.
 // У колесо — теми, обрані обома. Одне обертання на день на двох, результат обовʼязковий

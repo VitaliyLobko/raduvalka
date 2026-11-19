@@ -3359,3 +3359,29 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 [data-side="vin"] .pin-dots i { border-color: rgba(244, 230, 196, .6); }
 [data-side="vin"] .pin-dots i.is-on { background: #F4E6C4; border-color: #F4E6C4; }
 .pin-panel { display: contents; }
+/* Фраза на листівці — від ширини самої листівки, а не вікна: на компʼютері листівка вужча, і текст вилазив за край */
+.space { container-type: inline-size; }
+.phrase { font-size: clamp(.85rem, 5.9cqi, 1.5rem); }
+/* «Вместе» у «Планах»: планети, «до встречи N дн.» / «вместе N дн.», тап — шторка */
+.plan-together {
+  display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 12px; padding: 8px 14px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--lavender) 70%, transparent); border-radius: 18px;
+  background: color-mix(in srgb, var(--paper) 80%, transparent); color: var(--ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer;
+}
+[data-side="vin"] .plan-together { background: rgba(255, 255, 255, .06); border-color: rgba(244, 230, 196, .2); }
+.plan-together .chip-planets { width: 44px; height: 33px; flex: none; }
+.plan-together-text { flex: 1; font-size: 1rem; }
+.plan-together-go { font-size: 1.3rem; opacity: .5; }
+.plan-together.is-festive { box-shadow: 0 0 0 2px #EDB949; }
+
+/* Ролики планет (space.js planetFx): Юпітер — золоте сяйво й серце на плямі, Земля — сакура з пелюстками */
+.fx-glow { fill: none; stroke: #FFD34D; stroke-width: 5; opacity: 0; filter: drop-shadow(0 0 6px #FFD34D); animation: fx-glow 1.8s ease-out; }
+@keyframes fx-glow { 20% { opacity: .9; } 100% { opacity: 0; stroke-width: 1; } }
+.fx-spot-heart { fill: #E8505B; transform-box: fill-box; transform-origin: center; transform: scale(0); filter: drop-shadow(0 0 4px #FFB3B8); animation: fx-spot 1.9s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes fx-spot { 15% { transform: scale(2.6); } 30%, 75% { transform: scale(2.2); } 100% { transform: scale(0); } }
+.fx-bloom { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: fx-bloom 2s ease-out; }
+.fx-bloom ellipse { fill: #F7B8D2; opacity: .95; }
+.fx-bloom-core { fill: #E98BB5; }
+@keyframes fx-bloom { 0% { transform: scale(0) rotate(-40deg); } 25% { transform: scale(1.15) rotate(0); } 35%, 80% { transform: scale(1); } 100% { transform: scale(0); opacity: 0; } }
+.fx-petal { fill: #F7B8D2; opacity: 0; animation: fx-petal 1.5s ease-out forwards; }
+@keyframes fx-petal { 10% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(220deg); } }
