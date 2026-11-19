@@ -53,9 +53,21 @@ export function sosSlider(onDone = openSos) {
   thumb.addEventListener('pointerup', () => {
     if (start == null) return;
     const done = x >= max * 0.9;
+    const tapped = x < 6;
     reset();
     if (done) onDone();
+    else if (tapped) hint();
   });
+  // Просто тапнули — кружок трохи проїжджає вправо й вертається, підказка замість напису. Сигнал не йде
+  let hintTimer = 0;
+  const hint = () => {
+    track.classList.remove('is-nudge');
+    void track.offsetWidth;
+    track.classList.add('is-nudge');
+    label.textContent = 'Проведи вправо →';
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => { label.textContent = 'Нужна помощь →'; track.classList.remove('is-nudge'); }, 2200);
+  };
   thumb.addEventListener('pointercancel', reset);
   thumb.addEventListener('contextmenu', (e) => e.preventDefault());
   // З клавіатури випадково не натиснеш — Enter

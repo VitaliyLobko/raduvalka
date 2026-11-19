@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { h, toast, cap, ribbon } from './ui.js';
 import { deliver, waiting } from './outbox.js';
 import { send } from './api.js';
+import { burst } from './fx.js';
 import { sosSlider, sosShown } from './sos.js';
 
 const FRESH = 48 * 3600 * 1000;
@@ -36,12 +37,12 @@ const FLAT = '<svg class="pulse-base" viewBox="0 0 44 16" aria-hidden="true"><po
 const MOODS = {
   '😊': ['хорошо', 'хорошо'], '😴': ['устал', 'устала'], '🤒': ['приболел', 'приболела'], '😔': ['грустно', 'грустно'],
   '🥰': ['скучает', 'скучает'], '🤯': ['завал', 'завал'], '🤗': ['обнимашки', 'обнимашки'], '😤': ['злится', 'злится'],
-  '🥶': ['замёрз', 'замёрзла'], '🥵': ['жарко', 'жарко'], '🙃': ['ну такое', 'ну такое'],
+  '🥶': ['замёрз', 'замёрзла'], '🥵': ['жарко', 'жарко'], '🙃': ['ну такое', 'ну такое'], '🍓': ['игривый', 'игривая'],
   // Уже не пропонується (злили з 😴), але давні відмітки з ним показуємо як було
   '🥱': ['устал', 'устала'],
 };
 // Що пропонувати; не влазять в рядок — у відповіді гортаються стрічкою, у виборі настрою — вбік
-const PICK = ['😊', '😴', '🤒', '😔', '🥰', '🤯', '🤗', '😤', '🥶', '🥵', '🙃'];
+const PICK = ['😊', '😴', '🤒', '😔', '🥰', '🍓', '🤯', '🤗', '😤', '🥶', '🥵', '🙃'];
 const iAmHe = () => DATA.side === 'vin';
 
 // Відмітку другого побачили на екрані — сказати серверу один раз, у нього зʼявиться «увидела ✓»
@@ -55,6 +56,9 @@ function markSeen(at) {
   send('checkin/seen', 'POST', { at }).catch(() => {});
 }
 
+let lastTheirs = null;
+let flashUntil = 0;
+
 // Дрібний рядок над кнопками: відмітка другого (свіжість — кольором пульсу), «Как ты?», моя відмітка, сповіщення, черга
 function statusLine() {
   const me = who();
@@ -63,11 +67,14 @@ function statusLine() {
   const she = me.partner === 'она';
   const n = waiting();
   markSeen(at);
+  // Свіжа відмітка прийшла, поки застосунок відкритий, — пігулка на мить підсвічується (і в блоці, і в шапці)
+  if (at && lastTheirs && at !== lastTheirs) flashUntil = Date.now() + 1500;
+  if (at) lastTheirs = at;
   const fresh = at && Date.now() - at <= FRESH;
   // Сьогодні — пульс біжить; учора — блідий і спокійний; давніше — сіра рівна лінія
   const age = !at ? 'none' : isToday(at) ? 'today' : fresh ? 'old' : 'stale';
   return h('div', { class: 'checkin-status' },
-    h('span', { class: `checkin-theirs is-${age}` },
+    h('span', { class: `checkin-theirs is-${age}${Date.now() < flashUntil ? ' is-fresh' : ''}` },
       h('span', { class: 'checkin-pulse', html: fresh ? PULSE : FLAT }),
       // Коротко: «Он 👌», а з настроєм — його значок замість 👌 і слово поруч (у згорнутому слово ховається)
       fresh ? h('b', { 'aria-label': `${she ? 'Она' : 'Он'} в порядке` }, h('span', { class: 'checkin-who' }, `${she ? 'Она' : 'Он'} `), MOODS[c.theirsMood] ? c.theirsMood : '👌',
@@ -93,7 +100,7 @@ const ASK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ask-cloud"
 function answerRow() {
   const row = h('div', { class: 'checkin-answer' }, ...PICK.map((e) => h('button', {
     type: 'button', class: 'react-opt', 'aria-label': `Ответить: ${e}`,
-    onclick: () => { row.querySelectorAll('button').forEach((b) => { b.disabled = true; }); checkIn(e); },
+    onclick: (ev) => { burst(ev.currentTarget, e, 8); row.querySelectorAll('button').forEach((b) => { b.disabled = true; }); checkIn(e); },
   }, e)));
   ribbon(row);
   return row;
@@ -108,6 +115,8 @@ function askBtn(she) {
       const asked = iAmHe() ? 'Спросил' : 'Спросила';
       try {
         const r = await send('checkin/ask', 'POST', {});
+        // Пішло — хмаринка підстрибує
+        if (!r.again) { btn.classList.remove('is-sent'); void btn.offsetWidth; btn.classList.add('is-sent'); }
         if (r.again) toast(`Уже ${asked.toLowerCase()} — ${she ? 'она' : 'он'} ответит одним тапом`);
         else if (!r.reaches) toast(`У ${she ? 'неё' : 'него'} выключены уведомления — увидит, когда откроет Радовалку`);
         else toast(`${asked} 🫶 ${cap(she ? 'она' : 'он')} ответит одним тапом`);
@@ -142,7 +151,7 @@ function openMoods(btn) {
   const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Как ты?' },
     ...PICK.map((e) => h('button', {
       type: 'button', role: 'menuitem', class: 'react-opt', 'aria-label': e,
-      onclick: (ev) => { ev.stopPropagation(); close(); btn.disabled = true; btn.classList.add('is-beat'); checkIn(e); },
+      onclick: (ev) => { ev.stopPropagation(); burst(ev.currentTarget, e, 8); close(); btn.disabled = true; btn.classList.add('is-beat'); checkIn(e); },
     }, e)));
   // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
   const opened = Date.now();
