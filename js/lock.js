@@ -1,6 +1,7 @@
 // Замок: без ключа видно лише листівку з планетами й поле для посилання
 import { h, sky } from './ui.js';
-import { parseKey, setKey } from './api.js';
+import { parseKey, parseSecret, setKey } from './api.js';
+import { setSecret } from './seal.js';
 import { spaceCard, flyHeart } from './space.js';
 
 // reason: null — ключа ще нема, 'bad' — сервер його не прийняв, 'offline' — немає звʼязку
@@ -26,6 +27,7 @@ export function showLock(reason, retry) {
       return;
     }
     setKey(key);
+    setSecret(parseSecret(input.value));
     root.remove();
     retry();
   };

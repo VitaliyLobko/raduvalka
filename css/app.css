@@ -3358,3 +3358,4 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 [data-side="vin"] .pin-ok { background: #EDB949; color: #0B384B; }
 [data-side="vin"] .pin-dots i { border-color: rgba(244, 230, 196, .6); }
 [data-side="vin"] .pin-dots i.is-on { background: #F4E6C4; border-color: #F4E6C4; }
+.pin-panel { display: contents; }

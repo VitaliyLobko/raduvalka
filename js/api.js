@@ -1,5 +1,6 @@
 // Звʼязок із сервером: ключ приходить у посиланні після # і зберігається лише на цьому телефоні
 import { toast } from './ui.js';
+import { openDeep, sealBody, setSecret } from './seal.js';
 
 const STORE = 'radovalka:key';
 // Половина цього телефону — щоб index.html увімкнув тему ще до першого кадру
@@ -8,12 +9,19 @@ const LOCAL = ['127.0.0.1', 'localhost'].includes(location.hostname);
 
 export const API = LOCAL ? 'http://127.0.0.1:8787' : 'https://raduvalka.vitaliy-lobko.workers.dev';
 
-// Ключ із посилання «…/#ключ» (чи старого «…#k=ключ») або просто ключ
+// Ключ із посилання «…/#ключ.секрет», «…/#ключ» (чи старого «…#k=ключ») або просто ключ
 export function parseKey(text) {
   const s = String(text || '').trim();
-  const m = s.match(/[#&?]k=([A-Za-z0-9_-]{20,})/)
+  const m = s.match(/(?:^|#)([A-Za-z0-9_-]{20,}).[A-Za-z0-9_-]{43}$/)
+    || s.match(/[#&?]k=([A-Za-z0-9_-]{20,})/)
     || s.match(/#([A-Za-z0-9_-]{20,})$/)
     || s.match(/^([A-Za-z0-9_-]{20,})$/);
+  return m ? m[1] : null;
+}
+
+// Секрет шифрування — друга частина посилання після крапки; на сервер не йде
+export function parseSecret(text) {
+  const m = String(text || '').trim().match(/(?:^|#)[A-Za-z0-9_-]{20,}.([A-Za-z0-9_-]{43})$/);
   return m ? m[1] : null;
 }
 
@@ -71,6 +79,7 @@ export function takeKeyFromUrl() {
     if (old && old !== key) { localStorage.setItem(ALT, old); localStorage.removeItem(SIDE); }
   } catch { /* приватний режим */ }
   setKey(key);
+  setSecret(parseSecret(location.hash));
   history.replaceState(null, '', location.pathname + location.search);
 }
 
@@ -115,19 +124,20 @@ async function keyPrint() {
 const dataUrl = async (path) => `${API}/api/${path}?saved=${await keyPrint()}`;
 
 export async function get(path) {
-  if (!OFFLINE_PATHS.test(path) || !self.caches) return (await request(path)).json();
+  if (!OFFLINE_PATHS.test(path) || !self.caches) return openDeep(await (await request(path)).json());
   try {
     const text = await (await request(path)).text();
     caches.open(DATA_CACHE).then(async (c) => c.put(await dataUrl(path), new Response(text))).catch(() => {});
     setOffline(false);
-    return JSON.parse(text);
+    // У кеші — як прийшло (зашифроване); розшифровуємо лише в памʼяті
+    return openDeep(JSON.parse(text));
   } catch (e) {
     // Сервер відповів помилкою (401, 500) — це не «нема зв'язку», старе не підсовуємо
     if (e.status) throw e;
     const hit = await caches.open(DATA_CACHE).then(async (c) => c.match(await dataUrl(path))).catch(() => null);
     if (!hit) throw e;
     setOffline(true);
-    return hit.json();
+    return openDeep(await hit.json());
   }
 }
 
@@ -136,7 +146,8 @@ export const forgetSaved = () => (self.caches ? caches.delete(DATA_CACHE).catch(
 
 // Запит, результат якого потрібен одразу (надіслати, видалити): помилку ловить той, хто кличе.
 // timeout — для черги без зв'язку: на слабкому сигналі fetch висить хвилинами, обрив = «нема зв'язку» (без status)
-export async function send(path, method, body, { timeout } = {}) {
+export async function send(path, method, plain, { timeout } = {}) {
+  const body = await sealBody(path, plain);
   const ctl = timeout ? new AbortController() : null;
   const timer = ctl && setTimeout(() => ctl.abort(), timeout);
   try {
@@ -146,7 +157,7 @@ export async function send(path, method, body, { timeout } = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
       ...(ctl ? { signal: ctl.signal } : {}),
     });
-    return await res.json();
+    return await openDeep(await res.json());
   } finally {
     clearTimeout(timer);
   }
@@ -158,7 +169,8 @@ export async function getBlob(path) {
 }
 
 // Запис — у фоні: інтерфейс уже показав зміну, сервер лише наздоганяє
-export function save(path, body) {
+export async function save(path, plain) {
+  const body = await sealBody(path, plain);
   return request(path, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },

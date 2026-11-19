@@ -1,7 +1,8 @@
 // Старт: ключ → дані з сервера → екрани; без ключа — замок
 import { DATA, who } from './data.js';
-import { get, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved, parseKey } from './api.js';
+import { get, send, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved, parseKey } from './api.js';
 import { lock, watchResume, pinPanel, clearPin } from './pin.js';
+import { forgetSecret, hasSecret, seal } from './seal.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
@@ -674,6 +675,7 @@ function openAbout() {
     await disablePush().catch(() => { /* сервер прибере підписку сам, коли push-сервіс відповість 410 */ });
     await forgetSaved();
     clearPin();
+    forgetSecret();
     setKey(null);
     leave(() => location.replace(location.pathname));
   };
@@ -689,7 +691,7 @@ function openAbout() {
       // Вхід у «Вместе» й тут — у шапці лише значок із числом
       aboutGroup('Вместе', aboutRow('💞', cap(chipLabel()), 'Наша открытка и дата встречи', () => { close(); setTimeout(openTogether, 300); })),
       // Замок на вхід: PIN або відбиток (кожен телефон — свій)
-      aboutGroup('Замок', pinPanel()),
+      aboutGroup('Замок', pinPanel(aboutRow)),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Размер букв в письмах', textSizePanel()),
       aboutGroup('Уведомления', pushPanel()),
@@ -719,6 +721,22 @@ function openAbout() {
 }
 
 document.getElementById('about-btn').addEventListener('click', openAbout);
+
+// Перехід на шифрування: те, що цей телефон колись написав відкрито (свої листи, цитати, свої відповіді), — шифруємо й
+// віддаємо назад. На кожному запуску, доки не вдасться; вдалось — позначка й більше не питаємо
+async function sealOld() {
+  if (!hasSecret()) return;
+  const mark = `radovalka:sealed:${DATA.side}`;
+  try { if (localStorage.getItem(mark) === '1') return; } catch { /* приватне вікно */ }
+  try {
+    const { rows } = await get('seal/todo');
+    if (rows.length) {
+      const sealed = await Promise.all(rows.map(async (r) => Object.fromEntries(await Promise.all(Object.entries(r).map(async ([k, v]) => [k, k === 'id' || k === 't' ? v : await seal(v)])))));
+      await send('seal', 'POST', { rows: sealed });
+    }
+    localStorage.setItem(mark, '1');
+  } catch { /* нема звʼязку — наступного разу */ }
+}
 
 // «Нужна помощь» на екрані замка: у біді PIN не заважає (шторка SOS — поверх замка, замок після неї лишається)
 const lockSos = () => sosSlider();
@@ -769,6 +787,7 @@ async function start() {
     slider?.classList.add('is-called');
   }
   loadSos();
+  sealOld();
   noteUpdated();
   checkUpdate();
   markFestive();

@@ -60,8 +60,10 @@ function noteFail() {
 }
 
 // Відбиток: ключ доступу цього телефона (WebAuthn, «на цьому пристрої»). Успішна перевірка = вхід
+// Частина Android-телефонів відповідає «нема» навіть із відбитком (застосунок з іконки, старий Play Services) —
+// тож кнопку показуємо, щойно браузер узагалі вміє ключі доступу; не вийде — скажемо чому
 export async function bioAvailable() {
-  try { return !!window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; }
+  return !!window.PublicKeyCredential && !!navigator.credentials?.create;
 }
 export async function enableBio() {
   const cred = await navigator.credentials.create({
@@ -190,41 +192,45 @@ function askNew() {
 }
 
 // Меню: поставити / змінити / зняти PIN, увімкнути відбиток
-export function pinPanel() {
+// row(icon, label, note, onclick) — рядок меню, як решта пунктів «Радовалки»
+export function pinPanel(row) {
   const box = h('div', { class: 'pin-panel' });
   const btn = (label, onclick, cls = 'btn') => h('button', { type: 'button', class: cls, onclick }, label);
-  const draw = async () => {
+  const turnBio = async () => {
+    try { await enableBio(); toast('Отпечаток подключён 👆'); } catch (e) {
+      // NotAllowedError — закрили вікно або відмовили; NotSupportedError / SecurityError — телефон не дає
+      toast(e?.name === 'NotAllowedError' ? 'Отпечаток не подключён — окно закрыли или палец не подошёл'
+        : `Телефон не дал подключить отпечаток (${e?.name || 'ошибка'}). Вход — по PIN`);
+    }
+    draw();
+  };
+  // Знімає лише той, хто знає PIN
+  const unlockOff = () => new Promise((resolve) => {
+    let close = null;
+    const b = pad({
+      title: 'Введи PIN, чтобы снять замок',
+      onDone: async (c, { msg }) => {
+        if (await checkPin(c)) { clearPin(); close(); toast('Замок снят'); resolve(); } else msg.textContent = 'Неверный PIN';
+      },
+    });
+    b.el.append(btn('Отмена', () => { close(); resolve(); }, 'btn pin-cancel'));
+    close = overlay(b);
+  }).then(draw);
+  async function draw() {
     if (!hasPin()) {
-      box.replaceChildren(
-        h('p', { class: 'hint' }, 'PIN или отпечаток при каждом входе — чтобы никто не открыл Радовалку с твоего телефона.'),
-        btn('🔒 Поставить PIN', async () => { if (await askNew()) { toast('PIN поставлен 🔒'); draw(); } }, 'btn btn-primary'));
+      box.replaceChildren(row('🔒', 'Поставить PIN', 'PIN или отпечаток при каждом входе — чтобы никто не открыл Радовалку с твоего телефона',
+        async () => { if (await askNew()) { toast('PIN поставлен 🔒'); draw(); } }));
       return;
     }
     const bio = await bioAvailable();
-    box.replaceChildren(
-      h('p', { class: 'hint' }, hasBio() ? 'Вход по отпечатку, PIN — запасной.' : 'Вход по PIN.'),
-      bio && !hasBio() ? btn('👆 Входить отпечатком', async () => {
-        try { await enableBio(); toast('Отпечаток подключён 👆'); } catch { toast('Не получилось подключить отпечаток'); }
-        draw();
-      }, 'btn btn-primary') : null,
-      hasBio() ? btn('Отключить отпечаток', () => { disableBio(); draw(); }) : null,
-      btn('Сменить PIN', async () => { if (await askNew()) toast('PIN изменён'); draw(); }),
-      btn('Снять замок', async () => {
-        // Знімає лише той, хто знає PIN
-        await new Promise((resolve) => {
-          let close = null;
-          const b = pad({
-            title: 'Введи PIN, чтобы снять замок',
-            onDone: async (c, { msg }) => {
-              if (await checkPin(c)) { clearPin(); close(); toast('Замок снят'); resolve(); } else msg.textContent = 'Неверный PIN';
-            },
-          });
-          b.el.append(btn('Отмена', () => { close(); resolve(); }, 'btn pin-cancel'));
-          close = overlay(b);
-        });
-        draw();
-      }));
-  };
+    box.replaceChildren(...[
+      bio ? row('👆', hasBio() ? 'Вход отпечатком — включён' : 'Входить отпечатком',
+        hasBio() ? 'Тап — выключить. PIN остаётся запасным' : 'Быстрее, чем PIN',
+        hasBio() ? () => { disableBio(); toast('Отпечаток выключен'); draw(); } : turnBio) : null,
+      row('🔢', 'Сменить PIN', null, async () => { if (await askNew()) toast('PIN изменён'); draw(); }),
+      row('🔓', 'Снять замок', 'Попросит PIN', unlockOff),
+    ].filter(Boolean));
+  }
   draw();
   return box;
 }

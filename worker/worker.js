@@ -50,6 +50,15 @@ const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date', 'stock'];
 const MORNING_HOUR = 8;
 const STOCK_TZ = 'Europe/Kyiv';
 const MAX_LETTER = 4000;
+// Наскрізне шифрування: телефон шле «e1.…» — такий рядок не ріжемо (обрізав відкритий текст ще телефон), лише межа зверху
+const SEALED = /^e1\.[A-Za-z0-9_-]+$/;
+const MAX_SEALED = 24000;
+function clip(v, max) {
+  const s = String(v || '').trim();
+  if (!SEALED.test(s)) return s.slice(0, max);
+  if (s.length > MAX_SEALED) throw fail(413, 'size');
+  return s;
+}
 // id листа, придуманий телефоном (черга без зв'язку): лише малі латинські й цифри
 const CID = /^[a-z0-9]{16,32}$/;
 // «Я в порядке»: старіше доби не приймаємо; push — на кожну відмітку, не старшу 12 год (давню з черги — тихо)
@@ -205,6 +214,7 @@ async function route(req, env, ctx, info = {}) {
     const [letter, gift, checkins] = await Promise.all([dayLetter(env.DB, side), pendingGift(env.DB, side), checkinsOf(env.DB, side)]);
     return json({ letter, gift, checkins });
   }
+  if (path === 'seal/todo' || path === 'seal') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
   if (m === 'POST' && path === 'checkin/seen') return checkinSeen(req, env.DB, side);
   if (m === 'POST' && path === 'checkin/ask') return checkinAsk(req, env.DB, side, notify);
@@ -335,7 +345,7 @@ async function imgVersions(db, mascots) {
 // Мітка змін для живого оновлення: відкрита Радовалка раз на 15 с питає її й дотягує свіже, коли змінилась.
 // Ставиться після кожного запису й перед кожним push (так і cron). Підписка на push, ШІ-підказки й розбір
 // посилань нічого спільного не міняють — інакше два відкриті телефони будили б один одного без кінця
-const QUIET = /^(push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image)$/;
+const QUIET = /^(seal|seal\/todo|push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image)$/;
 async function bumpPulse(db, sides) {
   const now = Date.now();
   await Promise.all(sides.map((s) => putDoc(db, `pulse:${s}`, now)));
@@ -389,7 +399,7 @@ async function memesRoute(req, db, side, rest, notify) {
       dst: side === 'vin' ? 'vona' : 'vin',
       img: '',
       url: null,
-      caption: String(body.caption || '').trim().slice(0, 300) || null,
+      caption: clip(body.caption, 300) || null,
       style: ['top', 'bottom'].includes(body.style) ? body.style : null,
       quote: quoteOf(body),
       created: Date.now(),
@@ -447,7 +457,7 @@ async function memesRoute(req, db, side, rest, notify) {
       next.reaction = b.reaction;
     }
     if ('reply' in b) {
-      next.reply = String(b.reply || '').trim().slice(0, MAX_LETTER) || null;
+      next.reply = clip(b.reply, MAX_LETTER) || null;
       next.replied = next.reply ? Date.now() : null;
     }
     await db.prepare('UPDATE memes SET reaction = ?, reply = ?, replied = ? WHERE id = ?')
@@ -474,14 +484,16 @@ const other = (side) => (side === 'vin' ? 'vona' : 'vin');
 const WISH_MARKS = ['eye', 'bought'];
 
 function wishFields(b) {
-  const link = String(b.link || '').trim().slice(0, 500);
+  const rawLink = String(b.link || '').trim();
+  const link = rawLink.slice(0, 500);
   const price = Math.round(Number(b.price));
   return {
-    title: String(b.title || '').trim().slice(0, 120),
+    title: clip(b.title, 120),
     price: Number.isFinite(price) && price > 0 ? Math.min(price, 10_000_000) : null,
-    // Лише звичайні веб-посилання — щоб у списку не опинилось javascript: чи щось дивне
-    link: /^https?:\/\/\S+$/i.test(link) ? link : null,
-    note: String(b.note || '').trim().slice(0, 500) || null,
+    // Лише звичайні веб-посилання — щоб у списку не опинилось javascript: чи щось дивне.
+    // Зашифроване (e1.…) перевірити не можна — телефон перевірив до шифрування і перевірить, коли відкриває
+    link: SEALED.test(rawLink) ? clip(rawLink, 500) : /^https?:\/\/\S+$/i.test(link) ? link : null,
+    note: clip(b.note, 500) || null,
     hot: b.hot ? 1 : 0,
     // Справжня календарна дата, інакше — без дати
     due: /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) && !Number.isNaN(Date.parse(b.due)) ? String(b.due) : null,
@@ -906,7 +918,7 @@ async function lettersRoute(req, db, side, rest, notify) {
   if (m === 'POST' && !rest) {
     const b = await readJson(req);
     const kind = String(b.kind || '');
-    const text = String(b.text || '').trim().slice(0, MAX_LETTER);
+    const text = clip(b.text, MAX_LETTER);
     if (!LETTER_KINDS.includes(kind) || (!text && kind !== 'gift')) throw fail(400, 'letter');
     const gift = kind === 'gift' ? JSON.stringify(cleanGift(b.gift)) : null;
     const now = Date.now();
@@ -985,7 +997,7 @@ async function lettersRoute(req, db, side, rest, notify) {
       notify.send(r.src, likeNote(side, r.kind));
     }
     if ('reply' in b) {
-      const reply = String(b.reply || '').trim().slice(0, MAX_LETTER) || null;
+      const reply = clip(b.reply, MAX_LETTER) || null;
       sets.push('reply = ?', 'replied = ?');
       args.push(reply, reply ? Date.now() : null);
       // Відповідь — значить, лист прочитано
@@ -2113,6 +2125,8 @@ function envOpenedNote(from, e) {
 }
 
 function wishNote(from, title) {
+  // Зашифровану назву сервер не знає — тоді без неї (і на заблокованому екрані її не видно)
+  if (SEALED.test(title)) return { title: 'Новая хотелка 🎁', body: sender(from, 'Он добавил хотелку', 'Она добавила хотелку'), tag: 'wish', go: 'wish' };
   return { title: 'Новая хотелка 🎁', body: `${sender(from, 'Он хочет', 'Она хочет')}: «${title}»`, tag: 'wish', go: 'wish' };
 }
 // «Нежность» — з натяком: «клубничка» замість протокольного «предложил план»
@@ -2171,6 +2185,55 @@ function planGoNote(from, title) {
     tag: 'plan-go',
     go: 'wheel',
   };
+}
+
+// Перехід на шифрування: кожен телефон сам шифрує те, що написав. Таблиця → поле → чиє воно (колонка-власник):
+// автор листа чи мемчика — текст, підпис, цитата; отримувач — свою відповідь; власник хотілки — назву, нотатку, посилання.
+// todo віддає лише своє незашифроване; seal приймає лише «e1.…» і лише в свої поля. Чужого відкритого тут не видно
+const SEAL_COLS = {
+  letters: { text: 'src', quote: 'src', reply: 'dst' },
+  memes: { caption: 'src', quote: 'src', reply: 'dst' },
+  wishes: { title: 'owner', note: 'owner', link: 'owner' },
+};
+async function sealRoute(req, db, side, path) {
+  if (req.method === 'GET' && path === 'seal/todo') {
+    const rows = [];
+    for (const [t, cols] of Object.entries(SEAL_COLS)) {
+      const owners = [...new Set(Object.values(cols))];
+      const { results } = await db.prepare(`SELECT id, ${owners.join(', ')}, ${Object.keys(cols).join(', ')} FROM ${t} WHERE ${owners.map((o) => `${o} = ?`).join(' OR ')}`)
+        .bind(...owners.map(() => side)).all();
+      for (const r of results) {
+        const row = { t, id: r.id };
+        for (const [f, own] of Object.entries(cols)) if (r[own] === side && r[f] && !SEALED.test(r[f])) row[f] = r[f];
+        if (Object.keys(row).length > 2) rows.push(row);
+      }
+    }
+    return json({ rows });
+  }
+  if (req.method === 'POST' && path === 'seal') {
+    const b = await readJson(req, 4 * 1024 * 1024);
+    const rows = Array.isArray(b.rows) ? b.rows.slice(0, 3000) : [];
+    let done = 0;
+    for (const x of rows) {
+      const cols = SEAL_COLS[x.t || 'letters'];
+      if (!cols) continue;
+      const owners = [...new Set(Object.values(cols))];
+      const r = await db.prepare(`SELECT id, ${owners.join(', ')} FROM ${x.t || 'letters'} WHERE id = ?`).bind(String(x.id || '')).first();
+      if (!r) continue;
+      const sets = [];
+      const args = [];
+      for (const [f, own] of Object.entries(cols)) {
+        if (r[own] !== side || typeof x[f] !== 'string' || !SEALED.test(x[f]) || x[f].length > MAX_SEALED) continue;
+        sets.push(`${f} = ?`);
+        args.push(x[f]);
+      }
+      if (!sets.length) continue;
+      await db.prepare(`UPDATE ${x.t || 'letters'} SET ${sets.join(', ')} WHERE id = ?`).bind(...args, r.id).run();
+      done += 1;
+    }
+    return json({ done });
+  }
+  throw fail(404, 'not found');
 }
 
 // «Я в порядке»: час — коли натиснули (з черги без зв'язку відмітка може дійти пізніше), не коли дійшла
@@ -2456,7 +2519,7 @@ function replyNote(from, on, as) {
   };
 }
 // Відповідь новим повідомленням: цитата (до 300 знаків) і на що — для push
-const quoteOf = (b) => String(b.quote || '').trim().slice(0, 300) || null;
+const quoteOf = (b) => clip(b.quote, 300) || null;
 const quoteOn = (b) => (['gif', 'photo'].includes(b.on) ? b.on : 'letter');
 
 async function pushRoute(req, env, side, path) {
