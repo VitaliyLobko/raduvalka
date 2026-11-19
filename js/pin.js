@@ -2,6 +2,8 @@
 // PIN ніде не лежить: лише перевірочний запис (PBKDF2 → AES-GCM). На екрані замка — «Нужна помощь»: у біді PIN не заважає.
 // ponytail: замок — на рівні екрана; дані на телефоні ще не зашифровані ним — це зробить наскрізне шифрування
 import { h, toast } from './ui.js';
+import { writeDecor } from './depth.js';
+import { planetsSvg } from './planets.js';
 
 const STORE = 'radovalka:pin';
 const FAILS = 'radovalka:pin-fails';
@@ -120,11 +122,14 @@ function pad({ title, onDone, sos, bio }) {
     else if (e.key === 'Backspace') back();
     else if (e.key === 'Enter') ok();
   };
-  return { el: h('div', { class: 'pin-box' }, h('p', { class: 'pin-brand' }, 'Радовалка'), head, dots, msg, keys, bioBtn, sos || null), onKey, msg, head };
+  // Планети з листівки «Вместе» з сердечком посередині пунктиру — замок теж частина Радовалки
+  const planets = h('div', { class: 'pin-planets', 'aria-hidden': 'true', html: `<svg viewBox="0 0 300 400">${planetsSvg()}<path class="pin-trail" d="M170 110 C 100 118 36 160 42 210 S 88 250 104 268"/><path class="pin-heart" transform="translate(58 196) scale(3.2)" d="M0 3.2C-2.4.6-6.4-1.2-6.4-4.6-6.4-7.2-3.2-8.4 0-5.6 3.2-8.4 6.4-7.2 6.4-4.6 6.4-1.2 2.4.6 0 3.2Z"/></svg>` });
+  return { el: h('div', { class: 'pin-box' }, planets, h('p', { class: 'pin-brand' }, 'Радовалка'), head, dots, msg, keys, bioBtn, sos || null), onKey, msg, head };
 }
 
 function overlay(box) {
-  const root = h('div', { class: 'pin-lock', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Замок Радовалки' }, box.el);
+  // Тло — те саме нерухоме, що під «Написать» (сакура й лотос у неї, зорі й Стрілець у нього)
+  const root = h('div', { class: 'pin-lock', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Замок Радовалки' }, writeDecor(), box.el);
   document.addEventListener('keydown', box.onKey);
   document.body.append(root);
   return () => { document.removeEventListener('keydown', box.onKey); root.remove(); };

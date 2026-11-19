@@ -55,8 +55,8 @@ export function planetFx(card, planet) {
   g.setAttribute('class', `fx-${planet}`);
   g.setAttribute('aria-hidden', 'true');
   if (planet === 'jupiter') {
-    g.innerHTML = '<circle class="fx-glow" cx="222" cy="84" r="60"/>'
-      + `<g transform="translate(222 108)"><path class="fx-spot-heart" d="${HEART_D}"/></g>`;
+    g.innerHTML = '<circle class="fx-glow" cx="222" cy="84" r="59"/>'
+      + `<g transform="translate(236 106)"><path class="fx-spot-heart" d="${HEART_D}"/></g>`;
   } else {
     const petals = [0, 72, 144, 216, 288].map((a) => `<ellipse rx="7" ry="13" cy="-14" transform="rotate(${a})"/>`).join('');
     const flying = [[-70, -60], [40, -80], [75, -20], [-80, 10], [10, -110], [-30, -95]]

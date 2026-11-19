@@ -55,12 +55,6 @@ function jupiterStrip(x0) {
     <g fill="none" stroke="#9E4419" stroke-width=".7" opacity=".45">${edges}</g>
     <path d="${wisps}" fill="none" stroke="#FFF3DE" stroke-width="2" stroke-linecap="round" opacity=".7"/>
     <path d="${festoons}" fill="none" stroke="#A9501F" stroke-width="1.3" stroke-linecap="round" opacity=".45"/>
-    <g transform="translate(${x0 + 78} 106)">
-      <ellipse rx="17" ry="9" fill="#F6C79A"/>
-      <ellipse rx="13" ry="6.4" fill="#C9482A"/>
-      <path d="M-8 0c2-4 10-4 13-1 2 2-1 4-5 3" fill="none" stroke="#E87650" stroke-width="1.4" stroke-linecap="round"/>
-      <ellipse cx="-2" cy="-1" rx="4" ry="1.8" fill="#E2683F"/>
-    </g>
     <ellipse cx="${x0 + 30}" cy="121" rx="4.5" ry="2.4" fill="#FFF4E0" opacity=".9"/>
     <ellipse cx="${x0 + 150}" cy="127" rx="3.6" ry="2" fill="#FFF4E0" opacity=".85"/>
     <ellipse cx="${x0 + 190}" cy="56" rx="3.2" ry="1.7" fill="#FFF4E0" opacity=".7"/>`;
@@ -138,6 +132,13 @@ export function planetsSvg() {
     <g class="spin-j">
       <g id="${u}-jstrip">${jupiterStrip(jx0)}</g>
       <use href="#${u}-jstrip" x="${JUP.P}"/>
+    </g>
+    <!-- Велика червона пляма — нерухома поверх смуг, що пливуть: завжди на видимому боці (сердечко виростає з неї) -->
+    <g class="jspot" transform="translate(236 106)">
+      <ellipse rx="17" ry="9" fill="#F6C79A"/>
+      <ellipse rx="13" ry="6.4" fill="#C9482A"/>
+      <path d="M-8 0c2-4 10-4 13-1 2 2-1 4-5 3" fill="none" stroke="#E87650" stroke-width="1.4" stroke-linecap="round"/>
+      <ellipse cx="-2" cy="-1" rx="4" ry="1.8" fill="#E2683F"/>
     </g>
     <circle cx="${JUP.cx}" cy="${JUP.cy}" r="${JUP.r}" fill="url(#${u}-limb)"/>
     <path d="M${JUP.cx - 46} ${JUP.cy - 26}a54 54 0 0 1 40-32" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".35"/>

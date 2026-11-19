@@ -3385,3 +3385,23 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 @keyframes fx-bloom { 0% { transform: scale(0) rotate(-40deg); } 25% { transform: scale(1.15) rotate(0); } 35%, 80% { transform: scale(1); } 100% { transform: scale(0); opacity: 0; } }
 .fx-petal { fill: #F7B8D2; opacity: 0; animation: fx-petal 1.5s ease-out forwards; }
 @keyframes fx-petal { 10% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(220deg); } }
+/* Пульс планети — навколо її справжнього центру: у Юпітера смуги ширші за планету, і fill-box зсував центр управо,
+   планета «виїжджала» з золотого сяйва. Координати — з planets.js (viewBox 300×400) */
+.space .jupiter { transform-box: view-box; transform-origin: 222px 84px; }
+.space .earth { transform-box: view-box; transform-origin: 78px 318px; }
+/* Сяйво — мʼякий ореол щільно по краю, а не жовтий обруч */
+.fx-glow { stroke-width: 3; filter: drop-shadow(0 0 8px #FFD34D) blur(.6px); }
+@keyframes fx-glow { 20% { opacity: .75; } 100% { opacity: 0; stroke-width: 8; } }
+/* Пляма на мить ховається — ніби сама стала серцем */
+.space.hit-jupiter .jspot { animation: jspot-out 1.4s ease-in-out; }
+@keyframes jspot-out { 12%, 80% { opacity: 0; } }
+/* Замок: тло Радовалки й маленькі планети над цифрами */
+.pin-lock { isolation: isolate; }
+.pin-lock .write-decor { opacity: .7; }
+.pin-box { position: relative; z-index: 1; gap: 10px; }
+.pin-planets { width: 96px; height: 128px; margin-bottom: -6px; }
+.pin-planets svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.pin-trail { fill: none; stroke: #EDB949; stroke-width: 3; stroke-dasharray: 8 8; stroke-linecap: round; opacity: .85; }
+.pin-heart { fill: #E8505B; }
+.pin-brand { font-size: 1.9rem; }
+.pin-key { backdrop-filter: none; }
