@@ -217,7 +217,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
   + '</svg>';
 
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 2400 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -643,6 +643,65 @@ REACT_FX['🤗'] = (el, x, y, r) => {
   jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, 1.02)', offset: 0.3 }, { transform: 'none', offset: 0.5 },
     { transform: 'scale(.96, 1.015)', offset: 0.7 }, { transform: 'none' }], 1000, 600);
   rise(x, hy - 20, ['💕', '💗', '🧡', '💖'], 12, { delay: 950, up: 230, spread: 220 });
+};
+
+// «Сумно» 😢: над обличчям згущується хмарка й крапає дощиком, обличчя никне, котиться сльоза,
+// а наостанок з-під хмарки підіймається маленьке сердечко — втішити
+REACT_FX['😢'] = (el, x, y) => {
+  veil('fx-gloom', [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], 2800, 0, x, y);
+  big('😢', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: 0.15 },
+    { transform: 'translateY(6px) scale(1.05) rotate(-4deg)', offset: 0.4 }, { transform: 'translateY(12px) scale(1) rotate(3deg)', offset: 0.65 },
+    { transform: 'translateY(14px) scale(1) rotate(0)', opacity: 1, offset: 0.88 }, { transform: 'translateY(20px) scale(.8)', opacity: 0 },
+  ], 2700);
+  const cloud = glyphAt('🌧️', x, y - 96, '4.2rem', 'fx-cloud');
+  gone(cloud)(cloud.animate([
+    { transform: `${C} translateY(-30px) scale(.4)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.2 },
+    { transform: `${C} translateX(-6px)`, opacity: 1, offset: 0.5 }, { transform: `${C} translateX(6px)`, opacity: 1, offset: 0.8 },
+    { transform: `${C} translateY(-20px) scale(.9)`, opacity: 0 },
+  ], { duration: 2600, delay: 150, easing: 'ease-out', fill: 'backwards' }));
+  for (let i = 0; i < 12; i += 1) {
+    const d = glyphAt('💧', x - 34 + Math.random() * 68, y - 76, `${0.8 + Math.random() * 0.4}rem`);
+    gone(d)(d.animate([
+      { transform: `${C} scale(.6)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 0.9, offset: 0.15 },
+      { transform: 'translate(-50%, calc(-50% + 70px)) scale(.9)', opacity: 0 },
+    ], { duration: 650, delay: 500 + i * 120 + Math.random() * 80, easing: 'ease-in', fill: 'backwards' }));
+  }
+  const t = glyphAt('💧', x - 26, y + 10, '1.8rem');
+  gone(t)(t.animate([
+    { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.2 },
+    { transform: 'translate(calc(-50% - 4px), calc(-50% + 60px)) scale(1)', opacity: 1, offset: 0.7 },
+    { transform: 'translate(-50%, calc(-50% + 110px)) scale(.8)', opacity: 0 },
+  ], { duration: 1300, delay: 900, easing: 'ease-in', fill: 'backwards' }));
+  const h = glyphAt('💗', x + 50, y + 40, '2rem');
+  gone(h)(h.animate([
+    { transform: `${C} scale(.2)`, opacity: 0 }, { transform: `${C} scale(1.15)`, opacity: 1, offset: 0.3 },
+    { transform: 'translate(-50%, calc(-50% - 50px)) scale(1)', opacity: 1, offset: 0.75 },
+    { transform: 'translate(-50%, calc(-50% - 80px)) scale(.8)', opacity: 0 },
+  ], { duration: 1200, delay: 1900, easing: 'ease-out', fill: 'backwards' }));
+};
+
+// «Догори дриґом» 🙃: 🙂 повільно перевертається, лист дурнувато перекидається, довкола вискакують «¿» і «¡»
+REACT_FX['🙃'] = (el, x, y) => {
+  big('🙂', x, y, [
+    { transform: 'scale(.3) rotate(0)', opacity: 0 }, { transform: 'scale(1.1) rotate(0)', opacity: 1, offset: 0.15 },
+    { transform: 'scale(1.1) rotate(200deg)', offset: 0.45 }, { transform: 'scale(1.12) rotate(170deg)', offset: 0.55 },
+    { transform: 'scale(1.1) rotate(185deg)', offset: 0.65 }, { transform: 'scale(1.1) rotate(180deg)', opacity: 1, offset: 0.88 },
+    { transform: 'scale(.8) rotate(180deg)', opacity: 0 },
+  ], 2400);
+  jolt(el, [{ transform: 'none' }, { transform: 'rotate(-6deg)', offset: 0.25 }, { transform: 'rotate(5deg)', offset: 0.5 },
+    { transform: 'rotate(-3deg)', offset: 0.75 }, { transform: 'none' }], 1100, 700);
+  ['¿', '¡', '¿', '¡', '¿'].forEach((g, i) => {
+    const a = ((200 + i * 35 + (Math.random() - 0.5) * 16) * Math.PI) / 180;
+    const d = 110 + Math.random() * 30;
+    const rot = 180 + (Math.random() - 0.5) * 40;
+    const s = glyphAt(g, x + Math.cos(a) * d, y + Math.sin(a) * d, `${2 + Math.random() * 0.6}rem`, 'fx-ha');
+    gone(s)(s.animate([
+      { transform: `${C} scale(.2) rotate(0)`, opacity: 0 }, { transform: `${C} scale(1.15) rotate(${rot}deg)`, opacity: 1, offset: 0.3 },
+      { transform: `translate(-50%, calc(-50% - 14px)) rotate(${rot}deg)`, opacity: 1, offset: 0.75 },
+      { transform: `translate(-50%, calc(-50% - 24px)) scale(.9) rotate(${rot}deg)`, opacity: 0 },
+    ], { duration: 1200, delay: 450 + i * 180, easing: 'ease-out', fill: 'backwards' }));
+  });
 };
 
 export function reactFx(el, glyph) {

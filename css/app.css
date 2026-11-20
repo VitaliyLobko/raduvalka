@@ -3328,8 +3328,9 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-answer .react-opt { flex: none; }
 .react-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .react-pick .react-opt { flex: none; }
-/* 14 реакцій — два рядки по 7 (ніжні / відповіді), кнопки звичайного розміру й на вузькому телефоні */
-.react-pick:not(.mood-pick) { display: grid; grid-template-columns: repeat(7, 40px); gap: 2px; overflow: visible; border-radius: 26px; }
+/* 16 реакцій — два рядки по 8 (ніжні / відповіді); на вузькому телефоні кнопки трохи менші, щоб рядок влазив */
+.react-pick:not(.mood-pick) { --opt: min(40px, calc((100vw - 42px) / 8)); display: grid; grid-template-columns: repeat(8, var(--opt)); gap: 2px; overflow: visible; border-radius: 26px; }
+.react-pick:not(.mood-pick) .react-opt { width: var(--opt); height: var(--opt); font-size: min(1.5rem, calc(var(--opt) * .6)); }
 /* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
 .checkin-asked { min-width: 0; }
 .checkin-asked .rib-wrap { min-width: 0; max-width: 100%; }
@@ -3551,6 +3552,8 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-ring { z-index: 61; width: 64px; height: 64px; border-radius: 50%; border: 4px solid #ff5c8a; box-shadow: 0 0 14px rgba(255, 92, 138, .6); }
 .fx-ring.is-gold { border-color: #f5c543; box-shadow: 0 0 16px rgba(245, 197, 67, .7); }
 .fx-orbit { z-index: 62; width: 0; height: 0; }
+.fx-gloom { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(70, 90, 120, .12), rgba(60, 75, 105, .42)); }
+.fx-cloud { z-index: 63; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .25)); }
 .fx-heat, .fx-night { inset: 0; z-index: 58; }
 .fx-heat { background: radial-gradient(ellipse 70% 55% at var(--vx) calc(var(--vy) + 70px), rgba(255, 120, 30, .38), transparent 75%); }
 .fx-night { background: radial-gradient(circle at var(--vx) var(--vy), rgba(12, 20, 52, .3), rgba(12, 20, 52, .66)); }
