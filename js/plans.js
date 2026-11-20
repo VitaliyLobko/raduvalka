@@ -10,6 +10,7 @@ import { flashConstellation } from './depth.js';
 import { swipeable } from './feed.js';
 import { chipLabel, chipFestive } from './together.js';
 import { check as checkLive } from './live.js';
+import { ask, petNote } from './ask.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -328,6 +329,8 @@ async function vote(screen, idea, v, card) {
   // За id, а не за обʼєктом: фонове оновлення могло вже підмінити списки свіжими копіями
   data.deck = data.deck.filter((x) => x.id !== idea.id);
   if (v === 0 && data.later) data.later = [idea, ...data.later.filter((x) => x.id !== idea.id)];
+  // ⏳ — улюбленець підказує, куди поділась ідея
+  if (v === 0) petNote('Отложено ⏳ Найдёшь внизу, в «Отложенных».');
   voting = false;
   if (alive(screen)) renderPlans(screen);
   try {
@@ -416,7 +419,7 @@ function laterRow(screen, p) {
 }
 
 async function dismiss(screen, p) {
-  if (!confirm(`Убрать «${p.title}» насовсем?`)) return;
+  if (!await ask({ title: `Убрать «${p.title}» насовсем?`, text: 'Больше не покажу. Вернуть уже не получится.', yes: 'Убрать' })) return;
   gen += 1;
   try {
     await mutate(`plans/${p.id}`, 'PUT', { vote: -1 });
@@ -476,7 +479,7 @@ function planRow(p, action, tag = 'li') {
 }
 
 async function removeIdea(screen, p) {
-  if (!confirm(`Убрать идею «${p.title}»?`)) return;
+  if (!await ask({ title: `Убрать идею «${p.title}»?`, text: 'Она пропадёт у вас обоих.', yes: 'Убрать' })) return;
   try {
     await mutate(`plans/${p.id}`, 'DELETE');
     data.mine = data.mine.filter((x) => x.id !== p.id);

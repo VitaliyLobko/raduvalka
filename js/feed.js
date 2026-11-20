@@ -10,6 +10,7 @@ import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
+import { ask } from './ask.js';
 
 const SWIPE = 70;
 // Від краю екрана Android гортає «Назад» — там свайп не починаємо
@@ -651,7 +652,7 @@ function outBubble(l, later) {
     type: 'button', class: 'sent-take',
     onclick: async (ev) => {
       ev.stopPropagation();
-      if (!confirm('Забрать письмо? Оно исчезнет, будто его не было.')) return;
+      if (!await ask({ title: 'Забрать письмо?', text: 'Оно исчезнет, будто его не было.', yes: 'Забрать' })) return;
       try {
         await send(`letters/${l.id}`, 'DELETE');
         cache.sent = cache.sent.filter((x) => x.id !== l.id);
@@ -709,7 +710,7 @@ function memeBubble(m) {
 
 
 async function removeMeme(m) {
-  if (!confirm(`Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`)) return;
+  if (!await ask({ title: `Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`, yes: 'Удалить' })) return;
   try {
     await send(`memes/${m.id}`, 'DELETE');
     DATA.memes = DATA.memes.filter((x) => x.id !== m.id);

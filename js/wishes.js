@@ -5,6 +5,7 @@ import { mascotImg, petName, petFor } from './icons.js';
 import { h, toast, cap, showPhoto, ribbon } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
+import { ask } from './ask.js';
 
 export const money = (n) => `~${Number(n).toLocaleString('ru')} ₴`;
 const PHOTO_SIDE = 720;
@@ -520,7 +521,7 @@ function editWish(screen, w, sharedLink = '') {
   };
   saveBtn.addEventListener('click', save);
   const remove = async () => {
-    if (!confirm('Убрать из хотелок?')) return;
+    if (!await ask({ title: 'Убрать из хотелок?', yes: 'Убрать' })) return;
     try {
       await send(`wishes/${w.id}`, 'DELETE');
       close();

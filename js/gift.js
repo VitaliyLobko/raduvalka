@@ -3,6 +3,7 @@ import { DATA, who } from './data.js';
 import { send } from './api.js';
 import { mascotImg, petName, firstPose } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
+import { ask } from './ask.js';
 
 // Улюбленець у святковому: смокінг, якщо є така поза, інакше святкова, інакше звичайна
 const giftPose = (key) => firstPose(key, 'tux', 'festive');
@@ -47,7 +48,7 @@ export function renderGift(screen, gift, done) {
 
 async function choose(screen, gift, i, done) {
   const o = gift.options[i];
-  if (!confirm(`Выбрать «${o.title}»? Передумать уже не получится.`)) return;
+  if (!await ask({ title: `Выбрать «${o.title}»?`, text: 'Передумать уже не получится.', yes: 'Выбираю', no: 'Подумаю', danger: false })) return;
   try {
     // Той самий об'єкт, що й DATA.gift: перейде на іншу вкладку й назад — побачить уже відкрите
     Object.assign(gift, await send(`letters/${gift.id}`, 'PUT', { choose: i }));

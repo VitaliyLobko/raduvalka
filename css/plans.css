@@ -416,7 +416,7 @@
 /* Його половина: жодного сливового на синьому — картки «Планов» темні з кремовим текстом,
    лічильники й акценти золоті (її кольори перевизначено лише всередині цих карток) */
 [data-side="vin"] .plan-count { background: var(--star); color: var(--night); }
-[data-side="vin"] :is(.plan-card, .plan-match-card) {
+[data-side="vin"] :is(.plan-card, .plan-match-card, .ask-card) {
   --plum: var(--cream);
   --wax: var(--star);
   --ink-soft: #a9c3c9;

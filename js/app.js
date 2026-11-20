@@ -29,6 +29,7 @@ import { startDepth, isStill, setStill } from './depth.js';
 import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
 import { burst } from './fx.js';
 import { markFestive, writeDecor } from './depth.js';
+import { ask } from './ask.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
 // Фон обох половин — шарами на різній глибині, що зсуваються від нахилу телефона
@@ -688,7 +689,7 @@ function openAbout(showNews) {
     btn.focus();
   };
   const logout = async () => {
-    if (!confirm('Выйти на этом телефоне? Чтобы вернуться, понадобится твоя личная ссылка.')) return;
+    if (!await ask({ title: 'Выйти на этом телефоне?', text: 'Чтобы вернуться, понадобится твоя личная ссылка.', yes: 'Выйти' })) return;
     // Без ключа телефон більше нічий — і сповіщення йому слати нікому
     await disablePush().catch(() => { /* сервер прибере підписку сам, коли push-сервіс відповість 410 */ });
     await forgetSaved();
