@@ -225,7 +225,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -714,6 +714,41 @@ REACT_FX['🙃'] = (el, x, y) => {
       { transform: `translate(-50%, calc(-50% - 24px)) scale(.9) rotate(${rot}deg)`, opacity: 0 },
     ], { duration: 1350, delay: 540 + i * 200, easing: 'ease-out', fill: 'backwards' }));
   });
+};
+
+// «На удачу» 🍀: конюшина виростає, розкручуючись, на кожному листку блимає іскра, злітають маленькі 🍀 і монетки
+REACT_FX['🍀'] = (el, x, y) => {
+  big('🍀', x, y, [
+    { transform: 'scale(.1) rotate(-220deg)', opacity: 0 }, { transform: 'scale(1.2) rotate(15deg)', opacity: 1, offset: 0.25 },
+    { transform: 'scale(1.05) rotate(-6deg)', offset: 0.4 }, { transform: 'scale(1.1) rotate(0)', offset: 0.55 },
+    { transform: 'scale(1.1) rotate(0)', opacity: 1, offset: 0.86 }, { transform: 'scale(.8) rotate(10deg)', opacity: 0 },
+  ], 2700, '6.4rem');
+  ring(x, y, 500, 'is-gold');
+  [[-26, -26], [26, -26], [26, 26], [-26, 26]].forEach(([dx, dy], i) => twinkle('✨', x + dx, y + dy, '1.6rem', 700 + i * 160));
+  rise(x, y + 30, ['🍀', '✨', '🍀', '🪙'], 10, { delay: 800, up: 300, spread: 280, size: 1.3 });
+  const say = glyphAt('На удачу!', x, y + 76, '1.8rem', 'fx-say');
+  gone(say)(say.animate([
+    { transform: `${C} translateY(10px) scale(.6)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.8 }, { transform: `${C}`, opacity: 0 },
+  ], { duration: 1400, delay: 1100, fill: 'backwards' }));
+};
+
+// «На все сто» 💯: падає згори печаткою — бух! — повідомлення здригається, золоті хвилі й іскри
+REACT_FX['💯'] = (el, x, y) => {
+  big('💯', x, y, [
+    { transform: 'scale(2.8) rotate(-14deg)', opacity: 0 }, { transform: 'scale(.92) rotate(-8deg)', opacity: 1, offset: 0.16, easing: 'ease-out' },
+    { transform: 'scale(1.08) rotate(-8deg)', offset: 0.24 }, { transform: 'scale(1) rotate(-8deg)', offset: 0.32 },
+    { transform: 'scale(1) rotate(-8deg)', opacity: 1, offset: 0.86 }, { transform: 'scale(.8) rotate(-8deg)', opacity: 0 },
+  ], 2500, '6.2rem');
+  jolt(el, [{ transform: 'none' }, { transform: 'translateY(5px) scale(.97)' }, { transform: 'translateY(-2px)' }, { transform: 'none' }], 320, 380);
+  ring(x, y, 400, 'is-gold');
+  ring(x, y, 600, 'is-gold');
+  spray(x, y, ['✨', '⭐'], 10, { delay: 420, dist: 140, size: '1.5rem' });
+  const say = glyphAt('На все сто!', x, y + 76, '1.8rem', 'fx-say');
+  gone(say)(say.animate([
+    { transform: `${C} translateY(10px) scale(.6)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.8 }, { transform: `${C}`, opacity: 0 },
+  ], { duration: 1300, delay: 900, fill: 'backwards' }));
 };
 
 export function reactFx(el, glyph) {

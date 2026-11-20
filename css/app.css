@@ -3335,7 +3335,7 @@ html.is-covered .confetti { animation-play-state: paused; }
 .react-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .react-pick .react-opt { flex: none; }
 /* 16 реакцій — два рядки по 8 (ніжні / відповіді); на вузькому телефоні кнопки трохи менші, щоб рядок влазив */
-.react-pick:not(.mood-pick) { --opt: min(40px, calc((100vw - 42px) / 8)); display: grid; grid-template-columns: repeat(8, var(--opt)); gap: 2px; overflow: visible; border-radius: 26px; }
+.react-pick:not(.mood-pick) { --opt: min(40px, calc((100vw - 42px) / 9)); display: grid; grid-template-columns: repeat(9, var(--opt)); gap: 2px; overflow: visible; border-radius: 26px; }
 .react-pick:not(.mood-pick) .react-opt { width: var(--opt); height: var(--opt); font-size: min(1.5rem, calc(var(--opt) * .6)); }
 /* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
 .checkin-asked { min-width: 0; }
