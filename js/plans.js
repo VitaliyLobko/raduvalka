@@ -9,6 +9,7 @@ import { burst } from './fx.js';
 import { flashConstellation } from './depth.js';
 import { swipeable } from './feed.js';
 import { chipLabel, chipFestive } from './together.js';
+import { check as checkLive } from './live.js';
 
 export const CATS = [
   ['date', '💞', 'Свидание'],
@@ -38,6 +39,19 @@ let wheelSynced = false;
 let wheelInvAt = 0;
 // Барабан зараз крутиться — живе оновлення не перемальовує, щоб не зупинити його на півдорозі
 let spinning = false;
+// Покликав і чекаю «Готов» — питаємо сервер частіше (раз на 2 с, не довше 10 хв), щоб барабан закрутився одразу
+const WAIT_EVERY = 2000;
+const WAIT_FOR = 10 * 60 * 1000;
+let waitTimer = null;
+function watchReady(screen) {
+  if (waitTimer) return;
+  const until = Date.now() + WAIT_FOR;
+  waitTimer = setInterval(() => {
+    const waiting = view === 'wheel' && alive(screen) && data?.invite?.by === DATA.side;
+    if (!waiting || Date.now() > until) { clearInterval(waitTimer); waitTimer = null; return; }
+    checkLive();
+  }, WAIT_EVERY);
+}
 let data = null;
 // Розгорнуті списки («Сделали», «Мои идеи ждут ответа»): перемальовка екрана не має їх згортати
 const unfolded = new Set();
@@ -619,6 +633,7 @@ function wheelView(screen, me, pet) {
       : `${cap(me.partner)} зовёт крутить! ${cap(whose)} темы уже отмечены — добавь свои и жми «Готов».`);
   } else if (iCalled) {
     hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Ждём…');
+    watchReady(screen);
     note = h('div', {},
       courier(pet, `Позвали ${she ? 'её' : 'его'}! ${cap(me.partner)} ${she ? 'будет готова' : 'будет готов'} — и барабан закрутится у обоих 🎰`),
       h('button', {
