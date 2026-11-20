@@ -29,7 +29,19 @@ function seenRounds(g) {
     return id === g.id ? Number(n) || 0 : 0;
   } catch { return g.rounds.length; }
 }
-function markSeen(g) { try { localStorage.setItem(seenKey(), `${g.id}:${g.rounds.length}`); } catch { /* приватне вікно */ } }
+// Дограні ігри, підсумок яких я вже бачив (останні 30), — інакше після нової гри старі рядки знову «посмотри, кто победил»
+const doneKey = () => `radovalka:duel-done:${DATA.side}`;
+function doneSeen() {
+  try { return JSON.parse(localStorage.getItem(doneKey()) || '[]'); } catch { return []; }
+}
+const sawEnd = (g) => doneSeen().includes(g.id) || (seenRounds(g) >= g.rounds.length);
+function markSeen(g) {
+  try {
+    localStorage.setItem(seenKey(), `${g.id}:${g.rounds.length}`);
+    if (g.done && !doneSeen().includes(g.id)) localStorage.setItem(doneKey(), JSON.stringify([g.id, ...doneSeen()].slice(0, 30)));
+  } catch { /* приватне вікно */ }
+  document.dispatchEvent(new CustomEvent('radovalka:duel-seen'));
+}
 
 // Підсумок словами: для готової теми — хто робить, для своєї — за ким перемога
 export function duelResult(g) {
@@ -41,7 +53,7 @@ export function duelResult(g) {
 
 // Рядок у чаті: поки йде — чий хід; дограли — підсумок, але не раніше, ніж я побачив розкриття
 export function duelLine(g) {
-  if (g.done) return seenRounds(g) >= g.rounds.length ? duelResult(g) : `🏆 Спор «${g.topic}» решён — посмотри, кто победил`;
+  if (g.done) return sawEnd(g) ? duelResult(g) : `🏆 Спор «${g.topic}» решён — посмотри, кто победил`;
   const score = g.score.me || g.score.them ? ` · ${g.score.me}:${g.score.them}` : '';
   return `${icon(g)} Спор «${g.topic}» — ${g.myMove ? `ждём ${gen()} ход` : 'твой ход'}${score}`;
 }
@@ -72,7 +84,7 @@ export async function openDuel() {
   body.append(h('p', { class: 'hint duel-hint' }, 'Загружаю…'));
   await refresh(true);
   // Поки відкрито — питаємо сервер часто: хід другого й розкриття приходять самі
-  if (open) open.timer = setInterval(() => { if (open && !open.busy) refresh(); }, POLL);
+  if (open) open.timer = setInterval(() => { if (open && !open.busy && document.visibilityState === 'visible') refresh(); }, POLL);
 }
 
 async function refresh(first = false) {
@@ -86,7 +98,7 @@ async function refresh(first = false) {
   if (state === open.state) return;
   open.state = state;
   // Дограна гра, якої я ще не бачив до кінця, — спершу її розкриття; щойно дограна на екрані — лишається підсумок
-  const last = r.last && (seenRounds(r.last) < r.last.rounds.length || r.last.id === open.gameId) ? r.last : null;
+  const last = r.last && (!sawEnd(r.last) || r.last.id === open.gameId) ? r.last : null;
   show(r.duel || last, !r.duel && !last);
 }
 
@@ -95,7 +107,7 @@ async function show(g, fresh) {
   const { body } = open;
   open.gameId = fresh || !g ? null : g.id;
   if (fresh || !g) { body.replaceChildren(...setup()); return; }
-  const seen = seenRounds(g);
+  const seen = g.done && sawEnd(g) ? g.rounds.length : seenRounds(g);
   const stage = h('div', { class: 'duel-stage' });
   const status = h('p', { class: 'duel-status' });
   const scoreEl = h('p', { class: 'duel-score' });

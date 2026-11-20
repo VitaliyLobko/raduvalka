@@ -104,6 +104,8 @@ export function recentThread(n = 6) {
 
 // Перемалювати лише стрічку (після шторки листа)
 export function redrawFeed() { draw(); }
+// Побачив розкриття спору — рядок у чаті показує підсумок
+document.addEventListener('radovalka:duel-seen', () => draw());
 
 // Запечатаний: справжній лист чи привітальний, ще не відкритий (подарунок — свій вигляд)
 const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind));
@@ -381,7 +383,9 @@ function isFresh(it) {
   return it.type === 'out' && (it.l.replied || 0) > seenAt.replies;
 }
 function rowFor(it) {
-  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around]);
+  // Рядок спору залежить і від того, чи я вже бачив розкриття (localStorage), — текст рядка теж у підписі
+  const duel = it.n?.kind === 'duel' ? duelLine(it.n.duel) : null;
+  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
   const el = row(it);
