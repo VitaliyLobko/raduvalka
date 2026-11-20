@@ -222,8 +222,10 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
   + '<circle cx="24" cy="31" r="8" fill="#7a4b2a" stroke="#3b2414" stroke-width="2"/><circle cx="24" cy="31" r="2" fill="#3b2414"/>'
   + '</svg>';
 
+// Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
+const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 2400 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -693,14 +695,14 @@ REACT_FX['🙃'] = (el, x, y) => {
     { transform: 'scale(1.1) rotate(200deg)', offset: 0.45 }, { transform: 'scale(1.12) rotate(170deg)', offset: 0.55 },
     { transform: 'scale(1.1) rotate(185deg)', offset: 0.65 }, { transform: 'scale(1.1) rotate(180deg)', opacity: 1, offset: 0.88 },
     { transform: 'scale(.8) rotate(180deg)', opacity: 0 },
-  ], 2400);
+  ], 3000);
   // Весь екран перевертається догори дриґом і повертається; смайлик крутиться разом з ним — тож на перевернутому екрані він рівний
   const body = document.body;
   body.style.transformOrigin = `${innerWidth / 2}px ${scrollY + innerHeight / 2}px`;
   body.animate([
     { transform: 'none' }, { transform: 'rotate(180deg)', offset: 0.3 },
     { transform: 'rotate(180deg)', offset: 0.72 }, { transform: 'rotate(360deg)' },
-  ], { duration: 2000, delay: 450, easing: 'cubic-bezier(.65, 0, .35, 1)' }).finished.finally(() => { body.style.transformOrigin = ''; });
+  ], { duration: 2500, delay: 500, easing: 'cubic-bezier(.65, 0, .35, 1)' }).finished.finally(() => { body.style.transformOrigin = ''; });
   ['¿', '¡', '¿', '¡', '¿'].forEach((g, i) => {
     const a = ((200 + i * 35 + (Math.random() - 0.5) * 16) * Math.PI) / 180;
     const d = 110 + Math.random() * 30;
@@ -710,7 +712,7 @@ REACT_FX['🙃'] = (el, x, y) => {
       { transform: `${C} scale(.2) rotate(0)`, opacity: 0 }, { transform: `${C} scale(1.15) rotate(${rot}deg)`, opacity: 1, offset: 0.3 },
       { transform: `translate(-50%, calc(-50% - 14px)) rotate(${rot}deg)`, opacity: 1, offset: 0.75 },
       { transform: `translate(-50%, calc(-50% - 24px)) scale(.9) rotate(${rot}deg)`, opacity: 0 },
-    ], { duration: 1200, delay: 450 + i * 180, easing: 'ease-out', fill: 'backwards' }));
+    ], { duration: 1350, delay: 540 + i * 200, easing: 'ease-out', fill: 'backwards' }));
   });
 };
 
@@ -721,10 +723,19 @@ export function reactFx(el, glyph) {
   const x = clamp(r.left + r.width / 2, 125, innerWidth - 125);
   const y = clamp(r.top + Math.min(r.height / 2, 70), 185, innerHeight - 205);
   const fx = REACT_FX[glyph];
-  if (fx) fx(el, x, y, r);
-  else {
-    big(glyph, x, y, [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.3 }, { transform: 'scale(1)', opacity: 1, offset: 0.8 }, { transform: 'scale(.6)', opacity: 0 }], 1300);
-    spray(x, y, [glyph], 8, { delay: 300 });
+  // Усі рухи реакції створюються тут синхронно — на цей час кожен animate() отримує тривалість і затримку × SLOW
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function slowed(frames, o) {
+    return animate.call(this, frames, typeof o === 'number' ? o * SLOW : { ...o, duration: (o?.duration || 0) * SLOW, delay: (o?.delay || 0) * SLOW });
+  };
+  try {
+    if (fx) fx(el, x, y, r);
+    else {
+      big(glyph, x, y, [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.3 }, { transform: 'scale(1)', opacity: 1, offset: 0.8 }, { transform: 'scale(.6)', opacity: 0 }], 1300);
+      spray(x, y, [glyph], 8, { delay: 300 });
+    }
+  } finally {
+    Element.prototype.animate = animate;
   }
 }
 
@@ -734,7 +745,7 @@ export function reactFxQueued(el, glyph) {
   fxQueue = fxQueue.then(() => {
     if (!el?.isConnected || reduceMotion) return undefined;
     reactFx(el, glyph);
-    return new Promise((ok) => { setTimeout(ok, (DUR[glyph] || 2200) - 400); });
+    return new Promise((ok) => { setTimeout(ok, (DUR[glyph] || 2200) * SLOW - 400); });
   });
 }
 
