@@ -1127,7 +1127,7 @@ async function feedPage(db, side, url) {
   return {
     inbox: of('in').map((r) => ({
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
-      opened: !!r.opened, liked: !!r.liked, reply: r.reply,
+      opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
       ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),

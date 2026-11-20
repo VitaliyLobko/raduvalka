@@ -175,18 +175,35 @@ html.is-covered :is(.sgr-stars circle, .sgr-stars path) { animation-play-state: 
 .ds-mid .sky i { animation: none; opacity: calc((1 + var(--lo, .3)) / 2); }
 .ds-near { --k: 24px; }
 .ds-near .sky i { transform: translate(-50%, -50%) scale(1.25); }
-/* Падаюча зірка: раз на ~25 с проноситься навскіс і гасне */
+/* Падаюча зірка: раз на ~25 с проноситься навскіс і гасне. Попереду — сяюча зірочка, за нею хвіст, що тоншає */
 .meteor {
+  --tail: linear-gradient(90deg, #FFF3C4, #F6D27A 30%, rgba(246, 210, 122, 0));
+  --glow: rgba(246, 210, 122, .95);
+  --ray: #FFF3C4;
   position: absolute;
   top: 34%;
   left: 80%;
-  width: 130px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #F6D27A, rgba(246, 210, 122, 0));
+  width: 150px;
+  height: 4px;
   opacity: 0;
+  filter: drop-shadow(0 0 3px var(--glow)) drop-shadow(0 0 8px var(--glow));
   transform: rotate(-28deg);
   animation: meteor 28s linear infinite 6s;
+}
+.meteor::before {
+  content: ''; position: absolute; inset: 0; background: var(--tail);
+  clip-path: polygon(0 0, 100% 42%, 100% 58%, 0 100%);
+}
+/* Зірочка-голова: яскрава крапка й чотири промені (розвернуті назад, щоб стояли рівно) */
+.meteor::after {
+  content: ''; position: absolute; left: -13px; top: 50%; width: 28px; height: 28px; margin-top: -14px;
+  background:
+    radial-gradient(circle, #fff 0 3.5px, var(--ray) 5px, transparent 8px),
+    linear-gradient(var(--ray), var(--ray)) center / 2.5px 100% no-repeat,
+    linear-gradient(90deg, var(--ray), var(--ray)) center / 100% 2.5px no-repeat;
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 72%);
+  mask: radial-gradient(circle, #000 30%, transparent 72%);
+  transform: rotate(28deg);
 }
 /* Пролітає ≈ 2,2 с (останні 8 % циклу), в обох однаково */
 @keyframes meteor {
@@ -196,7 +213,7 @@ html.is-covered :is(.sgr-stars circle, .sgr-stars path) { animation-play-state: 
 }
 @media (prefers-reduced-motion: reduce) { .meteor { display: none; } }
 /* У неї — своя падаюча зірка: біло-рожевий слід, інший час, ніж у нього */
-.meteor-vona { height: 3px; background: linear-gradient(90deg, #FFE08A, #F08DBA 35%, rgba(240, 141, 186, 0)); box-shadow: 0 0 8px rgba(240, 141, 186, .8); animation-delay: 15s; }
+.meteor-vona { --tail: linear-gradient(90deg, #E0559A, #F08DBA 40%, rgba(240, 141, 186, 0)); --glow: rgba(224, 85, 154, .95); --ray: #E0559A; animation-delay: 15s; }
 
 .dv-front {
   --k: 26px;
@@ -3176,6 +3193,7 @@ html.is-covered .confetti { animation-play-state: paused; }
   border-radius: 999px; background: var(--paper); box-shadow: 0 2px 8px rgba(42, 23, 48, .25); font-size: 1rem; line-height: 1;
 }
 .is-mine .feed-react { right: auto; left: 8px; }
+.feed-react.is-tap { cursor: pointer; }
 [data-side="vin"] .feed-react { background: #1d5469; }
 .react-layer { position: fixed; inset: 0; z-index: 90; }
 .react-pick {

@@ -448,8 +448,22 @@ function holdToReact(bubble, it) {
   bubble.addEventListener('pointermove', (e) => { if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 10) stop(); });
   bubble.addEventListener('pointerup', stop);
   bubble.addEventListener('pointercancel', stop);
-  bubble.addEventListener('contextmenu', (e) => e.preventDefault());
+  // На компʼютері мишею не тримають — правий клік відкриває ті самі смайлики
+  bubble.addEventListener('contextmenu', (e) => { e.preventDefault(); stop(); openReactions(bubble, it); });
+  // І звичайний клік мишею — теж. Як раніше лишаються: кнопки, фото, цитата, ще не прочитаний лист,
+  // згорнутий довгий текст (клік його розкриває) і вже розкритий (клік згортає)
+  bubble.addEventListener('click', (e) => {
+    if (!MOUSE.matches || e.target.closest('.feed-acts, .feed-act, a, .feed-pic, .feed-react, .feed-quote')) return;
+    if (bubble.classList.contains('is-open') || bubble.classList.contains('is-full')) return;
+    const t = bubble.querySelector('.feed-text');
+    if (t && t.scrollHeight > t.clientHeight + 2) return;
+    if (it.type === 'in' && !it.l.opened) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openReactions(bubble, it);
+  }, true);
 }
+const MOUSE = matchMedia('(hover: hover) and (pointer: fine)');
 function openReactions(bubble, it) {
   document.querySelector('.react-layer')?.remove();
   const cur = reactionOf(it);
@@ -513,7 +527,15 @@ function row(it) {
   // Значок реакції в куті: на чужому — моя, на моєму — його/її
   const reaction = reactionOf(it);
   // Значок реакції — у власному рядку під вмістом (has-react дає місце), щоб не накривав час і «Ответить»
-  if (reaction) { bubble.classList.add('has-react'); bubble.append(h('span', { class: 'feed-react', 'aria-label': `Реакция: ${reaction}` }, reaction)); }
+  // Тап по своєму смайлику на чужому повідомленні — змінити чи прибрати
+  if (reaction) {
+    bubble.classList.add('has-react');
+    const own = !closed && canReact(it);
+    bubble.append(h('span', {
+      class: `feed-react${own ? ' is-tap' : ''}`, 'aria-label': `Реакция: ${reaction}`,
+      onclick: own ? (e) => { e.stopPropagation(); openReactions(bubble, it); } : null,
+    }, reaction));
+  }
   if (!closed && canReact(it)) holdToReact(bubble, it);
   const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key }, bubble);
   // Реакція другого на моє: при першому погляді — її анімація (reactIo у watchFresh)
@@ -609,6 +631,8 @@ function inBubble(l) {
     onclick: async (e) => {
       e.stopPropagation();
       if (l.tpl) { ops.like?.(l); return; }
+      // Сердечко відкриває смайлики (❤️ серед них) — і на телефоні, і на компʼютері; старі «понравилось» лишаються
+      if (canReact(it)) { openReactions(bubble, it); return; }
       const cur = liveLetter(l);
       const prev = cur.liked;
       cur.liked = !prev;
