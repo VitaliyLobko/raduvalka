@@ -1816,6 +1816,13 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .want-fold > .want-list { margin-top: 6px; }
 .want-came { margin-left: auto; font-size: .8125rem; color: var(--ink-soft); }
 .want-marks { flex-wrap: wrap; justify-content: flex-end; }
+/* Куплене бліде лише текстом — кнопки лишаються живими; «Подарено» — головна дія тут, виділена */
+.want.is-bought { opacity: 1; }
+.want.is-bought .want-body { opacity: .6; }
+.want.is-bought .want-new { display: none; }
+.want-gift:not([aria-pressed="true"]) {
+  border-color: var(--wax); background: color-mix(in srgb, var(--wax) 22%, var(--field)); color: var(--ink); font-weight: 600;
+}
 
 .want-form input { margin-bottom: 8px; }
 
