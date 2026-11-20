@@ -7,7 +7,7 @@ import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
-import { flyOut, collapse, burst, petRun } from './fx.js';
+import { flyOut, collapse, burst, petRun, loveRain } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
@@ -409,7 +409,9 @@ function markRow(n, she) {
   const mood = n.mood ? ` ${n.mood}${word ? ` ${word}` : ''}` : '';
   // Сердечко з «Вместе», донесене до планети другого
   if (n.kind === 'heart') {
-    return h('li', { class: `feed-mark is-heart${n.mine ? ' is-mine' : ''}` }, h('span', {}, '💞 Люблю тебя!'), h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
+    // Від другого — при першому погляді на нього сердечка злітають (loveIo у watchFresh)
+    return h('li', { class: `feed-mark is-heart${n.mine ? ' is-mine' : ' is-love'}`, 'data-love': n.mine ? null : n.id },
+      h('span', {}, '💞 Люблю тебя!'), h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
   }
   const text = n.kind === 'ask'
     ? (n.mine ? `💬 Спросил${DATA.side === 'vona' ? 'а' : ''}, как ${she ? 'она' : 'он'}` : `💬 ${cap(who().partner)} спрашивает, как ты`)
@@ -799,6 +801,29 @@ function watchFresh(els) {
   pick('.meme-img').forEach((el) => picIo.observe(el));
   pick('.feed-meme.is-fresh, .sent-reply.is-fresh').forEach((el) => seenIo.observe(el));
   pick('.meme-img video').forEach((el) => playIo.observe(el));
+  // «💞 Люблю тебя!» від другого: побачили вперше на цьому телефоні — сердечка злітають
+  loveIo ||= new IntersectionObserver((entries) => {
+    for (const { target, isIntersecting } of entries) {
+      if (!isIntersecting) continue;
+      loveIo.unobserve(target);
+      if (markLoveSeen(target.dataset.love)) setTimeout(() => loveRain(target), 250);
+    }
+  }, { threshold: 0.9, rootMargin: '0px 0px -96px 0px' });
+  const old = loveSeen();
+  pick('.feed-mark.is-love').forEach((el) => { if (!old.includes(el.dataset.love)) loveIo.observe(el); });
+}
+
+let loveIo = null;
+const LOVE_KEY = 'radovalka:love-seen';
+function loveSeen() {
+  try { return JSON.parse(localStorage.getItem(LOVE_KEY) || '[]'); } catch { return []; }
+}
+// true — бачимо вперше; памʼятаємо останні 40, щоб список не ріс
+function markLoveSeen(id) {
+  const list = loveSeen();
+  if (!id || list.includes(id)) return false;
+  try { localStorage.setItem(LOVE_KEY, JSON.stringify([...list, id].slice(-40))); } catch { /* приватне вікно — анімація все одно */ }
+  return true;
 }
 
 let saveTimer = 0;

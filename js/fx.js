@@ -62,3 +62,34 @@ export function petRun(row, html) {
     { transform: `translate(${Math.max(8, r.left - 40)}px, -50%) scale(.6)`, opacity: 0 },
   ], { duration: 1500, easing: 'ease-out' }).finished.finally(() => s.remove());
 }
+
+// «💞 Люблю тебя!» побачили вперше: рядок б'ється, як серце, і з нього злітають угору сердечка, погойдуючись
+const LOVE = ['💞', '❤️', '💗', '💖', '💕', '💘'];
+export function loveRain(el) {
+  if (reduceMotion || !el?.isConnected) return;
+  el.animate([
+    { transform: 'scale(1)' }, { transform: 'scale(1.28)' }, { transform: 'scale(1)' },
+    { transform: 'scale(1.18)' }, { transform: 'scale(1)' },
+  ], { duration: 950, easing: 'ease-out' });
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < 16; i += 1) {
+    const s = document.createElement('span');
+    s.className = 'fx-burst fx-love';
+    s.setAttribute('aria-hidden', 'true');
+    s.textContent = LOVE[i % LOVE.length];
+    s.style.left = `${r.left + 12 + Math.random() * Math.max(40, r.width - 24)}px`;
+    s.style.top = `${r.top + r.height / 2}px`;
+    s.style.fontSize = `${1.1 + Math.random() * 1.1}rem`;
+    document.body.append(s);
+    const up = 220 + Math.random() * 260;
+    const sway = (Math.random() - 0.5) * 90;
+    s.animate([
+      { transform: 'translate(-50%, -50%) scale(.2)', opacity: 0 },
+      { transform: `translate(calc(-50% + ${sway * 0.4}px), calc(-50% - ${up * 0.25}px)) scale(1)`, opacity: 1, offset: 0.2 },
+      { transform: `translate(calc(-50% - ${sway * 0.5}px), calc(-50% - ${up * 0.6}px)) scale(1.05) rotate(${sway / 6}deg)`, opacity: 1, offset: 0.6 },
+      { transform: `translate(calc(-50% + ${sway}px), calc(-50% - ${up}px)) scale(.9) rotate(${-sway / 4}deg)`, opacity: 0 },
+    ], { duration: 1700 + Math.random() * 900, delay: i * 70 + Math.random() * 120, easing: 'cubic-bezier(.25, .7, .35, 1)', fill: 'backwards' })
+      .finished.finally(() => s.remove());
+  }
+}
+
