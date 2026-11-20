@@ -392,10 +392,13 @@ function newsRow(n) {
     return h('li', { class: 'feed-news feed-news-love' },
       h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.('deck') }, n.title === 'Заняться любовью' ? line : `🍓 ${line}`));
   }
+  // Пачка ідей від ШІ: перші три назви, решта — числом
+  const some = n.titles ? `${n.titles.slice(0, 3).map((t) => `«${t}»`).join(', ')}${n.titles.length > 3 ? ` и ещё ${n.titles.length - 3}` : ''}` : '';
   const text = n.kind === 'invite' ? `${cap(who().partner)} зовёт крутить барабан — жми «Готов»`
+    : n.kind === 'plans' ? `${cap(who().partner)} ${she ? 'предложила' : 'предложил'} ${n.titles.length > 1 ? `планы: ${some}` : `план ${some}`}`
     : n.kind === 'spin' ? `Барабан выбрал: «${n.title}»`
     : `${cap(who().partner)} ${n.kind === 'wish' ? `${she ? 'добавила' : 'добавил'} хотелку` : `${she ? 'предложила' : 'предложил'} план`} «${n.title}»`;
-  const [icon, tab] = n.kind === 'wish' ? ['🎁', 'wish'] : n.kind === 'plan' ? ['🧭', 'deck'] : ['🎰', 'wheel'];
+  const [icon, tab] = n.kind === 'wish' ? ['🎁', 'wish'] : n.kind === 'plan' || n.kind === 'plans' ? ['🧭', 'deck'] : ['🎰', 'wheel'];
   return h('li', { class: 'feed-news' },
     h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.(tab) },
       h('span', { 'aria-hidden': 'true' }, icon), ` ${text}`));

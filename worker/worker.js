@@ -1081,12 +1081,25 @@ async function listMemes(db, side, limit = 300) {
 // before — віддати старіше за цей час (нема — найсвіжіше). Межа сторінки — horizon: усе, що не старіше за неї,
 // уже тут (і рівне їй теж), тож наступна сторінка — before=horizon без дублів і пропусків; more — чи є старіше
 const FEED_PAGE = 40;
+// Ідеї від ШІ, відмічені ❤️ одним заходом, — один рядок у чаті й один push: пачка, поки між сусідніми менше AI_BATCH
+const AI_BATCH = 30 * 60000;
+function aiBatches(rows) {
+  const out = [];
+  for (const r of rows) {
+    const last = out[out.length - 1];
+    if (last && last.first - r.t < AI_BATCH) {
+      last.titles.push(r.title);
+      last.first = r.t;
+    } else out.push({ kind: 'plans', id: r.id, titles: [r.title], first: r.t, t: r.t });
+  }
+  return out;
+}
 async function feedPage(db, side, url) {
   const before = Number(url.searchParams.get('before')) || Number.MAX_SAFE_INTEGER;
   const n = Math.min(100, Math.max(10, Number(url.searchParams.get('limit')) || FEED_PAGE));
   const take = n + 1;
   const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
-  const [inbox, sent, memes, news, marks, gifted] = await Promise.all([
+  const [inbox, sent, memes, news, marks, gifted, aiIdeas] = await Promise.all([
     db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, gift, chosen, at AS t FROM letters '
       + "WHERE dst = ? AND at <= ? AND at < ? AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
@@ -1103,6 +1116,8 @@ async function feedPage(db, side, url) {
     // «Подарено»: обом — хто подарив і що
     db.prepare("SELECT 'gifted' AS kind, id, title, owner AS whose, gifted AS t FROM wishes WHERE gifted IS NOT NULL AND gifted < ? ORDER BY gifted DESC LIMIT ?")
       .bind(before, take).all(),
+    db.prepare('SELECT id, title, created AS t FROM ideas WHERE author = ? AND ai = 1 AND created < ? ORDER BY created DESC LIMIT ?')
+      .bind(other(side), before, take * 4).all(),
   ]);
   // Колесо в чаті: запрошення від другого (поки чекає) і останнє обертання — в обох
   const wheel = [];
@@ -1113,7 +1128,7 @@ async function feedPage(db, side, url) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
     if (idea) wheel.push({ kind: 'spin', id: `s${spin.at}`, title: idea.title, t: spin.at });
   }
-  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...marks.results, ...gifted.results, ...wheel]]];
+  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...aiBatches(aiIdeas.results), ...marks.results, ...gifted.results, ...wheel]]];
   const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
   let page = all;
   let horizon = 0;
@@ -1132,7 +1147,9 @@ async function feedPage(db, side, url) {
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
-    news: of('news').map((r) => (r.side
+    news: of('news').map((r) => (r.titles
+      ? { kind: r.kind, id: r.id, titles: [...r.titles].reverse(), at: r.t }
+      : r.side
       ? { kind: r.kind, id: r.id, mine: r.side === side, mood: r.mood || null, at: r.t }
       : r.whose ? { kind: r.kind, id: r.id, title: r.title, mine: r.whose !== side, at: r.t }
       : { kind: r.kind, id: r.id, title: r.title, at: r.t, ...(r.cat === 'love' ? { love: true } : {}) })),
@@ -1662,7 +1679,10 @@ async function plansRoute(req, db, side, rest, notify) {
     const fromAi = b.ai === true;
     const { row, stmt } = ideaInsert(db, side, f, fromAi ? 1 : 0, Date.now());
     await stmt.run();
-    if (!fromAi) notify.send(other(side), planNewNote(side, f.title, f.cat));
+    // Від ШІ — push лише на першу ідею пачки, решта тихо доповнює той самий рядок у чаті
+    const inBatch = fromAi && await db.prepare('SELECT 1 FROM ideas WHERE author = ? AND ai = 1 AND created > ? AND id != ? LIMIT 1')
+      .bind(side, row.created - AI_BATCH, row.id).first();
+    if (!inBatch) notify.send(other(side), planNewNote(side, f.title, f.cat));
     return json(ideaView(row, side), 201);
   }
 
