@@ -3435,3 +3435,6 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 /* «Вместе» у нього: темна листівка на темному тлі — тонка золота облямівка, щоб не зливалась */
 [data-side="vin"] .sheet-decor .space { box-shadow: 0 0 0 1px rgba(237, 185, 73, .35), 0 24px 48px -20px rgba(0, 0, 0, .7); }
 .apart-again { width: 100%; margin: 4px 0 8px; }
+
+/* Що робить вкладка «Планов» — рядок під перемикачем */
+.plan-about { margin: -4px 0 6px; font-size: 13px; line-height: 1.35; color: var(--ink-soft); text-align: center; }

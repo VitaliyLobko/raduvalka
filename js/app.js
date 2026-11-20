@@ -386,7 +386,7 @@ function goTo(go) {
     return true;
   }
   // «Крутим?» і «Колесо выбрало» — у «Планах» одразу колесо
-  // «Новый план» — у колоду «Листать», щоб одразу проголосувати
+  // «Новый план» — у колоду «Идеи», щоб одразу проголосувати
   // «Встреча 💞» — одразу шторка «Вместе»
   if (go === 'together') { openTogether(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();

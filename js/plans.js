@@ -135,18 +135,26 @@ export function markPlans() {
   document.querySelector('.tab[data-tab="plans"]')?.classList.toggle('has-new', fresh);
 }
 
+// Що робить вкладка — один рядок під перемикачем
+const ABOUT = {
+  deck: (partner) => `❤️ хочу, ✕ не сейчас. ${cap(partner)} увидит только совпадения — они в «Наших планах».`,
+  ours: () => 'Только то, что вы оба отметили ❤️.',
+  wheel: () => 'Не можете выбрать? Барабан выберет одно из «Наших планов».',
+};
+
 export function renderPlans(screen) {
   const me = who();
   const pet = petFor('box');
   const counts = data ? { deck: data.deck.length, ours: data.ours.filter((p) => !p.done).length } : {};
 
   const seg = h('div', { class: 'mk-chips mk-kind plan-seg', role: 'radiogroup', 'aria-label': 'Раздел планов' },
-    ...[['deck', 'Листать'], ['ours', 'Наши планы'], ['wheel', 'Барабан']].map(([v, label]) => h('button', {
+    ...[['deck', 'Идеи'], ['ours', 'Наши планы'], ['wheel', 'Наугад']].map(([v, label]) => h('button', {
       type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(view === v),
       onclick: () => { view = v; renderPlans(screen); },
     }, label, counts[v] ? h('span', { class: 'plan-count' }, String(counts[v])) : null)));
 
-  const head = [h('h2', { class: 'title' }, 'Планы'), togetherCard(), seg];
+  const head = [h('h2', { class: 'title' }, 'Планы'), togetherCard(), seg,
+    h('p', { class: 'plan-about' }, ABOUT[view](me.partner))];
   const paint = (...body) => screen.replaceChildren(h('div', { class: 'plan-screen' }, ...head, ...body.filter(Boolean)));
 
   if (!data) {
@@ -186,7 +194,7 @@ function courier(pet, text) {
     h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), text));
 }
 
-// ── Листать ───────────────────────────────────────────────────────────────
+// ── Идеи ───────────────────────────────────────────────────────────────────
 
 function deckView(screen, me, pet) {
   const idea = data.deck[0];
@@ -223,8 +231,7 @@ function deckView(screen, me, pet) {
     h('div', { class: `plan-deck${data.deck.length > 1 ? ' has-more' : ''}` }, card),
     h('div', { class: 'plan-votes' }, voteBtn(0, 'Не сейчас', '✕'), voteBtn(1, 'Хочу', '❤️')),
     learned('plans') ? null : hintBar('plan-swipe-hint', 'не сейчас', 'хочу'),
-    h('p', { class: 'hint plan-hint' }, `${data.deck.length > 1 ? `Ещё ${data.deck.length - 1} после этой. ` : ''}`
-      + `Твой ответ ${me.partner} не увидит — только если вы оба ❤️.`),
+    data.deck.length > 1 ? h('p', { class: 'hint plan-hint' }, `Ещё ${data.deck.length - 1} после этой.`) : null,
     tools, waitingList(screen, me)];
 }
 
@@ -397,11 +404,11 @@ function oursView(screen, me, pet) {
   }, p.done ? 'вернуть' : 'сделали ✓');
 
   if (!data.ours.length) {
-    return [courier(pet, 'Пока совпадений нет. Листай идеи — когда вы оба ❤️ одно и то же, оно появится здесь.'),
-      h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'Листать идеи')];
+    return [courier(pet, 'Пока совпадений нет. Отмечай идеи — когда вы оба ❤️ одно и то же, оно появится здесь.'),
+      h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'К идеям')];
   }
   return [
-    open.length >= 2 ? h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'wheel'; renderPlans(screen); } }, data.spin ? '🎰 Что выпало' : '🎰 Что сегодня? Крутить барабан') : null,
+    open.length >= 2 ? h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'wheel'; renderPlans(screen); } }, data.spin ? '🎰 Что выпало' : '🎰 Выбрать наугад') : null,
     open.length
       ? h('ul', { class: 'plan-list' }, ...open.map((p) => {
         const row = swipeRow(screen, p, doneBtn(p));
@@ -409,10 +416,10 @@ function oursView(screen, me, pet) {
         if (p.id === nextId) row.firstChild.append(h('span', { class: 'plan-new plan-go' }, '🎡 идём'));
         return row;
       }))
-      : h('p', { class: 'mk-wait' }, 'Всё, что совпало, уже сделано 🎉 Листай дальше — найдутся новые.'),
+      : h('p', { class: 'mk-wait' }, 'Всё, что совпало, уже сделано 🎉 В «Идеях» найдутся новые.'),
     done.length ? fold('done', `Сделали · ${done.length}`,
       h('ul', { class: 'plan-list' }, ...done.map((p) => swipeRow(screen, p, doneBtn(p))))) : null,
-    h('p', { class: 'hint' }, `Здесь только то, что вы оба отметили ❤️. «Сделали» видите и ты, и ${me.partner}.`),
+    h('p', { class: 'hint' }, `«Сделали» видите и ты, и ${me.partner}.`),
   ];
 }
 
@@ -480,8 +487,8 @@ function wheelView(screen, me, pet) {
   const myCats = wheelCats;
 
   if (open.length < 2 && !data.spin) {
-    return [courier(pet, 'Барабану нужно хотя бы два общих плана. Листай идеи — каждое совпадение попадёт сюда.'),
-      h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'Листать идеи')];
+    return [courier(pet, 'Барабану нужно хотя бы два общих плана. Отмечай идеи — каждое совпадение попадёт сюда.'),
+      h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'К идеям')];
   }
 
   // Що на колесі: сьогоднішні сектори з сервера; інакше — превʼю з обраних тем (покликали — перетин з його/її)
