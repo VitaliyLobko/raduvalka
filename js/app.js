@@ -509,7 +509,7 @@ function noteUpdated() {
     seen = localStorage.getItem('radovalka:version');
     localStorage.setItem('radovalka:version', VERSION);
   } catch { return; }
-  if (seen && seen !== VERSION) pill(`✨ Радовалка обновилась до ${VERSION} — что нового?`, openAbout);
+  if (seen && seen !== VERSION) pill(`✨ Радовалка обновилась до ${VERSION} — что нового?`, () => openAbout(true));
 }
 
 // Свої файли, які завантажила ця сторінка: скрипти, стилі, шрифти
@@ -677,8 +677,8 @@ function stillSwitch() {
   return btn;
 }
 
-// Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні
-function openAbout() {
+// Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні. showNews — з плашки «обновилась»: одразу розгорнуте «Что нового»
+function openAbout(showNews) {
   const btn = document.getElementById('about-btn');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const close = () => {
@@ -698,6 +698,11 @@ function openAbout() {
     leave(() => location.replace(location.pathname));
   };
   const backdrop = h('div', { class: 'backdrop', onclick: close });
+  // Три свіжі версії, решта — під «Ранее»
+  const news = h('details', { class: 'about-news' },
+    h('summary', { class: 'about-row' }, ...aboutRowBody('📰', 'Что нового', null)),
+    newsList(NEWS.slice(0, 3)),
+    NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null);
   const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'О Радовалке' },
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     h('div', { class: 'sheet-inner' },
@@ -727,18 +732,19 @@ function openAbout() {
       aboutGroup('Ещё',
         // Тур живе на «Письмах» — туди й повертаємось
         aboutRow('🐾', 'Познакомиться заново', null, () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
-        // Три свіжі версії, решта — під «Ранее»
-        h('details', { class: 'about-news' },
-          h('summary', { class: 'about-row' }, ...aboutRowBody('📰', 'Что нового', null)),
-          newsList(NEWS.slice(0, 3)),
-          NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null)),
+        news),
       h('div', { class: 'about-foot' },
         h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне'))));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
+  // Клік по «Радовалка» передає подію — розгортаємо лише на явне true
+  if (showNews === true) {
+    news.open = true;
+    requestAnimationFrame(() => news.scrollIntoView({ block: 'start' }));
+  }
 }
 
-document.getElementById('about-btn').addEventListener('click', openAbout);
+document.getElementById('about-btn').addEventListener('click', () => openAbout());
 
 // Перехід на шифрування: те, що цей телефон колись написав відкрито (свої листи, цитати, свої відповіді), — шифруємо й
 // віддаємо назад. На кожному запуску, доки не вдасться; вдалось — позначка й більше не питаємо
