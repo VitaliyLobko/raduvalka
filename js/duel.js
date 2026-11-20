@@ -134,8 +134,8 @@ async function show(g, fresh) {
     markSeen(g);
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
   } else {
-    // Свій хід — одразу на моєму боці; чужий: 🤫 — уже сходив(ла), але не видно, ❔ — ще ні
-    stage.replaceChildren(...hands(g.done ? GLYPH[g.rounds.at(-1).them] : g.theirMoved ? '🤫' : '❔', g.done ? GLYPH[g.rounds.at(-1).me] : g.myMove ? GLYPH[g.myMove] : '❔'));
+    // Свій обраний хід — одразу на моєму боці; у другого ❔, поки раунд не відкрито (сходив чи ні — каже текст)
+    stage.replaceChildren(...hands(g.done ? GLYPH[g.rounds.at(-1).them] : '❔', g.done ? GLYPH[g.rounds.at(-1).me] : g.myMove ? GLYPH[g.myMove] : '✊'));
     const r = g.rounds.at(-1);
     if (g.done && r?.win) {
       const [them, me] = stage.children;
