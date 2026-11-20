@@ -254,6 +254,8 @@ async function route(req, env, ctx, info = {}) {
       const reaches = await hasPush(env.DB, other(side));
       if (prev?.at && now - prev.at < 30000) return json({ reaches, sent: false, again: true });
       await putDoc(env.DB, `heart:${other(side)}`, { at: now, from: side });
+      // І рядок у чаті в обох: «💞 Люблю тебя!»
+      await addMark(env.DB, side, 'heart', now);
       if (reaches) notify.send(other(side), heartNote(side));
       return json({ reaches, sent: reaches && notify.on });
     }

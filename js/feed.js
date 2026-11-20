@@ -378,7 +378,7 @@ function dayFor(d) {
 // Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
 function newsRow(n) {
   const she = who().partner === 'она';
-  if (n.kind === 'ok' || n.kind === 'ask') return markRow(n, she);
+  if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart') return markRow(n, she);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
   if (n.kind === 'gifted') {
     const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;
@@ -407,6 +407,10 @@ function markRow(n, she) {
   const female = n.mine ? DATA.side === 'vona' : she;
   const word = n.mood ? moodWord(n.mood, female) : '';
   const mood = n.mood ? ` ${n.mood}${word ? ` ${word}` : ''}` : '';
+  // Сердечко з «Вместе», донесене до планети другого
+  if (n.kind === 'heart') {
+    return h('li', { class: `feed-mark is-heart${n.mine ? ' is-mine' : ''}` }, h('span', {}, '💞 Люблю тебя!'), h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
+  }
   const text = n.kind === 'ask'
     ? (n.mine ? `💬 Спросил${DATA.side === 'vona' ? 'а' : ''}, как ${she ? 'она' : 'он'}` : `💬 ${cap(who().partner)} спрашивает, как ты`)
     : `❤️ ${n.mine ? 'Я' : cap(who().partner)} в порядке${mood}`;

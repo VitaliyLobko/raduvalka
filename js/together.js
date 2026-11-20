@@ -161,6 +161,8 @@ async function sendHeart() {
     if (r.again) toast('Сердечко уже летит — следующее можно через полминуты 💞');
     else if (!r.reaches) toast(`Отправлено 💞 ${she ? 'Она' : 'Он'} увидит, когда откроет «Вместе»`);
     else toast(`Сердечко улетело ${she ? 'к ней' : 'к нему'} 💞`);
+    // У чаті з'явився рядок «💞 Люблю тебя!» — стрічка підтягне
+    if (!r.again) document.dispatchEvent(new Event('radovalka:marked'));
   } catch {
     toast('Не улетело — нет связи');
   }

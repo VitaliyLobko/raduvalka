@@ -2344,6 +2344,9 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 }
 .feed-mark.is-mine { justify-self: end; }
 .feed-mark-time { flex: none; font-size: .75rem; opacity: .8; font-variant-numeric: tabular-nums; }
+/* «💞 Люблю тебя!» — сердечко з «Вместе»: трохи помітніше за інші дрібні рядки */
+.feed-mark.is-heart { color: var(--wax); font-weight: 700; }
+[data-side="vin"] .feed-mark.is-heart { color: #F7A8CB; }
 .feed-news-btn {
   padding: 6px 14px;
   border: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
