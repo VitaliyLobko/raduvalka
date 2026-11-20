@@ -78,6 +78,17 @@ export function flashConstellation() {
   setTimeout(() => el.classList.remove('is-lit'), 2600);
 }
 
+// «💞 Люблю тебя!»: над усіма вікнами вгорі — сузірʼя із сердечок, вони спалахують по черзі, лінії загоряються, і все тане
+export function loveConstellation() {
+  if (reduceMotion) return;
+  document.querySelector('.love-sky')?.remove();
+  const sgr = constellation(true);
+  const box = h('div', { class: 'love-sky', 'aria-hidden': 'true' }, sgr);
+  document.body.append(box);
+  requestAnimationFrame(() => sgr.classList.add('is-love'));
+  setTimeout(() => box.remove(), 3800);
+}
+
 // Особливий день (дні народження, річниця — з «Вместе»): конфеті падає, сузірʼя світиться яскравіше
 const CONFETTI = ['#F6D27A', '#F7B8D2', '#C9B6F2', '#E8473C', '#8FD3E8'];
 export function markFestive() {

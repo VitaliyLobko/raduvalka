@@ -11,6 +11,7 @@ import { flyOut, collapse, burst, petRun, loveRain } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
+import { loveConstellation } from './depth.js';
 
 const SWIPE = 70;
 // Від краю екрана Android гортає «Назад» — там свайп не починаємо
@@ -806,7 +807,7 @@ function watchFresh(els) {
     for (const { target, isIntersecting } of entries) {
       if (!isIntersecting) continue;
       loveIo.unobserve(target);
-      if (markLoveSeen(target.dataset.love)) setTimeout(() => loveRain(target), 250);
+      if (markLoveSeen(target.dataset.love)) setTimeout(() => { loveRain(target); loveConstellation(); }, 250);
     }
   }, { threshold: 0.9, rootMargin: '0px 0px -96px 0px' });
   const old = loveSeen();
