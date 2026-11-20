@@ -193,6 +193,10 @@ html.is-covered :is(.sgr-stars circle, .sgr-stars path) { animation-play-state: 
 .meteor::before {
   content: ''; position: absolute; inset: 0; background: var(--tail);
   clip-path: polygon(0 0, 100% 42%, 100% 58%, 0 100%);
+  /* Кінець хвоста не обрізаний, а розмитий і тане */
+  filter: blur(.8px);
+  -webkit-mask: linear-gradient(90deg, #000 40%, transparent 96%);
+  mask: linear-gradient(90deg, #000 40%, transparent 96%);
 }
 /* Зірочка-голова: яскрава крапка й чотири промені (розвернуті назад, щоб стояли рівно) */
 .meteor::after {
