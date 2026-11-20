@@ -5,6 +5,13 @@ import { get, isOffline } from './api.js';
 import { loadSos } from './sos.js';
 
 const EVERY = 15000;
+// На вкладці «Письма» — частіше: реакція чи «Да, капитан!» від другого зʼявляються за кілька секунд
+const FAST = 4000;
+let last = 0;
+const onChat = () => !!document.querySelector('.tab.is-active[data-tab="letter"]');
+function tick() {
+  if (Date.now() - last >= (onChat() ? FAST : EVERY) - 300) check();
+}
 let seen = 0;
 let sosSeen = 0;
 let busy = false;
@@ -25,6 +32,7 @@ function run() {
 export async function check() {
   if (busy || document.visibilityState !== 'visible' || isOffline() || document.body.classList.contains('is-booting')) return;
   busy = true;
+  last = Date.now();
   try {
     // Мітку питаємо й тоді, коли оновлення чекає, — інакше «Нужна помощь» не дійшла б, поки відкрито лист
     const { v, partnerPush, sos } = await get('pulse');
@@ -47,6 +55,6 @@ export function startLive(onChange, since) {
   // start() буває вдруге (вхід після замка, інша половина) — таймер один
   if (started) return;
   started = true;
-  setInterval(check, EVERY);
+  setInterval(tick, FAST);
   document.addEventListener('visibilitychange', check);
 }
