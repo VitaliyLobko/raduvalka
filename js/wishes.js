@@ -1,7 +1,7 @@
 // «Хотелки»: свій список бажань і список другого. Позначки «присмотрел/куплено» бачить лише той, хто ставить
 import { DATA, who } from './data.js';
 import { get, send, save, postBlob, imageUrl } from './api.js';
-import { mascotImg, petName, petFor } from './icons.js';
+import { mascotImg, petName, petFor, petLine } from './icons.js';
 import { h, toast, cap, showPhoto, ribbon } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
@@ -159,7 +159,8 @@ export function renderWishes(screen) {
     pet ? h('div', { class: 'courier want-courier' },
       h('span', { class: 'mascot', html: mascotImg(pet, 'festive') }),
       h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `),
-        view === 'mine' ? `Пиши, чего хочется. ${cap(me.partner)} подглядит 😉` : 'Тсс. Что ты тут отметишь — останется между нами.')) : null,
+        view === 'mine' ? petLine(pet, 'wishMine', `Пиши, чего хочется. ${cap(me.partner)} подглядит 😉`, 'wish')
+          : petLine(pet, 'wishTheirs', 'Тсс. Что ты тут отметишь — останется между нами.', 'wish'))) : null,
     seg,
   ];
 
@@ -521,7 +522,7 @@ function editWish(screen, w, sharedLink = '') {
   };
   saveBtn.addEventListener('click', save);
   const remove = async () => {
-    if (!await ask({ title: 'Убрать из хотелок?', yes: 'Убрать' })) return;
+    if (!await ask({ title: 'Убрать из хотелок?', yes: 'Убрать', say: 'wishRemove' })) return;
     try {
       await send(`wishes/${w.id}`, 'DELETE');
       close();

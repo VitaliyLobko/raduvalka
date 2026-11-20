@@ -4,7 +4,7 @@ import { get, send, getBlob, save, getKey, setKey, getAltKey, swapKeys, takeKeyF
 import { lock, watchResume, pinPanel, clearPin } from './pin.js';
 import { forgetSecret, hasSecret, seal, sealBy, sealBlob } from './seal.js';
 import { VERSION, NEWS } from './version.js';
-import { mascotImg, petName, petFor, loadPets, firstPose, letterPose } from './icons.js';
+import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
@@ -81,7 +81,8 @@ const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
 function prepLetter(l) {
   if (l?.at) l.date = isoDay(new Date(l.at));
   if (l?.mascot && !l.mascotLine && DATA.mascots[l.mascot]) {
-    l.mascotLine = DATA.mascots[l.mascot].g === 'f' ? 'Принесла тебе письмо. Бежала со всех лап 💌' : 'Принёс тебе письмо. Нёс бережно 💌';
+    l.mascotLine = petLine(l.mascot, 'letter',
+      DATA.mascots[l.mascot].g === 'f' ? 'Принесла тебе письмо. Бежала со всех лап 💌' : 'Принёс тебе письмо. Нёс бережно 💌', l.id ?? l.at);
   }
   return l;
 }
@@ -145,7 +146,8 @@ const READ_LINES = ['Ответишь? Я отнесу 💌', 'Я рядом, п
 function readCourier(letter) {
   const pet = DATA.mascots[letter.mascot] ? letter.mascot : petFor('push');
   if (!pet) return null;
-  const line = READ_LINES[new Date().getDate() % READ_LINES.length];
+  const day = new Date().getDate();
+  const line = petLine(pet, 'read', READ_LINES[day % READ_LINES.length], `${letter.id ?? letter.date}:${day}`);
   return h('div', { class: 'courier courier-read' },
     h('span', { class: 'mascot', html: mascotImg(pet, letterPose(pet, letter.id ?? letter.date)) }),
     h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), line));

@@ -1,11 +1,13 @@
 // Своє вікно «Точно?» замість системного confirm(): улюбленець, питання і дві кнопки. Відповідь — Promise<boolean>
 import { h } from './ui.js';
-import { mascotImg, petFor, petName, firstPose } from './icons.js';
+import { mascotImg, boxPet, petName, petLine, firstPose } from './icons.js';
 
-// title — саме питання; text — що буде далі; yes — назва дії (вона ж кнопка); no — «передумав»
-export function ask({ title, text = '', yes = 'Да', no = 'Оставить', danger = true }) {
+// title — саме питання; text — що буде далі; yes — назва дії (вона ж кнопка); no — «передумав»;
+// say — ключ своєї репліки улюбленця в базі (замінює text, якщо в нього така є)
+export function ask({ title, text = '', yes = 'Да', no = 'Оставить', danger = true, say = '' }) {
   return new Promise((done) => {
-    const pet = petFor('box');
+    const pet = boxPet();
+    text = petLine(pet, say, text);
     const prev = document.activeElement;
     const close = (answer) => {
       box.remove();
@@ -35,9 +37,10 @@ export function ask({ title, text = '', yes = 'Да', no = 'Оставить', d
 // Улюбленець на мить визирає над меню з короткою реплікою (замість сухого тосту); тап — сховати
 let noteEl = null;
 let noteTimer = 0;
-export function petNote(text, pose = 'look') {
-  const pet = petFor('box');
+export function petNote(text, pose = 'look', say = '') {
+  const pet = boxPet();
   if (!pet) return;
+  text = petLine(pet, say, text);
   noteEl?.remove();
   clearTimeout(noteTimer);
   const el = h('div', { class: 'pet-note', role: 'status', onclick: () => hide() },

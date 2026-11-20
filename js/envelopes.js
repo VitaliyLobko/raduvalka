@@ -1,7 +1,7 @@
 // «Відкрий, коли…»: полиця конвертів на різні випадки
 import { DATA, who } from './data.js';
 import { save, send } from './api.js';
-import { mascotImg, petName, petFor } from './icons.js';
+import { mascotImg, petName, petFor, petLine } from './icons.js';
 import { h, toast, cap, waxSeal, reduceMotion, signLine, ENV_POCKET, SAGITTARIUS_GLYPH } from './ui.js';
 
 // Скільки листів уже прочитано в кожному конверті: { hard: 1 } — зберігається на сервері
@@ -21,8 +21,10 @@ function look(env) {
   return { ...pick, line: pick.line || env.mascotLine };
 }
 
-function courier(env, line) {
+// say — ключ своєї репліки курʼєра в базі замість line
+function courier(env, line, say) {
   const l = look(env);
+  line = petLine(l.mascot, say, line);
   return h('div', { class: 'courier' },
     h('span', { class: 'mascot', html: mascotImg(l.mascot, l.pose) }),
     h('p', { class: 'bubble' }, h('b', {}, `${petName(l.mascot)}: `), line || l.line));
@@ -94,7 +96,7 @@ function openCard(screen, env) {
     // Другому летить push «конверт порожній»; «узнает» — лише якщо йому справді є куди його надіслати
     const text = h('p', { class: 'letter-text' }, 'Записок пока нет ✍️');
     reader = overlay(close,
-      courier(env, 'Тут пока пусто.'),
+      courier(env, 'Тут пока пусто.', 'envEmpty'),
       h('div', { class: 'letter letter-empty' }, text),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Хорошо')));
     send(`envelopes/${env.id}/empty`, 'POST').then((r) => { if (r?.reaches) text.textContent = me.partnerKnows; }).catch(() => {});

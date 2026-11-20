@@ -659,7 +659,7 @@ function outBubble(l, later) {
     type: 'button', class: 'sent-take',
     onclick: async (ev) => {
       ev.stopPropagation();
-      if (!await ask({ title: 'Забрать письмо?', text: 'Оно исчезнет, будто его не было.', yes: 'Забрать' })) return;
+      if (!await ask({ title: 'Забрать письмо?', text: 'Оно исчезнет, будто его не было.', yes: 'Забрать', say: 'takeLetter' })) return;
       try {
         await send(`letters/${l.id}`, 'DELETE');
         cache.sent = cache.sent.filter((x) => x.id !== l.id);
@@ -717,7 +717,7 @@ function memeBubble(m) {
 
 
 async function removeMeme(m) {
-  if (!await ask({ title: `Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`, yes: 'Удалить' })) return;
+  if (!await ask({ title: `Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
   try {
     await send(`memes/${m.id}`, 'DELETE');
     DATA.memes = DATA.memes.filter((x) => x.id !== m.id);

@@ -1,7 +1,7 @@
 // «Подарок на выбор»: закриті конверти з назвами; обрала — відкривається все, і видно, що було в інших
 import { DATA, who } from './data.js';
 import { send } from './api.js';
-import { mascotImg, petName, firstPose } from './icons.js';
+import { mascotImg, petName, petLine, firstPose } from './icons.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { ask } from './ask.js';
 
@@ -38,7 +38,8 @@ export function renderGift(screen, gift, done) {
     pet ? h('div', { class: 'courier gift-courier' },
       h('span', { class: 'mascot', html: mascotImg(pet, giftPose(pet)) }),
       h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `),
-        picked ? `Отличный выбор. Я бы ${isShe(pet) ? 'выбрала' : 'выбрал'} так же.` : `${isShe(pet) ? 'Принесла' : 'Принёс'} подарок. Только чур — один!`)) : null,
+        picked ? petLine(pet, 'giftPicked', `Отличный выбор. Я бы ${isShe(pet) ? 'выбрала' : 'выбрал'} так же.`, 'gift')
+          : petLine(pet, 'gift', `${isShe(pet) ? 'Принесла' : 'Принёс'} подарок. Только чур — один!`, 'gift'))) : null,
     gift.text ? h('article', { class: 'letter gift-note' }, h('p', { class: 'letter-text' }, gift.text)) : null,
     h('div', { class: 'gift-grid' }, ...cards),
     h('p', { class: 'hint' }, line),
@@ -48,7 +49,7 @@ export function renderGift(screen, gift, done) {
 
 async function choose(screen, gift, i, done) {
   const o = gift.options[i];
-  if (!await ask({ title: `Выбрать «${o.title}»?`, text: 'Передумать уже не получится.', yes: 'Выбираю', no: 'Подумаю', danger: false })) return;
+  if (!await ask({ title: `Выбрать «${o.title}»?`, text: 'Передумать уже не получится.', yes: 'Выбираю', no: 'Подумаю', danger: false, say: 'giftChoose' })) return;
   try {
     // Той самий об'єкт, що й DATA.gift: перейде на іншу вкладку й назад — побачить уже відкрите
     Object.assign(gift, await send(`letters/${gift.id}`, 'PUT', { choose: i }));

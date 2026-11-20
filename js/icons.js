@@ -11,6 +11,33 @@ export const petName = (key) => DATA.mascots[key]?.name || '';
 export const petFor = (role) => Object.keys(DATA.mascots).find((k) => DATA.mascots[k].roles?.includes(role))
   || Object.keys(DATA.mascots)[0];
 
+// Хто веде «Точно?» і «Отложено»: зазвичай box, а приблизно кожен третій раз — улюбленець із роллю aside
+export function boxPet() {
+  const aside = Object.keys(DATA.mascots).find((k) => DATA.mascots[k].roles?.includes('aside'));
+  return aside && Math.random() < 1 / 3 ? aside : petFor('box');
+}
+
+// Номер варіанта від seed: той самий seed — той самий варіант (при перемальовці не скаче); без seed — випадковий
+function seedIdx(seed, n) {
+  if (seed == null) return Math.floor(Math.random() * n);
+  let x = 0;
+  for (const ch of String(seed)) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+  return x % n;
+}
+
+// Своя репліка улюбленця з бази (mascots.<key>.lines.<name>): масив або { vona, vin } — за боком; нема — fallback
+export function petLine(key, name, fallback = '', seed) {
+  let v = name ? DATA.mascots[key]?.lines?.[name] : null;
+  if (v && !Array.isArray(v)) v = v[DATA.side];
+  return v?.length ? v[seedIdx(seed, v.length)] : fallback;
+}
+
+// Службовий текст + жарт улюбленця хвостом, якщо він у нього є
+export function petTail(key, name, base, seed) {
+  const tail = petLine(key, name, '', seed);
+  return tail ? `${base} ${tail}` : base;
+}
+
 // Новорічний сезон 15.12–14.01 за місцевою датою
 export function newYear(d = new Date()) {
   const md = (d.getMonth() + 1) * 100 + d.getDate();
@@ -30,9 +57,7 @@ export function letterPose(key, seed) {
   const m = DATA.mascots[key];
   if (!m || seed == null || newYear()) return 'main';
   const list = Object.keys(m.poses).filter((p) => !p.startsWith('ny-') && !SPECIAL.has(p));
-  let x = 0;
-  for (const ch of String(seed)) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
-  return list[x % list.length] || 'main';
+  return list[seedIdx(seed, list.length)] || 'main';
 }
 
 // Перша поза зі списку, яка є в улюбленця, інакше головна

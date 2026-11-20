@@ -2,7 +2,7 @@
 // чужу відповідь сервер не віддає — видно лише збіг, коли обоє ❤️. Колесо обирає з наших планів
 import { DATA, who } from './data.js';
 import { get, send } from './api.js';
-import { mascotImg, petName, petFor } from './icons.js';
+import { mascotImg, petName, petFor, petLine, petTail } from './icons.js';
 import { h, toast, cap, reduceMotion, ribbon } from './ui.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { burst } from './fx.js';
@@ -239,8 +239,8 @@ function deckView(screen, me, pet) {
   if (!idea) {
     return [banner,
       courier(pet, data.mine.length
-        ? `Все идеи ${me.partner === 'она' ? 'от неё' : 'от него'} разобраны. Предложи ещё — вдруг совпадёт 😉`
-        : 'Тут пусто. Добавь, куда хочется сходить или поехать, — или попроси меня подкинуть идей.'),
+        ? petLine(pet, 'deckDone', `Все идеи ${me.partner === 'она' ? 'от неё' : 'от него'} разобраны. Предложи ещё — вдруг совпадёт 😉`, 'deck')
+        : petLine(pet, 'deckEmpty', 'Тут пусто. Добавь, куда хочется сходить или поехать, — или попроси меня подкинуть идей.', 'deck')),
       tools, waitingList(screen, me), nopeList(screen, me), laterList(screen, me)];
   }
 
@@ -330,7 +330,7 @@ async function vote(screen, idea, v, card) {
   data.deck = data.deck.filter((x) => x.id !== idea.id);
   if (v === 0 && data.later) data.later = [idea, ...data.later.filter((x) => x.id !== idea.id)];
   // ⏳ — улюбленець підказує, куди поділась ідея
-  if (v === 0) petNote('Отложено ⏳ Найдёшь внизу, в «Отложенных».');
+  if (v === 0) petNote('Отложено ⏳ Найдёшь внизу, в «Отложенных».', 'look', 'later');
   voting = false;
   if (alive(screen)) renderPlans(screen);
   try {
@@ -372,7 +372,7 @@ function celebrate(idea) {
       pet ? h('span', { class: 'mascot', html: mascotImg(pet, 'festive') }) : null,
       h('h2', {}, 'Совпадение!'),
       h('p', { class: 'plan-match-title' }, `${catOf(idea.cat)[1]} ${idea.title}`),
-      h('p', { class: 'plan-match-line' }, pet ? `${petName(pet)}: вы оба этого хотите! Теперь это в «Наших планах» 💞` :'Вы оба этого хотите — это теперь в «Наших планах» 💞'),
+      h('p', { class: 'plan-match-line' }, pet ? `${petName(pet)}: ${petTail(pet, 'match', 'вы оба этого хотите! Теперь это в «Наших планах» 💞', idea.id)}` :'Вы оба этого хотите — это теперь в «Наших планах» 💞'),
       ok));
   document.body.append(box);
   document.addEventListener('keydown', onKey);
@@ -419,7 +419,7 @@ function laterRow(screen, p) {
 }
 
 async function dismiss(screen, p) {
-  if (!await ask({ title: `Убрать «${p.title}» насовсем?`, text: 'Больше не покажу. Вернуть уже не получится.', yes: 'Убрать' })) return;
+  if (!await ask({ title: `Убрать «${p.title}» насовсем?`, text: 'Больше не покажу. Вернуть уже не получится.', yes: 'Убрать', say: 'forever' })) return;
   gen += 1;
   try {
     await mutate(`plans/${p.id}`, 'PUT', { vote: -1 });
@@ -479,7 +479,7 @@ function planRow(p, action, tag = 'li') {
 }
 
 async function removeIdea(screen, p) {
-  if (!await ask({ title: `Убрать идею «${p.title}»?`, text: 'Она пропадёт у вас обоих.', yes: 'Убрать' })) return;
+  if (!await ask({ title: `Убрать идею «${p.title}»?`, text: 'Она пропадёт у вас обоих.', yes: 'Убрать', say: 'removeIdea' })) return;
   try {
     await mutate(`plans/${p.id}`, 'DELETE');
     data.mine = data.mine.filter((x) => x.id !== p.id);
@@ -703,14 +703,14 @@ function wheelView(screen, me, pet) {
         renderPlans(screen);
       },
     }, 'Готов!');
-    note = courier(pet, theirAll
+    note = courier(pet, petTail(pet, 'wheelInvited', theirAll
       ? `${cap(me.partner)} зовёт крутить — в барабане все темы. Жми «Готов»!`
-      : `${cap(me.partner)} зовёт крутить! ${cap(whose)} темы уже отмечены — добавь свои и жми «Готов».`);
+      : `${cap(me.partner)} зовёт крутить! ${cap(whose)} темы уже отмечены — добавь свои и жми «Готов».`, inv.at));
   } else if (iCalled) {
     hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Ждём…');
     watchReady(screen);
     note = h('div', {},
-      courier(pet, `Позвали ${she ? 'её' : 'его'}! ${cap(me.partner)} ${she ? 'будет готова' : 'будет готов'} — и барабан закрутится у обоих 🎰`),
+      courier(pet, petTail(pet, 'wheelCalled', `Позвали ${she ? 'её' : 'его'}! ${cap(me.partner)} ${she ? 'будет готова' : 'будет готов'} — и барабан закрутится у обоих 🎰`, inv.at)),
       h('button', {
         type: 'button', class: 'btn plan-wide',
         onclick: async () => {
@@ -750,7 +750,7 @@ function showPick(box, p, spin) {
   // Крутили вдвох (spin.with); старі обертання — один
   // Улюбленець — над карткою, інакше на телефоні його ховає нижнє меню
   box.replaceChildren(
-    courier(pet, pick(p.cat === 'pets' ? PET_LINES : PICK_LINES)),
+    courier(pet, p.cat === 'pets' ? petLine(pet, 'petsPlan', pick(PET_LINES)) : petLine(pet, 'pick', pick(PICK_LINES), spin?.id ?? p.id)),
     cardBody(p, 'plan-pick-card'),
     h('p', { class: 'hint plan-hint' }, spin?.with
       ? 'Барабан выбрал для вас двоих — план уже первым в «Наших планах». Ещё раз — снова вдвоём.'
