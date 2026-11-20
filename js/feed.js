@@ -7,7 +7,7 @@ import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
-import { flyOut, collapse, burst, petRun, loveRain, captainSalute } from './fx.js';
+import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
@@ -480,7 +480,7 @@ function openReactions(bubble, it) {
 // «🫡 Да, капитан!»: цитата — те, на що погодились; рядок у чаті підтягує refreshFeed
 async function sayAye(it, bubble) {
   const quote = it.type === 'meme' ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : (it.l.text || '');
-  burst(bubble, '🫡', 7);
+  reactFx(bubble, '🫡');
   try {
     await send('captain', 'POST', { quote });
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
@@ -492,8 +492,9 @@ async function setReaction(it, value, bubble) {
   const live = it.type === 'meme' ? liveMeme(it.m) : liveLetter(it.l);
   const prev = live.reaction || null;
   live.reaction = value;
-  if (value) burst(bubble, value, 7);
   draw();
+  // Рядок перемальовано — анімуємо вже новий пузир
+  if (value) reactFx(rows.get(it.key)?.el?.firstElementChild || bubble, value);
   try {
     await send(it.type === 'meme' ? `memes/${live.id}` : `letters/${live.id}`, 'PUT', { reaction: value });
   } catch {
@@ -515,6 +516,13 @@ function row(it) {
   if (reaction) { bubble.classList.add('has-react'); bubble.append(h('span', { class: 'feed-react', 'aria-label': `Реакция: ${reaction}` }, reaction)); }
   if (!closed && canReact(it)) holdToReact(bubble, it);
   const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key }, bubble);
+  // Реакція другого на моє: при першому погляді — її анімація (reactIo у watchFresh)
+  if (reaction && mine) {
+    li.classList.add('has-their-react');
+    li.dataset.react = `r:${it.key}:${reaction}`;
+    li.dataset.reactGlyph = reaction;
+    li.dataset.reactAt = String(it.type === 'meme' ? it.m.created : (it.l.at || it.l.created || 0));
+  }
   // Конверт лише відкривають: сховати чи відповісти, не прочитавши, не можна
   if (closed) return li;
   const canReply = () => replyTarget(it) != null;
@@ -839,6 +847,31 @@ function watchFresh(els) {
   }, { threshold: 0.9, rootMargin: '0px 0px -96px 0px' });
   const old = loveSeen();
   pick('.feed-mark.is-love, .feed-mark.is-aye').forEach((el) => { if (!old.includes(el.dataset.love)) loveIo.observe(el); });
+  reactIo ||= new IntersectionObserver((entries) => {
+    for (const { target, isIntersecting } of entries) {
+      if (!isIntersecting) continue;
+      reactIo.unobserve(target);
+      if (markLoveSeen(target.dataset.react)) setTimeout(() => reactFx(target.firstElementChild, target.dataset.reactGlyph), 250);
+    }
+  }, { threshold: 0.6, rootMargin: '0px 0px -96px 0px' });
+  const reacts = pick('.feed-row.has-their-react').filter((el) => !old.includes(el.dataset.react));
+  // Перший запуск з цією функцією: наявні реакції — вже бачені, без салюту; далі — лише на свіжих (3 дні) повідомленнях
+  if (!reactBase()) {
+    reacts.forEach((el) => markLoveSeen(el.dataset.react));
+    setReactBase();
+  } else {
+    const since = Date.now() - 3 * 864e5;
+    reacts.filter((el) => Number(el.dataset.reactAt) > since).forEach((el) => reactIo.observe(el));
+  }
+}
+
+let reactIo = null;
+const REACT_BASE = 'radovalka:react-base';
+function reactBase() {
+  try { return !!localStorage.getItem(REACT_BASE); } catch { return true; }
+}
+function setReactBase() {
+  try { localStorage.setItem(REACT_BASE, String(Date.now())); } catch { /* приватне вікно */ }
 }
 
 let loveIo = null;
@@ -846,11 +879,11 @@ const LOVE_KEY = 'radovalka:love-seen';
 function loveSeen() {
   try { return JSON.parse(localStorage.getItem(LOVE_KEY) || '[]'); } catch { return []; }
 }
-// true — бачимо вперше; памʼятаємо останні 40, щоб список не ріс
+// true — бачимо вперше; памʼятаємо останні 120 (серця, «капитан», реакції), щоб список не ріс
 function markLoveSeen(id) {
   const list = loveSeen();
   if (!id || list.includes(id)) return false;
-  try { localStorage.setItem(LOVE_KEY, JSON.stringify([...list, id].slice(-40))); } catch { /* приватне вікно — анімація все одно */ }
+  try { localStorage.setItem(LOVE_KEY, JSON.stringify([...list, id].slice(-120))); } catch { /* приватне вікно — анімація все одно */ }
   return true;
 }
 
