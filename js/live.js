@@ -3,6 +3,7 @@
 import { DATA } from './data.js';
 import { get, isOffline } from './api.js';
 import { loadSos } from './sos.js';
+import { bellArrived } from './bell.js';
 
 const EVERY = 15000;
 // На вкладці «Письма» — частіше: реакція чи «Да, капитан!» від другого зʼявляються за кілька секунд
@@ -35,13 +36,15 @@ export async function check() {
   last = Date.now();
   try {
     // Мітку питаємо й тоді, коли оновлення чекає, — інакше «Нужна помощь» не дійшла б, поки відкрито лист
-    const { v, partnerPush, sos } = await get('pulse');
+    const { v, partnerPush, sos, bell } = await get('pulse');
     if (partnerPush !== DATA.partnerPush) {
       DATA.partnerPush = partnerPush;
       document.dispatchEvent(new CustomEvent('radovalka:partner-push'));
     }
     // «Нужна помощь» малюємо одразу — навіть коли решта чекає, поки дочитають чи допишуть
     if (sos && sos !== sosSeen) { sosSeen = sos; loadSos(); }
+    // «🔔 Звоночек» — теж одразу
+    if (bell) bellArrived(bell);
     if (v && v !== seen) { seen = v; run(); } else if (waiting) run();
   } catch { /* старий сервер чи нема зв'язку — мовчки до наступного разу */ }
   busy = false;

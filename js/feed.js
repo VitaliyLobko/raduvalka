@@ -401,7 +401,7 @@ function dayFor(d) {
 // Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
 function newsRow(n) {
   const she = who().partner === 'она';
-  if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain') return markRow(n, she);
+  if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain' || n.kind === 'bell') return markRow(n, she);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
   if (n.kind === 'gifted') {
     const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;
@@ -444,6 +444,12 @@ function markRow(n, she) {
     return h('li', { class: `feed-mark is-captain${n.mine ? ' is-mine' : ' is-aye'}`, 'data-love': n.mine ? null : n.id },
       h('span', { class: 'feed-captain' }, h('span', { class: 'feed-captain-text' }, '🫡 Да, капитан!'), quoteLine(n.mood)),
       h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
+  }
+  // «🔔 Звоночек»: кілька поспіль — з лічильником
+  if (n.kind === 'bell') {
+    const times = n.count > 1 ? ` ×${n.count}` : '';
+    const text = n.mine ? `🔔 Позвал${DATA.side === 'vona' ? 'а' : ''}${times}` : `🔔 ${cap(who().partner)} ${she ? 'звала' : 'звал'} тебя${times}`;
+    return h('li', { class: `feed-mark is-bell${n.mine ? ' is-mine' : ''}` }, h('span', {}, text), h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
   }
   const text = n.kind === 'ask'
     ? (n.mine ? `💬 Спросил${DATA.side === 'vona' ? 'а' : ''}, как ${she ? 'она' : 'он'}` : `💬 ${cap(who().partner)} спрашивает, как ты`)

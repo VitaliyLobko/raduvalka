@@ -19,6 +19,7 @@ import { startTour } from './tour.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
+import { startBell } from './bell.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
@@ -804,6 +805,7 @@ async function start() {
   syncPush();
   startOutbox();
   startLive(refreshAll, DATA.pulse);
+  startBell();
   watchResume(lockSos);
   // Ярлик «Я в порядке» (довге натискання на іконку): відмітка одразу; адресу чистимо, щоб перезавантаження не повторило
   const act = new URLSearchParams(location.search).get('do');

@@ -168,13 +168,14 @@ async function route(req, env, ctx, info = {}) {
   info.path = path;
 
   if (m === 'GET' && path === 'pulse') {
-    const [v, partnerPush, sos] = await Promise.all([
+    const [v, partnerPush, sos, bell] = await Promise.all([
       getDoc(env.DB, `pulse:${side}`),
       hasPush(env.DB, other(side)),
       // «Нужна помощь» — окрема мітка: телефон малює її одразу, навіть коли решта оновлення чекає
       env.DB.prepare("SELECT MAX(updated) u FROM docs WHERE k IN ('sos:vona', 'sos:vin')").first('u'),
+      getDoc(env.DB, `bell:${side}`),
     ]);
-    return json({ v: v || 0, partnerPush, sos: sos || 0 });
+    return json({ v: v || 0, partnerPush, sos: sos || 0, bell: bell?.at || 0 });
   }
 
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
@@ -259,6 +260,18 @@ async function route(req, env, ctx, info = {}) {
       if (reaches) notify.send(other(side), heartNote(side));
       return json({ reaches, sent: reaches && notify.on });
     }
+  }
+  // «🔔 Звоночек»: потрусив телефон — у другого відкрита Радовалка дзвенить (bell у pulse), закрита — push; рядок у чаті в обох.
+  // bell:<side> — останній дзвінок ДЛЯ цієї сторони; не частіше ніж раз на хвилину
+  if (m === 'POST' && path === 'bell') {
+    const now = Date.now();
+    const prev = await getDoc(env.DB, `bell:${other(side)}`);
+    const reaches = await hasPush(env.DB, other(side));
+    if (prev?.at && now - prev.at < BELL_EVERY) return json({ reaches, sent: false, again: true });
+    await putDoc(env.DB, `bell:${other(side)}`, { at: now, from: side });
+    await addMark(env.DB, side, 'bell', now);
+    if (reaches) notify.send(other(side), bellNote(side));
+    return json({ reaches, sent: reaches && notify.on });
   }
   // «🫡 Да, капитан!» у відповідь на повідомлення другого: рядок у чаті в обох (цитата — у mood) і push другому
   if (m === 'POST' && path === 'captain') {
@@ -1083,6 +1096,25 @@ async function listMemes(db, side, limit = 300) {
 const FEED_PAGE = 40;
 // Ідеї від ШІ, відмічені ❤️ одним заходом, — один рядок у чаті й один push: пачка, поки між сусідніми менше AI_BATCH
 const AI_BATCH = 30 * 60000;
+// «🔔 Звоночек» поспіль від того самого — один рядок із лічильником
+const BELL_EVERY = 60000;
+const BELL_BATCH = 10 * 60000;
+function bellBatches(rows) {
+  const out = [];
+  const last = {};
+  for (const r of rows) {
+    if (r.kind !== 'bell') { out.push(r); continue; }
+    const g = last[r.side];
+    if (g && g.first - r.t < BELL_BATCH) {
+      g.count += 1;
+      g.first = r.t;
+      continue;
+    }
+    last[r.side] = { ...r, count: 1, first: r.t };
+    out.push(last[r.side]);
+  }
+  return out;
+}
 function aiBatches(rows) {
   const out = [];
   for (const r of rows) {
@@ -1128,7 +1160,7 @@ async function feedPage(db, side, url) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
     if (idea) wheel.push({ kind: 'spin', id: `s${spin.at}`, title: idea.title, t: spin.at });
   }
-  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...aiBatches(aiIdeas.results), ...marks.results, ...gifted.results, ...wheel]]];
+  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...aiBatches(aiIdeas.results), ...bellBatches(marks.results), ...gifted.results, ...wheel]]];
   const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
   let page = all;
   let horizon = 0;
@@ -1150,7 +1182,7 @@ async function feedPage(db, side, url) {
     news: of('news').map((r) => (r.titles
       ? { kind: r.kind, id: r.id, titles: [...r.titles].reverse(), at: r.t }
       : r.side
-      ? { kind: r.kind, id: r.id, mine: r.side === side, mood: r.mood || null, at: r.t }
+      ? { kind: r.kind, id: r.id, mine: r.side === side, mood: r.mood || null, at: r.t, ...(r.count > 1 ? { count: r.count } : {}) }
       : r.whose ? { kind: r.kind, id: r.id, title: r.title, mine: r.whose !== side, at: r.t }
       : { kind: r.kind, id: r.id, title: r.title, at: r.t, ...(r.cat === 'love' ? { love: true } : {}) })),
     more,
@@ -2637,6 +2669,9 @@ function captainNote(from, quote) {
 }
 
 // Сердечко з листівки «Вместе»: тап — одразу шторка, там воно прилетить
+function bellNote(from) {
+  return { title: '🔔 Звоночек', body: sender(from, 'Он потряс телефон — зовёт тебя, загляни 💛', 'Она потрясла телефон — зовёт тебя, загляни 💕'), tag: 'bell', go: 'letter', buzz: true };
+}
 function heartNote(from) {
   return { title: '💞 Сердечко', body: sender(from, 'Он отправил тебе сердечко с Юпитера', 'Она отправила тебе сердечко с Земли'), tag: 'heart', go: 'together' };
 }

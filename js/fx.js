@@ -739,6 +739,40 @@ export function reactFx(el, glyph) {
   }
 }
 
+// «🔔 Звоночек»: дзвіночок гойдається вгорі екрана, згори сиплються пелюстки сакури (у нього — зорі).
+// incoming — у того, кого кличуть: густіше й довше; у того, хто трусив, — коротко, що полетіло
+export function bellFx(incoming = true) {
+  if (reduceMotion) return;
+  const x = innerWidth / 2;
+  const y = Math.min(innerHeight * 0.3, 240);
+  big('🔔', x, y, [
+    { transform: 'scale(.3) rotate(0)', opacity: 0 },
+    { transform: 'scale(1.15) rotate(-24deg)', opacity: 1, offset: 0.1 },
+    { transform: 'scale(1.1) rotate(22deg)', offset: 0.22 },
+    { transform: 'scale(1.1) rotate(-18deg)', offset: 0.34 },
+    { transform: 'scale(1.1) rotate(14deg)', offset: 0.46 },
+    { transform: 'scale(1.1) rotate(-8deg)', offset: 0.58 },
+    { transform: 'scale(1.1) rotate(0)', opacity: 1, offset: 0.8 },
+    { transform: 'scale(.8) rotate(0)', opacity: 0 },
+  ], incoming ? 3400 : 2000, '6.6rem');
+  [150, 500, ...(incoming ? [850, 1200] : [])].forEach((d) => ring(x, y, d));
+  const her = document.documentElement.dataset.side !== 'vin';
+  const glyphs = her ? ['🌸'] : ['✨', '⭐', '🌟'];
+  const n = incoming ? 28 : 12;
+  for (let i = 0; i < n; i += 1) {
+    const s = glyphAt(glyphs[i % glyphs.length], Math.random() * innerWidth, -40, `${1.3 + Math.random() * 1.1}rem`);
+    const sway = (Math.random() - 0.5) * 120;
+    const fall = innerHeight + 80;
+    const rot = (Math.random() - 0.5) * 540;
+    gone(s)(s.animate([
+      { transform: `${C} translate(0, 0) rotate(0)`, opacity: 0 },
+      { transform: `${C} translate(${sway * 0.4}px, ${fall * 0.2}px) rotate(${rot * 0.2}deg)`, opacity: 1, offset: 0.12 },
+      { transform: `${C} translate(${-sway * 0.3}px, ${fall * 0.6}px) rotate(${rot * 0.6}deg)`, opacity: 1, offset: 0.6 },
+      { transform: `${C} translate(${sway}px, ${fall}px) rotate(${rot}deg)`, opacity: 0.2 },
+    ], { duration: 2600 + Math.random() * 1600, delay: Math.random() * (incoming ? 1800 : 700), easing: 'linear', fill: 'backwards' }));
+  }
+}
+
 // Кілька реакцій прийшли разом — граємо по черзі, а не купою
 let fxQueue = Promise.resolve();
 export function reactFxQueued(el, glyph) {
