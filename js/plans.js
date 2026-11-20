@@ -166,7 +166,8 @@ export function renderPlans(screen) {
       onclick: () => { view = v; renderPlans(screen); },
     }, label, counts[v] ? h('span', { class: 'plan-count' }, String(counts[v])) : null)));
 
-  const head = [h('h2', { class: 'title' }, 'Планы'), togetherCard(), seg,
+  // «Вместе» — праворуч від заголовка, в одному рядку: місце під барабан і колоду
+  const head = [h('div', { class: 'plan-head' }, h('h2', { class: 'title' }, 'Планы'), togetherCard()), seg,
     h('p', { class: 'plan-about' }, ABOUT[view](me.partner))];
   const paint = (...body) => screen.replaceChildren(h('div', { class: 'plan-screen' }, ...head, ...body.filter(Boolean)));
 

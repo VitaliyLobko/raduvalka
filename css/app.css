@@ -3441,3 +3441,10 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 
 /* Теми того, хто покликав, у барабані — підпис «её/его» на чипі */
 .plan-their { margin-left: 6px; font-size: 11px; font-weight: 600; opacity: .75; }
+
+/* «Планы» і «Вместе» одним рядком: заголовок ліворуч, «Вместе» — компактна кнопка праворуч */
+.plan-head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.plan-head > .title { margin: 0; flex: none; }
+.plan-head > .plan-together { width: auto; min-width: 0; margin: 0 0 0 auto; padding: 4px 10px 4px 4px; gap: 6px; border-radius: 999px; min-height: 44px; }
+.plan-head .plan-together .chip-planets { width: 34px; height: 26px; }
+.plan-head .plan-together-text { font-size: .9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
