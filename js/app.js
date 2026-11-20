@@ -12,7 +12,7 @@ import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFres
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel, chipFestive } from './together.js';
-import { loadPlans, markPlans, renderPlans, showOurs, showWheel, showDeck, CATS } from './plans.js';
+import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck, CATS } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
@@ -589,7 +589,7 @@ function refreshAll() {
     if (togetherBody?.isConnected && !togetherBody.contains(document.activeElement)) renderTogether(togetherBody);
   }).catch(() => {});
   if (tab !== 'wish') loadWishes().then(markWishes).catch(() => {});
-  loadPlans().then(markPlans).catch(() => {});
+  if (tab === 'plans') refreshPlans(screen).catch(() => {}); else loadPlans().then(markPlans).catch(() => {});
   // Стрічка перемальовує лише себе — відкритий лист дня не зсувається
   refreshFeed();
 }

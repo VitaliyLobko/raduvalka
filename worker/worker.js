@@ -1610,16 +1610,17 @@ async function plansRoute(req, db, side, rest, notify) {
     return json({ ok: true });
   }
 
-  // «Готов»: крутить може лише той, кого покликали. У колесо — теми, які обрали обоє (спільних нема — усі);
+  // «Готов»: крутить може лише той, кого покликали. У колесо — теми обох разом (її + його; нічого не обрали — усі);
   // план обирає сервер, і він одразу «идём» у обох. Сектори (slots) зберігаємо — обоє бачать те саме колесо
   if (m === 'POST' && rest === 'spin') {
     const inv = await todayInvite(db);
     if (!inv || inv.by === side) throw fail(409, 'invite');
     const mine = cleanCats((await readJson(req))?.cats);
-    const both = inv.cats.filter((c) => mine.includes(c));
+    // Порожній список у запрошенні — «усі теми»: тоді й колесо з усього
+    const both = inv.cats.length ? [...new Set([...inv.cats, ...mine])] : [];
     const { results } = await db.prepare('SELECT * FROM ideas').all();
     const open = results.filter((x) => bothLike(x) && !x.done);
-    const inBoth = open.filter((x) => both.includes(x.cat));
+    const inBoth = both.length ? open.filter((x) => both.includes(x.cat)) : [];
     const pool = inBoth.length ? inBoth : open;
     if (!pool.length) throw fail(409, 'pool');
     const rnd = () => crypto.getRandomValues(new Uint32Array(1))[0];
@@ -1631,7 +1632,7 @@ async function plansRoute(req, db, side, rest, notify) {
     await putDoc(db, 'plan-spin', spin);
     await putDoc(db, 'plan-next', { id: r.id, by: side, at: spin.at });
     await putDoc(db, 'plan-invite', null);
-    notify.send(inv.by, planGoNote(side, r.title));
+    notify.send(inv.by, planGoNote(side));
     return json({ spin, reaches: await hasPush(db, inv.by) });
   }
 
@@ -2223,11 +2224,11 @@ async function planNext(db, rows) {
   return r && bothLike(r) && !r.done ? n : null;
 }
 
-// Тап — «Наши планы», де цей план угорі
-function planGoNote(from, title) {
+// Тап — барабан докручується в того, хто кликав. Назви плану нема — інакше крутити вже нема чого
+function planGoNote(from) {
   return {
-    title: 'Барабан выбрал 🎰',
-    body: `${sender(from, 'Он готов', 'Она готова')} — барабан выбрал для вас: «${title}». Идём!`,
+    title: 'Барабан крутится 🎰',
+    body: `${sender(from, 'Он готов', 'Она готова')} — открой и посмотри, что выпало.`,
     tag: 'plan-go',
     go: 'wheel',
   };

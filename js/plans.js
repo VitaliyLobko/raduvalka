@@ -34,6 +34,10 @@ let wheelCats = null;
 // Які теми вже траплялись на цьому телефоні (нові — обираються самі) і чи взяли теми з власного запрошення
 const wheelSeen = new Set();
 let wheelSynced = false;
+// Запрошення, теми якого вже поставлено в мої (його/її теми — одразу обрані, я додаю свої)
+let wheelInvAt = 0;
+// Барабан зараз крутиться — живе оновлення не перемальовує, щоб не зупинити його на півдорозі
+let spinning = false;
 let data = null;
 // Розгорнуті списки («Сделали», «Мои идеи ждут ответа»): перемальовка екрана не має їх згортати
 const unfolded = new Set();
@@ -92,6 +96,15 @@ async function mutate(path, method, body) {
     busy -= 1;
     gen += 1;
   }
+}
+
+// Живе оновлення: на «Наугад» перемальовуємо, коли змінилось (покликали, «Готов» — барабан докрутиться сам).
+// Інші вкладки не чіпаємо — там можуть саме гортати картку
+export async function refreshPlans(screen) {
+  const before = JSON.stringify(data);
+  await loadPlans();
+  markPlans();
+  if (view === 'wheel' && !spinning && alive(screen) && JSON.stringify(data) !== before) renderPlans(screen);
 }
 
 export async function loadPlans() {
@@ -484,6 +497,11 @@ function wheelView(screen, me, pet) {
   // Покликав — показуємо надіслані теми; їх можна змінити, поки другий не натиснув «Готов» (запрошення тихо оновиться)
   if (iCalled && !wheelSynced) { wheelCats = new Set(inv.cats.length ? inv.cats : cats.map(([k]) => k)); wheelSynced = true; }
   if (!iCalled) wheelSynced = false;
+  // Покликали мене: у барабані теми обох — його/її вже обрані й не знімаються, свої додаю зверху
+  const theirAll = theyCalled && !inv.cats.length;
+  const theirs = new Set(theyCalled ? (theirAll ? cats.map(([k]) => k) : inv.cats) : []);
+  if (theyCalled && wheelInvAt !== inv.at) { wheelCats = new Set(theirs); wheelInvAt = inv.at; }
+  for (const k of theirs) wheelCats.add(k);
   const myCats = wheelCats;
 
   if (open.length < 2 && !data.spin) {
@@ -494,7 +512,7 @@ function wheelView(screen, me, pet) {
   // Що на колесі: сьогоднішні сектори з сервера; інакше — превʼю з обраних тем (покликали — перетин з його/її)
   const byId = new Map(data.ours.map((p) => [p.id, p]));
   const preview = () => {
-    const want = theyCalled ? [...myCats].filter((c) => inv.cats.includes(c)) : [...myCats];
+    const want = [...myCats];
     const inWant = open.filter((p) => want.includes(p.cat));
     const pool = inWant.length ? inWant : open;
     return pool.length > WHEEL_MAX ? [...pool].sort(() => Math.random() - 0.5).slice(0, WHEEL_MAX) : pool;
@@ -509,7 +527,8 @@ function wheelView(screen, me, pet) {
   const spinTo = async (id) => {
     const i = slots.findIndex((p) => p.id === id);
     if (i < 0) return;
-    await reel.spin(i);
+    spinning = true;
+    try { await reel.spin(i); } finally { spinning = false; }
     if (reel.el.isConnected) showPick(result, slots[i], data.spin);
   };
   // Барабан і кнопка під ним (замість маточини колеса)
@@ -553,11 +572,14 @@ function wheelView(screen, me, pet) {
   }
 
   reel.set(0);
-  // Теми — кілька одразу; зняли всі — колесо бере всі
-  const chips = cats.length > 1 ? h('div', { class: 'mk-chips mk-row plan-filter', role: 'group', 'aria-label': 'Темы' },
+  // Теми — кілька одразу; зняли всі — колесо бере всі. Покликали з усіма темами — обирати нічого
+  const whose = she ? 'её' : 'его';
+  const chips = cats.length > 1 && !theirAll ? h('div', { class: 'mk-chips mk-row plan-filter', role: 'group', 'aria-label': 'Темы' },
     ...cats.map(([k, emoji, label]) => h('button', {
-      type: 'button', class: 'mk-chip', 'aria-pressed': String(myCats.has(k)), 'aria-checked': String(myCats.has(k)),
+      type: 'button', class: `mk-chip${theirs.has(k) ? ' is-theirs' : ''}`,
+      'aria-pressed': String(myCats.has(k)), 'aria-checked': String(myCats.has(k)),
       onclick: async () => {
+        if (theirs.has(k)) { toast(`Это ${whose} тема — она останется в барабане`); return; }
         if (wheelCats.has(k)) wheelCats.delete(k); else wheelCats.add(k);
         renderPlans(screen);
         // Уже покликали — оновлюємо теми в запрошенні (без нового push)
@@ -565,7 +587,7 @@ function wheelView(screen, me, pet) {
           try { const r = await mutate('plans/invite', 'POST', { cats: [...wheelCats] }); data.invite = r.invite; } catch { toast('Темы не обновились — нет связи'); }
         }
       },
-    }, `${emoji} ${label}`))) : null;
+    }, `${emoji} ${label}`, theirs.has(k) ? h('small', { class: 'plan-their' }, whose) : null))) : null;
 
   let hub;
   let note;
@@ -591,7 +613,9 @@ function wheelView(screen, me, pet) {
         renderPlans(screen);
       },
     }, 'Готов!');
-    note = courier(pet, `${cap(me.partner)} зовёт крутить!${inv.cats.length ? ` ${she ? 'Её' : 'Его'} темы: ${inv.cats.map((k) => catOf(k)[1]).join(' ')}.` : ''} Отметь свои — и «Готов».`);
+    note = courier(pet, theirAll
+      ? `${cap(me.partner)} зовёт крутить — в барабане все темы. Жми «Готов»!`
+      : `${cap(me.partner)} зовёт крутить! ${cap(whose)} темы уже отмечены — добавь свои и жми «Готов».`);
   } else if (iCalled) {
     hub = h('button', { type: 'button', class: 'plan-hub', disabled: true }, 'Ждём…');
     note = h('div', {},
