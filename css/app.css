@@ -3328,6 +3328,8 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-answer .react-opt { flex: none; }
 .react-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .react-pick .react-opt { flex: none; }
+/* 9 реакцій в один ряд: на вузькому екрані кнопки трохи зменшуються, а не ховаються за край */
+.react-pick:not(.mood-pick) .react-opt { width: min(40px, calc((100vw - 44px) / 9)); height: min(40px, calc((100vw - 44px) / 9)); font-size: min(1.5rem, calc((100vw - 44px) / 9 * .62)); }
 /* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
 .checkin-asked { min-width: 0; }
 .checkin-asked .rib-wrap { min-width: 0; max-width: 100%; }
@@ -3545,6 +3547,9 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 /* Реакції (reactFx): великий смайлик над повідомленням, з тінню, щоб читався на обох темах */
 .fx-react { z-index: 62; }
 .fx-big { z-index: 63; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }
+.fx-shades { z-index: 64; line-height: 0; }
+.fx-say { z-index: 64; font-family: var(--hand); font-weight: 700; color: var(--plum); white-space: nowrap; padding: 2px 14px 4px; border-radius: 999px; background: rgba(255, 255, 255, .92); box-shadow: 0 6px 16px -6px rgba(74, 37, 69, .45); }
+[data-side="vin"] .fx-say { color: var(--star); background: rgba(8, 34, 46, .92); box-shadow: 0 0 0 1px rgba(237, 185, 73, .45), 0 6px 16px -6px rgba(0, 0, 0, .7); }
 
 /* «Вместе» — одна листівка на весь екран; поля лежать на ній: угорі «Врозь с», унизу зустріч, ДР, «дней вместе» */
 .postcard {

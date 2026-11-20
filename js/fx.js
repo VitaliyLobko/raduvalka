@@ -298,6 +298,45 @@ const REACT_FX = {
   },
 };
 
+// «Да уж» 😎: на звичайне велике обличчя 🙂 повільно опускаються піксельні окуляри, клац — блік по скельцях і підпис
+const SHADES = '<svg viewBox="0 0 24 6" width="78" height="20" shape-rendering="crispEdges" aria-hidden="true">'
+  + '<g fill="#111"><rect x="0" y="0" width="24" height="1"/><rect x="2" y="1" width="8" height="3"/><rect x="14" y="1" width="8" height="3"/>'
+  + '<rect x="10" y="1" width="4" height="1"/><rect x="3" y="4" width="6" height="1"/><rect x="4" y="5" width="4" height="1"/>'
+  + '<rect x="15" y="4" width="6" height="1"/><rect x="16" y="5" width="4" height="1"/></g>'
+  + '<g fill="#fff"><rect x="3" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/>'
+  + '<rect x="15" y="2" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/></g></svg>';
+REACT_FX['😎'] = (el, x, y) => {
+  big('🙂', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.12 },
+    { transform: 'scale(1.1)', offset: 0.55 }, { transform: 'scale(1.18) rotate(-4deg)', offset: 0.6 },
+    { transform: 'scale(1.12) rotate(0)', opacity: 1, offset: 0.88 }, { transform: 'scale(.8)', opacity: 0 },
+  ], 2600);
+  const g = document.createElement('span');
+  g.className = 'fx-burst fx-shades';
+  g.setAttribute('aria-hidden', 'true');
+  g.innerHTML = SHADES;
+  g.style.left = `${x}px`;
+  g.style.top = `${y - 8}px`;
+  document.body.append(g);
+  gone(g)(g.animate([
+    { transform: `translate(-50%, ${-y - 40}px)`, opacity: 1 },
+    { transform: 'translate(-50%, -50%)', offset: 0.55, easing: 'steps(1)' },
+    { transform: 'translate(-50%, -50%)', opacity: 1, offset: 0.88 },
+    { transform: 'translate(-50%, -50%) scale(.8)', opacity: 0 },
+  ], { duration: 2600, easing: 'linear', fill: 'forwards' }));
+  // Блік: біла смужка пробігає по скельцях, щойно окуляри сіли
+  const shine = glyphAt('✨', x + 22, y - 14, '1.4rem');
+  gone(shine)(shine.animate([
+    { transform: `${C} scale(.2) rotate(0)`, opacity: 0 }, { transform: `${C} scale(1.3) rotate(40deg)`, opacity: 1, offset: 0.4 },
+    { transform: `${C} scale(.4) rotate(90deg)`, opacity: 0 },
+  ], { duration: 700, delay: 1500, fill: 'backwards' }));
+  const say = glyphAt('Да уж', x, y + 58, '1.6rem', 'fx-say');
+  gone(say)(say.animate([
+    { transform: `${C} translateY(10px) scale(.6)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.8 }, { transform: `${C}`, opacity: 0 },
+  ], { duration: 1300, delay: 1500, fill: 'backwards' }));
+};
+
 export function reactFx(el, glyph) {
   if (reduceMotion || !el?.isConnected || !glyph) return;
   const r = el.getBoundingClientRect();
