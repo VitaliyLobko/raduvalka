@@ -11,6 +11,8 @@ const PEAKS = 3;
 const WINDOW = 1200;
 const EVERY = 60000;
 const SEEN = 'radovalka:bell-seen';
+// Тряс-тряс ≈ 4 с: три короткі, довгий, ще дві, довгий наостанок (той самий — у push, sw.js)
+const BUZZ = [300, 120, 300, 120, 300, 250, 700, 250, 300, 120, 300, 250, 900];
 // Дзвінок, що прийшов давніше, — не дзвонимо: Радовалку відкрили через пів години, кликати вже пізно
 const FRESH = 120000;
 
@@ -73,7 +75,7 @@ export function bellArrived(at) {
   if (!at || at <= seen) return;
   try { localStorage.setItem(SEEN, String(at)); } catch { /* приватне вікно */ }
   if (Date.now() - at > FRESH) return;
-  navigator.vibrate?.([200, 100, 200, 100, 400]);
+  navigator.vibrate?.(BUZZ);
   chime();
   bellFx(true);
   toast(`🔔 ${cap(who().partner)} зовёт тебя`);
