@@ -731,7 +731,7 @@ function openAbout(showNews) {
         aboutRow('💡', 'Все идеи для планов', 'Запас для «Подкинуть идеи»', () => { close(); openPool(); })) : null,
       aboutGroup('Ещё',
         // Тур живе на «Письмах» — туди й повертаємось
-        aboutRow('🐾', 'Познакомиться заново', null, () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
+        aboutRow('🐾', 'Показать подсказки заново', 'Питомцы покажут, где что', () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
         news),
       h('div', { class: 'about-foot' },
         h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне'))));
