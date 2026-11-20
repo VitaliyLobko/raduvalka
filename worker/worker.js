@@ -1577,14 +1577,18 @@ async function plansRoute(req, db, side, rest, notify) {
   const m = req.method;
   await migrateWishes(db);
   const me = VOTE_COL[side];
+  const them = VOTE_COL[other(side)];
 
   if (m === 'GET' && !rest) {
     const { results } = await db.prepare('SELECT * FROM ideas ORDER BY created DESC, id').all();
     return json({
       deck: results.filter((r) => r[me] == null).reverse().map((r) => ideaView(r, side)),
       ours: results.filter(bothLike).sort((a, b) => b.matched - a.matched).map((r) => matchView(r, side)),
-      mine: results.filter((r) => r[me] === 1 && !bothLike(r)).map((r) => ideaView(r, side)),
-      // «Отложенные» — мої ⏳; бачу лише я, другому ні ⏳, ні ✕ не видно ніде. ✕ (-1) — ніде
+      // Мої ❤️ без збігу: автор бачить, що другий відклав (later); «нет» — окремо, у nope
+      mine: results.filter((r) => r[me] === 1 && !bothLike(r) && r[them] !== -1)
+        .map((r) => ({ ...ideaView(r, side), later: r[them] === 0 })),
+      nope: results.filter((r) => r[me] === 1 && r[them] === -1).map((r) => ideaView(r, side)),
+      // «Отложенные» — мої ⏳ (автор бачить їх як «отложил(а)»); мій ✕ (-1) у мене ніде не показується
       later: results.filter((r) => r[me] === 0).map((r) => ideaView(r, side)),
       // Обраний колесом — лише поки план спільний і не зроблений
       next: await planNext(db, results),
@@ -1652,7 +1656,6 @@ async function plansRoute(req, db, side, rest, notify) {
   if (!PLAN_ID.test(rest)) throw fail(404, 'not found');
   const r = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(rest).first();
   if (!r) throw fail(404, 'not found');
-  const them = VOTE_COL[other(side)];
 
   if (m === 'PUT') {
     const b = await readJson(req);

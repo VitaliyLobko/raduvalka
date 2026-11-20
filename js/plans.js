@@ -164,7 +164,7 @@ export function markPlans() {
 
 // Що робить вкладка — один рядок під перемикачем
 const ABOUT = {
-  deck: (partner) => `❤️ хочу, ⏳ потом, ✕ нет. ${cap(partner)} увидит только совпадения — они в «Наших планах».`,
+  deck: () => '❤️ хочу, ⏳ потом, ✕ нет. Совпало у обоих — попадёт в «Наши планы».',
   ours: () => 'Только то, что вы оба отметили ❤️.',
   wheel: () => 'Не можете выбрать? Барабан выберет одно из «Наших планов».',
 };
@@ -240,7 +240,7 @@ function deckView(screen, me, pet) {
       courier(pet, data.mine.length
         ? `Все идеи ${me.partner === 'она' ? 'от неё' : 'от него'} разобраны. Предложи ещё — вдруг совпадёт 😉`
         : 'Тут пусто. Добавь, куда хочется сходить или поехать, — или попроси меня подкинуть идей.'),
-      tools, waitingList(screen, me), laterList(screen, me)];
+      tools, waitingList(screen, me), nopeList(screen, me), laterList(screen, me)];
   }
 
   const card = ideaCard(idea, me);
@@ -261,7 +261,7 @@ function deckView(screen, me, pet) {
     h('div', { class: 'plan-votes' }, voteBtn(-1, 'Нет', '✕'), voteBtn(0, 'Потом', '⏳'), voteBtn(1, 'Хочу', '❤️')),
     learned('plans') ? null : hintBar('plan-swipe-hint', 'потом', 'хочу'),
     data.deck.length > 1 ? h('p', { class: 'hint plan-hint' }, `Ещё ${data.deck.length - 1} после этой.`) : null,
-    tools, waitingList(screen, me), laterList(screen, me)];
+    tools, waitingList(screen, me), nopeList(screen, me), laterList(screen, me)];
 }
 
 // Картка ідеї: великий значок теми, назва від руки, подробиці; foot — рядок унизу
@@ -384,11 +384,19 @@ function waitingList(screen, me) {
     h('ul', { class: 'plan-list' }, ...data.mine.map((p) => waitRow(screen, p))));
 }
 
+// Мої ідеї, на які другий натиснув ✕: видно, що не збіглось; прибрати — ✕ чи змах уліво (видаляє ідею)
+function nopeList(screen, me) {
+  if (!data.nope?.length) return null;
+  return fold('nope', `Не совпало · ${data.nope.length}`,
+    h('p', { class: 'hint' }, `${cap(me.partner)} не хочет — не беда, предложи другое.`),
+    h('ul', { class: 'plan-list' }, ...data.nope.map((p) => waitRow(screen, p))));
+}
+
 // Мої ⏳: захотілось — ❤️, і ідея знову в грі; зовсім ні — ✕ чи змах уліво. Другий не дізнається ні про ⏳, ні про ✕
 function laterList(screen, me) {
   if (!data.later?.length) return null;
   return fold('later', `Отложенные · ${data.later.length}`,
-    h('p', { class: 'hint' }, `Захотелось — ❤️, совсем нет — ✕ или смахни влево. ${cap(me.partner)} об этом не узнает.`),
+    h('p', { class: 'hint' }, 'Захотелось — ❤️, совсем нет — ✕ или смахни влево.'),
     h('ul', { class: 'plan-list' }, ...data.later.map((p) => laterRow(screen, p))));
 }
 
@@ -461,7 +469,9 @@ function planRow(p, action, tag = 'li') {
     h('span', { class: 'plan-row-emoji', 'aria-hidden': 'true' }, emoji),
     h('span', { class: 'plan-row-text' },
       h('span', { class: 'plan-row-title' }, p.title),
-      p.note ? h('span', { class: 'plan-row-note' }, p.note) : null),
+      p.note ? h('span', { class: 'plan-row-note' }, p.note) : null,
+      // Моя ідея, яку другий відклав: «⏳ отложила / отложил»
+      p.later ? h('span', { class: 'plan-row-tag' }, `⏳ ${who().partner === 'она' ? 'отложила' : 'отложил'}`) : null),
     action);
 }
 
@@ -470,6 +480,7 @@ async function removeIdea(screen, p) {
   try {
     await mutate(`plans/${p.id}`, 'DELETE');
     data.mine = data.mine.filter((x) => x.id !== p.id);
+    if (data.nope) data.nope = data.nope.filter((x) => x.id !== p.id);
     if (alive(screen)) renderPlans(screen);
   } catch (e) {
     if (e.status === 409) {
