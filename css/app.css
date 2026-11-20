@@ -3555,3 +3555,14 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .postcard .together-days { margin: 2px 0 0; color: #a9c3c9; }
 .postcard .together-days b { color: var(--star); }
 
+
+/* «Вместе» на компʼютері (широке низьке вікно): планети ліворуч на всю висоту, поля праворуч */
+@media (min-width: 720px) and (orientation: landscape) {
+  .sheet-together .sheet-inner { max-width: 880px; }
+  .postcard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); grid-template-rows: auto 1fr; gap: 12px 18px; padding-right: 16px; }
+  .postcard > .space { grid-column: 1; grid-row: 1 / 3; align-self: center; }
+  .sheet-full .postcard .space, .sheet-together .postcard .space { width: min(100%, calc((100dvh - 7rem) * .75)); }
+  .postcard-top { grid-column: 2; grid-row: 1; padding-right: 48px; }
+  .postcard-foot { grid-column: 2; grid-row: 2; align-self: end; border-top: 0; padding-top: 0; }
+  .postcard .bday-row { grid-template-columns: 1fr; }
+}
