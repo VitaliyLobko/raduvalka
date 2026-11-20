@@ -43,6 +43,8 @@ const MOODS = {
   '🥱': ['устал', 'устала'],
 };
 // Що пропонувати; не влазять в рядок — у відповіді гортаються стрічкою, у виборі настрою — вбік
+// Слово настрою для чату: female — про неї
+export const moodWord = (emoji, female) => MOODS[emoji]?.[female ? 1 : 0] || '';
 const PICK = ['😊', '😴', '🤒', '😔', '🥰', '🍓', '🤯', '🤗', '😤', '🥶', '🥵', '🙃'];
 const iAmHe = () => DATA.side === 'vin';
 
@@ -117,7 +119,7 @@ function askBtn(she) {
       try {
         const r = await send('checkin/ask', 'POST', {});
         // Пішло — хмаринка підстрибує
-        if (!r.again) { btn.classList.remove('is-sent'); void btn.offsetWidth; btn.classList.add('is-sent'); }
+        if (!r.again) { btn.classList.remove('is-sent'); void btn.offsetWidth; btn.classList.add('is-sent'); document.dispatchEvent(new CustomEvent('radovalka:marked')); }
         if (r.again) toast(`Уже ${asked.toLowerCase()} — ${she ? 'она' : 'он'} ответит одним тапом`);
         else if (!r.reaches) toast(`У ${she ? 'неё' : 'него'} выключены уведомления — увидит, когда откроет Радовалку`);
         else toast(`${asked} 🫶 ${cap(she ? 'она' : 'он')} ответит одним тапом`);
@@ -194,6 +196,8 @@ export async function checkIn(mood = null) {
   const tip = mood ? '' : moodTip();
   try {
     const r = await deliver('checkin', 'checkin', mood ? { at, mood } : { at });
+    // Рядок «Я в порядке» у чаті — одразу, не чекаючи живого оновлення
+    if (!r.queued) document.dispatchEvent(new CustomEvent('radovalka:marked'));
     if (r.queued) toast(`Нет связи. Отметка уйдёт сама, когда будет интернет, — с временем ${hhmm(at)}`);
     else if (r.sent) toast(`${cap(who().partner)} узнает ❤️${tip}`);
     else if (!r.reaches) toast(`Отмечено. ${cap(who().partner)} увидит, когда откроет Радовалку`);

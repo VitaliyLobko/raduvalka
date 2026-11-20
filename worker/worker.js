@@ -26,6 +26,8 @@ const SCHEMA = [
   // tz — пояс телефону, щоб уночі сповіщення приходили без звуку
   'CREATE TABLE IF NOT EXISTS push (endpoint TEXT PRIMARY KEY, side TEXT NOT NULL, p256dh TEXT NOT NULL, '
     + 'auth TEXT NOT NULL, tz TEXT, created INTEGER NOT NULL)',
+  // Історія для чату: «Я в порядке» (kind ok, з настроєм) і «Как ты?» (ask) — маленькими рядками; doc checkin:* тримає лише останнє
+  'CREATE TABLE IF NOT EXISTS marks (id TEXT PRIMARY KEY, side TEXT NOT NULL, kind TEXT NOT NULL, mood TEXT, at INTEGER NOT NULL)',
 ];
 
 const SIDES = ['vona', 'vin'];
@@ -85,6 +87,10 @@ const MIGRATIONS = [
   'ALTER TABLE letters ADD COLUMN pushed INTEGER',
   // Хотілка «к дате»: 'YYYY-MM-DD' або NULL
   'ALTER TABLE wishes ADD COLUMN due TEXT',
+  // Нагадування другому про хотілку «к дате»: '<due>:7' чи '<due>:2' — що вже надіслано; нова дата — заново
+  'ALTER TABLE wishes ADD COLUMN reminded TEXT',
+  // «Сбылось»: коли другий натиснув «Подарено»; автор бачить хотілку в «Сбылось ✨»
+  'ALTER TABLE wishes ADD COLUMN gifted INTEGER',
   // Стрічка «Письма»: відповідь на мемчик і час відповіді (щоб відправник побачив «новое»)
   'ALTER TABLE memes ADD COLUMN reply TEXT',
   'ALTER TABLE memes ADD COLUMN replied INTEGER',
@@ -134,6 +140,7 @@ export default {
       await ensureSchema(env.DB);
       await releaseStock(env.DB, event.scheduledTime || Date.now());
       await cronPush(env);
+      await wishReminders(env);
       await sosCleanup(env.DB);
       await photoCleanup(env);
     })());
@@ -542,6 +549,7 @@ async function wishesRoute(req, db, side, rest, notify) {
     const { results } = await db.prepare('SELECT * FROM wishes ORDER BY hot DESC, created DESC').all();
     const view = (r, withMark) => ({
       id: r.id, title: r.title, price: r.price, link: r.link, note: r.note, hot: !!r.hot, due: r.due || null, img: r.img || null, created: r.created,
+      gifted: r.gifted || null,
       ...(withMark ? { mark: r.mark } : {}),
     });
     return json({
@@ -582,6 +590,14 @@ async function wishesRoute(req, db, side, rest, notify) {
         ...(r.img && r.img !== imgName ? [dropImg(db, r.img)] : []),
       ]);
       return json({ ok: true, img: imgName });
+    }
+    // «Подарено» — бачить і автор: хотілка в нього переїжджає в «Сбылось», йому push; подароване — заодно й «куплено»
+    if ('gifted' in b) {
+      const gifted = b.gifted ? (r.gifted || Date.now()) : null;
+      await db.prepare("UPDATE wishes SET gifted = ?, mark = CASE WHEN ? IS NULL THEN mark ELSE 'bought' END WHERE id = ?")
+        .bind(gifted, gifted, r.id).run();
+      if (gifted && !r.gifted) notify.send(r.owner, giftedNote(side));
+      return json({ ok: true, gifted });
     }
     const mark = WISH_MARKS.includes(b.mark) ? b.mark : null;
     await db.prepare('UPDATE wishes SET mark = ? WHERE id = ?').bind(mark, r.id).run();
@@ -1057,7 +1073,7 @@ async function feedPage(db, side, url) {
   const n = Math.min(100, Math.max(10, Number(url.searchParams.get('limit')) || FEED_PAGE));
   const take = n + 1;
   const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
-  const [inbox, sent, memes, news] = await Promise.all([
+  const [inbox, sent, memes, news, marks, gifted] = await Promise.all([
     db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, gift, chosen, at AS t FROM letters '
       + "WHERE dst = ? AND at <= ? AND at < ? AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
@@ -1069,6 +1085,11 @@ async function feedPage(db, side, url) {
     db.prepare("SELECT 'wish' AS kind, id, title, NULL AS cat, created AS t FROM wishes WHERE owner = ? AND created < ? "
       + "UNION ALL SELECT 'plan' AS kind, id, title, cat, created AS t FROM ideas WHERE author = ? AND ai = 0 AND created < ? "
       + 'ORDER BY t DESC LIMIT ?').bind(other(side), before, other(side), before, take).all(),
+    // «Я в порядке» і «Как ты?» обох — рядками в чаті
+    db.prepare('SELECT kind, id, side, mood, at AS t FROM marks WHERE at < ? ORDER BY at DESC LIMIT ?').bind(before, take).all(),
+    // «Подарено»: обом — хто подарив і що
+    db.prepare("SELECT 'gifted' AS kind, id, title, owner AS whose, gifted AS t FROM wishes WHERE gifted IS NOT NULL AND gifted < ? ORDER BY gifted DESC LIMIT ?")
+      .bind(before, take).all(),
   ]);
   // Колесо в чаті: запрошення від другого (поки чекає) і останнє обертання — в обох
   const wheel = [];
@@ -1079,7 +1100,7 @@ async function feedPage(db, side, url) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
     if (idea) wheel.push({ kind: 'spin', id: `s${spin.at}`, title: idea.title, t: spin.at });
   }
-  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...wheel]]];
+  const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...marks.results, ...gifted.results, ...wheel]]];
   const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
   let page = all;
   let horizon = 0;
@@ -1098,7 +1119,10 @@ async function feedPage(db, side, url) {
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
-    news: of('news').map((r) => ({ kind: r.kind, id: r.id, title: r.title, at: r.t, ...(r.cat === 'love' ? { love: true } : {}) })),
+    news: of('news').map((r) => (r.side
+      ? { kind: r.kind, id: r.id, mine: r.side === side, mood: r.mood || null, at: r.t }
+      : r.whose ? { kind: r.kind, id: r.id, title: r.title, mine: r.whose !== side, at: r.t }
+      : { kind: r.kind, id: r.id, title: r.title, at: r.t, ...(r.cat === 'love' ? { love: true } : {}) })),
     more,
     horizon,
   };
@@ -2327,11 +2351,18 @@ async function saveCheckin(db, side, at, mood, notify) {
   if (prev?.at >= at) return json({ at: prev.at, reaches, sent: false });
   const push = reaches && now - at < CHECKIN_PUSH_AGE;
   await putDoc(db, `checkin:${side}`, { at, mood, pushed: push ? now : prev?.pushed || null });
+  await addMark(db, side, 'ok', at, mood);
   if (push) notify.send(other(side), checkinNote(side, at, now, mood));
   return json({ at, reaches, sent: push });
 }
 
 // Другий побачив мою відмітку на екрані — у мене поруч зʼявиться «увидела ✓»
+// Повтор того самого (черга без зв'язку) — той самий id, другого рядка не буде
+async function addMark(db, side, kind, at, mood = null) {
+  await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+    .bind(`${kind}-${side}-${at}`, side, kind, mood, at).run();
+}
+
 async function checkinSeen(req, db, side) {
   const b = await readJson(req);
   const k = `checkin:${other(side)}`;
@@ -2348,6 +2379,7 @@ async function checkinAsk(req, db, side, notify) {
   if (prev?.at && now - prev.at < ASK_GAP) return json({ reaches, sent: false, again: true });
   const token = [...crypto.getRandomValues(new Uint8Array(18))].map((x) => x.toString(16).padStart(2, '0')).join('');
   await putDoc(db, `checkin-ask:${side}`, { at: now, token });
+  await addMark(db, side, 'ask', now);
   if (reaches) notify.send(other(side), askNote(side, token, new URL(req.url).origin));
   return json({ reaches, sent: reaches && notify.on });
 }
@@ -2675,6 +2707,84 @@ async function releaseStock(db, now) {
 }
 
 // Cron раз на 10 хвилин. Вікно в 6 годин: перший запуск не розбудить старими листами
+// «К дате» в хотілках: другому (хто дарує) — за 7 і за 2 дні, зранку від 9:00 за Києвом; «куплено» — не нагадуємо.
+// Назва зашифрована — у push лише дата й «хотелка к этому дню»
+const WISH_REMIND_HOUR = 9;
+async function wishReminders(env) {
+  if (!env.VAPID_PRIVATE) return;
+  const now = new Date();
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: STOCK_TZ }).format(now));
+  if (hour < WISH_REMIND_HOUR) return;
+  const today = kyivDay();
+  const { results } = await env.DB.prepare(
+    "SELECT id, owner, due, reminded FROM wishes WHERE due IS NOT NULL AND due >= ? AND gifted IS NULL AND (mark IS NULL OR mark != 'bought')",
+  ).bind(today).all();
+  for (const w of results) {
+    const days = Math.round((Date.parse(`${w.due}T00:00Z`) - Date.parse(`${today}T00:00Z`)) / 864e5);
+    const stage = days <= 2 ? 2 : days <= 7 ? 7 : 0;
+    if (!stage) continue;
+    const done = w.reminded === `${w.due}:2` || w.reminded === `${w.due}:${stage}`;
+    if (done) continue;
+    // Спершу позначка — два накладені запуски cron не надішлють двічі
+    const res = await env.DB.prepare('UPDATE wishes SET reminded = ? WHERE id = ? AND reminded IS ?')
+      .bind(`${w.due}:${stage}`, w.id, w.reminded ?? null).run();
+    if (res.meta?.changes) await pushSide(env, other(w.owner), wishDueNote(w.owner, w.due, days));
+  }
+  await feastReminders(env, today);
+}
+
+// За 10 днів до дня народження (з «Вместе») і Нового року — тому, хто дарує: скільки хотілок і скільки «очень хочу».
+// Раз на свято: doc remind:<кому>:<що>:<дата>
+const FEAST_AHEAD = 10;
+const nextOn = (today, mmdd) => {
+  const y = Number(today.slice(0, 4));
+  const fix = (yy) => (mmdd === '02-29' && new Date(Date.UTC(yy, 1, 29)).getUTCMonth() !== 1 ? `${yy}-02-28` : `${yy}-${mmdd}`);
+  return fix(y) >= today ? fix(y) : fix(y + 1);
+};
+async function feastReminders(env, today) {
+  const together = (await getDoc(env.DB, 'together')) || {};
+  for (const to of SIDES) {
+    const owner = other(to);
+    const bday = together[owner === 'vona' ? 'bdayVona' : 'bdayVin'];
+    const feasts = [['ny', nextOn(today, '01-01')], ...(DATE_FIELD.test(String(bday || '')) ? [['bday', nextOn(today, bday.slice(5))]] : [])];
+    for (const [kind, date] of feasts) {
+      const days = Math.round((Date.parse(`${date}T00:00Z`) - Date.parse(`${today}T00:00Z`)) / 864e5);
+      if (days < 1 || days > FEAST_AHEAD) continue;
+      const key = `remind:${to}:${kind}:${date}`;
+      if (await getDoc(env.DB, key)) continue;
+      await putDoc(env.DB, key, { at: Date.now() });
+      const c = await env.DB.prepare("SELECT count(*) n, sum(hot) hot, sum(CASE WHEN mark = 'bought' THEN 1 ELSE 0 END) bought FROM wishes WHERE owner = ? AND gifted IS NULL")
+        .bind(owner).first();
+      await pushSide(env, to, feastNote(owner, kind, days, c || {}));
+    }
+  }
+}
+
+const daysWord = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'день' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'дня' : 'дней');
+function feastNote(owner, kind, days, c) {
+  const when = days === 1 ? 'Завтра' : `Через ${days} ${daysWord(days)}`;
+  const title = kind === 'ny' ? `🎄 ${when} Новый год` : `🎂 ${when} ${sender(owner, 'его', 'её')} день рождения`;
+  const n = Number(c.n) || 0;
+  const hot = Number(c.hot) || 0;
+  const bought = Number(c.bought) || 0;
+  const body = !n ? `${sender(owner, 'У него', 'У неё')} пока нет хотелок — можно спросить, о чём ${sender(owner, 'мечтает', 'мечтает')}`
+    : `В ${sender(owner, 'его', 'её')} хотелках: ${n}${hot ? `, из них «очень хочу» — ${hot}` : ''}${bought ? `. Уже куплено: ${bought}` : ''}`;
+  return { title, body, tag: `feast-${kind}`, go: 'wish' };
+}
+
+function giftedNote(from) {
+  return { title: 'Сбылось ✨', body: sender(from, 'Он подарил то, что ты хотела', 'Она подарила то, что ты хотел'), tag: 'wish-gifted', go: 'wish' };
+}
+
+function wishDueNote(owner, due, days) {
+  const when = days === 0 ? 'Сегодня' : days === 1 ? 'Завтра' : `Через ${days} ${days < 5 ? 'дня' : 'дней'}`;
+  return {
+    title: `🎁 ${when} — ${meetDay(due)}`,
+    body: `${sender(owner, 'У него', 'У неё')} хотелка к этому дню. Подарок уже есть? Если купили — отметь «куплено»`,
+    tag: `wish-due-${due}`, go: 'wish',
+  };
+}
+
 async function cronPush(env) {
   if (!env.VAPID_PRIVATE) return;
   await ensureSchema(env.DB);

@@ -372,6 +372,8 @@ initBack((name) => selectTab(name, true));
 // 🎤 біля полів з data-voice — у шторках, що з'являються пізніше, теж
 initVoice();
 // Надіслав лист — «Мои» на вкладці «Письма» одразу з ним
+// «Я в порядке» / «Как ты?» — рядок у чаті тихо, без перемальовки всього екрана
+document.addEventListener('radovalka:marked', () => refreshFeed());
 document.addEventListener('radovalka:sent', () => { invalidateFeed(); if (tab === 'letter') render(); else refreshFeed(); });
 // Тап по сповіщенню при відкритій Радовалці — на «Письма», свіже дотягне visibilitychange
 const GO_TABS = ['letter', 'wish', 'plans'];

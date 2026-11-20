@@ -9,6 +9,7 @@ import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun } from './fx.js';
 import { saveMeme } from './memesave.js';
+import { moodWord } from './checkin.js';
 
 const SWIPE = 70;
 // Від краю екрана Android гортає «Назад» — там свайп не починаємо
@@ -376,6 +377,12 @@ function dayFor(d) {
 // Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
 function newsRow(n) {
   const she = who().partner === 'она';
+  if (n.kind === 'ok' || n.kind === 'ask') return markRow(n, she);
+  // «Подарено»: хто подарив і що; тап — у «Хотелки»
+  if (n.kind === 'gifted') {
+    const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;
+    return h('li', { class: 'feed-news' }, h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.('wish') }, text));
+  }
   // Колесо: запрошення від другого й останнє обертання; тап — одразу колесо
   // «Нежність» — з натяком і підморгуванням
   if (n.love) {
@@ -392,6 +399,17 @@ function newsRow(n) {
   return h('li', { class: 'feed-news' },
     h('button', { type: 'button', class: 'feed-news-btn', onclick: () => ops.go?.(tab) },
       h('span', { 'aria-hidden': 'true' }, icon), ` ${text}`));
+}
+
+// «Я в порядке» і «Как ты?» — дрібний рядок з боку того, хто відмітився: моє праворуч, другого ліворуч
+function markRow(n, she) {
+  const female = n.mine ? DATA.side === 'vona' : she;
+  const word = n.mood ? moodWord(n.mood, female) : '';
+  const mood = n.mood ? ` ${n.mood}${word ? ` ${word}` : ''}` : '';
+  const text = n.kind === 'ask'
+    ? (n.mine ? `💬 Спросил${DATA.side === 'vona' ? 'а' : ''}, как ${she ? 'она' : 'он'}` : `💬 ${cap(who().partner)} спрашивает, как ты`)
+    : `❤️ ${n.mine ? 'Я' : cap(who().partner)} в порядке${mood}`;
+  return h('li', { class: `feed-mark${n.mine ? ' is-mine' : ''}` }, h('span', {}, text), h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
 }
 
 // Реакції: довге натискання на чуже повідомлення — рядок значків над ним; тап — поставити, ще тап — зняти

@@ -1810,6 +1810,12 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .want.is-bought { opacity: .6; }
 .want.is-bought .want-title { text-decoration: line-through; text-decoration-thickness: 2px; }
 .want.is-eye { outline: 2px dashed var(--wax); outline-offset: -2px; }
+/* «Куплено» / «Сбылось ✨» — згорнуті розділи під списком */
+.want-fold { margin-top: 14px; }
+.want-fold > summary { padding: 8px 0; font-weight: 500; color: var(--ink); cursor: pointer; }
+.want-fold > .want-list { margin-top: 6px; }
+.want-came { margin-left: auto; font-size: .8125rem; color: var(--ink-soft); }
+.want-marks { flex-wrap: wrap; justify-content: flex-end; }
 
 .want-form input { margin-bottom: 8px; }
 
@@ -2324,6 +2330,13 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .feed-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; overflow-x: clip; }
 /* Новина в чаті: «Он добавил хотелку …» — тихий рядок посередині, як дата */
 .feed-news { justify-self: center; max-width: 90%; list-style: none; }
+/* «Я в порядке» / «Как ты?» у чаті — дрібно, без пузиря, з боку того, хто відмітився */
+.feed-mark {
+  justify-self: start; display: flex; align-items: baseline; gap: 6px; max-width: 86%; margin: 0 6px; list-style: none;
+  font-size: .8125rem; line-height: 1.3; color: var(--ink-soft);
+}
+.feed-mark.is-mine { justify-self: end; }
+.feed-mark-time { flex: none; font-size: .75rem; opacity: .8; font-variant-numeric: tabular-nums; }
 .feed-news-btn {
   padding: 6px 14px;
   border: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);

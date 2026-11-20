@@ -107,6 +107,15 @@ const photos = new Map();
 // Свої хотілки, змахнуті вліво: 5 с можна «Вернуть», потім — видалення на сервері
 const removing = new Map();
 const UNDO_MS = 5000;
+// Згорнуті розділи («Куплено», «Сбылось»): перемальовка екрана не має їх згортати
+const unfolded = new Set();
+function wantFold(key, summary, ...children) {
+  const el = h('details', { class: 'want-fold' }, h('summary', {}, summary), ...children);
+  el.open = unfolded.has(key);
+  el.addEventListener('toggle', () => { if (el.open) unfolded.add(key); else unfolded.delete(key); });
+  return el;
+}
+const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 
 // Відповідь сервера могла прийти, коли вже відкрита інша вкладка, — тоді не малюємо
 const onWishTab = () => !!document.querySelector('.tab[data-tab="wish"].is-active');
@@ -171,11 +180,20 @@ export function renderWishes(screen) {
 
   let body;
   if (view === 'mine') {
+    // Подароване — окремо внизу, «Сбылось ✨»: список бажань не росте тим, що вже здійснилось
+    const live = data.mine.filter((w) => !w.gifted);
+    const came = data.mine.filter((w) => w.gifted).sort((a, b) => b.gifted - a.gifted);
+    const gave = me.partner === 'она' ? 'подарила' : 'подарил';
     body = [
       h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '＋ Хочу'),
-      data.mine.length
-        ? h('ul', { class: 'want-list' }, ...data.mine.map((w) => mineCard(screen, w)))
-        : h('p', { class: 'mk-wait' }, `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
+      live.length
+        ? h('ul', { class: 'want-list' }, ...live.map((w) => mineCard(screen, w)))
+        : h('p', { class: 'mk-wait' }, came.length ? 'Всё, что хотелось, сбылось ✨ Добавь новое.'
+          : `Пока пусто. Добавь первое — можно просто вставить ссылку из магазина. ${cap(me.partner)} увидит.`),
+      came.length ? wantFold('came', `Сбылось ✨ · ${came.length}`,
+        h('ul', { class: 'want-list' }, ...came.map((w) => wishCard(w, {
+          actions: h('span', { class: 'want-came' }, `✨ ${cap(me.partner)} ${gave} ${dayMonth(w.gifted)}`),
+        })))) : null,
     ];
   } else {
     const newest = newestTheirs();
@@ -188,16 +206,26 @@ export function renderWishes(screen) {
     // Повзунок перемальовує лише список під собою — інакше палець зірвався б із нього посеред руху
     const listBox = h('div', { class: 'want-theirs' });
     const drawList = () => {
-      const list = byDue(data.theirs).filter((w) => fitsBudget(w, budget));
+      // Куплене й подароване — вниз, згорнутим «Куплено»: зверху лишається те, що ще шукати
+      const done = (w) => !!w.gifted || w.mark === 'bought';
+      const all = byDue(data.theirs);
+      const left = all.filter((w) => !done(w));
+      const got = all.filter(done);
+      const list = left.filter((w) => fitsBudget(w, budget));
+      const card = (w) => wishCard(w, {
+        open: true,
+        fresh: freshFrom != null && w.created > freshFrom,
+        actions: h('span', { class: 'want-marks' },
+          done(w) ? null : markBtn(screen, w, 'eye', `🤫 ${iMark}`),
+          w.gifted ? null : markBtn(screen, w, 'bought', '✓ куплено'),
+          done(w) ? giftBtn(screen, w) : null),
+      });
       listBox.replaceChildren(list.length
-        ? h('ul', { class: 'want-list' }, ...list.map((w) => wishCard(w, {
-          open: true,
-          fresh: freshFrom != null && w.created > freshFrom,
-          actions: h('span', { class: 'want-marks' },
-            markBtn(screen, w, 'eye', `🤫 ${iMark}`),
-            markBtn(screen, w, 'bought', '✓ куплено')),
-        })))
-        : h('p', { class: 'mk-wait' }, data.theirs.length ? 'В этот бюджет ничего — сдвинь бегунки.' : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`));
+        ? h('ul', { class: 'want-list' }, ...list.map(card))
+        : h('p', { class: 'mk-wait' }, left.length ? 'В этот бюджет ничего — сдвинь бегунки.'
+          : got.length ? 'Всё уже куплено — оно внизу 🎉'
+          : `${cap(me.partner)} пока ничего не ${me.partner === 'она' ? 'добавила' : 'добавил'}.`),
+        got.length ? wantFold('got', `Куплено · ${got.length}`, h('ul', { class: 'want-list' }, ...got.map(card))) : '');
     };
     // Повзунок — до першого малювання: застарілий бюджет він сам поправить, а без повзунка фільтра немає
     const slider = budgetSlider(data.theirs.map((w) => w.price), budget, (b) => { budget = b; });
@@ -281,6 +309,32 @@ function undoRow(screen, w) {
         if (onWishTab()) renderWishes(screen);
       },
     }, 'Вернуть'));
+}
+
+// «Подарено» — коли вже вручили: у другого хотілка переходить у «Сбылось ✨», йому push і рядок у чаті
+function giftBtn(screen, w) {
+  const she = who().partner === 'она';
+  return h('button', {
+    type: 'button',
+    class: 'want-mark want-gift',
+    'aria-pressed': String(!!w.gifted),
+    onclick: async () => {
+      const prev = { gifted: w.gifted, mark: w.mark };
+      w.gifted = w.gifted ? null : Date.now();
+      if (w.gifted) w.mark = 'bought';
+      renderWishes(screen);
+      try {
+        const r = await send(`wishes/${w.id}`, 'PUT', { gifted: !!w.gifted });
+        if (r?.gifted) w.gifted = r.gifted;
+        if (w.gifted) toast(`${cap(she ? 'она' : 'он')} увидит это в «Сбылось» ✨`);
+        document.dispatchEvent(new CustomEvent('radovalka:marked'));
+      } catch {
+        Object.assign(w, prev);
+        if (onWishTab()) renderWishes(screen);
+        toast('Не сохранилось — нет связи');
+      }
+    },
+  }, w.gifted ? '🎁 подарено' : '🎁 Подарено');
 }
 
 function markBtn(screen, w, mark, label) {
