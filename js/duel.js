@@ -112,11 +112,11 @@ async function show(g, fresh) {
   const status = h('p', { class: 'duel-status' });
   const scoreEl = h('p', { class: 'duel-score' });
   const paintScore = (s) => scoreEl.replaceChildren(
-    h('span', {}, 'Ты'), h('b', {}, String(s.me)), h('span', { class: 'duel-colon' }, ':'), h('b', {}, String(s.them)), h('span', {}, cap(who().partner)));
+    h('span', {}, cap(who().partner)), h('b', {}, String(s.them)), h('span', { class: 'duel-colon' }, ':'), h('b', {}, String(s.me)), h('span', {}, 'Ты'));
   const history = h('div', { class: 'duel-history', 'aria-label': 'Раунды' });
   const paintHistory = (n) => history.replaceChildren(...g.rounds.slice(0, n).map((r, i) => h('span', {
     class: `duel-past${r.win ? ` is-${r.win}` : ''}`, title: `Раунд ${i + 1}`,
-  }, `${GLYPH[r.me]} ${GLYPH[r.them]}`)));
+  }, `${GLYPH[r.them]} ${GLYPH[r.me]}`)));
   const act = h('div', { class: 'duel-act' });
   body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), scoreEl, history, stage, status, act);
 
@@ -134,7 +134,7 @@ async function show(g, fresh) {
     markSeen(g);
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
   } else {
-    stage.replaceChildren(...hands('✊', '✊').reverse());
+    stage.replaceChildren(...hands('✊', '✊'));
   }
   paintScore(g.score);
   paintHistory(g.rounds.length);
@@ -156,7 +156,7 @@ async function show(g, fresh) {
   act.replaceChildren(movesRow((m) => move(g, m)));
 }
 
-// Я — ліворуч, як у рахунку «Ты 1 : 0 Она»
+// Я — праворуч, як свої повідомлення в чаті й рахунок «Она 0 : 1 Ты»
 const hands = (them, me) => {
   const t = h('div', { class: 'duel-hand is-them' }, h('span', { class: 'duel-glyph' }, them), h('span', { class: 'duel-who' }, cap(who().partner)));
   const m = h('div', { class: 'duel-hand is-me' }, h('span', { class: 'duel-glyph' }, me), h('span', { class: 'duel-who' }, 'Ты'));
@@ -166,7 +166,7 @@ const hands = (them, me) => {
 // «Камень, ножницы, бумага — раз, два, три!»: кулаки тричі підстрибують, потім — справжні ходи
 async function reveal(stage, status, r) {
   const [them, me] = hands('✊', '✊');
-  stage.replaceChildren(me, them);
+  stage.replaceChildren(them, me);
   status.textContent = 'Раз, два, три…';
   if (!reduceMotion) {
     const bob = [{ transform: 'translateY(0)' }, { transform: 'translateY(-22px)', offset: 0.45 }, { transform: 'translateY(0)' }];
