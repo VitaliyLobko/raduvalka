@@ -462,23 +462,19 @@ function openReactions(bubble, it) {
     }, e)));
   // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
   const opened = Date.now();
-  // На чуже повідомлення — ще й «🫡 Да, капитан!»: згода окремим рядком у чаті
-  const aye = replyTarget(it) && !it.l?.tpl ? h('button', {
-    type: 'button', class: 'react-captain',
-    onclick: (ev) => { ev.stopPropagation(); close(); sayAye(it, bubble); },
-  }, '🫡 Да, капитан!') : null;
-  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick, aye);
+  // На чуже повідомлення останній смайлик — 🫡: не реакція, а «Да, капитан!» окремим рядком у чаті
+  if (replyTarget(it) && !it.l?.tpl) {
+    pick.append(h('button', {
+      type: 'button', role: 'menuitem', class: 'react-opt', 'aria-label': 'Да, капитан!', title: 'Да, капитан!',
+      onclick: (ev) => { ev.stopPropagation(); close(); sayAye(it, bubble); },
+    }, '🫡'));
+  }
+  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
   document.body.append(layer);
   // Над повідомленням, а коли нагорі місця нема — під ним; не виходимо за краї екрана
   const w = pick.offsetWidth;
   pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  const top = aye ? (r.top > 128 ? r.top - 116 : r.bottom + 8) : (r.top > 70 ? r.top - 58 : r.bottom + 8);
-  pick.style.top = `${top}px`;
-  if (aye) {
-    const aw = aye.offsetWidth;
-    aye.style.left = `${Math.max(8, Math.min(innerWidth - aw - 8, r.left + r.width / 2 - aw / 2))}px`;
-    aye.style.top = `${top + pick.offsetHeight + 8}px`;
-  }
+  pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
 }
 
 // «🫡 Да, капитан!»: цитата — те, на що погодились; рядок у чаті підтягує refreshFeed
