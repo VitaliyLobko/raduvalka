@@ -134,7 +134,14 @@ async function show(g, fresh) {
     markSeen(g);
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
   } else {
-    stage.replaceChildren(...hands('✊', '✊'));
+    // Свій хід — одразу на моєму боці; чужий: 🤫 — уже сходив(ла), але не видно, ❔ — ще ні
+    stage.replaceChildren(...hands(g.done ? GLYPH[g.rounds.at(-1).them] : g.theirMoved ? '🤫' : '❔', g.done ? GLYPH[g.rounds.at(-1).me] : g.myMove ? GLYPH[g.myMove] : '❔'));
+    const r = g.rounds.at(-1);
+    if (g.done && r?.win) {
+      const [them, me] = stage.children;
+      (r.win === 'me' ? me : them).classList.add('is-win');
+      (r.win === 'me' ? them : me).classList.add('is-lose');
+    }
   }
   paintScore(g.score);
   paintHistory(g.rounds.length);
@@ -147,7 +154,7 @@ async function show(g, fresh) {
     return;
   }
   if (g.myMove) {
-    if (!fresh1) status.textContent = `Твой ход — ${GLYPH[g.myMove]}, ${gen()} пока не видно. Ждём ${gen()} ход…`;
+    if (!fresh1) status.textContent = `Ждём ${gen()} ход…`;
     else status.textContent += ` Твой ход — ${GLYPH[g.myMove]}. Ждём ${gen()}…`;
     act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить спор'));
     return;
