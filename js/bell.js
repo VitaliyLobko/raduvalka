@@ -75,15 +75,31 @@ export function bellArrived(at) {
   if (!at || at <= seen) return;
   try { localStorage.setItem(SEEN, String(at)); } catch { /* приватне вікно */ }
   if (Date.now() - at > FRESH) return;
-  navigator.vibrate?.(BUZZ);
-  chime();
+  if (touched()) buzz();
+  else afterTap(at);
   bellFx(true);
   toast(`🔔 ${cap(who().partner)} зовёт тебя`);
   document.dispatchEvent(new CustomEvent('radovalka:marked'));
 }
 
-// Дзвіночок без файлу: три удари, у кожного — основний тон і два обертони, що швидко гаснуть.
-// Браузер дає звук лише після першого дотику до сторінки — інакше мовчки лишаються вібрація й пелюстки
+const buzz = () => { navigator.vibrate?.(BUZZ); chime(); };
+// Вібрацію й звук браузер дає лише після першого дотику до сторінки (відкрили з push, перемкнули половину)
+const touched = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
+// Тоді — за першим тапом, поки дзвінок свіжий. pointerup, а не pointerdown: на сенсорі дозвіл дає саме відпускання
+let waitTap = null;
+function afterTap(at) {
+  if (waitTap) { removeEventListener('pointerup', waitTap, true); removeEventListener('keydown', waitTap, true); }
+  waitTap = () => {
+    removeEventListener('pointerup', waitTap, true);
+    removeEventListener('keydown', waitTap, true);
+    waitTap = null;
+    if (Date.now() - at < FRESH) buzz();
+  };
+  addEventListener('pointerup', waitTap, true);
+  addEventListener('keydown', waitTap, true);
+}
+
+// Дзвіночок без файлу: три удари, у кожного — основний тон і два обертони, що швидко гаснуть
 function chime() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
