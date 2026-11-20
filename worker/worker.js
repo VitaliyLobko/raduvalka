@@ -28,6 +28,8 @@ const SCHEMA = [
     + 'auth TEXT NOT NULL, tz TEXT, created INTEGER NOT NULL)',
   // Історія для чату: «Я в порядке» (kind ok, з настроєм) і «Как ты?» (ask) — маленькими рядками; doc checkin:* тримає лише останнє
   'CREATE TABLE IF NOT EXISTS marks (id TEXT PRIMARY KEY, side TEXT NOT NULL, kind TEXT NOT NULL, mood TEXT, at INTEGER NOT NULL)',
+  // «✊ Спор»: кожен хід — свій рядок (гра, раунд, сторона); вставка без перезапису — одночасні ходи не губляться й не міняються
+  'CREATE TABLE IF NOT EXISTS duel_moves (duel TEXT NOT NULL, round INTEGER NOT NULL, side TEXT NOT NULL, move TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (duel, round, side))',
 ];
 
 const SIDES = ['vona', 'vin'];
@@ -284,6 +286,7 @@ async function route(req, env, ctx, info = {}) {
     if (reaches) notify.send(other(side), captainNote(side, quote));
     return json({ reaches, sent: reaches && notify.on });
   }
+  if (path === 'duel' || path.startsWith('duel/')) return duelRoute(req, env.DB, side, path.slice(4), notify);
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
@@ -1155,6 +1158,13 @@ async function feedPage(db, side, url) {
   const wheel = [];
   const inv = await todayInvite(db);
   if (inv && inv.by === other(side) && inv.at < before) wheel.push({ kind: 'invite', id: `i${inv.at}`, title: '', t: inv.at });
+  // «✊ Спор», що триває, — один рядок там, де був останній хід; дограний — рядок marks kind duel
+  const duel = await activeDuel(db);
+  if (duel) {
+    const st = duelState(await duelMoves(db, duel.id));
+    const t = Math.max(duel.at, st.last);
+    if (t < before) wheel.push({ id: `d${duel.id}`, duel: duelView(duel, st, side), t });
+  }
   const spin = await getDoc(db, 'plan-spin');
   if (spin?.at && spin.at < before) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
@@ -1179,7 +1189,9 @@ async function feedPage(db, side, url) {
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
-    news: of('news').map((r) => (r.titles
+    news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
+      : r.kind === 'duel' ? { kind: 'duel', id: r.id, duel: duelMarkView({ ...r, at: r.t }, side), at: r.t }
+      : r.titles
       ? { kind: r.kind, id: r.id, titles: [...r.titles].reverse(), at: r.t }
       : r.side
       ? { kind: r.kind, id: r.id, mine: r.side === side, mood: r.mood || null, at: r.t, ...(r.count > 1 ? { count: r.count } : {}) }
@@ -2436,6 +2448,142 @@ async function addMark(db, side, kind, at, mood = null) {
     .bind(`${kind}-${side}-${at}`, side, kind, mood, at).run();
 }
 
+// ── «✊ Спор»: камінь-ножиці-папір до двох перемог. Ходять коли зручно; хід другого не видно, поки не сходили обидва.
+// doc duel — гра, що триває (одна на двох); ходи — у duel_moves; кінець — рядок marks kind duel з усіма раундами
+const DUEL_MOVES = ['r', 's', 'p'];
+const DUEL_BEATS = { r: 's', s: 'p', p: 'r' };
+// Готові теми: назву знає сервер (і пише її в push); свою тему телефон шифрує — тоді push без неї
+const DUEL_PRESETS = { dog: 'Кто гуляет с собакой', dishes: 'Кто моет посуду', film: 'Кто выбирает фильм', place: 'Кто выбирает, куда пойдём' };
+const DUEL_WINS = 2;
+// Забута гра не тримає вічно: новий спор через добу її замінює
+const DUEL_STALE = 24 * 3600000;
+
+// Розіграні раунди (обидва ходи є) з переможцем; хто ще не сходив у поточному
+function duelState(moves) {
+  const by = {};
+  for (const mv of moves) (by[mv.round] ||= {})[mv.side] = mv;
+  const rounds = [];
+  const wins = { vona: 0, vin: 0 };
+  let last = 0;
+  for (let r = 0; by[r]?.vona && by[r]?.vin; r += 1) {
+    const a = by[r].vona.move;
+    const b = by[r].vin.move;
+    const win = a === b ? null : DUEL_BEATS[a] === b ? 'vona' : 'vin';
+    if (win) wins[win] += 1;
+    last = Math.max(by[r].vona.at, by[r].vin.at);
+    rounds.push({ vona: a, vin: b, win });
+    if (wins[win] >= DUEL_WINS) return { rounds, wins, winner: win, open: null, last };
+  }
+  const open = by[rounds.length] || {};
+  for (const s of SIDES) if (open[s]) last = Math.max(last, open[s].at);
+  return { rounds, wins, winner: null, open, last };
+}
+
+// Що бачить сторона: розіграні раунди повністю, у поточному — лише свій хід і «другий уже сходив»
+function duelView(game, st, side) {
+  const o = other(side);
+  return {
+    id: game.id,
+    mine: game.by === side,
+    topic: game.topic,
+    preset: game.preset,
+    at: game.at,
+    rounds: st.rounds.map((r) => ({ me: r[side], them: r[o], win: r.win ? (r.win === side ? 'me' : 'them') : null })),
+    score: { me: st.wins[side], them: st.wins[o] },
+    myMove: st.open?.[side]?.move || null,
+    theirMoved: !!st.open?.[o],
+    done: st.winner ? { won: st.winner === side } : null,
+  };
+}
+
+async function duelMoves(db, id) {
+  return (await db.prepare('SELECT round, side, move, at FROM duel_moves WHERE duel = ?').bind(id).all()).results;
+}
+
+// Чинна гра (або null)
+async function activeDuel(db) {
+  const game = await getDoc(db, 'duel');
+  return game?.id ? game : null;
+}
+
+// Скінчена гра — рядок у чаті; id від гри: обидва запити, що одночасно дограли, пишуть той самий рядок
+async function finishDuel(db, game, st) {
+  const mood = JSON.stringify({ id: game.id, topic: game.topic, preset: game.preset, by: game.by, rounds: st.rounds });
+  await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+    .bind(`duel-${game.id}`, st.winner, 'duel', mood, st.last).run();
+  // Ходи лишаємо: запит, що дограв одночасно, ще їх перечитає; приберуться з наступною грою
+  await db.prepare("DELETE FROM docs WHERE k = 'duel' AND v LIKE ?").bind(`%"id":"${game.id}"%`).run();
+}
+
+// Дограна гра з рядка marks (для чату й для розкриття тому, хто сходив першим)
+function duelMarkView(row, side) {
+  const g = JSON.parse(row.mood);
+  const wins = { vona: 0, vin: 0 };
+  for (const r of g.rounds) if (r.win) wins[r.win] += 1;
+  return duelView({ ...g, at: row.at }, { rounds: g.rounds, wins, winner: row.side, open: null }, side);
+}
+
+async function lastDuel(db, side) {
+  const row = await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'duel' ORDER BY at DESC LIMIT 1").first();
+  return row ? duelMarkView(row, side) : null;
+}
+
+async function duelRoute(req, db, side, rest, notify) {
+  const m = req.method;
+  const now = Date.now();
+  if (m === 'GET' && !rest) {
+    const game = await activeDuel(db);
+    return json({ duel: game ? duelView(game, duelState(await duelMoves(db, game.id)), side) : null, last: await lastDuel(db, side) });
+  }
+  const b = m === 'POST' ? await readJson(req) : {};
+  const reaches = await hasPush(db, other(side));
+  // Виклик: тема (готова чи своя) і одразу мій перший хід
+  if (m === 'POST' && !rest) {
+    const preset = Object.hasOwn(DUEL_PRESETS, b.preset) ? b.preset : null;
+    const own = clip(String(b.topic || '').replace(/\s+/g, ' '), 60);
+    const topic = preset ? DUEL_PRESETS[preset] : own;
+    if (!topic || !DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
+    const prev = await activeDuel(db);
+    if (prev && now - prev.at < DUEL_STALE) throw fail(409, 'busy');
+    const game = { id: newId(), by: side, topic, preset, at: now };
+    await putDoc(db, 'duel', game);
+    // Ходи попередніх ігор (дограних чи забутих) більше не потрібні
+    await db.prepare('DELETE FROM duel_moves WHERE duel != ?').bind(game.id).run();
+    await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, b.move, now).run();
+    if (reaches) notify.send(other(side), duelNote(side, 'start', topic));
+    return json({ duel: duelView(game, duelState(await duelMoves(db, game.id)), side), reaches }, 201);
+  }
+  const game = await activeDuel(db);
+  if (m === 'POST' && rest === '/move') {
+    if (!game || game.id !== String(b.id || '')) throw fail(409, 'gone');
+    if (!DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
+    const before = duelState(await duelMoves(db, game.id));
+    // Уже сходив у цьому раунді — повтор (черга, подвійний тап) нічого не міняє
+    if (!before.winner && !before.open[side]) {
+      await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, ?, ?, ?, ?)')
+        .bind(game.id, before.rounds.length, side, b.move, now).run();
+    }
+    // Перечитуємо: другий міг сходити в ту саму мить
+    const st = duelState(await duelMoves(db, game.id));
+    const view = duelView(game, st, side);
+    const closed = st.rounds.length > before.rounds.length;
+    if (st.winner) {
+      await finishDuel(db, game, st);
+      if (reaches && closed) notify.send(other(side), duelNote(side, 'done', game.topic));
+    } else if (closed && reaches) notify.send(other(side), duelNote(side, 'turn', game.topic, view.score));
+    return json({ duel: view, reaches });
+  }
+  // Передумали — гра зникає без сліду в чаті
+  if (m === 'POST' && rest === '/cancel') {
+    if (game && game.id === b.id) {
+      await db.prepare("DELETE FROM docs WHERE k = 'duel' AND v LIKE ?").bind(`%"id":"${game.id}"%`).run();
+      await db.prepare('DELETE FROM duel_moves WHERE duel = ?').bind(game.id).run();
+    }
+    return json({ ok: true });
+  }
+  throw fail(404, 'not found');
+}
+
 async function checkinSeen(req, db, side) {
   const b = await readJson(req);
   const k = `checkin:${other(side)}`;
@@ -2664,6 +2812,17 @@ function askNote(from, token, origin) {
 }
 
 // «🫡 Да, капитан!»: на що саме погодились — у тексті; тап — у чат
+// «✊ Спор»: виклик, «твой ход» після розіграного раунду, кінець. Хто переміг — не пишемо: хай побачить розкриття
+const cap1 = (x) => x[0].toUpperCase() + x.slice(1);
+function duelNote(from, what, topic, score) {
+  const base = { tag: 'duel', go: 'duel' };
+  const t = SEALED.test(topic) ? '' : `«${topic}»`;
+  if (what === 'start') return { ...base, title: '✊ Спор', body: `${sender(from, 'Он вызывает тебя на спор', 'Она вызывает тебя на спор')}${t ? `: ${t}` : ''}. Твой ход!` };
+  if (what === 'done') return { ...base, title: '🏆 Спор решён', body: `${t || 'Спор'} — посмотри, кто победил` };
+  const s = score.me === score.them ? `пока ${score.me}:${score.them}` : `счёт ${score.them}:${score.me} ${score.them > score.me ? 'в твою пользу' : sender(from, 'в его пользу', 'в её пользу')}`;
+  return { ...base, title: '✊ Спор', body: `${t ? `${t}: ` : ''}${t ? s : cap1(s)}. Твой ход!` };
+}
+
 function captainNote(from, quote) {
   return { title: '🫡 Да, капитан!', body: quote ? `На «${quote}»` : sender(from, 'Он согласен', 'Она согласна'), tag: 'captain', go: 'letter' };
 }

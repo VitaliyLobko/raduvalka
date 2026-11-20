@@ -116,6 +116,8 @@ const FIELDS = [
   [/^wishes(\/[\w-]+)?$/, { title: 120, note: 500, link: 500, img: { data: 'bin' } }],
   // Голос до «Нужна помощь»; місце шифрує sos.js одним рядком loc
   [/^sos\/[\w-]+$/, { audio: { data: 'bin' } }],
+  // Своя тема «✊ Спора» (готові теми йдуть ключем preset)
+  [/^duel$/, { topic: 60 }],
 ];
 export async function sealBy(spec, v) {
   if (typeof spec === 'number') return typeof v === 'string' && v.trim() && !isSealed(v) ? seal(v.trim().slice(0, spec)) : v;

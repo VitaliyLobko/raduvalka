@@ -3625,3 +3625,59 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   .postcard-foot { grid-column: 2; grid-row: 2; align-self: end; border-top: 0; padding-top: 0; }
   .postcard .bday-row { grid-template-columns: 1fr; }
 }
+
+/* «✊ Спор»: шторка знизу — тема, рахунок, два кулаки, хід */
+.duel-sheet .sheet-inner { display: flex; flex-direction: column; gap: 10px; }
+.duel-head { display: flex; align-items: center; justify-content: space-between; }
+.duel-head h2 { margin: 0; }
+.duel-head .sheet-close { position: static; flex: none; margin: 0; }
+.duel-hint { margin: 0; }
+.duel-topics { display: flex; flex-wrap: wrap; gap: 8px; }
+.duel-own {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--plum);
+  font: 1.25rem var(--hand);
+}
+.duel-label { margin: 4px 0 0; font-weight: 600; }
+.duel-moves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.duel-move {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 86px;
+  padding: 8px 4px;
+  border: 1.5px solid var(--lavender);
+  border-radius: 16px;
+  background: var(--field);
+  color: var(--plum);
+  font-size: .875rem;
+}
+.duel-move-glyph { font-size: 2.4rem; line-height: 1.1; }
+.duel-move[aria-pressed="true"] { border-color: var(--plum); box-shadow: 0 0 0 2px var(--plum) inset; }
+.duel-move:disabled { opacity: .55; }
+.duel-go { width: 100%; min-height: 48px; margin-top: 4px; }
+.duel-topic { margin: 0; text-align: center; font: 1.6rem/1.15 var(--hand); }
+.duel-score { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 0; color: var(--ink-soft); }
+.duel-score b { font-size: 2.2rem; color: var(--plum); }
+.duel-colon { font-size: 1.6rem; }
+.duel-history { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 0; }
+.duel-history:empty { display: none; }
+.duel-past { padding: 2px 10px; border: 1.5px solid var(--lavender); border-radius: 999px; font-size: 1rem; }
+.duel-past.is-me { border-color: var(--plum); }
+.duel-past.is-them { opacity: .6; }
+.duel-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.duel-hand { display: flex; flex-direction: column; align-items: center; transition: opacity .3s; }
+.duel-glyph { display: inline-block; font-size: 4.2rem; line-height: 1.15; }
+.duel-who { font-size: .875rem; color: var(--ink-soft); }
+.duel-hand.is-win .duel-glyph { filter: drop-shadow(0 0 12px var(--powder)); }
+.duel-hand.is-lose { opacity: .45; }
+.duel-status { min-height: 2.7em; margin: 0; text-align: center; }
+.duel-status.is-final { font-size: 1.2rem; font-weight: 600; }
+.duel-act:empty { display: none; }
+.duel-cancel { display: block; margin: 0 auto; padding: 10px; border: 0; background: none; color: var(--ink-soft); text-decoration: underline; font: inherit; }

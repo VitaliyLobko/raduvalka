@@ -20,6 +20,7 @@ import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
+import { openDuel } from './duel.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
@@ -393,6 +394,8 @@ function goTo(go) {
   // «Новый план» — у колоду «Идеи», щоб одразу проголосувати
   // «Встреча 💞» — одразу шторка «Вместе»
   if (go === 'together') { openTogether(); return true; }
+  // «✊ Спор» — на «Письма» і одразу сам спор
+  if (go === 'duel') { if (tab !== 'letter') selectTab('letter'); openDuel(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
   if (tab !== go) selectTab(go);

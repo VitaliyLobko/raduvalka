@@ -9,6 +9,7 @@ import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
 import { recentThread } from './feed.js';
 import { writeDecor } from './depth.js';
+import { openDuel } from './duel.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -200,6 +201,7 @@ export function openWrite(preset = {}) {
       type: 'button', class: 'mk-chip',
       onclick: () => { close(true); openGifs((gif) => composeGif(gif, memeSent, re)); },
     }, '🎞 Гифка'),
+    reply ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openDuel(); } }, '✊ Спор'),
     helper);
 
   // Відповідь — над полем цитата (тап — цілим); новий лист — кусок переписки, як у месенджері: новіше внизу, біля поля
