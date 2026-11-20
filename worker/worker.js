@@ -17,7 +17,7 @@ const SCHEMA = [
   // «Хотелки»: список бажань кожного; mark — позначка другого («присмотрел»/«куплено»), власнику не видно
   'CREATE TABLE IF NOT EXISTS wishes (id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, '
     + 'price INTEGER, link TEXT, note TEXT, hot INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, mark TEXT)',
-  // «Планы»: ідеї «куди підемо»; vote_vona / vote_vin: 1 — ❤️, 0 — ✕, NULL — ще не дивився(лась).
+  // «Планы»: ідеї «куди підемо»; vote_vona / vote_vin: 1 — ❤️, 0 — ⏳ «потом», -1 — ✕ «нет» насовсем, NULL — ще не дивився(лась).
   // Чужий голос назовні не віддаємо; matched — коли обоє ❤️
   'CREATE TABLE IF NOT EXISTS ideas (id TEXT PRIMARY KEY, author TEXT NOT NULL, cat TEXT NOT NULL, '
     + 'title TEXT NOT NULL, note TEXT, vote_vona INTEGER, vote_vin INTEGER, done INTEGER NOT NULL DEFAULT 0, '
@@ -1584,7 +1584,7 @@ async function plansRoute(req, db, side, rest, notify) {
       deck: results.filter((r) => r[me] == null).reverse().map((r) => ideaView(r, side)),
       ours: results.filter(bothLike).sort((a, b) => b.matched - a.matched).map((r) => matchView(r, side)),
       mine: results.filter((r) => r[me] === 1 && !bothLike(r)).map((r) => ideaView(r, side)),
-      // «Отложенные» — мої ✕; бачу лише я, другому ✕ не видно ніде
+      // «Отложенные» — мої ⏳; бачу лише я, другому ні ⏳, ні ✕ не видно ніде. ✕ (-1) — ніде
       later: results.filter((r) => r[me] === 0).map((r) => ideaView(r, side)),
       // Обраний колесом — лише поки план спільний і не зроблений
       next: await planNext(db, results),
@@ -1658,13 +1658,13 @@ async function plansRoute(req, db, side, rest, notify) {
     const b = await readJson(req);
     if (!b || typeof b !== 'object' || Array.isArray(b)) throw fail(400, 'json');
     if ('vote' in b) {
-      if (b.vote !== 0 && b.vote !== 1) throw fail(400, 'vote');
-      // Голос — один раз, але ✕ можна змінити на ❤️ («Отложенные»); збіг фіксуємо тим самим запитом,
+      if (b.vote !== -1 && b.vote !== 0 && b.vote !== 1) throw fail(400, 'vote');
+      // Голос — один раз, але ⏳ «потом» можна змінити на ❤️ чи ✕ («Отложенные»); збіг фіксуємо тим самим запитом,
       // щоб два одночасні ❤️ не розминулись
       const votedAt = Date.now();
       await db.prepare(`UPDATE ideas SET ${me} = ?, `
         + `matched = CASE WHEN ? = 1 AND ${them} = 1 THEN ? ELSE matched END WHERE id = ? `
-        + `AND (${me} IS NULL OR (${me} = 0 AND ? = 1))`)
+        + `AND (${me} IS NULL OR (${me} = 0 AND ? <> 0))`)
         .bind(b.vote, b.vote, votedAt, r.id, b.vote).run();
       const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
       // Збіг поставив саме цей запит (matched = наш час) — другому push; два одночасні ❤️ не дадуть двох

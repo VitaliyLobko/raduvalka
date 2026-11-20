@@ -164,7 +164,7 @@ export function markPlans() {
 
 // Що робить вкладка — один рядок під перемикачем
 const ABOUT = {
-  deck: (partner) => `❤️ хочу, ✕ не сейчас. ${cap(partner)} увидит только совпадения — они в «Наших планах».`,
+  deck: (partner) => `❤️ хочу, ⏳ потом, ✕ нет. ${cap(partner)} увидит только совпадения — они в «Наших планах».`,
   ours: () => 'Только то, что вы оба отметили ❤️.',
   wheel: () => 'Не можете выбрать? Барабан выберет одно из «Наших планов».',
 };
@@ -245,10 +245,11 @@ function deckView(screen, me, pet) {
 
   const card = ideaCard(idea, me);
   if (popNext) { card.classList.add('is-next'); popNext = false; }
+  // Під кружком — підпис: три відповіді, їх треба розрізняти не лише за значком
   const voteBtn = (v, label, text) => h('button', {
-    type: 'button', class: `plan-vote plan-vote-${v ? 'yes' : 'no'}`, 'aria-label': label,
+    type: 'button', class: `plan-vote plan-vote-${v === 1 ? 'yes' : v === 0 ? 'later' : 'no'}`, 'aria-label': label,
     onclick: () => vote(screen, idea, v, card),
-  }, text);
+  }, h('span', { class: 'plan-vote-icon', 'aria-hidden': 'true' }, text), h('small', { class: 'plan-vote-label' }, label.toLowerCase()));
   // Улюбленець визирає з кута картки — без зайвої висоти, колода лишається на один екран
   if (pet) card.append(h('span', { class: 'mascot plan-card-pet', 'aria-hidden': 'true', html: mascotImg(pet, DATA.mascots[pet]?.poses.look ? 'look' : 'main') }));
   const lean = swipe(card, (v) => vote(screen, idea, v, card));
@@ -257,8 +258,8 @@ function deckView(screen, me, pet) {
 
   return [banner,
     h('div', { class: `plan-deck${data.deck.length > 1 ? ' has-more' : ''}` }, card),
-    h('div', { class: 'plan-votes' }, voteBtn(0, 'Не сейчас', '✕'), voteBtn(1, 'Хочу', '❤️')),
-    learned('plans') ? null : hintBar('plan-swipe-hint', 'не сейчас', 'хочу'),
+    h('div', { class: 'plan-votes' }, voteBtn(-1, 'Нет', '✕'), voteBtn(0, 'Потом', '⏳'), voteBtn(1, 'Хочу', '❤️')),
+    learned('plans') ? null : hintBar('plan-swipe-hint', 'потом', 'хочу'),
     data.deck.length > 1 ? h('p', { class: 'hint plan-hint' }, `Ещё ${data.deck.length - 1} после этой.`) : null,
     tools, waitingList(screen, me), laterList(screen, me)];
 }
@@ -318,15 +319,15 @@ async function vote(screen, idea, v, card) {
   if (voting) return;
   voting = true;
   gen += 1;
-  if (v) burst(card);
+  if (v === 1) burst(card);
   popNext = true;
   card.classList.add('is-gone');
-  card.style.transform = `translateX(${v ? 130 : -130}%) rotate(${v ? 16 : -16}deg)`;
-  card.dataset.lean = v ? 'yes' : 'no';
+  card.style.transform = v === -1 ? 'translateY(40%) scale(.8)' : `translateX(${v ? 130 : -130}%) rotate(${v ? 16 : -16}deg)`;
+  card.dataset.lean = v === 1 ? 'yes' : v === 0 ? 'no' : 'never';
   if (!reduceMotion) await wait(240);
   // За id, а не за обʼєктом: фонове оновлення могло вже підмінити списки свіжими копіями
   data.deck = data.deck.filter((x) => x.id !== idea.id);
-  if (!v && data.later) data.later = [idea, ...data.later.filter((x) => x.id !== idea.id)];
+  if (v === 0 && data.later) data.later = [idea, ...data.later.filter((x) => x.id !== idea.id)];
   voting = false;
   if (alive(screen)) renderPlans(screen);
   try {
@@ -383,15 +384,39 @@ function waitingList(screen, me) {
     h('ul', { class: 'plan-list' }, ...data.mine.map((p) => waitRow(screen, p))));
 }
 
-// Мої ✕: передумав(ла) — ❤️, і ідея знову в грі. Другий не дізнається, що спершу був ✕
+// Мої ⏳: захотілось — ❤️, і ідея знову в грі; зовсім ні — ✕ чи змах уліво. Другий не дізнається ні про ⏳, ні про ✕
 function laterList(screen, me) {
   if (!data.later?.length) return null;
   return fold('later', `Отложенные · ${data.later.length}`,
-    h('p', { class: 'hint' }, `Здесь идеи с ✕. Передумалось — жми ❤️: ${me.partner} не узнает, что был ✕.`),
-    h('ul', { class: 'plan-list' }, ...data.later.map((p) => planRow(p, h('button', {
-      type: 'button', class: 'plan-row-btn plan-row-yes', 'aria-label': `Хочу: «${p.title}»`,
-      onclick: (e) => revive(screen, p, e.currentTarget),
-    }, '❤️')))));
+    h('p', { class: 'hint' }, `Захотелось — ❤️, совсем нет — ✕ или смахни влево. ${cap(me.partner)} об этом не узнает.`),
+    h('ul', { class: 'plan-list' }, ...data.later.map((p) => laterRow(screen, p))));
+}
+
+function laterRow(screen, p) {
+  const no = h('button', {
+    type: 'button', class: 'plan-row-btn', 'aria-label': `Убрать насовсем «${p.title}»`, onclick: () => dismiss(screen, p),
+  }, '✕');
+  const yes = h('button', {
+    type: 'button', class: 'plan-row-btn plan-row-yes', 'aria-label': `Хочу: «${p.title}»`,
+    onclick: (e) => revive(screen, p, e.currentTarget),
+  }, '❤️');
+  const row = planRow(p, h('span', { class: 'plan-row-acts' }, no, yes), 'div');
+  const li = h('li', { class: 'plan-swipe' }, row);
+  // Передумали в питанні — рядок, що виїхав, повертається перемальовкою
+  swipeable(li, row, { canRight: () => false, fold: false, onLeft: async () => { await dismiss(screen, p); if (alive(screen)) renderPlans(screen); } });
+  return li;
+}
+
+async function dismiss(screen, p) {
+  if (!confirm(`Убрать «${p.title}» насовсем?`)) return;
+  gen += 1;
+  try {
+    await mutate(`plans/${p.id}`, 'PUT', { vote: -1 });
+    data.later = data.later.filter((x) => x.id !== p.id);
+    if (alive(screen)) renderPlans(screen);
+  } catch (e) {
+    if (e.status === 404) { toast('Эту идею уже убрали'); reload(screen); } else toast('Не сохранилось — нет связи');
+  }
 }
 
 async function revive(screen, p, btn) {
