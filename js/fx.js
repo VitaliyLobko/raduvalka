@@ -217,7 +217,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
   + '</svg>';
 
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -553,6 +553,96 @@ REACT_FX['🤷'] = (el, x, y) => {
     { transform: `${C} translateY(10px) scale(.6)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.2 },
     { transform: `${C} scale(1)`, opacity: 1, offset: 0.85 }, { transform: C, opacity: 0 },
   ], { duration: 1700, delay: 700, fill: 'backwards' }));
+};
+
+// «Вогонь» 🔥: знизу по листу піднімаються язики полумʼя, лист розжарюється, вгору летять іскри й димок
+REACT_FX['🔥'] = (el, x, y, r) => {
+  veil('fx-heat', [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], 2600, 0, x, y);
+  const base = clamp(r.bottom - 10, 80, innerHeight - 90);
+  const w = Math.max(120, r.width - 20);
+  for (let i = 0; i < 14; i += 1) {
+    const fx = clamp(r.left + 10 + (w * (i + Math.random() * 0.6)) / 14, 16, innerWidth - 16);
+    const f = glyphAt('🔥', fx, base, `${1.8 + Math.random() * 1.4}rem`, 'fx-flame');
+    const up = 50 + Math.random() * 90;
+    gone(f)(f.animate([
+      { transform: `${C} scale(.2)`, opacity: 0 },
+      { transform: `translate(-50%, calc(-50% - ${up * 0.3}px)) scale(1.1, 1.25)`, opacity: 1, offset: 0.25 },
+      { transform: `translate(calc(-50% + 4px), calc(-50% - ${up * 0.6}px)) scale(.9, 1.1)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(calc(-50% - 4px), calc(-50% - ${up * 0.85}px)) scale(1.05, 1.2)`, opacity: 0.9, offset: 0.75 },
+      { transform: `translate(-50%, calc(-50% - ${up}px)) scale(.5)`, opacity: 0 },
+    ], { duration: 1300 + Math.random() * 500, delay: i * 50 + Math.random() * 250, easing: 'ease-out', fill: 'backwards' }));
+  }
+  big('🔥', x, y, [
+    { transform: 'translateY(40px) scale(.3)', opacity: 0 }, { transform: 'translateY(0) scale(1.15, 1.3)', opacity: 1, offset: 0.2 },
+    { transform: 'scale(1.05, 1.15)', offset: 0.32 }, { transform: 'scale(1.2, 1.35)', offset: 0.44 },
+    { transform: 'scale(1.08, 1.18)', offset: 0.56 }, { transform: 'scale(1.2, 1.32)', offset: 0.68 },
+    { transform: 'scale(1.1, 1.2)', opacity: 1, offset: 0.86 }, { transform: 'translateY(-30px) scale(.6)', opacity: 0 },
+  ], 2400);
+  spray(x, y - 40, ['✨', '🌟'], 12, { dist: 150, size: '1.3rem', delay: 600, from: 220, to: 320, fall: -40, dur: 1200 });
+  spray(x, y - 60, ['💨'], 4, { dist: 70, size: '1.8rem', delay: 1300, from: 240, to: 300, fall: -30, dur: 1100 });
+  if (el?.isConnected) {
+    el.animate([
+      { filter: 'none', boxShadow: '0 0 0 0 rgba(255, 120, 30, 0)' },
+      { filter: 'brightness(1.15) saturate(1.3)', boxShadow: '0 0 36px 8px rgba(255, 120, 30, .7)', offset: 0.35 },
+      { filter: 'brightness(1.1) saturate(1.2)', boxShadow: '0 0 28px 6px rgba(255, 90, 20, .6)', offset: 0.7 },
+      { filter: 'none', boxShadow: '0 0 0 0 rgba(255, 120, 30, 0)' },
+    ], { duration: 2400, easing: 'ease-in-out' });
+  }
+};
+
+// «Добраніч» 😴: екран тихо темніє, випливає місяць, летять «Z z z», запалюються зірки, смайлик сонно гойдається
+REACT_FX['😴'] = (el, x, y) => {
+  veil('fx-night', [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.78 }, { opacity: 0 }], 3000, 0, x, y);
+  big('😴', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1) rotate(0)', opacity: 1, offset: 0.15 },
+    { transform: 'scale(1.06) rotate(-6deg)', offset: 0.32 }, { transform: 'scale(1) rotate(5deg)', offset: 0.5 },
+    { transform: 'scale(1.06) rotate(-6deg)', offset: 0.68 }, { transform: 'scale(1) rotate(3deg)', opacity: 1, offset: 0.86 },
+    { transform: 'scale(.8) rotate(0)', opacity: 0 },
+  ], 2900);
+  const moon = glyphAt('🌙', Math.min(innerWidth - 40, x + 96), Math.max(50, y - 120), '3.4rem', 'fx-moon');
+  gone(moon)(moon.animate([
+    { transform: `${C} translateY(30px) rotate(-30deg)`, opacity: 0 }, { transform: `${C} rotate(0)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} rotate(8deg)`, opacity: 1, offset: 0.85 }, { transform: `${C} rotate(10deg)`, opacity: 0 },
+  ], { duration: 2700, delay: 200, easing: 'ease-out', fill: 'backwards' }));
+  [[400, 1.3], [800, 1.7], [1200, 2.1], [1700, 1.3], [2050, 1.7]].forEach(([d, size], i) => {
+    const z = glyphAt(i % 3 === 2 ? 'Z' : 'z', x + 42, y - 30, `${size}rem`, 'fx-zzz');
+    gone(z)(z.animate([
+      { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `translate(calc(-50% + 18px), calc(-50% - 24px)) rotate(-10deg)`, opacity: 1, offset: 0.25 },
+      { transform: `translate(calc(-50% + 46px), calc(-50% - 70px)) rotate(8deg)`, opacity: 1, offset: 0.7 },
+      { transform: `translate(calc(-50% + 64px), calc(-50% - 104px)) rotate(-6deg)`, opacity: 0 },
+    ], { duration: 1300, delay: d, easing: 'ease-out', fill: 'backwards' }));
+  });
+  for (let i = 0; i < 9; i += 1) {
+    twinkle(i % 2 ? '✨' : '⭐', 24 + Math.random() * (innerWidth - 48), 40 + Math.random() * Math.max(80, y - 80),
+      `${0.9 + Math.random() * 0.6}rem`, 500 + i * 190, 900);
+  }
+};
+
+// «Обіймаю» 🤗: з двох боків до листа тягнуться долоні й стискають його, з обіймів вистрибують сердечка
+REACT_FX['🤗'] = (el, x, y, r) => {
+  big('🤗', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.18 },
+    { transform: 'scale(1.05)', offset: 0.3 }, { transform: 'scale(1.2, 1.1)', offset: 0.38 },
+    { transform: 'scale(1.1)', offset: 0.48 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
+  ], 2500);
+  const hy = clamp(r.top + r.height / 2, 80, innerHeight - 120);
+  const lx = Math.max(26, r.left + 14);
+  const rx = Math.min(innerWidth - 26, r.right - 14);
+  for (const [g, hx, from] of [['🫱', lx, -1], ['🫲', rx, 1]]) {
+    const hnd = glyphAt(g, hx, hy, '3.6rem', 'fx-big');
+    gone(hnd)(hnd.animate([
+      { transform: `translate(calc(-50% + ${from * 120}px), -50%) rotate(${from * 30}deg)`, opacity: 0 },
+      { transform: `${C} rotate(0)`, opacity: 1, offset: 0.25 },
+      { transform: `translate(calc(-50% + ${-from * 12}px), -50%) scale(1.1)`, offset: 0.36 },
+      { transform: `${C} scale(1)`, offset: 0.46 },
+      { transform: `translate(calc(-50% + ${-from * 10}px), -50%) scale(1.08)`, offset: 0.56 },
+      { transform: `${C} scale(1)`, opacity: 1, offset: 0.84 },
+      { transform: `translate(calc(-50% + ${from * 60}px), -50%)`, opacity: 0 },
+    ], { duration: 2400, delay: 100, easing: 'ease-out', fill: 'backwards' }));
+  }
+  jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, 1.02)', offset: 0.3 }, { transform: 'none', offset: 0.5 },
+    { transform: 'scale(.96, 1.015)', offset: 0.7 }, { transform: 'none' }], 1000, 600);
+  rise(x, hy - 20, ['💕', '💗', '🧡', '💖'], 12, { delay: 950, up: 230, spread: 220 });
 };
 
 export function reactFx(el, glyph) {
