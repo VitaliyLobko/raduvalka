@@ -97,8 +97,8 @@ self.addEventListener('push', (event) => {
     silent: !!note.silent,
     // «Нужна помощь» висить, доки не відкриють, і довго вібрує
     ...(note.urgent ? { requireInteraction: true, vibrate: [500, 200, 500, 200, 900] } : {}),
-    // «🔔 Звоночек» — тряс-тряс
-    ...(note.buzz ? { vibrate: [300, 120, 300, 120, 300, 250, 700, 250, 300, 120, 300, 250, 900] } : {}),
+    // «🔔 Звоночек» — серцебиття
+    ...(note.buzz ? { vibrate: [100, 120, 260, 650, 100, 120, 260, 650, 100, 120, 260, 650, 100, 120, 260] } : {}),
     icon: new URL('icons/icon-192.png', scope).href,
     // «Как ты?»: кнопка «❤️ Я в порядке» прямо в сповіщенні (Android); ok — адреса й разовий токен замість ключа
     ...(Array.isArray(note.actions) ? { actions: note.actions.slice(0, 2) } : {}),
