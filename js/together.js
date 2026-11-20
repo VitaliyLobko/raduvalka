@@ -132,18 +132,19 @@ export function renderTogether(screen) {
     },
   }, '✈️ Снова врозь — с сегодня') : null;
 
-  // replaceChildren не пропускає null, на відміну від h()
-  screen.replaceChildren(...[
-    h('h2', { class: 'title' }, 'Вместе'),
+  // Одна листівка на весь екран: угорі — «Врозь с», посередині — планети й сердечко, внизу — зустріч, ДР і «дней вместе»
+  const postcard = h('div', { class: 'postcard' },
+    h('div', { class: 'postcard-top' },
+      h('h2', { class: 'postcard-title' }, 'Вместе'),
+      apartAgain || h('label', { class: 'meet-row postcard-apart' }, h('span', {}, 'Врозь с'),
+        clearable(apartInput, 'дату', () => { T.apartFrom = null; save('together', { apartFrom: null }); renderTogether(screen); }))),
     card,
-    h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'),
-      clearable(meetInput, 'дату встречи', () => { T.meet = null; save('together', { meet: null }); renderTogether(screen); })),
-    apartAgain,
-    h('label', { class: 'meet-row' }, h('span', {}, 'Врозь с'),
-      clearable(apartInput, 'дату', () => { T.apartFrom = null; save('together', { apartFrom: null }); renderTogether(screen); })),
-    h('div', { class: 'bday-row' }, bday(mine[0], '🎂 Твой ДР'), bday(mine[1], side === 'vona' ? '🎂 Его ДР' : '🎂 Её ДР')),
-    togetherDays(now, T.since),
-  ].filter(Boolean));
+    h('div', { class: 'postcard-foot' },
+      h('label', { class: 'meet-row' }, h('span', {}, 'Когда встреча?'),
+        clearable(meetInput, 'дату встречи', () => { T.meet = null; save('together', { meet: null }); renderTogether(screen); })),
+      h('div', { class: 'bday-row' }, bday(mine[0], '🎂 Твой ДР'), bday(mine[1], side === 'vona' ? '🎂 Его ДР' : '🎂 Её ДР')),
+      togetherDays(now, T.since)));
+  screen.replaceChildren(postcard);
 
   // Планета другого: у нього — Земля (кінець шляху, 1), у неї — Юпітер (початок, 0)
   const theirPlanet = side === 'vin' ? 'earth' : 'jupiter';

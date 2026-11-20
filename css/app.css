@@ -3527,3 +3527,31 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 /* Реакції (reactFx): великий смайлик над повідомленням, з тінню, щоб читався на обох темах */
 .fx-react { z-index: 62; }
 .fx-big { z-index: 63; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }
+
+/* «Вместе» — одна листівка на весь екран; поля лежать на ній: угорі «Врозь с», унизу зустріч, ДР, «дней вместе» */
+.postcard {
+  flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; margin: 4px 0 calc(4px + env(safe-area-inset-bottom));
+  padding: 12px 12px 14px; border-radius: 26px; overflow: hidden;
+  background: radial-gradient(120% 80% at 80% 10%, #16506a 0%, var(--night) 60%); color: var(--cream);
+  box-shadow: 0 24px 48px -26px rgba(11, 56, 75, .8);
+}
+[data-side="vin"] .postcard { box-shadow: 0 0 0 1px rgba(237, 185, 73, .35), 0 24px 48px -20px rgba(0, 0, 0, .7); }
+.postcard-top { display: grid; gap: 8px; padding-right: 44px; }
+.postcard-title { margin: 2px 0 0 4px; font: 700 1.9rem/1 var(--hand); color: var(--star); }
+.postcard .apart-again { margin: 0; }
+.sheet-full .postcard .space, .sheet-together .postcard .space {
+  flex: none; width: min(100%, calc((100dvh - 23.75rem) * .75)); margin: auto; border-radius: 0; background: none; box-shadow: none;
+}
+[data-side="vin"] .sheet-decor .postcard .space { box-shadow: none; }
+.postcard-foot { display: grid; gap: 8px; padding-top: 10px; border-top: 1px dashed rgba(237, 185, 73, .35); }
+.postcard .meet-row { margin: 0; gap: 8px; background: rgba(244, 230, 196, .1); color: var(--cream); }
+.postcard .meet-row > span:first-child { white-space: nowrap; }
+.postcard .meet-row input { padding: 0 10px; }
+.postcard-apart { justify-self: start; max-width: 100%; }
+.sheet-together .sheet-close { background: rgba(244, 230, 196, .16); color: var(--cream); }
+.postcard .bday-row { margin: 0; }
+.postcard .bday { background: rgba(244, 230, 196, .1); color: #a9c3c9; }
+.postcard .meet-row input, .postcard .bday input { color-scheme: light; }
+.postcard .together-days { margin: 2px 0 0; color: #a9c3c9; }
+.postcard .together-days b { color: var(--star); }
+
