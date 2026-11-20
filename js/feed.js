@@ -7,7 +7,7 @@ import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
-import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx } from './fx.js';
+import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
@@ -476,13 +476,6 @@ function openReactions(bubble, it) {
     }, e)));
   // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
   const opened = Date.now();
-  // На чуже повідомлення останній смайлик — 🫡: не реакція, а «Да, капитан!» окремим рядком у чаті
-  if (replyTarget(it) && !it.l?.tpl) {
-    pick.append(h('button', {
-      type: 'button', role: 'menuitem', class: 'react-opt', 'aria-label': 'Да, капитан!', title: 'Да, капитан!',
-      onclick: (ev) => { ev.stopPropagation(); close(); sayAye(it, bubble); },
-    }, '🫡'));
-  }
   const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
   document.body.append(layer);
   // Над повідомленням, а коли нагорі місця нема — під ним; не виходимо за краї екрана
@@ -491,17 +484,6 @@ function openReactions(bubble, it) {
   pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
 }
 
-// «🫡 Да, капитан!»: цитата — те, на що погодились; рядок у чаті підтягує refreshFeed
-async function sayAye(it, bubble) {
-  const quote = it.type === 'meme' ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : (it.l.text || '');
-  reactFx(bubble, '🫡');
-  try {
-    await send('captain', 'POST', { quote });
-    document.dispatchEvent(new CustomEvent('radovalka:marked'));
-  } catch {
-    toast('Не получилось — нет связи');
-  }
-}
 async function setReaction(it, value, bubble) {
   const live = it.type === 'meme' ? liveMeme(it.m) : liveLetter(it.l);
   const prev = live.reaction || null;
@@ -871,21 +853,22 @@ function watchFresh(els) {
   }, { threshold: 0.9, rootMargin: '0px 0px -96px 0px' });
   const old = loveSeen();
   pick('.feed-mark.is-love, .feed-mark.is-aye').forEach((el) => { if (!old.includes(el.dataset.love)) loveIo.observe(el); });
+  // Побачено — коли видно 60% рядка або він займає пів екрана (довгий лист на 60% не влізе ніколи)
   reactIo ||= new IntersectionObserver((entries) => {
-    for (const { target, isIntersecting } of entries) {
+    for (const { target, isIntersecting, intersectionRatio, intersectionRect, rootBounds } of entries) {
       if (!isIntersecting) continue;
+      if (intersectionRatio < 0.6 && intersectionRect.height < (rootBounds?.height || innerHeight) * 0.5) continue;
       reactIo.unobserve(target);
-      if (markLoveSeen(target.dataset.react)) setTimeout(() => reactFx(target.firstElementChild, target.dataset.reactGlyph), 250);
+      if (markLoveSeen(target.dataset.react)) setTimeout(() => reactFxQueued(target.firstElementChild, target.dataset.reactGlyph), 250);
     }
-  }, { threshold: 0.6, rootMargin: '0px 0px -96px 0px' });
+  }, { threshold: [0, 0.2, 0.4, 0.6], rootMargin: '0px 0px -96px 0px' });
   const reacts = pick('.feed-row.has-their-react').filter((el) => !old.includes(el.dataset.react));
-  // Перший запуск з цією функцією: наявні реакції — вже бачені, без салюту; далі — лише на свіжих (3 дні) повідомленнях
+  // Перший запуск з цією функцією: наявні реакції — вже бачені, без салюту; далі — кожна нова, хоч і на старому листі
   if (!reactBase()) {
     reacts.forEach((el) => markLoveSeen(el.dataset.react));
     setReactBase();
   } else {
-    const since = Date.now() - 3 * 864e5;
-    reacts.filter((el) => Number(el.dataset.reactAt) > since).forEach((el) => reactIo.observe(el));
+    reacts.forEach((el) => reactIo.observe(el));
   }
 }
 
@@ -903,11 +886,11 @@ const LOVE_KEY = 'radovalka:love-seen';
 function loveSeen() {
   try { return JSON.parse(localStorage.getItem(LOVE_KEY) || '[]'); } catch { return []; }
 }
-// true — бачимо вперше; памʼятаємо останні 120 (серця, «капитан», реакції), щоб список не ріс
+// true — бачимо вперше; памʼятаємо останні 400 (серця, «капитан», реакції), щоб список не ріс
 function markLoveSeen(id) {
   const list = loveSeen();
   if (!id || list.includes(id)) return false;
-  try { localStorage.setItem(LOVE_KEY, JSON.stringify([...list, id].slice(-120))); } catch { /* приватне вікно — анімація все одно */ }
+  try { localStorage.setItem(LOVE_KEY, JSON.stringify([...list, id].slice(-400))); } catch { /* приватне вікно — анімація все одно */ }
   return true;
 }
 
