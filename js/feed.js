@@ -42,6 +42,7 @@ let fromTop = 0;
 let stuck = true;
 let newest = null;
 let jump = null;
+let reactJump = null;
 const sizes = new ResizeObserver(() => { if (stuck && box?.isConnected) box.scrollTop = box.scrollHeight; });
 // З app.js: open(l) — шторка листа; welcome() — привітальний лист-заготовка (або null); like/reply — для нього
 let ops = {};
@@ -180,12 +181,14 @@ export function letterFeed(o) {
   foot = h('div', { class: 'feed-foot' });
   box = h('div', { class: 'feed-box' }, head, list, foot);
   jump = h('button', { type: 'button', class: 'feed-jump', hidden: true, onclick: toEnd }, '↓ Новое');
+  reactJump = h('button', { type: 'button', class: 'feed-jump feed-react-jump', hidden: true, onclick: toReaction });
   // Гортання рукою: дійшла донизу — знову прилипли і «Новое» вже не треба
   box.addEventListener('scroll', () => {
     stuck = gap(box) < 40;
     if (stuck) jump.hidden = true;
+    if (reactWait.size) paintReactJump();
   }, { passive: true });
-  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box, jump);
+  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box, jump, reactJump);
   // Секцію ще не вставлено в сторінку — малюємо в неї примусово
   if (cache) draw(true);
   else foot.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
@@ -207,6 +210,27 @@ function toEnd() {
   stuck = true;
   jump.hidden = true;
   box.scrollTo({ top: box.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
+}
+
+// Реакція другого на моє повідомлення за краєм екрана: плашка вгорі «😍 на твоё сообщение ↑», тап — туди,
+// анімація грає, коли рядок з'явиться (reactIo). Сама стрічка не їде — не тягнемо з місця, де читають
+const reactWait = new Set();
+function waitingReact() {
+  for (const el of reactWait) if (!el.isConnected) reactWait.delete(el);
+  return [...reactWait].sort((a, b) => Number(b.dataset.reactAt) - Number(a.dataset.reactAt))[0] || null;
+}
+function paintReactJump() {
+  if (!reactJump) return;
+  const el = waitingReact();
+  reactJump.hidden = !el;
+  if (!el) return;
+  const up = el.getBoundingClientRect().top < box.getBoundingClientRect().top;
+  reactJump.textContent = `${el.dataset.reactGlyph} на твоё сообщение ${up ? '↑' : '↓'}`;
+}
+function toReaction() {
+  const el = waitingReact();
+  reactJump.hidden = true;
+  el?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
 }
 
 function settle() {
@@ -861,6 +885,8 @@ function watchFresh(els) {
       if (!isIntersecting) continue;
       if (intersectionRatio < 0.6 && intersectionRect.height < (rootBounds?.height || innerHeight) * 0.5) continue;
       reactIo.unobserve(target);
+      reactWait.delete(target);
+      paintReactJump();
       if (markLoveSeen(target.dataset.react)) setTimeout(() => reactFxQueued(target.firstElementChild, target.dataset.reactGlyph), 250);
     }
   }, { threshold: [0, 0.2, 0.4, 0.6], rootMargin: '0px 0px -96px 0px' });
@@ -870,7 +896,9 @@ function watchFresh(els) {
     reacts.forEach((el) => markLoveSeen(el.dataset.react));
     setReactBase();
   } else {
-    reacts.forEach((el) => reactIo.observe(el));
+    reacts.forEach((el) => { reactWait.add(el); reactIo.observe(el); });
+    // Видимі за цей час уже зіграли — плашка лише для тих, що за краєм
+    if (reacts.length) setTimeout(paintReactJump, 700);
   }
 }
 

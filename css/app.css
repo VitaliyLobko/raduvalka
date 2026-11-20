@@ -2899,6 +2899,8 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 [data-side="vin"] .screen.is-chat .feed-box { scrollbar-color: rgba(232, 184, 74, .35) transparent; }
 .feed-jump:focus-visible { outline: 3px solid var(--powder); outline-offset: 2px; }
 [data-side="vin"] .feed-jump { background: #E8B84A; color: #1b2b33; }
+/* Реакція за краєм — плашка вгорі стрічки, щоб не сперечалась з «↓ Новое» внизу */
+.feed-react-jump { top: 10px; bottom: auto; white-space: nowrap; }
 @keyframes jump-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 .screen.is-chat .feed-box {
   /* contain: size — довжина переписки не роздуває екран, висоту дає лише flex і мінімум */
