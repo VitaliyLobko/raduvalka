@@ -2,7 +2,7 @@
 // Не окремий розділ: значок у шапці, повна листівка — у шторці
 import { DATA } from './data.js';
 import { save, send, get } from './api.js';
-import { h, toast } from './ui.js';
+import { h, toast, dayMonthYear } from './ui.js';
 import { spaceCard, flyHeart, dragHeart } from './space.js';
 
 const DAY = 86400000;
@@ -187,8 +187,7 @@ async function heartFrom(card, heart, home, from) {
 function togetherDays(now, since) {
   if (!since) return null;
   const n = -daysTo(now, since);
-  const from = new Date(since + 'T00:00')
-    .toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, '');
+  const from = dayMonthYear(new Date(since + 'T00:00')).replace(/\s*г\.$/, '');
   return h('p', { class: 'together-days' },
     h('b', {}, n.toLocaleString('ru')), ` ${plural(n, 'день', 'дня', 'дней')} вместе`,
     h('small', {}, `с ${from}`));

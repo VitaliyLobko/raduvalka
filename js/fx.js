@@ -116,10 +116,17 @@ function glyphAt(text, x, y, size, cls = '') {
   s.style.left = `${x}px`;
   s.style.top = `${y}px`;
   s.style.fontSize = size;
-  document.body.append(s);
   return s;
 }
-const gone = (s) => (a) => a.finished.finally(() => s.remove());
+// Елемент потрапляє на сторінку лише тоді, коли починається його рух: інакше перший кадр
+// малює всі 20–30 великих емодзі разом і на слабкому телефоні «залипає»
+const gone = (s) => (a) => {
+  const delay = a.effect?.getTiming().delay || 0;
+  const add = () => { if (!s.isConnected) document.body.append(s); };
+  if (delay > 40) setTimeout(add, delay - 30);
+  else add();
+  a.finished.finally(() => s.remove());
+};
 const C = 'translate(-50%, -50%)';
 
 // Розліт дрібних значків з точки: glyphs по колу (або в секторі from..to, градуси), dist — як далеко
@@ -153,7 +160,6 @@ function shape(cls, x, y, html = '') {
   if (html) s.innerHTML = html;
   s.style.left = `${x}px`;
   s.style.top = `${y}px`;
-  document.body.append(s);
   return s;
 }
 const jolt = (el, frames, dur, delay = 0) => el?.isConnected && el.animate(frames, { duration: dur, delay, easing: 'ease-in-out' });
@@ -230,7 +236,7 @@ const REACT_FX = {
     ], 2200, '6.6rem');
     ring(x, y, 680);
     ring(x, y, 1250);
-    rise(x, y, ['💗', '💖', '❤️', '💕'], 12, { delay: 1600 });
+    rise(x, y, ['💗', '💖', '❤️', '💕'], 9, { delay: 1600 });
   },
   // З очей двічі вистрибують серця прямо на тебе, потім кругом іде хоровод сердечок
   '😍': (el, x, y) => {
@@ -311,7 +317,7 @@ const REACT_FX = {
   // Полуничний дощ на повідомлення, а наостанок велика полуниця падає з плюхом і бризками
   '🍓': (el, x, y, r) => {
     const land = clamp(r.top + 6, 40, innerHeight - 120);
-    for (let i = 0; i < 14; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
       const px = clamp(r.left + 16 + Math.random() * Math.max(40, r.width - 32), 20, innerWidth - 20);
       const s = glyphAt('🍓', px, land, `${2 + Math.random() * 1.2}rem`);
       const side = (Math.random() - 0.5) * 70;
@@ -321,7 +327,7 @@ const REACT_FX = {
         { transform: `translate(calc(-50% + ${side * 0.4}px), calc(-50% - 34px)) rotate(${side / 2}deg)`, offset: 0.75 },
         { transform: `translate(calc(-50% + ${side * 0.6}px), -50%) rotate(${side}deg)`, opacity: 1, offset: 0.9 },
         { transform: `translate(calc(-50% + ${side * 0.7}px), -50%) rotate(${side}deg)`, opacity: 0 },
-      ], { duration: 1400, delay: i * 70 + Math.random() * 120, easing: 'cubic-bezier(.5, 0, .7, 1)', fill: 'backwards' }));
+      ], { duration: 1400, delay: i * 95 + Math.random() * 120, easing: 'cubic-bezier(.5, 0, .7, 1)', fill: 'backwards' }));
     }
     const g = glyphAt('🍓', x, y, '6.4rem', 'fx-big');
     gone(g)(g.animate([
@@ -368,10 +374,10 @@ const REACT_FX = {
       { transform: 'scale(1.1)', offset: 0.42 }, { transform: 'scale(1.25)', offset: 0.5 }, { transform: 'scale(1.1)', offset: 0.6 },
       { transform: 'scale(1.2)', opacity: 1, offset: 0.86 }, { transform: 'translateY(-20px) scale(1)', opacity: 0 },
     ], 2300, '6.6rem');
-    for (let i = 0; i < 10; i += 1) {
+    for (let i = 0; i < 7; i += 1) {
       const a = Math.random() * Math.PI * 2;
       const d = 88 + Math.random() * 72;
-      twinkle(i % 3 ? '✨' : '⭐', x + Math.cos(a) * d, y + Math.sin(a) * d, `${1.3 + Math.random() * 0.7}rem`, 500 + i * 120);
+      twinkle(i % 3 ? '✨' : '⭐', x + Math.cos(a) * d, y + Math.sin(a) * d, `${1.3 + Math.random() * 0.7}rem`, 500 + i * 170);
     }
   },
   // Пушковий салют: треуголка сідає на голову, збоку викочується гармата, постріл, феєрверк, піратський прапор і сувій
@@ -426,7 +432,7 @@ const REACT_FX = {
     ring(tx, ty, 1460, 'is-gold');
     ring(tx, ty, 1620, 'is-gold');
     twinkle('🌟', tx, ty, '3.4rem', 1440, 600);
-    spray(tx, ty, ['✨', '⭐', '🌟', '✨'], 18, { dist: 150, size: '1.8rem', delay: 1480, fall: 40, dur: 1200 });
+    spray(tx, ty, ['✨', '⭐', '🌟', '✨'], 12, { dist: 150, size: '1.8rem', delay: 1480, fall: 40, dur: 1200 });
     const flag = glyphAt('🏴‍☠️', Math.min(innerWidth - 32, x + 98), y - 44, '3.2rem');
     flag.style.transformOrigin = '15% 100%';
     gone(flag)(flag.animate([
@@ -517,7 +523,7 @@ REACT_FX['🤯'] = (el, x, y) => {
   gone(boom)(boom.animate([
     { transform: `${C} scale(.2)`, opacity: 0 }, { transform: `${C} scale(1.4)`, opacity: 1, offset: 0.3 }, { transform: `${C} translateY(-30px) scale(1.8)`, opacity: 0 },
   ], { duration: 700, delay: 1030, fill: 'backwards' }));
-  spray(x, y - 50, ['💫', '✨', '⭐', '💥'], 18, { dist: 170, size: '1.7rem', delay: 1060, from: 190, to: 350, fall: 60, dur: 1200 });
+  spray(x, y - 50, ['💫', '✨', '⭐', '💥'], 12, { dist: 170, size: '1.7rem', delay: 1060, from: 190, to: 350, fall: 60, dur: 1200 });
   const brain = glyphAt('🧠', x, y - 50, '2.8rem');
   const side = Math.random() < 0.5 ? -1 : 1;
   gone(brain)(brain.animate([
@@ -560,8 +566,8 @@ REACT_FX['🔥'] = (el, x, y, r) => {
   veil('fx-heat', [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], 2600, 0, x, y);
   const base = clamp(r.bottom - 10, 80, innerHeight - 90);
   const w = Math.max(120, r.width - 20);
-  for (let i = 0; i < 14; i += 1) {
-    const fx = clamp(r.left + 10 + (w * (i + Math.random() * 0.6)) / 14, 16, innerWidth - 16);
+  for (let i = 0; i < 10; i += 1) {
+    const fx = clamp(r.left + 10 + (w * (i + Math.random() * 0.6)) / 10, 16, innerWidth - 16);
     const f = glyphAt('🔥', fx, base, `${1.8 + Math.random() * 1.4}rem`, 'fx-flame');
     const up = 50 + Math.random() * 90;
     gone(f)(f.animate([
@@ -578,16 +584,15 @@ REACT_FX['🔥'] = (el, x, y, r) => {
     { transform: 'scale(1.08, 1.18)', offset: 0.56 }, { transform: 'scale(1.2, 1.32)', offset: 0.68 },
     { transform: 'scale(1.1, 1.2)', opacity: 1, offset: 0.86 }, { transform: 'translateY(-30px) scale(.6)', opacity: 0 },
   ], 2400);
-  spray(x, y - 40, ['✨', '🌟'], 12, { dist: 150, size: '1.3rem', delay: 600, from: 220, to: 320, fall: -40, dur: 1200 });
+  spray(x, y - 40, ['✨', '🌟'], 8, { dist: 150, size: '1.3rem', delay: 600, from: 220, to: 320, fall: -40, dur: 1200 });
   spray(x, y - 60, ['💨'], 4, { dist: 70, size: '1.8rem', delay: 1300, from: 240, to: 300, fall: -30, dur: 1100 });
-  if (el?.isConnected) {
-    el.animate([
-      { filter: 'none', boxShadow: '0 0 0 0 rgba(255, 120, 30, 0)' },
-      { filter: 'brightness(1.15) saturate(1.3)', boxShadow: '0 0 36px 8px rgba(255, 120, 30, .7)', offset: 0.35 },
-      { filter: 'brightness(1.1) saturate(1.2)', boxShadow: '0 0 28px 6px rgba(255, 90, 20, .6)', offset: 0.7 },
-      { filter: 'none', boxShadow: '0 0 0 0 rgba(255, 120, 30, 0)' },
-    ], { duration: 2400, easing: 'ease-in-out' });
-  }
+  // Розжарення — окремий шар поверх листа, що змінює лише прозорість (сам лист не перемальовується щокадру)
+  const glow = shape('fx-glow', r.left, r.top);
+  glow.style.width = `${r.width}px`;
+  glow.style.height = `${r.height}px`;
+  glow.style.borderRadius = getComputedStyle(el).borderRadius;
+  gone(glow)(glow.animate([{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 0.8, offset: 0.7 }, { opacity: 0 }],
+    { duration: 2400, easing: 'ease-in-out' }));
 };
 
 // «Добраніч» 😴: екран тихо темніє, випливає місяць, летять «Z z z», запалюються зірки, смайлик сонно гойдається
@@ -612,9 +617,9 @@ REACT_FX['😴'] = (el, x, y) => {
       { transform: `translate(calc(-50% + 64px), calc(-50% - 104px)) rotate(-6deg)`, opacity: 0 },
     ], { duration: 1300, delay: d, easing: 'ease-out', fill: 'backwards' }));
   });
-  for (let i = 0; i < 9; i += 1) {
+  for (let i = 0; i < 6; i += 1) {
     twinkle(i % 2 ? '✨' : '⭐', 24 + Math.random() * (innerWidth - 48), 40 + Math.random() * Math.max(80, y - 80),
-      `${0.9 + Math.random() * 0.6}rem`, 500 + i * 190, 900);
+      `${0.9 + Math.random() * 0.6}rem`, 500 + i * 280, 900);
   }
 };
 
@@ -642,7 +647,7 @@ REACT_FX['🤗'] = (el, x, y, r) => {
   }
   jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, 1.02)', offset: 0.3 }, { transform: 'none', offset: 0.5 },
     { transform: 'scale(.96, 1.015)', offset: 0.7 }, { transform: 'none' }], 1000, 600);
-  rise(x, hy - 20, ['💕', '💗', '🧡', '💖'], 12, { delay: 950, up: 230, spread: 220 });
+  rise(x, hy - 20, ['💕', '💗', '🧡', '💖'], 9, { delay: 950, up: 230, spread: 220 });
 };
 
 // «Сумно» 😢: над обличчям згущується хмарка й крапає дощиком, обличчя никне, котиться сльоза,
@@ -660,12 +665,12 @@ REACT_FX['😢'] = (el, x, y) => {
     { transform: `${C} translateX(-6px)`, opacity: 1, offset: 0.5 }, { transform: `${C} translateX(6px)`, opacity: 1, offset: 0.8 },
     { transform: `${C} translateY(-20px) scale(.9)`, opacity: 0 },
   ], { duration: 2600, delay: 150, easing: 'ease-out', fill: 'backwards' }));
-  for (let i = 0; i < 12; i += 1) {
+  for (let i = 0; i < 8; i += 1) {
     const d = glyphAt('💧', x - 34 + Math.random() * 68, y - 76, `${0.8 + Math.random() * 0.4}rem`);
     gone(d)(d.animate([
       { transform: `${C} scale(.6)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 0.9, offset: 0.15 },
       { transform: 'translate(-50%, calc(-50% + 70px)) scale(.9)', opacity: 0 },
-    ], { duration: 650, delay: 500 + i * 120 + Math.random() * 80, easing: 'ease-in', fill: 'backwards' }));
+    ], { duration: 650, delay: 500 + i * 170 + Math.random() * 80, easing: 'ease-in', fill: 'backwards' }));
   }
   const t = glyphAt('💧', x - 26, y + 10, '1.8rem');
   gone(t)(t.animate([

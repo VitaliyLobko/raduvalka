@@ -9,7 +9,7 @@ import { openWrite, prewarmWrite } from './write.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET } from './ui.js';
+import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel, chipFestive } from './together.js';
 import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck, CATS } from './plans.js';
@@ -115,15 +115,15 @@ async function refreshLetter() {
   } catch { /* нема зв'язку — лишаємо, що є */ }
 }
 
+const DAY_LABEL = new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' });
 function dayLabel(iso) {
-  const s = new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' })
-    .format(new Date(iso + 'T12:00'));
+  const s = DAY_LABEL.format(new Date(iso + 'T12:00'));
   return s[0].toUpperCase() + s.slice(1);
 }
 
 // Над листом — день і час, коли він прийшов
 const letterWhen = (l) => (l.at
-  ? `${dayLabel(l.date)} · ${new Date(l.at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}`
+  ? `${dayLabel(l.date)} · ${hhmm(l.at)}`
   : dayLabel(l.date));
 
 const festive = (l) => l.kind === 'date';

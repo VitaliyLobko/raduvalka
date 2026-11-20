@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
-import { h, toast, cap, ARROW, reduceMotion, ribbon } from './ui.js';
+import { h, toast, cap, ARROW, reduceMotion, ribbon, hhmm, dayMonth } from './ui.js';
 import { mountHelper } from './helper.js';
 import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 import { composeMeme, composeGif } from './memes.js';
@@ -28,9 +28,7 @@ function nextMorning(now = new Date()) {
 }
 
 const isShe = (key) => DATA.mascots[key]?.g === 'f';
-const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
-const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 // Над полем: сьогоднішнє — годиною, інше — днем
 // Поява й зникнення — лише зсув і прозорість: їх рахує відеокарта без перемальовування вікна.
 // clip-path перемальовував усе вікно кожен кадр і на телефоні гальмував (18.11)

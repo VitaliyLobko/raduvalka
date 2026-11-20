@@ -23,6 +23,14 @@ export const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Форматтери дат — один раз на весь застосунок: toLocale…String з параметрами щоразу будує новий, а це дорого на кожен рядок стрічки
+const HHMM = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' });
+const DAY_MONTH = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' });
+const DAY_MONTH_YEAR = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', year: 'numeric' });
+export const hhmm = (ms) => HHMM.format(ms);
+export const dayMonth = (ms) => DAY_MONTH.format(ms);
+export const dayMonthYear = (ms) => DAY_MONTH_YEAR.format(ms);
+
 // Стрічка чипів, що гортається вбік: край, за яким ще щось є, тане — видно, що можна горнути; вибраний чип — у полі зору
 export function ribbon(row) {
   row.classList.add('mk-ribbon');

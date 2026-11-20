@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor, petLine } from './icons.js';
-import { h, toast, cap, showPhoto, ribbon } from './ui.js';
+import { h, toast, cap, showPhoto, ribbon, dayMonth } from './ui.js';
 import { prepare, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
 import { ask } from './ask.js';
@@ -116,7 +116,6 @@ function wantFold(key, summary, ...children) {
   el.addEventListener('toggle', () => { if (el.open) unfolded.add(key); else unfolded.delete(key); });
   return el;
 }
-const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 
 // Відповідь сервера могла прийти, коли вже відкрита інша вкладка, — тоді не малюємо
 const onWishTab = () => !!document.querySelector('.tab[data-tab="wish"].is-active');

@@ -3,7 +3,7 @@
 // Свайп вліво — сховати в себе, вправо — відповісти; те саме кнопками
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
-import { h, toast, cap, reduceMotion } from './ui.js';
+import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
@@ -339,11 +339,9 @@ function dayTitle(at) {
   if (at > Date.now()) return 'Ещё в пути';
   if (sameDay(d, now)) return 'Сегодня';
   if (sameDay(d, new Date(Date.now() - 86400000))) return 'Вчера';
-  return d.toLocaleDateString('ru', { day: 'numeric', month: 'long', ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) });
+  return d.getFullYear() !== now.getFullYear() ? dayMonthYear(d) : dayMonth(d);
 }
 
-const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-const dayMonth = (ms) => new Date(ms).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 
 // Рядок, що не змінився, — той самий вузол: картинка не вантажиться вдруге, гифка не починається спочатку.

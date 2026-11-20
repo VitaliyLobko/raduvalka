@@ -1,7 +1,7 @@
 // «❤️ Я в порядке»: один тап — другому push «всё хорошо», а на «Письмах» у нього видно, коли відмітились.
 // Лише свіже (до двох діб) і без лічильника «давно не отмечался» — щоб кнопка не ставала обовʼязком
 import { DATA, who } from './data.js';
-import { h, toast, cap, ribbon } from './ui.js';
+import { h, toast, cap, ribbon, hhmm, dayMonth } from './ui.js';
 import { deliver, waiting } from './outbox.js';
 import { send } from './api.js';
 import { burst } from './fx.js';
@@ -9,7 +9,6 @@ import { sosSlider, sosShown } from './sos.js';
 
 const FRESH = 48 * 3600 * 1000;
 const isToday = (ms) => new Date(ms).toDateString() === new Date().toDateString();
-const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 
 function when(ms) {
   const d = new Date(ms);
@@ -18,7 +17,7 @@ function when(ms) {
   if (d.toDateString() === today.toDateString()) return `сегодня в ${hhmm(ms)}`;
   if (d.toDateString() === yesterday.toDateString()) return `вчера в ${hhmm(ms)}`;
   // Давніше тижня день тижня вже плутає — дата
-  if (Date.now() - ms > 6 * 86400000) return d.toLocaleDateString('ru', { day: 'numeric', month: 'long' });
+  if (Date.now() - ms > 6 * 86400000) return dayMonth(d);
   // «в воскресенье, 10:14» — повністю й у правильному відмінку, а не «вс в 10:14»
   return `${['в воскресенье', 'в понедельник', 'во вторник', 'в среду', 'в четверг', 'в пятницу', 'в субботу'][d.getDay()]}, ${hhmm(ms)}`;
 }

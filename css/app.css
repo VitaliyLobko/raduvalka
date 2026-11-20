@@ -3558,6 +3558,7 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-heat { background: radial-gradient(ellipse 70% 55% at var(--vx) calc(var(--vy) + 70px), rgba(255, 120, 30, .38), transparent 75%); }
 .fx-night { background: radial-gradient(circle at var(--vx) var(--vy), rgba(12, 20, 52, .3), rgba(12, 20, 52, .66)); }
 .fx-flame { z-index: 61; transform-origin: 50% 100%; }
+.fx-glow { z-index: 60; background: rgba(255, 140, 40, .14); box-shadow: 0 0 36px 8px rgba(255, 120, 30, .7), inset 0 0 24px rgba(255, 150, 60, .5); }
 .fx-moon { z-index: 63; filter: drop-shadow(0 0 16px rgba(255, 230, 150, .9)); }
 .fx-zzz { z-index: 64; font-family: var(--hand); font-weight: 700; color: #b9d4ff; text-shadow: 0 0 8px rgba(30, 60, 140, .9); }
 .fx-orbit > span { position: absolute; left: 0; top: 0; font-size: 2.1rem; line-height: 1; }

@@ -100,7 +100,8 @@ function hash(str) {
   for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); }
   return x >>> 0;
 }
-const kyivDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(new Date());
+const KYIV_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' });
+const kyivDay = () => KYIV_DAY.format(new Date());
 // Жереб — приблизно 2 дні з 5, але не більше двох днів поспіль без печеньки: третій — точно з нею.
 // Рахуємо від однієї опорної дати вперед, тож розклад однаковий на обох телефонах
 const COOKIE_FROM = '2026-11-01';

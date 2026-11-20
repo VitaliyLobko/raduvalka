@@ -2,12 +2,11 @@
 // У другого — червона картка вгорі «Писем» з картою й голосом; у того, хто натиснув, — «увидел» і «Отбой»
 import { DATA, who } from './data.js';
 import { get, send, getBlob } from './api.js';
-import { h, toast, cap } from './ui.js';
+import { h, toast, cap, hhmm } from './ui.js';
 import { deliver, newCid } from './outbox.js';
 import { hasSecret, seal } from './seal.js';
 
 const REC_MAX = 30;
-const hhmm = (ms) => new Date(ms).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 const ago = (ms) => {
   const min = Math.round((Date.now() - ms) / 60000);
   return min < 1 ? 'только что' : min < 60 ? `${min} мин назад` : `в ${hhmm(ms)}`;
