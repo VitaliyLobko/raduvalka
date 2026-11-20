@@ -686,7 +686,7 @@ REACT_FX['😢'] = (el, x, y) => {
   ], { duration: 1200, delay: 1900, easing: 'ease-out', fill: 'backwards' }));
 };
 
-// «Догори дриґом» 🙃: 🙂 повільно перевертається, лист дурнувато перекидається, довкола вискакують «¿» і «¡»
+// «Догори дриґом» 🙃: 🙂 повільно перевертається, слідом перевертається весь екран, довкола вискакують «¿» і «¡»
 REACT_FX['🙃'] = (el, x, y) => {
   big('🙂', x, y, [
     { transform: 'scale(.3) rotate(0)', opacity: 0 }, { transform: 'scale(1.1) rotate(0)', opacity: 1, offset: 0.15 },
@@ -694,8 +694,13 @@ REACT_FX['🙃'] = (el, x, y) => {
     { transform: 'scale(1.1) rotate(185deg)', offset: 0.65 }, { transform: 'scale(1.1) rotate(180deg)', opacity: 1, offset: 0.88 },
     { transform: 'scale(.8) rotate(180deg)', opacity: 0 },
   ], 2400);
-  jolt(el, [{ transform: 'none' }, { transform: 'rotate(-6deg)', offset: 0.25 }, { transform: 'rotate(5deg)', offset: 0.5 },
-    { transform: 'rotate(-3deg)', offset: 0.75 }, { transform: 'none' }], 1100, 700);
+  // Весь екран перевертається догори дриґом і повертається; смайлик крутиться разом з ним — тож на перевернутому екрані він рівний
+  const body = document.body;
+  body.style.transformOrigin = `${innerWidth / 2}px ${scrollY + innerHeight / 2}px`;
+  body.animate([
+    { transform: 'none' }, { transform: 'rotate(180deg)', offset: 0.3 },
+    { transform: 'rotate(180deg)', offset: 0.72 }, { transform: 'rotate(360deg)' },
+  ], { duration: 2000, delay: 450, easing: 'cubic-bezier(.65, 0, .35, 1)' }).finished.finally(() => { body.style.transformOrigin = ''; });
   ['¿', '¡', '¿', '¡', '¿'].forEach((g, i) => {
     const a = ((200 + i * 35 + (Math.random() - 0.5) * 16) * Math.PI) / 180;
     const d = 110 + Math.random() * 30;
