@@ -53,7 +53,7 @@ function watchReady(screen) {
   }, WAIT_EVERY);
 }
 let data = null;
-// Розгорнуті списки («Сделали», «Мои идеи ждут ответа»): перемальовка екрана не має їх згортати
+// Розгорнуті списки («Сделали», «Мои идеи ждут ответа», «Отложенные»): перемальовка екрана не має їх згортати
 const unfolded = new Set();
 
 function fold(key, summary, ...children) {
@@ -240,7 +240,7 @@ function deckView(screen, me, pet) {
       courier(pet, data.mine.length
         ? `Все идеи ${me.partner === 'она' ? 'от неё' : 'от него'} разобраны. Предложи ещё — вдруг совпадёт 😉`
         : 'Тут пусто. Добавь, куда хочется сходить или поехать, — или попроси меня подкинуть идей.'),
-      tools, waitingList(screen, me)];
+      tools, waitingList(screen, me), laterList(screen, me)];
   }
 
   const card = ideaCard(idea, me);
@@ -260,7 +260,7 @@ function deckView(screen, me, pet) {
     h('div', { class: 'plan-votes' }, voteBtn(0, 'Не сейчас', '✕'), voteBtn(1, 'Хочу', '❤️')),
     learned('plans') ? null : hintBar('plan-swipe-hint', 'не сейчас', 'хочу'),
     data.deck.length > 1 ? h('p', { class: 'hint plan-hint' }, `Ещё ${data.deck.length - 1} после этой.`) : null,
-    tools, waitingList(screen, me)];
+    tools, waitingList(screen, me), laterList(screen, me)];
 }
 
 // Картка ідеї: великий значок теми, назва від руки, подробиці; foot — рядок унизу
@@ -326,6 +326,7 @@ async function vote(screen, idea, v, card) {
   if (!reduceMotion) await wait(240);
   // За id, а не за обʼєктом: фонове оновлення могло вже підмінити списки свіжими копіями
   data.deck = data.deck.filter((x) => x.id !== idea.id);
+  if (!v && data.later) data.later = [idea, ...data.later.filter((x) => x.id !== idea.id)];
   voting = false;
   if (alive(screen)) renderPlans(screen);
   try {
@@ -345,6 +346,7 @@ async function vote(screen, idea, v, card) {
       reload(screen);
     } else {
       if (!data.deck.some((x) => x.id === idea.id)) data.deck.unshift(idea);
+      if (data.later) data.later = data.later.filter((x) => x.id !== idea.id);
       if (alive(screen)) renderPlans(screen);
       toast(e.status ? 'Не сохранилось — попробуй ещё раз' : 'Не сохранилось — нет связи');
     }
@@ -379,6 +381,40 @@ function waitingList(screen, me) {
   return fold('wait', `Мои идеи ждут ответа · ${data.mine.length}`,
     h('p', { class: 'hint' }, `${cap(me.partner)} видит их у себя. Если тоже ❤️ — будет совпадение.`),
     h('ul', { class: 'plan-list' }, ...data.mine.map((p) => waitRow(screen, p))));
+}
+
+// Мої ✕: передумав(ла) — ❤️, і ідея знову в грі. Другий не дізнається, що спершу був ✕
+function laterList(screen, me) {
+  if (!data.later?.length) return null;
+  return fold('later', `Отложенные · ${data.later.length}`,
+    h('p', { class: 'hint' }, `Здесь идеи с ✕. Передумалось — жми ❤️: ${me.partner} не узнает, что был ✕.`),
+    h('ul', { class: 'plan-list' }, ...data.later.map((p) => planRow(p, h('button', {
+      type: 'button', class: 'plan-row-btn plan-row-yes', 'aria-label': `Хочу: «${p.title}»`,
+      onclick: (e) => revive(screen, p, e.currentTarget),
+    }, '❤️')))));
+}
+
+async function revive(screen, p, btn) {
+  btn.disabled = true;
+  burst(btn);
+  gen += 1;
+  try {
+    const r = await mutate(`plans/${p.id}`, 'PUT', { vote: 1 });
+    data.later = data.later.filter((x) => x.id !== p.id);
+    if (r.match && r.idea) {
+      if (!data.ours.some((x) => x.id === r.idea.id)) data.ours.unshift(r.idea);
+      markSeen([r.idea.id]);
+      if (alive(screen)) { renderPlans(screen); celebrate(r.idea); }
+    } else {
+      if (!data.mine.some((x) => x.id === p.id)) data.mine.unshift(p);
+      if (alive(screen)) renderPlans(screen);
+      toast(`❤️ — если ${who().partner} тоже захочет, будет совпадение`);
+    }
+  } catch (e) {
+    btn.disabled = false;
+    if (e.status === 404) { toast('Эту идею уже убрали'); reload(screen); } else toast('Не сохранилось — нет связи');
+  }
+  markPlans();
 }
 
 // Своя ідея, що чекає: змах уліво — прибрати (як ✕, з тим самим питанням); чужу прибрати не можна

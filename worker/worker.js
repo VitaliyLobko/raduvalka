@@ -1584,6 +1584,8 @@ async function plansRoute(req, db, side, rest, notify) {
       deck: results.filter((r) => r[me] == null).reverse().map((r) => ideaView(r, side)),
       ours: results.filter(bothLike).sort((a, b) => b.matched - a.matched).map((r) => matchView(r, side)),
       mine: results.filter((r) => r[me] === 1 && !bothLike(r)).map((r) => ideaView(r, side)),
+      // «Отложенные» — мої ✕; бачу лише я, другому ✕ не видно ніде
+      later: results.filter((r) => r[me] === 0).map((r) => ideaView(r, side)),
       // Обраний колесом — лише поки план спільний і не зроблений
       next: await planNext(db, results),
       // Сьогоднішнє обертання (одне на двох) — колесо показує його замість нового
@@ -1657,11 +1659,13 @@ async function plansRoute(req, db, side, rest, notify) {
     if (!b || typeof b !== 'object' || Array.isArray(b)) throw fail(400, 'json');
     if ('vote' in b) {
       if (b.vote !== 0 && b.vote !== 1) throw fail(400, 'vote');
-      // Голос — один раз; збіг фіксуємо тим самим запитом, щоб два одночасні ❤️ не розминулись
+      // Голос — один раз, але ✕ можна змінити на ❤️ («Отложенные»); збіг фіксуємо тим самим запитом,
+      // щоб два одночасні ❤️ не розминулись
       const votedAt = Date.now();
       await db.prepare(`UPDATE ideas SET ${me} = ?, `
-        + `matched = CASE WHEN ? = 1 AND ${them} = 1 THEN ? ELSE matched END WHERE id = ? AND ${me} IS NULL`)
-        .bind(b.vote, b.vote, votedAt, r.id).run();
+        + `matched = CASE WHEN ? = 1 AND ${them} = 1 THEN ? ELSE matched END WHERE id = ? `
+        + `AND (${me} IS NULL OR (${me} = 0 AND ? = 1))`)
+        .bind(b.vote, b.vote, votedAt, r.id, b.vote).run();
       const after = await db.prepare('SELECT * FROM ideas WHERE id = ?').bind(r.id).first();
       // Збіг поставив саме цей запит (matched = наш час) — другому push; два одночасні ❤️ не дадуть двох
       if (after && bothLike(after) && after.matched === votedAt) notify.send(other(side), planMatchNote(after.title));
