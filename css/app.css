@@ -3299,6 +3299,10 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-row .checkin-ask { right: 40px; }
 .checkin-row .checkin-theirs { max-width: calc(100% - 76px); padding-right: 10px; gap: 5px; }
 .checkin-row .checkin-when { font-size: .75rem; }
+/* «?» і ^ висять у куті блоку — рядок стану не нижчий за них, інакше при одній пігулці вони лізуть на повзунок SOS */
+.checkin-row .checkin-status { min-height: 36px; align-content: center; }
+.checkin-row .checkin-ask { top: 11px; }
+.checkin-row .checkin-fold { top: 10px; height: 36px; }
 /* Новини в чаті (план, барабан, хотілка) — крупніше, щоб читались, як повідомлення */
 .feed-news { max-width: 94%; }
 .feed-news-btn { padding: 9px 18px; font-size: .9375rem; font-weight: 500; line-height: 1.3; }
