@@ -7,7 +7,7 @@ import { h, toast, cap, reduceMotion } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
-import { flyOut, collapse, burst, petRun, loveRain } from './fx.js';
+import { flyOut, collapse, burst, petRun, loveRain, captainSalute } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
@@ -379,7 +379,7 @@ function dayFor(d) {
 // Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
 function newsRow(n) {
   const she = who().partner === 'она';
-  if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart') return markRow(n, she);
+  if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain') return markRow(n, she);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
   if (n.kind === 'gifted') {
     const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;
@@ -413,6 +413,12 @@ function markRow(n, she) {
     // Від другого — при першому погляді на нього сердечка злітають (loveIo у watchFresh)
     return h('li', { class: `feed-mark is-heart${n.mine ? ' is-mine' : ' is-love'}`, 'data-love': n.mine ? null : n.id },
       h('span', {}, '💞 Люблю тебя!'), h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
+  }
+  // «🫡 Да, капитан!» на моє повідомлення: при першому погляді падає піратська треуголка (той самий loveIo)
+  if (n.kind === 'captain') {
+    return h('li', { class: `feed-mark is-captain${n.mine ? ' is-mine' : ' is-aye'}`, 'data-love': n.mine ? null : n.id },
+      h('span', { class: 'feed-captain' }, h('span', { class: 'feed-captain-text' }, '🫡 Да, капитан!'), quoteLine(n.mood)),
+      h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
   }
   const text = n.kind === 'ask'
     ? (n.mine ? `💬 Спросил${DATA.side === 'vona' ? 'а' : ''}, как ${she ? 'она' : 'он'}` : `💬 ${cap(who().partner)} спрашивает, как ты`)
@@ -456,12 +462,35 @@ function openReactions(bubble, it) {
     }, e)));
   // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
   const opened = Date.now();
-  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
+  // На чуже повідомлення — ще й «🫡 Да, капитан!»: згода окремим рядком у чаті
+  const aye = replyTarget(it) && !it.l?.tpl ? h('button', {
+    type: 'button', class: 'react-captain',
+    onclick: (ev) => { ev.stopPropagation(); close(); sayAye(it, bubble); },
+  }, '🫡 Да, капитан!') : null;
+  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick, aye);
   document.body.append(layer);
   // Над повідомленням, а коли нагорі місця нема — під ним; не виходимо за краї екрана
   const w = pick.offsetWidth;
   pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
+  const top = aye ? (r.top > 128 ? r.top - 116 : r.bottom + 8) : (r.top > 70 ? r.top - 58 : r.bottom + 8);
+  pick.style.top = `${top}px`;
+  if (aye) {
+    const aw = aye.offsetWidth;
+    aye.style.left = `${Math.max(8, Math.min(innerWidth - aw - 8, r.left + r.width / 2 - aw / 2))}px`;
+    aye.style.top = `${top + pick.offsetHeight + 8}px`;
+  }
+}
+
+// «🫡 Да, капитан!»: цитата — те, на що погодились; рядок у чаті підтягує refreshFeed
+async function sayAye(it, bubble) {
+  const quote = it.type === 'meme' ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : (it.l.text || '');
+  burst(bubble, '🫡', 7);
+  try {
+    await send('captain', 'POST', { quote });
+    document.dispatchEvent(new CustomEvent('radovalka:marked'));
+  } catch {
+    toast('Не получилось — нет связи');
+  }
 }
 async function setReaction(it, value, bubble) {
   const live = it.type === 'meme' ? liveMeme(it.m) : liveLetter(it.l);
@@ -807,11 +836,13 @@ function watchFresh(els) {
     for (const { target, isIntersecting } of entries) {
       if (!isIntersecting) continue;
       loveIo.unobserve(target);
-      if (markLoveSeen(target.dataset.love)) setTimeout(() => { loveRain(target); loveConstellation(); }, 250);
+      if (!markLoveSeen(target.dataset.love)) continue;
+      if (target.classList.contains('is-aye')) setTimeout(() => captainSalute(target), 250);
+      else setTimeout(() => { loveRain(target); loveConstellation(); }, 250);
     }
   }, { threshold: 0.9, rootMargin: '0px 0px -96px 0px' });
   const old = loveSeen();
-  pick('.feed-mark.is-love').forEach((el) => { if (!old.includes(el.dataset.love)) loveIo.observe(el); });
+  pick('.feed-mark.is-love, .feed-mark.is-aye').forEach((el) => { if (!old.includes(el.dataset.love)) loveIo.observe(el); });
 }
 
 let loveIo = null;

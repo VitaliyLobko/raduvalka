@@ -3513,3 +3513,20 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   100% { opacity: 1; transform: scale(1.4); filter: drop-shadow(0 0 3px #FFD1E3); }
 }
 @keyframes love-line { to { stroke-opacity: .85; } }
+
+/* «🫡 Да, капитан!» у чаті: рядок з цитатою, на що погодились; кнопка під реакціями; треуголка і хвиля (fx.js) */
+.feed-mark.is-captain { align-items: flex-start; }
+.feed-captain { display: grid; gap: 2px; min-width: 0; }
+.feed-captain-text { justify-self: start; color: var(--plum); font-weight: 700; transform-origin: 20% 80%; }
+.feed-mark.is-mine .feed-captain-text { justify-self: end; }
+.feed-captain .feed-quote { max-width: 62vw; overflow: hidden; font-size: .75rem; white-space: nowrap; text-overflow: ellipsis; }
+[data-side="vin"] .feed-captain-text { color: #EDB949; }
+.react-captain {
+  position: fixed; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--paper); color: var(--plum); font-size: 1rem; font-weight: 700; font-family: inherit;
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, .45);
+}
+.react-captain:active { transform: scale(.96); }
+[data-side="vin"] .react-captain { background: #1d5469; color: #EDB949; }
+.fx-cap { z-index: 61; line-height: 0; transform-origin: 30% 90%; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .25)); }
+.fx-wave { z-index: 59; font-size: 1.5rem; }

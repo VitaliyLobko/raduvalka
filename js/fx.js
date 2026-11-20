@@ -93,3 +93,54 @@ export function loveRain(el) {
   }
 }
 
+// «🫡 Да, капитан!» побачили вперше: згори на рядок падає піратська треуголка, рядок віддає честь,
+// по екрану пропливає хвиля з якорем
+const TRICORN = '<svg viewBox="0 0 64 40" width="64" height="40" aria-hidden="true">'
+  + '<ellipse cx="32" cy="13" rx="15" ry="10" fill="#1c1a22"/>'
+  + '<path d="M3 25 Q13 5 32 11 Q51 5 61 25 Q46 19 32 32 Q18 19 3 25 Z" fill="#24212b" stroke="#e8b84a" stroke-width="2.4" stroke-linejoin="round"/>'
+  + '<circle cx="32" cy="19" r="3.6" fill="#fff"/>'
+  + '<path d="M27.5 23.5l9-4M27.5 19.5l9 4" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>'
+  + '<circle cx="30.7" cy="18.6" r=".9" fill="#24212b"/><circle cx="33.3" cy="18.6" r=".9" fill="#24212b"/>'
+  + '</svg>';
+export function captainSalute(el) {
+  if (reduceMotion || !el?.isConnected) return;
+  const r = el.getBoundingClientRect();
+  const text = el.querySelector('.feed-captain-text') || el;
+  text.animate([
+    { transform: 'rotate(0)' }, { transform: 'rotate(-8deg) scale(1.15)' }, { transform: 'rotate(4deg) scale(1.1)' }, { transform: 'rotate(0)' },
+  ], { duration: 700, delay: 650, easing: 'ease-out' });
+  const cap = document.createElement('span');
+  cap.className = 'fx-burst fx-cap';
+  cap.setAttribute('aria-hidden', 'true');
+  cap.innerHTML = TRICORN;
+  const tr = text.getBoundingClientRect();
+  cap.style.left = `${tr.left - 6}px`;
+  cap.style.top = `${tr.top - 34}px`;
+  document.body.append(cap);
+  cap.animate([
+    { transform: `translateY(${-tr.top - 80}px) rotate(-40deg)`, opacity: 1 },
+    { transform: 'translateY(0) rotate(-14deg)', offset: 0.42 },
+    { transform: 'translateY(-14px) rotate(-6deg)', offset: 0.55 },
+    { transform: 'translateY(0) rotate(-12deg)', offset: 0.68 },
+    { transform: 'translateY(0) rotate(-12deg)', opacity: 1, offset: 0.88 },
+    { transform: 'translateY(-24px) rotate(-12deg)', opacity: 0 },
+  ], { duration: 2600, easing: 'cubic-bezier(.3, .7, .4, 1)' }).finished.finally(() => cap.remove());
+  const wave = ['🌊', '🌊', '⚓', '🌊', '⛵', '🌊', '🌊'];
+  const y = r.top + r.height / 2 + 26;
+  wave.forEach((g, i) => {
+    const s = document.createElement('span');
+    s.className = 'fx-burst fx-wave';
+    s.setAttribute('aria-hidden', 'true');
+    s.textContent = g;
+    s.style.left = '0px';
+    s.style.top = `${y}px`;
+    document.body.append(s);
+    const bob = g === '🌊' ? 6 : 10;
+    s.animate([
+      { transform: `translate(-60px, 0) rotate(0)`, opacity: 0 },
+      { transform: `translate(${innerWidth * 0.3}px, ${-bob}px) rotate(-6deg)`, opacity: 1, offset: 0.3 },
+      { transform: `translate(${innerWidth * 0.65}px, ${bob}px) rotate(6deg)`, opacity: 1, offset: 0.7 },
+      { transform: `translate(${innerWidth + 40}px, 0) rotate(0)`, opacity: 0 },
+    ], { duration: 2400, delay: 700 + i * 110, easing: 'linear', fill: 'backwards' }).finished.finally(() => s.remove());
+  });
+}

@@ -260,6 +260,17 @@ async function route(req, env, ctx, info = {}) {
       return json({ reaches, sent: reaches && notify.on });
     }
   }
+  // «🫡 Да, капитан!» у відповідь на повідомлення другого: рядок у чаті в обох (цитата — у mood) і push другому
+  if (m === 'POST' && path === 'captain') {
+    const b = await readJson(req);
+    const q = String(b.quote || '').replace(/\s+/g, ' ').trim();
+    const quote = q.length > 80 ? `${q.slice(0, 80)}…` : q;
+    const now = Date.now();
+    await addMark(env.DB, side, 'captain', now, quote || null);
+    const reaches = await hasPush(env.DB, other(side));
+    if (reaches) notify.send(other(side), captainNote(side, quote));
+    return json({ reaches, sent: reaches && notify.on });
+  }
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
@@ -2598,6 +2609,11 @@ function askNote(from, token, origin) {
     actions: [{ action: 'ok', title: '❤️ Я в порядке' }],
     ok: { url: `${origin}/api/checkin-ok`, token },
   };
+}
+
+// «🫡 Да, капитан!»: на що саме погодились — у тексті; тап — у чат
+function captainNote(from, quote) {
+  return { title: '🫡 Да, капитан!', body: quote ? `На «${quote}»` : sender(from, 'Он согласен', 'Она согласна'), tag: 'captain', go: 'letter' };
 }
 
 // Сердечко з листівки «Вместе»: тап — одразу шторка, там воно прилетить
