@@ -3328,8 +3328,8 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-answer .react-opt { flex: none; }
 .react-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .react-pick .react-opt { flex: none; }
-/* 9 реакцій в один ряд: на вузькому екрані кнопки трохи зменшуються, а не ховаються за край */
-.react-pick:not(.mood-pick) .react-opt { width: min(40px, calc((100vw - 44px) / 9)); height: min(40px, calc((100vw - 44px) / 9)); font-size: min(1.5rem, calc((100vw - 44px) / 9 * .62)); }
+/* 11 реакцій — два рядки по 6, кнопки звичайного розміру й на вузькому телефоні */
+.react-pick:not(.mood-pick) { display: grid; grid-template-columns: repeat(6, 40px); gap: 2px; overflow: visible; border-radius: 26px; }
 /* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
 .checkin-asked { min-width: 0; }
 .checkin-asked .rib-wrap { min-width: 0; max-width: 100%; }

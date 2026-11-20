@@ -481,7 +481,8 @@ function openReactions(bubble, it) {
   // Над повідомленням, а коли нагорі місця нема — під ним; не виходимо за краї екрана
   const w = pick.offsetWidth;
   pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  pick.style.top = `${r.top > 70 ? r.top - 58 : r.bottom + 8}px`;
+  const ph = pick.offsetHeight;
+  pick.style.top = `${r.top > ph + 20 ? r.top - ph - 6 : Math.min(r.bottom + 8, innerHeight - ph - 8)}px`;
 }
 
 async function setReaction(it, value, bubble) {

@@ -217,7 +217,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
   + '</svg>';
 
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -487,6 +487,72 @@ REACT_FX['😎'] = (el, x, y) => {
     { transform: `${C} translateY(10px) scale(.6)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.25 },
     { transform: `${C} scale(1)`, opacity: 1, offset: 0.8 }, { transform: `${C}`, opacity: 0 },
   ], { duration: 1300, delay: 1500, fill: 'backwards' }));
+};
+
+// Великий смайлик, що зʼявляється не одразу, а через delay
+function bigLater(glyph, x, y, frames, dur, delay, size = '6.6rem') {
+  const s = glyphAt(glyph, x, y, size, 'fx-big');
+  gone(s)(s.animate(frames.map((f) => ({ ...f, transform: `${C} ${f.transform || ''}` })), { duration: dur, delay, easing: 'ease-out', fill: 'backwards' }));
+  return s;
+}
+
+// «Крише знесло» 🤯: обличчя червоніє й трясеться дедалі сильніше — бах! — голова вибухає, мозок відлітає
+REACT_FX['🤯'] = (el, x, y) => {
+  bigLater('😳', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.2 },
+    { transform: 'scale(1.04) translateX(-2px)', offset: 0.35 }, { transform: 'scale(1.08) translateX(3px)', offset: 0.45 },
+    { transform: 'scale(1.12) translateX(-4px)', offset: 0.55 }, { transform: 'scale(1.16) translateX(5px)', offset: 0.65 },
+    { transform: 'scale(1.2) translateX(-6px)', offset: 0.75 }, { transform: 'scale(1.25) translateX(6px)', offset: 0.85 },
+    { transform: 'scale(1.3) translateX(-6px)', opacity: 1, offset: 0.97 }, { transform: 'scale(1.3)', opacity: 0 },
+  ], 1050, 0);
+  bigLater('🤯', x, y, [
+    { transform: 'scale(1.5)', opacity: 1 }, { transform: 'scale(1.05) rotate(-6deg)', offset: 0.12 },
+    { transform: 'scale(1.18) rotate(5deg)', offset: 0.22 }, { transform: 'scale(1.12) rotate(0)', offset: 0.32 },
+    { transform: 'scale(1.12)', opacity: 1, offset: 0.88 }, { transform: 'scale(.8)', opacity: 0 },
+  ], 1950, 1030);
+  veil('fx-flash', [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], 500, 1030);
+  ring(x, y - 40, 1030, 'is-gold');
+  ring(x, y - 40, 1180);
+  const boom = glyphAt('💥', x, y - 70, '4.2rem');
+  gone(boom)(boom.animate([
+    { transform: `${C} scale(.2)`, opacity: 0 }, { transform: `${C} scale(1.4)`, opacity: 1, offset: 0.3 }, { transform: `${C} translateY(-30px) scale(1.8)`, opacity: 0 },
+  ], { duration: 700, delay: 1030, fill: 'backwards' }));
+  spray(x, y - 50, ['💫', '✨', '⭐', '💥'], 18, { dist: 170, size: '1.7rem', delay: 1060, from: 190, to: 350, fall: 60, dur: 1200 });
+  const brain = glyphAt('🧠', x, y - 50, '2.8rem');
+  const side = Math.random() < 0.5 ? -1 : 1;
+  gone(brain)(brain.animate([
+    { transform: `${C} scale(.4) rotate(0)`, opacity: 0 },
+    { transform: `translate(calc(-50% + ${side * 40}px), calc(-50% - 90px)) scale(1.1) rotate(${side * 120}deg)`, opacity: 1, offset: 0.3 },
+    { transform: `translate(calc(-50% + ${side * 110}px), calc(-50% - 170px)) scale(1) rotate(${side * 300}deg)`, opacity: 1, offset: 0.7 },
+    { transform: `translate(calc(-50% + ${side * 170}px), calc(-50% - ${y + 40}px)) scale(.8) rotate(${side * 480}deg)`, opacity: 0 },
+  ], { duration: 1500, delay: 1080, easing: 'ease-out', fill: 'backwards' }));
+  jolt(el, [{ transform: 'none' }, { transform: 'translate(6px, -3px)' }, { transform: 'translate(-6px, 3px)' }, { transform: 'translate(4px, 2px)' },
+    { transform: 'translate(-3px, -2px)' }, { transform: 'none' }], 450, 1030);
+};
+
+// «Ну таке» 🤷: двічі знизує плечима, по боках спливають знаки питання, внизу ¯\_(ツ)_/¯
+REACT_FX['🤷'] = (el, x, y) => {
+  big('🤷', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: 0.14 },
+    { transform: 'translateY(-14px) scale(1.12, 1.04)', offset: 0.24 }, { transform: 'translateY(0) scale(1.1)', offset: 0.34 },
+    { transform: 'translateY(-14px) scale(1.12, 1.04)', offset: 0.46 }, { transform: 'translateY(0) scale(1.1)', offset: 0.56 },
+    { transform: 'rotate(-5deg) scale(1.1)', offset: 0.68 }, { transform: 'rotate(4deg) scale(1.1)', offset: 0.78 },
+    { transform: 'rotate(0) scale(1.1)', opacity: 1, offset: 0.88 }, { transform: 'scale(.8)', opacity: 0 },
+  ], 2500);
+  [[-1, 350], [1, 650], [-1, 950], [1, 1250]].forEach(([s, d], i) => {
+    const q = glyphAt('❔', x + s * (70 + i * 6), y - 20, `${1.8 + (i % 2) * 0.4}rem`);
+    const rot = s * (10 + i * 5);
+    gone(q)(q.animate([
+      { transform: `${C} scale(.2) rotate(0)`, opacity: 0 }, { transform: `${C} scale(1.1) rotate(${rot}deg)`, opacity: 1, offset: 0.25 },
+      { transform: `translate(calc(-50% + ${s * 14}px), calc(-50% - 60px)) rotate(${-rot}deg)`, opacity: 1, offset: 0.75 },
+      { transform: `translate(calc(-50% + ${s * 20}px), calc(-50% - 90px)) scale(.8)`, opacity: 0 },
+    ], { duration: 1100, delay: d, easing: 'ease-out', fill: 'backwards' }));
+  });
+  const say = glyphAt('¯\\_(ツ)_/¯', x, y + 76, '1.6rem', 'fx-say');
+  gone(say)(say.animate([
+    { transform: `${C} translateY(10px) scale(.6)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.2 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.85 }, { transform: C, opacity: 0 },
+  ], { duration: 1700, delay: 700, fill: 'backwards' }));
 };
 
 export function reactFx(el, glyph) {
