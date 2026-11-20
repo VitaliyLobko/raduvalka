@@ -397,6 +397,9 @@ function dayFor(d) {
   return days.get(d);
 }
 
+// Обертання, якого я ще не бачив у «Наугад», — назву не видаємо, хай докрутиться в мене (ключ — з plans.js)
+const spinSeen = (at) => { try { return localStorage.getItem(`radovalka:wheel-seen:${DATA.side}`) === String(at); } catch { return true; } };
+
 // Рядок стрічки: li стоїть на місці (під ним — підказка свайпу), пузир їде за пальцем
 // Новина: другий додав хотілку чи план — тихий рядок посередині, тап веде у вкладку
 function newsRow(n) {
@@ -420,7 +423,7 @@ function newsRow(n) {
   const some = n.titles ? `${n.titles.slice(0, 3).map((t) => `«${t}»`).join(', ')}${n.titles.length > 3 ? ` и ещё ${n.titles.length - 3}` : ''}` : '';
   const text = n.kind === 'invite' ? `${cap(who().partner)} зовёт крутить барабан — жми «Готов»`
     : n.kind === 'plans' ? `${cap(who().partner)} ${she ? 'предложила' : 'предложил'} ${n.titles.length > 1 ? `планы: ${some}` : `план ${some}`}`
-    : n.kind === 'spin' ? `Барабан выбрал: «${n.title}»`
+    : n.kind === 'spin' ? (spinSeen(n.at) ? `Барабан выбрал: «${n.title}»` : 'Барабан докрутился — посмотри, что выпало')
     : `${cap(who().partner)} ${n.kind === 'wish' ? `${she ? 'добавила' : 'добавил'} хотелку` : `${she ? 'предложила' : 'предложил'} план`} «${n.title}»`;
   const [icon, tab] = n.kind === 'wish' ? ['🎁', 'wish'] : n.kind === 'plan' || n.kind === 'plans' ? ['🧭', 'deck'] : ['🎰', 'wheel'];
   return h('li', { class: 'feed-news' },
