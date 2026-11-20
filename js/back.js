@@ -84,7 +84,11 @@ export function initBack(showTab) {
 export function leave(go) {
   leaving = true;
   if (!depth) { go(); return; }
-  addEventListener('popstate', () => go(), { once: true });
+  // popstate може не прийти (браузер пропустив записи без жесту) — тоді все одно йдемо, не лишаємо екран завислим
+  let gone = false;
+  const once = () => { if (!gone) { gone = true; go(); } };
+  addEventListener('popstate', once, { once: true });
+  setTimeout(once, 1200);
   history.go(-depth);
 }
 

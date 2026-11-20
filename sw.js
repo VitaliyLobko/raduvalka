@@ -4,7 +4,7 @@
 const SHARE_CACHE = 'shared-radovalka';
 // Назви — не з префіксів інших застосунків на цьому сайті, їх activate їх не прибере.
 // Аварійний вихід, якщо в кеш потрапило зламане: змінити номер — activate прибере старий
-const SHELL = 'shell-radovalka-1';
+const SHELL = 'shell-radovalka-2';
 const scope = () => self.registration.scope;
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -40,12 +40,17 @@ async function fromShell(req, key) {
 
 // Нова версія: спершу качаємо все, і лише коли кожен файл прийшов — кладемо разом.
 // Обірвалось — лишається стара оболонка цілою, без суміші старих і нових модулів
-async function updateShell(urls) {
+// v — версія, яку кладемо. CDN GitHub Pages кілька хвилин після випуску віддає частину файлів старими
+// (cache: 'reload' обходить лише кеш браузера) — тоді в кеш лягла б суміш версій і застосунок не стартував би.
+// Тому кожен файл — за адресою з міткою версії (її CDN не має, бере свіже), а version.js звіряємо
+async function updateShell(urls, v) {
   try {
     const all = [...new Set([scope(), ...urls.filter((u) => u.startsWith(scope()) && !u.endsWith('/sw.js'))])];
+    const fresh = (u) => (v ? `${u}${u.includes('?') ? '&' : '?'}shell=${encodeURIComponent(v)}` : u);
     const got = await Promise.all(all.map(async (u) => {
-      const res = await fetch(u, { cache: 'reload' });
+      const res = await fetch(fresh(u), { cache: 'reload' });
       if (!res.ok) throw new Error(u);
+      if (v && /\/js\/version\.js$/.test(u) && !(await res.clone().text()).includes(`VERSION = '${v}'`)) throw new Error('stale');
       return [u, res];
     }));
     const cache = await caches.open(SHELL);
@@ -58,7 +63,7 @@ async function updateShell(urls) {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'update-shell') return;
-  event.waitUntil(updateShell(event.data.urls || []).then((ok) => event.ports[0]?.postMessage(ok)));
+  event.waitUntil(updateShell(event.data.urls || [], event.data.v).then((ok) => event.ports[0]?.postMessage(ok)));
 });
 
 // Картинку чи посилання — у свій кеш (назва не з префіксів інших застосунків на цьому ж сайті, їх activate її не зачепить),

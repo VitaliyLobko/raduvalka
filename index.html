@@ -16,6 +16,28 @@
         document.querySelector('link[rel="manifest"]').href = 'manifest-vin.webmanifest';
       }
     } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }
+    // Сторож старту: за 12 с застосунок не піднявся (і це не замок чи PIN) — раз стираємо кеш оболонки
+    // (у ньому могла лягти суміш версій) і перезавантажуємо, як Ctrl+Shift+R; удруге — напис і кнопка.
+    // Тут, а не в модулі: спрацює, навіть якщо модулі не завантажились
+    addEventListener('DOMContentLoaded', function () {
+      setTimeout(function () {
+        if (!document.body.classList.contains('is-booting') || document.querySelector('.lock-form, .lock-error, .pin-keys')) return;
+        var tried = false;
+        try { tried = sessionStorage.getItem('radovalka:boot-retry') === '1'; sessionStorage.setItem('radovalka:boot-retry', '1'); } catch (e) { tried = true; }
+        if (!tried) {
+          try { localStorage.removeItem('radovalka:shell'); } catch (e) { /* нічого */ }
+          var again = function () { location.reload(); };
+          if (window.caches) caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('shell-radovalka') === 0; }).map(function (k) { return caches.delete(k); })); }).then(again, again); else again();
+          return;
+        }
+        var box = document.createElement('div');
+        box.className = 'boot-stuck';
+        box.setAttribute('role', 'alert');
+        box.innerHTML = '<p>Радовалка не загрузилась</p><button type="button" class="btn btn-primary">Перезагрузить</button>';
+        box.querySelector('button').onclick = function () { location.reload(); };
+        document.body.append(box);
+      }, 12000);
+    });
   </script>
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">

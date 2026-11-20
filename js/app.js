@@ -542,7 +542,7 @@ function updateShell(v) {
     const done = new Promise((ok) => {
       const ch = new MessageChannel();
       ch.port1.onmessage = (e) => ok(!!e.data);
-      sw.postMessage({ type: 'update-shell', urls: ownFiles() }, [ch.port2]);
+      sw.postMessage({ type: 'update-shell', urls: ownFiles(), v }, [ch.port2]);
       setTimeout(() => ok(false), 20000);
     }).then((ok) => {
       if (ok) { try { localStorage.setItem(SHELL_MARK, v); } catch { /* наступного разу перекачає ще раз */ } }
@@ -796,6 +796,7 @@ async function start() {
   // Старий воркер (або збережений до 0.1.74 boot без мережі) привітального окремо не віддає
   if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
   document.body.classList.remove('is-booting');
+  try { sessionStorage.removeItem('radovalka:boot-retry'); } catch { /* приватне вікно */ }
   prewarmWrite();
   applySide();
   drawChip();
