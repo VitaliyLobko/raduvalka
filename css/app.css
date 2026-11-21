@@ -1663,79 +1663,6 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
   font-size: .8125rem;
 }
 
-/* «Подарок на выбор»: конверти-варіанти з сургучем-значком */
-.gift-grid { display: grid; gap: 12px; width: min(100%, 420px); margin: 18px auto 0; }
-
-.gift-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  align-items: center;
-  column-gap: 14px;
-  min-height: 84px;
-  padding: 12px 16px;
-  border: 0;
-  border-radius: 16px;
-  background:
-    linear-gradient(160deg, transparent 49.5%, rgba(74, 37, 69, .08) 50%, transparent 50.5%),
-    linear-gradient(20deg, transparent 49.5%, rgba(74, 37, 69, .08) 50%, transparent 50.5%),
-    color-mix(in srgb, var(--tint) 70%, var(--paper));
-  color: var(--plum);
-  text-align: left;
-  box-shadow: 0 10px 22px -14px rgba(74, 37, 69, .55);
-  transition: transform .25s cubic-bezier(.3, 1.4, .5, 1), opacity .3s;
-}
-
-.gift-card:not(:disabled):active { transform: scale(.97); }
-
-.gift-seal {
-  grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 46% 54% 50% 50% / 52% 48% 52% 48%;
-  background: radial-gradient(circle at 35% 30%, #d77aac, var(--wax) 60%, #6a2149);
-  box-shadow: 0 2px 0 #5e1f45, 0 5px 10px rgba(74, 37, 69, .35);
-  font-size: 1.7rem;
-}
-
-.gift-name { font: 700 1.7rem/1.1 var(--hand); }
-.gift-inside-text { grid-column: 2; margin-top: 4px; font-size: .9375rem; line-height: 1.35; }
-
-.gift-card.is-chosen { background: var(--paper); outline: 3px solid var(--wax); transform: rotate(-1.5deg); }
-.gift-card.is-other { opacity: .72; }
-
-.gift-tag {
-  position: absolute;
-  top: -10px;
-  right: 12px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--wax);
-  color: #fff;
-  font-size: .75rem;
-  font-weight: 500;
-}
-
-.gift-card.is-opening { animation: gift-open .65s ease-in forwards; }
-
-@keyframes gift-open {
-  40% { transform: scale(1.06) rotate(-3deg); }
-  100% { transform: scale(.9) rotate(4deg); opacity: .2; }
-}
-
-.gift-note { margin-top: 14px; }
-.gift-courier { margin: 4px auto 0; }
-
-/* Редактор подарунка в «Написать» */
-.gift-edit { margin-top: 10px; }
-.gift-row { display: grid; grid-template-columns: 52px 1fr; gap: 8px; margin-bottom: 10px; }
-.sheet .gift-row input { min-height: 42px; }
-.sheet .gift-emoji { padding: 0; text-align: center; font-size: 1.4rem; }
-.gift-texts { display: grid; gap: 6px; }
-.sheet .gift-inside { font-size: .875rem; }
-
 /* «Хотелки» */
 .want-add { display: flex; justify-content: center; width: 100%; margin: 14px 0 12px; }
 /* Бюджет — карткою, як «Размер букв» у меню */
@@ -1941,10 +1868,6 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 }
 .want-remove { margin-right: auto; border-color: var(--lavender); color: var(--ink-soft); }
 
-.gift-from-wish { margin: 0 0 10px; }
-.gift-wish-pick { display: grid; gap: 10px; margin-bottom: 12px; padding: 10px; border-radius: 14px; background: var(--field); }
-.gift-wish-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.gift-wish { text-align: left; }
 
 /* «Все письма» під листом дня */
 .archive { margin-top: 28px; }
@@ -2303,7 +2226,6 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .due-name { font-size: .8125rem; font-weight: 500; white-space: nowrap; }
 .due-when { font-size: .6875rem; opacity: .7; white-space: nowrap; }
 .want-due-in { margin-top: 8px; }
-.gift-wish-box { margin-top: 6px; }
 
 
 /* Хотелки: нахилене фото кур'єра не лягає кутом на «Её хотелки / Мои» */

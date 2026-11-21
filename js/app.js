@@ -2,13 +2,12 @@
 import { DATA, who } from './data.js';
 import { get, send, getBlob, save, getKey, setKey, getAltKey, swapKeys, takeKeyFromUrl, rememberSide, forgetSaved, parseKey } from './api.js';
 import { lock, watchResume, pinPanel, clearPin } from './pin.js';
-import { forgetSecret, hasSecret, seal, sealBy, sealBlob } from './seal.js';
+import { forgetSecret, hasSecret, seal, sealBlob } from './seal.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
 import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
-import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
@@ -90,27 +89,24 @@ function prepLetter(l) {
   return l;
 }
 
-// Сургучна крапка на марці «Письма»: непрочитане в чаті, привітальний лист чи подарунок
+// Сургучна крапка на марці «Письма»: непрочитане в чаті чи привітальний лист
 function markLetter() {
   const w = DATA.welcome && !welcomeState().opened;
   // Поки чат не завантажено — дивимось на найновіший лист із boot
   const early = !feedLoaded() && !!DATA.letter?.id && !DATA.letter.opened;
-  const fresh = !!DATA.gift || w || early || feedFresh() > 0;
+  const fresh = w || early || feedFresh() > 0;
   document.querySelector('.tab[data-tab="letter"]')?.classList.toggle('has-new', fresh);
 }
 
 // Push ще нема: свіжий лист і мемчики дотягуємо при поверненні в застосунок
 async function refreshLetter() {
   try {
-    const { letter, gift, checkins } = await get('letter');
+    const { letter, checkins } = await get('letter');
     if (checkins && JSON.stringify(checkins) !== JSON.stringify(DATA.checkins)) {
       DATA.checkins = checkins;
       paintCheckin();
     }
-    // Підарунок на екрані вже обирають — не перемальовуємо з-під пальця
-    const giftChanged = gift?.id !== DATA.gift?.id && !document.querySelector('.gift-card.is-chosen');
-    if (giftChanged) DATA.gift = gift;
-    if (giftChanged || letter?.id !== DATA.letter?.id || letter?.text !== DATA.letter?.text) {
+    if (letter?.id !== DATA.letter?.id || letter?.text !== DATA.letter?.text) {
       DATA.letter = prepLetter(letter);
       markLetter();
       if (tab === 'letter') render();
@@ -169,12 +165,6 @@ const FEED_OPS = {
 };
 
 function renderLetter() {
-  // Подарунок, що чекає вибору, — першим; після «Ура!» — чат
-  if (DATA.gift) {
-    closeLetter();
-    renderGift(screen, DATA.gift, () => { DATA.gift = null; markLetter(); render(); });
-    return;
-  }
   const parts = [h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(FEED_OPS)].filter(Boolean);
   // Рядок «Написать…» — той самий вузол: перемальовуємо все навколо, а його не виймаємо з екрана,
   // інакше поле втратить фокус і клавіатура сховається посеред набору
@@ -311,7 +301,7 @@ function render() {
   // щоб вкладка, перемальовуючи себе, його не стирала
   checkinSlot.replaceChildren(...(tab === 'letter' ? [] : [sosBox(), checkinRow()]));
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
-  const chat = tab === 'letter' && !DATA.gift;
+  const chat = tab === 'letter';
   screen.classList.toggle('is-chat', chat);
   document.body.classList.toggle('is-chat', chat);
   // Поки пишуть, вкладки сховані (висота 0) — тоді лишаємо заміряну раніше
@@ -762,15 +752,14 @@ document.getElementById('about-btn').addEventListener('click', () => openAbout()
 // віддаємо назад. На кожному запуску, доки не вдасться; вдалось — позначка й більше не питаємо
 async function sealOld() {
   if (!hasSecret()) return;
-  // sealed2: з 0.2.29 ще подарунки й фото — телефон, що вже перейшов на 0.2.28, пройде ще раз
+  // sealed2: з 0.2.29 ще фото — телефон, що вже перейшов на 0.2.28, пройде ще раз
   const mark = `radovalka:sealed2:${DATA.side}`;
   try { if (localStorage.getItem(mark) === '1') return; } catch { /* приватне вікно */ }
   try {
     const { rows, imgs = [] } = await get('seal/todo');
     if (rows.length) {
-      const sealed = await Promise.all(rows.map(async (r) => (r.t === 'gift'
-        ? { ...r, gift: await sealBy([{ title: 40, inside: 500 }], r.gift) }
-        : Object.fromEntries(await Promise.all(Object.entries(r).map(async ([k, v]) => [k, k === 'id' || k === 't' ? v : await seal(v)]))))));
+      const sealed = await Promise.all(rows.map(async (r) => Object.fromEntries(
+        await Promise.all(Object.entries(r).map(async ([k, v]) => [k, k === 'id' || k === 't' ? v : await seal(v)])))));
       await send('seal', 'POST', { rows: sealed });
     }
     // Фото — по одному (кожне до 1,4 МБ): завантажити своє відкрите, зашифрувати, віддати назад

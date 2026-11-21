@@ -59,7 +59,7 @@ const DAY_MS = 24 * 3600 * 1000;
 // Реакції на лист і фото (ставить отримувач; старі 😂 і ❤️ мемчиків — серед них)
 const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏', '😎', '🫡', '🤯', '🤷', '🔥', '😴', '🤗', '😢', '🙃', '🍀', '💯'];
 // stock — «в запас»: без дати; утром, коли листа на сьогодні нема, cron робить із найстарішого «На утро»
-const LETTER_KINDS = ['now', 'morning', 'env', 'gift', 'date', 'stock'];
+const LETTER_KINDS = ['now', 'morning', 'env', 'date', 'stock'];
 // Ранок як у «На утро» на телефоні (js/write.js MORNING_HOUR); пояс — якщо отримувач ще не дав сповіщень
 const MORNING_HOUR = 8;
 const STOCK_TZ = 'Europe/Kyiv';
@@ -201,9 +201,8 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
 
   if (m === 'GET' && path === 'boot') {
-    const [letter, gift, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins, welcome] = await Promise.all([
+    const [letter, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins, welcome] = await Promise.all([
       dayLetter(env.DB, side),
-      pendingGift(env.DB, side),
       myEnvelopes(env.DB, side),
       getDoc(env.DB, `envelopes:${other(side)}`),
       getDoc(env.DB, 'together'),
@@ -221,7 +220,6 @@ async function route(req, env, ctx, info = {}) {
       letter,
       // Привітальний лист-заготовка — першим повідомленням чату назавжди, а не лише поки нема справжніх
       welcome: welcome || null,
-      gift,
       envelopes,
       // Для «В конверт»: лише назви її/його конвертів, без самих записок
       partnerEnvelopes: (partnerEnvelopes || []).map(({ id, emoji, label }) => ({ id, emoji, label })),
@@ -241,8 +239,8 @@ async function route(req, env, ctx, info = {}) {
   }
 
   if (m === 'GET' && path === 'letter') {
-    const [letter, gift, checkins] = await Promise.all([dayLetter(env.DB, side), pendingGift(env.DB, side), checkinsOf(env.DB, side)]);
-    return json({ letter, gift, checkins });
+    const [letter, checkins] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side)]);
+    return json({ letter, checkins });
   }
   if (path === 'seal/todo' || path === 'seal' || path === 'seal-img') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
@@ -957,36 +955,6 @@ async function dayLetter(db, side) {
   return { id: r.id, at: r.at, text: r.text, mascot: r.mascot, opened: !!r.opened, liked: !!r.liked, reply: r.reply, special: !!special };
 }
 
-// Подарунок, який ще чекає вибору. Що всередині — не віддаємо, поки не обрано: підглянути не можна
-async function pendingGift(db, side) {
-  const r = await db.prepare(
-    "SELECT * FROM letters WHERE dst = ? AND kind = 'gift' AND chosen IS NULL ORDER BY created LIMIT 1",
-  ).bind(side).first();
-  return r ? giftView(r) : null;
-}
-
-function giftView(r) {
-  const opts = JSON.parse(r.gift || '[]');
-  const shown = r.chosen != null;
-  return {
-    id: r.id,
-    text: r.text,
-    mascot: r.mascot,
-    chosen: r.chosen,
-    options: opts.map((o) => ({ emoji: o.emoji, title: o.title, ...(shown ? { inside: o.inside } : {}) })),
-  };
-}
-
-function cleanGift(list) {
-  const opts = (Array.isArray(list) ? list : []).map((o) => ({
-    emoji: String(o?.emoji || '🎁').trim().slice(0, 8) || '🎁',
-    title: clip(o?.title, 40),
-    inside: clip(o?.inside, 500),
-  })).filter((o) => o.title).slice(0, 3);
-  if (opts.length < 2) throw fail(400, 'gift');
-  return opts;
-}
-
 // Конверти: записки із заготовки, а за ними — дописані в застосунку (лише додаються в кінець,
 // бо «прочитано» рахується позицією)
 // Події конверта — другому push. empty: відкрила, а читати нічого (що прочитано — знає лише її телефон), — дописати;
@@ -1028,10 +996,10 @@ async function lettersRoute(req, db, side, rest, notify) {
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
     const { results } = await db.prepare(
-      "SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, gift, chosen, stocked FROM letters WHERE src = ? AND kind != 'stock' "
+      "SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, stocked FROM letters WHERE src = ? AND kind != 'stock' "
         + 'ORDER BY created DESC LIMIT 60',
     ).bind(side).all();
-    return json(results.map((r) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })));
+    return json(results.map((r) => ({ ...r, opened: !!r.opened, liked: !!r.liked })));
   }
 
   // Мій запас — лише відправнику, від найстарішого (його видадуть першим)
@@ -1042,16 +1010,15 @@ async function lettersRoute(req, db, side, rest, notify) {
     return json(results);
   }
 
-  // «Мне»: усі отримані листи з застосунку, чий час настав; подарунок — лише вже обраний
+  // «Мне»: усі отримані листи з застосунку, чий час настав
   if (m === 'GET' && rest === 'inbox') {
     const { results } = await db.prepare(
-      "SELECT id, kind, text, quote, at, mascot, opened, liked, reply, gift, chosen FROM letters WHERE dst = ? AND at <= ? "
-        + "AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) ORDER BY at DESC LIMIT 60",
+      "SELECT id, kind, text, quote, at, mascot, opened, liked, reply FROM letters WHERE dst = ? AND at <= ? "
+        + "AND kind IN ('now', 'morning', 'date') ORDER BY at DESC LIMIT 60",
     ).bind(side, Date.now()).all();
     return json(results.map((r) => ({
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
       opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
-      ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
     })));
   }
 
@@ -1059,8 +1026,7 @@ async function lettersRoute(req, db, side, rest, notify) {
     const b = await readJson(req);
     const kind = String(b.kind || '');
     const text = clip(b.text, MAX_LETTER);
-    if (!LETTER_KINDS.includes(kind) || (!text && kind !== 'gift')) throw fail(400, 'letter');
-    const gift = kind === 'gift' ? JSON.stringify(cleanGift(b.gift)) : null;
+    if (!LETTER_KINDS.includes(kind) || !text) throw fail(400, 'letter');
     const now = Date.now();
     let at = now;
     // Час «на ранок» рахує телефон (його часовий пояс); сервер лише не пускає в минуле й далеко вперед
@@ -1083,21 +1049,21 @@ async function lettersRoute(req, db, side, rest, notify) {
         if (dup.src !== side) throw fail(409, 'cid');
         return json({
           id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, quote: dup.quote || null, at: dup.at, created: dup.created,
-          opened: !!dup.opened, liked: !!dup.liked, reply: dup.reply, gift: dup.gift && JSON.parse(dup.gift), chosen: dup.chosen, again: true,
+          opened: !!dup.opened, liked: !!dup.liked, reply: dup.reply, again: true,
         });
       }
     }
     const id = cid || crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     const stocked = kind === 'stock' ? now : null;
-    // «Сейчас» і подарунок — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
+    // «Сейчас» — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
     const later = (kind === 'morning' || kind === 'date') && notify.on;
     const quote = quoteOf(b);
     await db.prepare(
-      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, gift, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(id, side, other(side), kind, envId, mascot, text, quote, at, now, gift, later ? null : 0, stocked).run();
+      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, side, other(side), kind, envId, mascot, text, quote, at, now, later ? null : 0, stocked).run();
     if (kind === 'now' && quote) notify.send(other(side), replyNote(side, quoteOn(b)));
-    else if (kind === 'now' || kind === 'gift') notify.send(other(side), letterNote(kind, mascots[mascot]));
-    return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null, gift: gift && JSON.parse(gift), chosen: null }, 201);
+    else if (kind === 'now') notify.send(other(side), letterNote(kind, mascots[mascot]));
+    return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null }, 201);
   }
 
   const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(rest).first();
@@ -1108,20 +1074,6 @@ async function lettersRoute(req, db, side, rest, notify) {
   if (m === 'PUT') {
     if (r.dst !== side) throw fail(403, 'forbidden');
     const b = await readJson(req);
-    // Вибір подарунка — один раз і назавжди; у відповідь — усі варіанти вже з начинкою.
-    // Уже обрано (повтор після втраченої відповіді) — віддаємо той вибір, що стоїть
-    if ('choose' in b) {
-      if (r.kind !== 'gift') throw fail(409, 'chosen');
-      if (r.chosen != null) return json(giftView(r));
-      const i = Number(b.choose);
-      if (!Number.isInteger(i) || i < 0 || i >= JSON.parse(r.gift || '[]').length) throw fail(400, 'choose');
-      const res = await db.prepare('UPDATE letters SET chosen = ?, opened = ? WHERE id = ? AND chosen IS NULL')
-        .bind(i, Date.now(), r.id).run();
-      if (res.meta?.changes === 0) {
-        return json(giftView(await db.prepare('SELECT * FROM letters WHERE id = ?').bind(r.id).first()));
-      }
-      return json(giftView({ ...r, chosen: i }));
-    }
     // Лише поля із запиту: «відкрив» і ❤️ можуть летіти одночасно, і старе прочитане не має затерти нове
     const sets = [];
     const args = [];
@@ -1209,10 +1161,10 @@ async function feedPage(db, side, url) {
   const take = n + 1;
   const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
   const [inbox, sent, memes, news, marks, gifted, aiIdeas] = await Promise.all([
-    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, gift, chosen, at AS t FROM letters '
-      + "WHERE dst = ? AND at <= ? AND at < ? AND (kind IN ('now', 'morning', 'date') OR (kind = 'gift' AND chosen IS NOT NULL)) "
+    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, at AS t FROM letters '
+      + "WHERE dst = ? AND at <= ? AND at < ? AND kind IN ('now', 'morning', 'date') "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
-    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, reaction, gift, chosen, stocked, ${sentAt} AS t `
+    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, reaction, stocked, ${sentAt} AS t `
       + `FROM letters WHERE src = ? AND kind != 'stock' AND ${sentAt} < ? ORDER BY t DESC LIMIT ?`).bind(side, before, take).all(),
     db.prepare('SELECT *, created AS t FROM memes WHERE (src = ? OR dst = ?) AND created < ? ORDER BY created DESC LIMIT ?')
       .bind(side, side, before, take).all(),
@@ -1259,9 +1211,8 @@ async function feedPage(db, side, url) {
     inbox: of('in').map((r) => ({
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
       opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
-      ...(r.kind === 'gift' ? { gift: giftView(r) } : {}),
     })),
-    sent: of('out').map(({ t, ...r }) => ({ ...r, gift: r.gift ? JSON.parse(r.gift) : null, opened: !!r.opened, liked: !!r.liked })),
+    sent: of('out').map(({ t, ...r }) => ({ ...r, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
     news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
       : r.kind === 'duel' ? { kind: 'duel', id: r.id, duel: duelMarkView({ ...r, at: r.t }, side), at: r.t }
@@ -2298,7 +2249,6 @@ function pusher(req, env, ctx) {
 // Що написати: хто приніс, без самого тексту листа
 function letterNote(kind, pet) {
   const brought = pet ? `${pet.name} ${pet.g === 'f' ? 'принесла' : 'принёс'}` : '';
-  if (kind === 'gift') return { title: 'Тебе подарок 🎁', body: brought ? `${brought} подарок — выбери один` : 'Выбери один из вариантов', tag: 'gift' };
   if (kind === 'date') return { title: 'Письмо к особому дню 💌', body: brought ? `${brought} письмо` : 'Открой, пока тёплое', tag: 'letter' };
   if (kind === 'morning') return { title: 'Письмо на сегодня 💌', body: brought ? `${brought} письмо дня` : 'Открой, пока тёплое', tag: 'letter' };
   return { title: 'Тебе письмо 💌', body: brought ? `${brought} письмо` : 'Открой, пока тёплое', tag: 'letter' };
@@ -2417,13 +2367,6 @@ async function sealRoute(req, db, side, path) {
         if (Object.keys(row).length > 2) rows.push(row);
       }
     }
-    // Варіанти подарунка (JSON у letters.gift) — автору, якщо хоч одна назва ще відкрита
-    const { results: gifts } = await db.prepare("SELECT id, gift FROM letters WHERE src = ? AND kind = 'gift' AND gift IS NOT NULL").bind(side).all();
-    for (const g of gifts) {
-      let opts = [];
-      try { opts = JSON.parse(g.gift) || []; } catch { /* зіпсоване — пропускаємо */ }
-      if (opts.some((o) => (o.title && !SEALED.test(o.title)) || (o.inside && !SEALED.test(o.inside)))) rows.push({ t: 'gift', id: g.id, gift: opts });
-    }
     // Свої фото (мемчики й хотілки), ще не зашифровані: «RAD1» у base64 починається з UkFEM
     const { results: imgs } = await db.prepare(
       "SELECT i.name FROM imgs i WHERE i.data NOT LIKE 'UkFEM%' AND (i.name IN (SELECT img FROM memes WHERE src = ? AND img IS NOT NULL) OR i.name IN (SELECT img FROM wishes WHERE owner = ? AND img IS NOT NULL))",
@@ -2446,16 +2389,6 @@ async function sealRoute(req, db, side, path) {
     const rows = Array.isArray(b.rows) ? b.rows.slice(0, 3000) : [];
     let done = 0;
     for (const x of rows) {
-      // Подарунок: усі назви й «що всередині» — уже шифр
-      if (x.t === 'gift') {
-        const r = await db.prepare("SELECT id FROM letters WHERE id = ? AND src = ? AND kind = 'gift'").bind(String(x.id || ''), side).first();
-        if (!r || !Array.isArray(x.gift)) continue;
-        const ok = x.gift.every((o) => SEALED.test(String(o?.title || '')) && (!o.inside || SEALED.test(String(o.inside))));
-        if (!ok) continue;
-        await db.prepare('UPDATE letters SET gift = ? WHERE id = ?').bind(JSON.stringify(cleanGift(x.gift)), r.id).run();
-        done += 1;
-        continue;
-      }
       const cols = SEAL_COLS[x.t || 'letters'];
       if (!cols) continue;
       const owners = [...new Set(Object.values(cols))];

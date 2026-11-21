@@ -107,7 +107,7 @@ export function redrawFeed() { draw(); }
 // Побачив розкриття спору — рядок у чаті показує підсумок
 document.addEventListener('radovalka:duel-seen', () => draw());
 
-// Запечатаний: справжній лист чи привітальний, ще не відкритий (подарунок — свій вигляд)
+// Запечатаний: справжній лист чи привітальний, ще не відкритий
 const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind));
 
 // Час, за яким рядок стоїть у чаті, — так само рахує сервер для меж сторінок
@@ -676,8 +676,6 @@ function againBtn(reply) {
 
 function inBubble(l) {
   const me = who();
-  const chose = me.youOpened === 'открыла' ? 'выбрала' : 'выбрал';
-  const gift = l.gift && l.gift.chosen != null ? l.gift.options[l.gift.chosen] : null;
   const it = { type: 'in', key: l.tpl ? welcomeKey(l) : `l:${l.id}`, l };
   const text = h('p', { class: 'feed-text' }, l.text || '');
   const full = unfolded.has(it.key);
@@ -708,8 +706,7 @@ function inBubble(l) {
     h('span', {}, `${l.kind === 'date' ? '🎉' : '💌'} ${hhmm(l.at)}`),
     courierOf(l) ? h('span', { class: 'feed-courier' }, `🐾 ${petName(courierOf(l))}`) : null,
     l.tpl ? h('span', {}, 'первое письмо') : null,
-    newMark(!l.opened),
-    gift ? h('span', {}, `🎁 ты ${chose}: ${gift.emoji} ${gift.title}`) : null),
+    newMark(!l.opened)),
   quoteLine(l.quote, l.created || l.at),
   l.text ? text : null);
   const like = h('button', {
@@ -785,15 +782,11 @@ function openHere(l, env) {
 function outBubble(l, later) {
   const me = who();
   const e = (DATA.partnerEnvelopes || []).find((x) => x.id === l.env);
-  const chose = me.partner === 'она' ? 'выбрала' : 'выбрал';
-  const where = l.kind === 'gift'
-    ? `🎁 ${hhmm(l.at || l.created)} · ${(l.gift || []).map((o) => `${o.emoji} ${o.title}`).join(' / ')}`
-    : l.kind === 'env' ? `${e ? e.emoji : '✉'} ${hhmm(l.created)} · в конверт «${e ? e.label : '…'}»`
+  const where = l.kind === 'env' ? `${e ? e.emoji : '✉'} ${hhmm(l.created)} · в конверт «${e ? e.label : '…'}»`
       : `${l.stocked ? '📦 из запаса ·' : '➶'} ${hhmm(later ? l.created : l.at)}`;
   let state;
-  if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
   // «На утро» — о 8:00; «Ко времени» — той самий вид листа, але свій час
-  else if (l.kind === 'morning' && later) state = `${new Date(l.at).getHours() === 8 && !new Date(l.at).getMinutes() ? 'ждёт утра' : 'ждёт'} · ${dayWord(l.at)} в ${hhmm(l.at)}`;
+  if (l.kind === 'morning' && later) state = `${new Date(l.at).getHours() === 8 && !new Date(l.at).getMinutes() ? 'ждёт утра' : 'ждёт'} · ${dayWord(l.at)} в ${hhmm(l.at)}`;
   else if (l.kind === 'date' && later) state = `🎂 ждёт · ${dayMonth(l.at)} в ${hhmm(l.at)}`;
   else if (l.opened) state = `${me.partnerOpened} ✓${l.liked ? ' · ❤️' : ''}`;
   else state = l.kind === 'env' ? 'лежит в конверте' : `ещё не ${me.partnerOpened}`;
