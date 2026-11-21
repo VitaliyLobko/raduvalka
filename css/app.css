@@ -3025,7 +3025,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   border-radius: 999px; border: 1.5px solid var(--lavender); background: var(--paper); color: var(--plum);
   font: 400 .9375rem/1 var(--ui); white-space: nowrap; cursor: pointer;
 }
-.cbar-pet { padding-left: 4px; padding-right: 8px; }
+.cbar-pet { padding-left: 4px; padding-right: 8px; touch-action: pan-y; }
 .cbar-pet img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 .cbar-caret { width: 14px; height: 14px; }
 .cbar-pet[aria-expanded="true"] .cbar-caret { transform: rotate(180deg); }

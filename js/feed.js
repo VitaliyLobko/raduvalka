@@ -734,7 +734,8 @@ function outBubble(l, later) {
       : `${l.stocked ? '📦 из запаса ·' : '➶'} ${hhmm(later ? l.created : l.at)}`;
   let state;
   if (l.kind === 'gift') state = l.chosen != null ? `${chose}: ${l.gift[l.chosen].emoji} ${l.gift[l.chosen].title}` : 'ждёт выбора';
-  else if (l.kind === 'morning' && later) state = `ждёт утра · ${dayWord(l.at)} в ${hhmm(l.at)}`;
+  // «На утро» — о 8:00; «Ко времени» — той самий вид листа, але свій час
+  else if (l.kind === 'morning' && later) state = `${new Date(l.at).getHours() === 8 && !new Date(l.at).getMinutes() ? 'ждёт утра' : 'ждёт'} · ${dayWord(l.at)} в ${hhmm(l.at)}`;
   else if (l.kind === 'date' && later) state = `🎂 ждёт · ${dayMonth(l.at)} в ${hhmm(l.at)}`;
   else if (l.opened) state = `${me.partnerOpened} ✓${l.liked ? ' · ❤️' : ''}`;
   else state = l.kind === 'env' ? 'лежит в конверте' : `ещё не ${me.partnerOpened}`;

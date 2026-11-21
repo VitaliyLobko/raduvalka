@@ -18,7 +18,9 @@ const CARET = '<svg class="cbar-caret" viewBox="0 0 24 24" aria-hidden="true" fi
 const MAX_H = 132;
 
 let ui = null;
+// 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at
 let when = 'now';
+let atTime = 0;
 let pet = null;
 let reply = null;
 let picking = false;
@@ -39,7 +41,28 @@ function build() {
     h('span', { class: 'cbar-quote-label' }, 'Отвечаешь на'),
     h('span', { class: 'cbar-quote-text' }),
     h('button', { type: 'button', class: 'cbar-quote-x', 'aria-label': 'Не отвечать', html: CROSS, ...keep, onclick: () => { reply = null; paint(); } }));
-  const petBtn = h('button', { type: 'button', class: 'cbar-chip cbar-pet', 'aria-expanded': 'false', ...keep, onclick: () => { picking = !picking; paint(); } });
+  const pets = Object.keys(DATA.mascots);
+  // Питомець: свайп по чипу — сусідній одразу, тап — ряд мордочок
+  let swiped = false;
+  let x0 = null;
+  const petBtn = h('button', {
+    type: 'button', class: 'cbar-chip cbar-pet', 'aria-expanded': 'false', title: 'Свайп — сменить', ...keep,
+    onclick: () => { if (swiped) { swiped = false; return; } picking = !picking; paint(); },
+  });
+  petBtn.addEventListener('pointerdown', (e) => {
+    x0 = e.clientX;
+    swiped = false;
+    try { petBtn.setPointerCapture(e.pointerId); } catch { /* палець уже відпущено */ }
+  });
+  petBtn.addEventListener('pointermove', (e) => {
+    if (x0 === null || swiped || Math.abs(e.clientX - x0) < 28) return;
+    swiped = true;
+    stepPet(pets, e.clientX < x0 ? 1 : -1);
+  });
+  const lift = () => { x0 = null; };
+  petBtn.addEventListener('pointerup', lift);
+  petBtn.addEventListener('pointercancel', lift);
+  // «Сейчас» ↔ «на утро»; свій час (з «＋» → «Ко времени») тап скасовує — знову «сейчас»
   const whenBtn = h('button', {
     type: 'button', class: 'cbar-chip cbar-when', ...keep,
     onclick: () => {
@@ -47,8 +70,22 @@ function build() {
       paint();
     },
   });
+  // Годинник телефона: найближчі вибрані години й хвилини — сьогодні, якщо ще не минули, інакше завтра
+  const clock = h('input', {
+    type: 'time', class: 'visually-hidden cbar-clock', tabindex: '-1', 'aria-label': 'Ко времени',
+    onchange: () => {
+      const [hh, mm] = clock.value.split(':').map(Number);
+      if (!Number.isFinite(hh)) return;
+      const d = new Date();
+      d.setHours(hh, mm || 0, 0, 0);
+      if (d.getTime() <= Date.now() + 60000) d.setDate(d.getDate() + 1);
+      atTime = d.getTime();
+      when = 'time';
+      paint();
+      ui.area.focus();
+    },
+  });
   const helpBtn = h('button', { type: 'button', class: 'cbar-chip cbar-help', ...keep, onclick: () => big({ help: true }) }, '✨ Помочь');
-  const pets = Object.keys(DATA.mascots);
   const petRow = h('div', { class: 'cbar-pets', role: 'radiogroup', 'aria-label': 'Кто понесёт', hidden: true },
     ...pets.map((k) => h('button', {
       type: 'button', role: 'radio', class: 'cbar-pet-pick', 'data-v': k, title: petName(k), ...keep,
@@ -57,8 +94,8 @@ function build() {
     })));
   const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, helpBtn].filter(Boolean));
   const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, area), act);
-  const el = h('div', { class: 'cbar', role: 'group', 'aria-label': 'Новое письмо' }, quote, petRow, opts, row);
-  ui = { el, area, act, plusBtn, quote, petBtn, whenBtn, petRow, opts };
+  const el = h('div', { class: 'cbar', role: 'group', 'aria-label': 'Новое письмо' }, quote, petRow, opts, row, clock);
+  ui = { el, area, act, plusBtn, quote, petBtn, whenBtn, petRow, opts, clock };
 
   area.addEventListener('input', () => { if (!reply) draft.set(area.value); grow(); paint(); });
   // Клавіатура на телефоні — нижні вкладки ховаються, місце переписці (лише на дотиковому екрані: на ноутбуці вони не заважають)
@@ -70,6 +107,29 @@ function build() {
     if (act.dataset.mode === 'mic') listen(area, act, () => paint());
     else sendText();
   });
+}
+
+function stepPet(pets, d) {
+  const i = pets.indexOf(pet);
+  pet = pets[(i + d + pets.length) % pets.length];
+  picking = false;
+  paint();
+  const img = ui.petBtn.querySelector('img');
+  img?.animate([{ transform: `translateX(${d * 14}px)`, opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
+}
+
+// Коли прийде: undefined — зараз
+const sendAt = () => (when === 'morning' ? nextMorning().getTime() : when === 'time' ? atTime : undefined);
+const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? '' : 'завтра ');
+
+// «Ко времени»: годинник телефона одразу (той самий тап — інакше браузер його не відкриє)
+function pickTime() {
+  closePlus();
+  const { clock } = ui;
+  const d = new Date(when === 'time' ? atTime : Date.now() + 3600000);
+  if (when !== 'time') d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15);
+  clock.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  try { clock.showPicker(); } catch { clock.focus(); clock.click(); }
 }
 
 function grow() {
@@ -95,11 +155,15 @@ function paint() {
   petBtn.innerHTML = `<img src="${petSrc(pet)}" alt="" width="28" height="28"><span>${petName(pet)}</span>${CARET}`;
   petBtn.setAttribute('aria-label', `Несёт ${petName(pet)} — сменить`);
   petRow.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === pet)));
+  // Свій час, що вже минув (рядок довго лежав), — назад на «сейчас»
+  if (when === 'time' && atTime <= Date.now()) when = 'now';
   const morning = when === 'morning';
-  whenBtn.classList.toggle('is-on', morning);
-  whenBtn.setAttribute('aria-pressed', String(morning));
-  whenBtn.textContent = morning ? '🌅 на утро' : '🕐 сейчас';
-  whenBtn.setAttribute('aria-label', morning ? `На утро, в ${hhmm(nextMorning().getTime())}. Тап — отправить сейчас` : 'Сейчас. Тап — отправить на утро');
+  const later = when !== 'now';
+  whenBtn.classList.toggle('is-on', later);
+  whenBtn.setAttribute('aria-pressed', String(later));
+  whenBtn.textContent = morning ? '🌅 на утро' : when === 'time' ? `🕐 ${dayWord(atTime)}в ${hhmm(atTime)}` : '🕐 сейчас';
+  whenBtn.setAttribute('aria-label', morning ? `На утро, в ${hhmm(nextMorning().getTime())}. Тап — отправить сейчас`
+    : when === 'time' ? `Придёт ${dayWord(atTime)}в ${hhmm(atTime)}. Тап — отправить сейчас` : 'Сейчас. Тап — отправить на утро');
   plusBtn.innerHTML = plus ? CROSS : PLUS;
   plusBtn.setAttribute('aria-label', plus ? 'Закрыть' : 'Ещё: фото, гифка, спор, конверт');
   plusBtn.setAttribute('aria-expanded', String(!!plus));
@@ -111,7 +175,7 @@ function paint() {
     if (!listening) { act.innerHTML = MIC; act.setAttribute('aria-label', 'Сказать голосом'); }
   } else {
     act.innerHTML = ARROW;
-    act.setAttribute('aria-label', morning ? 'Отправить на утро' : 'Отправить');
+    act.setAttribute('aria-label', morning ? 'Отправить на утро' : when === 'time' ? `Отправить к ${hhmm(atTime)}` : 'Отправить');
     act.removeAttribute('aria-pressed');
   }
   act.classList.toggle('is-empty', mode === 'send' && !text);
@@ -126,11 +190,12 @@ async function sendText() {
   const p = pet;
   act.disabled = true;
   try {
+    const at = sendAt();
     const r = await deliver('letter', 'letters', {
-      kind: when,
+      kind: at ? 'morning' : 'now',
       text,
       mascot: p,
-      at: when === 'morning' ? nextMorning().getTime() : undefined,
+      at,
       quote: r0?.quote,
       on: r0?.on,
     });
@@ -210,7 +275,7 @@ function openPlus() {
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),
     h('div', { class: 'cbar-tiles' }, ...[
-      tile('🌅', 'На утро', () => { when = 'morning'; closePlus(); ui.area.focus(); }, ' is-special'),
+      tile('🕐', 'Ко времени', () => pickTime(), ' is-special'),
       envs.length ? tile('✉️', 'В конверт', () => big({ where: 'env' }), ' is-special') : null,
       tile('🎂', 'К дате', () => big({ where: 'date' }), ' is-special'),
       tile('⤢', 'Большое', () => big({ where: when === 'morning' ? 'morning' : 'now' }), ' is-special'),
