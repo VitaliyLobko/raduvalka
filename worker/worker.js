@@ -1055,14 +1055,17 @@ async function lettersRoute(req, db, side, rest, notify) {
     }
     const id = cid || crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     const stocked = kind === 'stock' ? now : null;
-    // «Сейчас» — сповіщаємо одразу; «На утро» і «К дате» — cron, коли настане час; записки в конверт — ні
-    const later = (kind === 'morning' || kind === 'date') && notify.on;
+    // «Сейчас» — сповіщаємо одразу; «На утро» і святковий на свій час — cron, коли настане час; записки в конверт — ні.
+    // Святковий «зараз» (час уже настав) — одразу, як звичайний
+    const soon = kind === 'date' && at <= now + 60000;
+    const later = (kind === 'morning' || (kind === 'date' && !soon)) && notify.on;
     const quote = quoteOf(b);
     await db.prepare(
       'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(id, side, other(side), kind, envId, mascot, text, quote, at, now, later ? null : 0, stocked).run();
     if (kind === 'now' && quote) notify.send(other(side), replyNote(side, quoteOn(b)));
     else if (kind === 'now') notify.send(other(side), letterNote(kind, mascots[mascot]));
+    else if (soon) notify.send(other(side), letterNote(kind, mascots[mascot]));
     return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null }, 201);
   }
 

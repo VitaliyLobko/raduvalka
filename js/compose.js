@@ -19,10 +19,10 @@ const MAX_H = 132;
 
 let ui = null;
 // 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at
-// (святковий свій час — kind 'date')
+// (святковий — kind 'date': зараз, на ранок чи свій час)
 let when = 'now';
 let atTime = 0;
-// Свій час можна зробити святковим: kind 'date' — золотий конверт, приносять усі разом
+// Будь-який лист можна зробити святковим: kind 'date' — золотий конверт, приносять усі разом
 let festive = false;
 let pet = null;
 let reply = null;
@@ -71,7 +71,6 @@ function build() {
     onclick: () => {
       if (when === 'now') { pickTime(); return; }
       when = 'now';
-      festive = false;
       paint();
     },
   });
@@ -140,7 +139,7 @@ function stepPet(pets, d) {
   img?.animate([{ transform: `translateX(${d * 14}px)`, opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
 }
 
-const isFestive = () => festive && when === 'time' && !reply;
+const isFestive = () => festive;
 // Коли прийде: undefined — зараз
 const sendAt =() => (when === 'morning' ? nextMorning().getTime() : when === 'time' ? atTime : undefined);
 // Над рядком: сьогоднішнє — лише годиною, інше — «завтра в …» чи «25 декабря в …»
@@ -206,10 +205,9 @@ function paint() {
   whenBtn.textContent = morning ? '🌅 на утро' : when === 'time' ? `🕐 ${dayWord(atTime)}в ${hhmm(atTime)}` : '🕐 сейчас';
   whenBtn.setAttribute('aria-label', morning ? `На утро, в ${hhmm(nextMorning().getTime())}. Тап — отправить сейчас`
     : when === 'time' ? `Придёт ${dayWord(atTime)}в ${hhmm(atTime)}. Тап — отправить сейчас` : 'Сейчас. Тап — выбрать время');
-  // «🎉» — лише біля свого часу і не у відповіді
+  // «🎉» — будь-який лист; поруч зі своїм часом рядок довший — «Помочь» стискається до ✨
   const fest = isFestive();
-  festBtn.hidden = when !== 'time' || !!reply;
-  opts.classList.toggle('is-tight', !festBtn.hidden);
+  opts.classList.toggle('is-tight', when === 'time');
   festBtn.classList.toggle('is-on', fest);
   festBtn.setAttribute('aria-pressed', String(fest));
   festBtn.setAttribute('aria-label', fest ? 'Праздничное письмо — тап, чтобы обычное' : 'Сделать праздничным');
@@ -224,7 +222,8 @@ function paint() {
     if (!listening) { act.innerHTML = MIC; act.setAttribute('aria-label', 'Сказать голосом'); }
   } else {
     act.innerHTML = ARROW;
-    act.setAttribute('aria-label', morning ? 'Отправить на утро' : when === 'time' ? `Отправить ${fest ? 'праздничное ' : ''}к ${hhmm(atTime)}` : 'Отправить');
+    const what = fest ? 'праздничное ' : '';
+    act.setAttribute('aria-label', morning ? `Отправить ${what}на утро` : when === 'time' ? `Отправить ${what}к ${hhmm(atTime)}` : `Отправить${fest ? ' праздничное' : ''}`);
     act.removeAttribute('aria-pressed');
   }
   act.classList.toggle('is-empty', mode === 'send' && !text);
@@ -285,13 +284,14 @@ function big(preset = {}) {
   const r0 = reply;
   openWrite({
     where: when === 'morning' ? 'morning' : undefined,
+    festive,
     ...preset,
     pet,
     text: r0 ? ui.area.value : undefined,
     reply: r0 ? { ...r0, sent: () => { if (reply === r0) reply = null; r0.sent?.(); } } : undefined,
     onClose: (sent, text) => {
       ui.area.value = sent ? '' : r0 ? text : draft.get();
-      if (sent) when = 'now';
+      if (sent) { when = 'now'; festive = false; }
       grow();
       paint();
       // Узяли текст із помічника — він у рядку, клавіатура вже відкрита: лишилось ➤

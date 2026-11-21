@@ -89,6 +89,8 @@ export function openWrite(preset = {}) {
   let envId = presetEnv || envs[0]?.id || null;
   let pet = DATA.mascots[preset.pet] ? preset.pet : petFor('push');
   let sentOk = false;
+  // Святковий: kind 'date' — золотий конверт, приносять усі; у конверт — не буває
+  let festive = !!preset.festive;
 
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
   const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': reply ? 'Текст ответа' : 'Текст письма', placeholder: reply ? 'Пару слов в ответ…' : said });
@@ -100,6 +102,10 @@ export function openWrite(preset = {}) {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
+  const festBtn = h('button', {
+    type: 'button', class: 'mk-chip write-fest',
+    onclick: () => { festive = !festive; paintNote(); },
+  }, '🎉 Праздничное');
   const paintNote = () => {
     const m = nextMorning();
     note.textContent = where === 'now'
@@ -107,7 +113,10 @@ export function openWrite(preset = {}) {
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} запечатанным конвертом.`
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
+    if (where !== 'env' && festive) note.textContent += ' Праздничным: золотой конверт, принесут все вместе 🎉';
     envRow.hidden = where !== 'env';
+    festBtn.hidden = where === 'env';
+    festBtn.setAttribute('aria-pressed', String(festive));
   };
 
   const chips = (items, picked, onPick) => {
@@ -209,7 +218,7 @@ export function openWrite(preset = {}) {
     go.disabled = true;
     try {
       const r = await deliver('letter', 'letters', {
-        kind: where,
+        kind: festive && where !== 'env' ? 'date' : where,
         text,
         mascot: pet,
         env: where === 'env' ? envId : undefined,
@@ -250,7 +259,7 @@ export function openWrite(preset = {}) {
       tools,
       area,
       h('div', { class: 'write-dock' }, ...[
-        whereRow, envRow, note,
+        whereRow, envRow, festBtn, note,
         h('div', { class: 'write-send' }, ...[pets.length ? petRow : null, go].filter(Boolean)),
       ]),
     ].filter(Boolean)));

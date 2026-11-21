@@ -2998,7 +2998,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .cbar-when.is-on { border-color: var(--wax); background: color-mix(in srgb, var(--wax) 14%, var(--paper)); color: var(--wax); }
 .cbar-fest[hidden] { display: none; }
 .cbar-opts.is-tight .cbar-help-word { display: none; }
-.cbar-fest { flex: none; padding-inline: 10px; }
+.cbar-fest { flex: none; padding-inline: 6px; }
 .cbar-fest.is-on { border-color: #E0A93A; background: linear-gradient(160deg, #FFF3C4, #FFE0EC); color: #8A5A00; box-shadow: 0 0 10px rgba(255, 212, 92, .55); }
 [data-side="vin"] .cbar-fest.is-on { background: linear-gradient(160deg, #4A4227, #2A3B47); color: #FFE7A0; }
 .cbar-help { border-style: dashed; border-color: var(--wax); background: transparent; color: var(--wax); font-weight: 500; }
@@ -3085,6 +3085,10 @@ body.is-plus .screen.is-chat { padding-bottom: calc(var(--tabs-h, 84px) + var(--
 .sheet-write.sheet-full .voice-wrap.is-area { display: flex; flex-direction: column; min-height: 0; }
 .sheet-write.sheet-full .write-text { flex: 1; min-height: 96px; margin: 0; resize: none; }
 .write-dock { display: grid; gap: 6px; margin-top: auto; }
+.write-fest { justify-self: start; }
+.write-fest[hidden] { display: none; }
+.write-fest[aria-pressed="true"] { border-color: #E0A93A; background: linear-gradient(160deg, #FFF3C4, #FFE0EC); color: #8A5A00; box-shadow: 0 0 10px rgba(255, 212, 92, .55); }
+[data-side="vin"] .write-fest[aria-pressed="true"] { background: linear-gradient(160deg, #4A4227, #2A3B47); color: #FFE7A0; }
 /* «Когда» — одна стрічка, гортається вбік */
 .write-when { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
 .write-when::-webkit-scrollbar { display: none; }
