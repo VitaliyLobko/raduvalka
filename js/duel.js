@@ -5,7 +5,7 @@ import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
 import { mascotImg, petName, petLine } from './icons.js';
-import { placer, seaEl, shipEl, cellOf, markShot, fxShot, fxMiss, fxHit, fxSink, noteReveal, pause, SHOT, WORLD } from './battle.js';
+import { placer, seaEl, shipEl, cellOf, markShot, markSunk, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
 // Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
 const TIPS = {
@@ -32,8 +32,8 @@ const TIPS = {
     'Иногда лучший ход — помешать. Мешать я умею лучше всех.', 'Строй снизу, фишкам нужна опора. Мне тоже.'],
   bs: ['Стреляй в середину, там точно кто-то прячется.', 'Попал? Стреляй рядом — кораблики длинные.', 'Кораблики не касаются друг друга. Значит, вокруг потопленного пусто.',
     'Я бы спрятался в углу. Но я и так всегда в углу.', 'Буль! Ой, это я в миску.', 'Записки внутри! Топи скорее, интересно же.',
-    'Стреляй крестиком: через клеточку. Так хитрые капитаны делают.', 'Мимо — не беда. Море большое, а небо ещё больше.',
-    'Я плавать не умею, но болею за тебя.', 'Ракеты боятся щекотки. Целься в бок.'],
+    'Стреляй крестиком: через клеточку. Так хитрые капитаны делают.', 'Мимо — не беда. Море большое, звёзд на всех хватит.',
+    'Я плавать не умею, но болею за тебя.', 'Кораблики боятся щекотки. Целься в бок.'],
   any: ['Хвостом чую: сейчас будет красиво.', 'Думай сколько надо. Только миска сама не наполнится.', 'Победишь — с тебя вкусняшка.',
     'Я в тебя верю. Почти.', 'Выиграешь или нет, обнимашки всё равно будут.', 'Почеши мне за ухом и ходи. Так удачнее.',
     'Сделай умное лицо. Мне помогает.', 'Я тихонько посмотрю. Только посоплю немножко.',
@@ -263,8 +263,11 @@ export async function openDuel({ game = 'rps' } = {}) {
   const title = h('h2', {}, gameName(game));
   const close = () => {
     clearInterval(open?.timer);
+    const was = actAs;
     playAs(false);
     open = null;
+    // Грав «за неё» — чат під шторкою міг перемалюватися з її боку; повертаємо свій
+    if (was) document.dispatchEvent(new CustomEvent('radovalka:marked'));
     el.remove();
     backdrop.remove();
     document.removeEventListener('keydown', onKey);
@@ -322,7 +325,7 @@ async function refresh(first = false) {
 async function show(g, fresh) {
   const { body } = open;
   open.gameId = fresh || !g ? null : g.id;
-  if (fresh || !g) { open.setKind(open.kind); body.replaceChildren(...setup()); return; }
+  if (fresh || !g) { open.bsShown = null; open.setKind(open.kind); body.replaceChildren(...setup()); return; }
   // «Сыграть ещё» після неї — та сама гра
   open.setKind(kindOf(g));
   if (isBoard(g)) { showBoard(g); return; }
@@ -712,7 +715,14 @@ function bsAccept(g) {
     h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
 }
 
+// Екран бою: угорі — «Моё» (маленьке, мої кораблики й постріли другого) і рахунок, під ними — великий напис, чий хід,
+// і велике чуже поле (тап — постріл). Свіжі постріли програються: снаряд летить через екран, мимо — кільця, влучив — вогник,
+// потопив — кораблик тоне, а записка вилітає конвертиком
 async function showBs(g) {
+  // Те саме, що вже на екрані (опитування після власного пострілу), — не перемальовуємо: інакше зникнуть записка й фінал
+  const shown = [DATA.side, g.id, g.n, !!g.done, !!g.ready, !!g.needFleet].join(':');
+  if (open.bsShown === shown) return;
+  open.bsShown = shown;
   if (g.needFleet) { bsAccept(g); return; }
   const me = DATA.side;
   const them = otherSide();
@@ -721,40 +731,52 @@ async function showBs(g) {
   const mine = seaEl(me, { label: WORLD[me].mine, cls: ' is-mine' });
   const theirs = seaEl(them, { label: WORLD[them].their, cls: ' is-theirs', onCell: play ? (c) => bsShoot(g, c, theirs) : null });
   const myShips = (g.fleet || []).map((s) => { const el = shipEl(me, s.cells); mine.append(el); return { cells: s.cells, el }; });
-  const status = h('p', { class: 'duel-status bs-status' });
-  const score = h('p', { class: 'bs-score' });
+  const status = h('p', { class: 'duel-status bs-status', 'aria-live': 'polite' });
+  const score = h('div', { class: 'bs-score' });
   const found = h('div', { class: 'bs-found' });
-  const stage = h('div', { class: 'bs-stage' }, h('p', { class: 'bs-label' }, WORLD[them].their), theirs);
+  const stage = h('div', { class: `bs-stage${play ? ' is-aim' : ''}` }, theirs);
   const act = h('div', { class: 'duel-act' });
   open.body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`),
     h('div', { class: 'duel-arena bs-arena' },
-      h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), h('div', { class: 'bs-side' }, score, status)),
-      stage),
+      h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), score),
+      status,
+      h('p', { class: 'bs-label is-big' }, WORLD[them].their), stage),
     found, act);
 
+  // Напис ходу: mode — me (стріляю я), wait (чекаю), shot (програються постріли), final; новий режим — плавно перемикається
+  const setStatus = (text, mode) => {
+    status.textContent = text;
+    status.dataset.mode = mode;
+    if (open.bsMode && open.bsMode !== mode) fxSwap(status);
+    open.bsMode = mode;
+  };
   const count = { me: 0, them: 0 };
   const notes = [];
-  const paintScore = () => score.replaceChildren(h('span', {}, 'Потоплено'),
-    h('span', {}, 'ты ', h('b', {}, String(count.me)), ' из 4'), h('span', {}, `${who().partner} `, h('b', {}, String(count.them)), ' из 4'));
+  const pips = (n, world) => h('span', { class: `bs-pips is-${world}`, 'aria-hidden': 'true' }, ...[0, 1, 2, 3].map((i) => h('i', { class: i < n ? 'is-on' : '' })));
+  const paintScore = () => score.replaceChildren(h('p', { class: 'bs-score-title' }, 'Потоплено'),
+    h('p', { class: 'bs-score-row' }, h('span', {}, 'ты'), pips(count.me, them), h('b', {}, `${count.me} из 4`)),
+    h('p', { class: 'bs-score-row' }, h('span', {}, who().partner), pips(count.them, me), h('b', {}, `${count.them} из 4`)));
   const paintFound = () => found.replaceChildren(...(notes.length
-    ? [h('p', { class: 'bs-found-title' }, '💌 Найденные записки'), ...notes.map((t) => h('p', { class: 'bs-found-note' }, t))] : []));
-  // Один постріл на поле; anim — з рухом і паузою (новий), інакше — одразу (уже бачений)
+    ? [h('p', { class: 'bs-found-title' }, `💌 Найденные записки · ${notes.length}`), ...notes.map((t, i) => h('p', { class: `bs-found-note is-${them}`, style: `--tilt:${i % 2 ? 1.2 : -1.2}deg` }, t))] : []));
+  // Один постріл на поле; anim — з польотом, рухом і паузою (новий), інакше — одразу (уже бачений)
   async function apply(s, anim) {
     const board = s.by === 'me' ? theirs : mine;
     const world = s.by === 'me' ? them : me;
-    const mark = markShot(board, s.c, s.by === 'me' ? me : them, s.hit);
-    if (anim) { fxShot(mark); if (s.hit) fxHit(cellOf(board, s.c)); else fxMiss(cellOf(board, s.c), world); }
-    if (!s.sunk) { if (anim) await pause(s.hit ? 800 : 1000); return; }
+    const cell = cellOf(board, s.c);
+    if (anim) await fxFly(s.by === 'me' ? mine : theirs, cell, SHOT[s.by === 'me' ? me : them]);
+    const mark = markShot(board, s.c, s.hit);
+    if (anim) { fxShot(mark); if (s.hit) fxHit(cell, world); else fxMiss(cell, world); }
+    if (!s.sunk) { if (anim) await pause(s.hit ? 550 : 700); return; }
     count[s.by] += 1;
     paintScore();
     const ship = s.by === 'me' ? g.sunk.find((x) => x.cells.includes(s.c)) : myShips.find((x) => x.cells.includes(s.c));
     if (!ship) return;
     const el = s.by === 'me' ? shipEl(them, ship.cells) : ship.el;
-    if (s.by === 'me') { theirs.append(el); if (ship.note) notes.push(ship.note); }
-    if (!anim) { el.classList.add('is-sunk'); return; }
-    await pause(450);
+    if (s.by === 'me') { theirs.append(el); if (ship.note) { notes.push(ship.note); noteBadge(el); } }
+    if (!anim) { el.classList.add('is-sunk'); markSunk(board, ship.cells); return; }
+    await pause(300);
     await fxSink(el, world, board, ship.cells);
-    if (s.by === 'me' && ship.note) { noteReveal(stage, ship.note, them); paintFound(); await pause(1600); }
+    if (s.by === 'me' && ship.note) { noteReveal(stage, ship.note, them, el); paintFound(); await pause(1900); }
   }
   for (const s of g.shots.slice(0, seen)) apply(s, false);
   paintScore();
@@ -762,10 +784,12 @@ async function showBs(g) {
   const fresh = g.shots.slice(seen);
   if (fresh.length) {
     open.busy = true;
-    status.textContent = fresh[0].by === 'me' ? 'Залп!' : `${cap(who().partner)} ${theyDid('стрелял', 'стреляла')}…`;
-    for (const s of fresh) {
+    setStatus(fresh[0].by === 'me' ? 'Залп!' : `${cap(who().partner)} стреляет…`, 'shot');
+    // Багато непобачених пострілів — рухом лише останні три, решта одразу
+    const quick = Math.max(0, fresh.length - 3);
+    for (const [i, s] of fresh.entries()) {
       // eslint-disable-next-line no-await-in-loop
-      await apply(s, true);
+      await apply(s, i >= quick);
       if (!open) return;
       paintScore();
     }
@@ -775,14 +799,14 @@ async function showBs(g) {
   if (g.done) {
     // Кінець: решта чужого флоту — привидами, без записок
     (g.rest || []).forEach((s) => theirs.append(shipEl(them, s.cells, ' is-ghost')));
-    status.textContent = duelResult(g);
+    setStatus(duelResult(g), 'final');
     status.classList.add('is-final');
-    if (fresh.length) { if (g.done.won) boardWin(theirs, symSvg(mySex()), mySex()); else boardLose(theirs, symSvg(otherSex()), otherSex()); }
+    if (fresh.length) bsFinal(stage, them, !!g.done.won);
     act.replaceChildren(...doneActs(g));
   } else {
-    status.textContent = !g.ready ? `Ждём, когда ${who().partner} расставит ${WORLD[them].ships}…`
-      : play ? (last?.by === 'me' && last.hit ? `${last.sunk ? byMe('Потопил', 'Потопила') : byMe('Попал', 'Попала')}! Стреляй ещё ${SHOT[me]}` : `Твой ход — стреляй ${SHOT[me]}`)
-        : last?.by === 'them' && last.hit ? `${cap(who().partner)} ${theyDid('попал', 'попала')} и стреляет ещё…` : `Ждём ${gen()} ход…`;
+    if (!g.ready) setStatus(`Ждём, когда ${who().partner} расставит кораблики…`, 'wait');
+    else if (play) setStatus(last?.by === 'me' && last.hit ? `${last.sunk ? byMe('Потопил', 'Потопила') : byMe('Попал', 'Попала')}! Стреляй ещё ${SHOT[me]}` : `Твой ход — стреляй ${SHOT[me]}`, 'me');
+    else setStatus(last?.by === 'them' && last.hit ? `${cap(who().partner)} ${theyDid('попал', 'попала')} и стреляет ещё…` : `Ждём ${gen()} ход…`, 'wait');
     act.replaceChildren(...[play ? petTip('bs') : null, h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
   }
   if (fresh.length || (g.done && !sawEnd(g))) {
@@ -802,6 +826,7 @@ async function bsShoot(g, c, board) {
     if (!open) return;
     open.busy = false;
     open.state = '';
+    open.bsShown = null;
     if (e.status === 409 || e.status === 400) {
       if (e.code === 'gone') toast('Эта игра уже закончилась или отменена');
       refresh();

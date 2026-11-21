@@ -4151,76 +4151,154 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ttt-cell.is-last-new { animation: ttt-last 1.2s ease-out; }
 @keyframes ttt-last { 0% { box-shadow: inset 0 0 0 2px transparent, 0 0 0 0 color-mix(in srgb, var(--star) 70%, transparent); } 40% { box-shadow: inset 0 0 0 3px var(--star), 0 0 0 8px transparent; } }
 @media (prefers-reduced-motion: reduce) { .ttt-strike.is-fresh line { animation: none; stroke-dashoffset: 0; } .ttt-cell.is-last-new { animation: none; } }
-/* ── «🚢 Морской бой» (battle.js): поле 6×6 у світі сторони — її рожеве море з хвилями, його зоряне небо.
-   Клітинки й кораблі — в одній сітці; кораблі під клітинками (відмітки пострілів зверху), у розстановці — над ними (тап — поворот) */
-.bs-board { position: relative; isolation: isolate; display: grid; grid-template: repeat(6, 1fr) / repeat(6, 1fr); width: min(100%, 330px); aspect-ratio: 1; margin: 0 auto; border-radius: 16px; overflow: hidden; }
-.bs-board.is-vona { background: linear-gradient(180deg, #FFE3EE, #F7B8D2 62%, #EE9FC2); box-shadow: inset 0 0 0 1.5px rgba(178, 74, 126, .25); }
-.bs-board.is-vin { background: radial-gradient(120% 90% at 30% 10%, #17506A, #0B384B 55%, #061F2B); box-shadow: inset 0 0 0 1.5px rgba(237, 185, 73, .35); }
+/* ── «🚢 Морской бой» (battle.js): поле 6×6 — її денне рожеве море, його нічне бірюзове під зорями з місячною доріжкою.
+   Клітинки й кораблі — в одній сітці; кораблі під клітинками (відмітки пострілів зверху), у розстановці — над ними (тап — поворот).
+   Рух лише transform/opacity: у спокої гойдаються кораблики, біжать хвилі, блищать відблиски, мерехтять ліхтарики */
+.bs-board { position: relative; isolation: isolate; display: grid; grid-template: repeat(6, 1fr) / repeat(6, 1fr); width: min(100%, 340px); aspect-ratio: 1; margin: 0 auto; border-radius: 18px; overflow: hidden; }
+.bs-board.is-vona { background: radial-gradient(90% 60% at 78% 6%, rgba(255, 255, 255, .7), transparent 60%), linear-gradient(180deg, #FFE6F0, #F9BFD7 55%, #EE9FC2); box-shadow: inset 0 0 0 1.5px rgba(178, 74, 126, .28), 0 10px 24px -14px rgba(178, 74, 126, .6); }
+.bs-board.is-vin { background: radial-gradient(60% 40% at 75% 0%, rgba(255, 236, 170, .25), transparent 70%), radial-gradient(80% 60% at 12% 88%, rgba(56, 150, 160, .28), transparent 70%), linear-gradient(180deg, #0F4258, #0A2E40 55%, #051923); box-shadow: inset 0 0 0 1.5px rgba(237, 185, 73, .35), 0 10px 26px -12px rgba(0, 0, 0, .7); }
 .bs-waves { position: absolute; inset: 0 -60px 0 -60px; z-index: 0; pointer-events: none; opacity: .5;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='26'%3E%3Cpath d='M0 13q15-8 30 0t30 0' fill='none' stroke='%23fff' stroke-width='1.6'/%3E%3C/svg%3E") 0 0 / 60px 26px;
   animation: bs-waves 8s linear infinite; }
+.bs-board.is-vin .bs-waves { opacity: .15; animation-duration: 12s; }
 @keyframes bs-waves { to { transform: translateX(60px); } }
-.bs-sky { z-index: 0; opacity: .9; }
-.bs-cell { position: relative; z-index: 2; display: grid; place-items: center; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .6); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.bs-board.is-vin .bs-cell { box-shadow: inset 0 0 0 .5px rgba(237, 185, 73, .18); }
+.bs-sky { z-index: 0; opacity: .5; }
+/* Сонячні відблиски на її воді */
+.bs-glints { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.bs-glints i { position: absolute; width: 16px; height: 4px; margin: -2px -8px; border-radius: 50%; background: #fff; opacity: .6; animation: bs-glint 3.6s ease-in-out infinite; }
+@keyframes bs-glint { 0%, 100% { opacity: 0; transform: scaleX(.3); } 50% { opacity: .9; transform: scaleX(1); } }
+/* Місячна доріжка на його воді: місяць угорі й золоті штрихи донизу */
+.bs-moon { position: absolute; top: 0; bottom: 0; left: 60%; width: 30%; z-index: 0; pointer-events: none; opacity: .7;
+  background: radial-gradient(circle at 50% 5%, rgba(255, 244, 200, .95) 0 6%, rgba(255, 228, 150, .35) 7%, transparent 22%), repeating-linear-gradient(180deg, transparent 0 10px, rgba(255, 228, 150, .5) 10px 12px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 30% 70%, transparent); mask: linear-gradient(90deg, transparent, #000 30% 70%, transparent);
+  animation: bs-moon 3.5s ease-in-out infinite alternate; }
+@keyframes bs-moon { from { opacity: .45; } to { opacity: .9; } }
+.bs-cell { position: relative; z-index: 2; display: grid; place-items: center; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .55); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bs-board.is-vin .bs-cell { box-shadow: inset 0 0 0 .5px rgba(237, 185, 73, .16); }
 .bs-cell:disabled { cursor: default; }
-.bs-board.is-theirs .bs-cell:not(:disabled):active, .bs-cell.is-aim { background: rgba(255, 255, 255, .3); }
-.bs-cell.is-hit { background: radial-gradient(circle, rgba(255, 214, 120, .6), rgba(255, 120, 90, .18) 45%, transparent 66%); }
-.bs-mark { display: block; font-size: 1.5rem; line-height: 1; }
-.bs-cell.is-miss .bs-mark { font-size: .95rem; opacity: .5; }
-.bs-board.is-mine .bs-mark { font-size: .8rem; }
-.bs-board.is-mine .bs-cell.is-miss .bs-mark { font-size: .55rem; }
-.bs-ship { position: relative; z-index: 1; display: block; min-width: 0; min-height: 0; padding: 4%; pointer-events: none; }
+/* Туман над нерозвіданим чужим морем: у неї — біла димка, у нього — темна туманність; куди стріляли — чиста вода */
+.bs-board.is-theirs .bs-cell:not(.is-hit):not(.is-miss)::before { content: ''; position: absolute; inset: 0; background: radial-gradient(farthest-corner, rgba(255, 255, 255, .36), rgba(255, 244, 249, .2)); pointer-events: none; }
+.bs-board.is-vin.is-theirs .bs-cell:not(.is-hit):not(.is-miss)::before { background: radial-gradient(farthest-corner, rgba(84, 66, 140, .34), rgba(8, 28, 46, .3)); }
+.bs-board.is-theirs .bs-cell:not(:disabled):active, .bs-cell.is-aim { background: rgba(255, 255, 255, .35); }
+.bs-cell.is-hit { background: radial-gradient(circle, rgba(255, 214, 120, .7), rgba(255, 120, 90, .25) 50%, transparent 72%); }
+.bs-cell.is-sunk { background: radial-gradient(circle, rgba(178, 74, 126, .16), transparent 70%); }
+.bs-board.is-vin .bs-cell.is-sunk { background: radial-gradient(circle, rgba(0, 0, 0, .28), transparent 70%); }
+/* Відмітки: мимо — кільця на воді, влучив — вогник, потоплено — вогник гасне в димок */
+.bs-mark { display: block; pointer-events: none; }
+.bs-mark.is-fire { width: 56%; aspect-ratio: 24 / 30; transform-origin: 50% 90%; animation: bs-fire 1s ease-in-out infinite alternate; }
+.bs-mark.is-fire svg { display: block; width: 100%; height: 100%; }
+@keyframes bs-fire { from { transform: scale(.9, .96); } to { transform: scale(1.05, 1.1); } }
+.bs-cell.is-sunk .bs-mark.is-fire { animation: none; opacity: .4; transform: translateY(30%) scale(.5); }
+.bs-mark.is-ripple { position: relative; width: 54%; aspect-ratio: 1.6; border: 2px solid rgba(255, 255, 255, .9); border-radius: 50%; }
+.bs-mark.is-ripple::after { content: ''; position: absolute; inset: 24% 28%; border: 1.5px solid rgba(255, 255, 255, .75); border-radius: 50%; }
+.bs-board.is-vin .bs-mark.is-ripple { border-color: rgba(191, 232, 238, .5); }
+.bs-board.is-vin .bs-mark.is-ripple::after { border-color: rgba(237, 185, 73, .8); }
+.bs-board.is-mine .bs-mark.is-ripple { border-width: 1.2px; }
+.bs-board.is-mine .bs-mark.is-ripple::after { border-width: 1px; }
+/* Кораблики: гойдаються кожен у своєму ритмі, прапорець майорить, ліхтарик мерехтить; потоплений — під водою, ліхтарик згас */
+.bs-ship { position: relative; z-index: 1; display: block; min-width: 0; min-height: 0; padding: 3px; pointer-events: none; }
 .bs-ship svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.bs-ship:not(.is-sunk):not(.is-ghost) svg { animation: bs-bob 3.2s ease-in-out infinite; animation-delay: calc(var(--k, 0) * -.7s); }
+@keyframes bs-bob { 0%, 100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-4%) rotate(1.5deg); } }
+.bs-flag { transform-box: fill-box; transform-origin: 0 50%; animation: bs-flag .9s ease-in-out infinite alternate; }
+@keyframes bs-flag { from { transform: none; } to { transform: scaleX(.72) skewY(8deg); } }
+.bs-lamp { animation: bs-lamp 1.4s ease-in-out infinite alternate; transition: opacity 1.2s; }
+@keyframes bs-lamp { from { opacity: .6; } to { opacity: 1; } }
+.bs-wet { opacity: 0; transition: opacity 1s; }
 .bs-board.is-place .bs-ship { z-index: 3; pointer-events: auto; cursor: pointer; }
-.bs-board.is-vona .bs-ship.is-sunk { opacity: .5; transform: translateY(6%) scale(.9) rotate(5deg); }
-.bs-board.is-vin .bs-ship.is-sunk { opacity: .5; transform: scale(.84) rotate(-14deg); }
-.bs-ship.is-ghost { opacity: .45; }
+.bs-ship.is-sunk { opacity: .55; transform: translateY(5%) scale(.88) rotate(7deg); }
+.bs-ship.is-sunk .bs-wet { opacity: .65; }
+.bs-ship.is-sunk .bs-flag { animation: none; }
+.bs-ship.is-sunk .bs-lamp { animation: none; opacity: 0; }
+.bs-ship.is-ghost { opacity: .42; }
+.bs-ship-note { position: absolute; right: 0; top: -4%; font-style: normal; font-size: .95rem; line-height: 1; }
 /* Рух пострілу — шматочки всередині клітинки, прибираються після анімації */
 .bs-fx { position: absolute; left: 50%; top: 50%; pointer-events: none; font-style: normal; }
 .bs-ring { width: 80%; aspect-ratio: 1; margin: -40% 0 0 -40%; border: 2px solid #fff; border-radius: 50%; }
+.bs-ring.is-gold { border-color: rgba(237, 185, 73, .9); }
 .bs-drop { width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: #fff; }
 .bs-spark { width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #FFF6D5; box-shadow: 0 0 6px #EDB949; }
 .bs-spark.is-gold { width: 5px; height: 5px; background: #EDB949; }
+.bs-spark.is-pink { width: 5px; height: 5px; background: #FF7FB0; box-shadow: 0 0 5px #fff; }
 .bs-flash { width: 96%; aspect-ratio: 1; margin: -48% 0 0 -48%; border-radius: 50%; background: radial-gradient(circle, #fff, rgba(255, 210, 90, .85) 40%, transparent 70%); }
-.bs-fire { margin: -.6em 0 0 -.5em; font-size: 1.2rem; line-height: 1; }
 .bs-bubble { width: 7px; height: 7px; margin: -3.5px; border: 1.5px solid rgba(255, 255, 255, .95); border-radius: 50%; }
-/* Екран бою: «Моё» маленьке поруч із рахунком, чуже — велике */
+.bs-bubble.is-night { border-color: rgba(191, 232, 238, .9); }
+.bs-fly { position: fixed; z-index: 60; font-size: 1.7rem; line-height: 1; pointer-events: none; }
+.bs-env { position: absolute; z-index: 6; font-style: normal; font-size: 1.6rem; line-height: 1; pointer-events: none; }
+/* Екран бою: «Моё» маленьке поруч із рахунком, напис ходу, чуже — велике */
 .bs-arena { display: grid; gap: 10px; }
-.bs-top { display: grid; grid-template-columns: minmax(0, 128px) 1fr; gap: 12px; align-items: center; }
-.bs-mine .bs-board { width: 100%; border-radius: 10px; }
+.bs-top { display: grid; grid-template-columns: minmax(0, 120px) 1fr; gap: 12px; align-items: center; }
+.bs-mine .bs-board { width: 100%; border-radius: 12px; }
 .bs-label { margin: 0 0 4px; font-size: .75rem; font-weight: 700; color: var(--ink-soft); text-align: center; }
-.bs-side { display: grid; gap: 8px; min-width: 0; }
-.bs-score { display: grid; margin: 0; font-size: .8125rem; color: var(--ink-soft); }
-.bs-score b { font-size: 1.25rem; color: var(--plum); }
-[data-side="vin"] .bs-score b { color: var(--star); }
-.duel-status.bs-status { min-height: 0; text-align: left; font-weight: 600; }
-.duel-status.bs-status.is-final { text-align: center; font-size: 1rem; }
+.bs-label.is-big { margin: 0 0 -4px; font-size: .8125rem; }
+.bs-score { display: grid; gap: 6px; min-width: 0; padding: 10px 12px; border-radius: 16px; background: color-mix(in srgb, var(--powder) 30%, transparent); }
+[data-side="vin"] .bs-score { background: rgba(255, 255, 255, .06); }
+.bs-score p { margin: 0; }
+.bs-score-title { font-size: .6875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.bs-score-row { display: grid; grid-template-columns: 2.4em auto 1fr; align-items: center; gap: 6px; font-size: .875rem; }
+.bs-score-row b { justify-self: end; font-size: .8125rem; color: var(--plum); white-space: nowrap; }
+[data-side="vin"] .bs-score-row b { color: var(--star); }
+.bs-pips { display: flex; gap: 4px; }
+.bs-pips i { width: 11px; height: 11px; border: 1.5px solid currentColor; border-radius: 50%; opacity: .3; }
+.bs-pips.is-vona i.is-on { border-color: #FF4F8E; background: #FF4F8E; opacity: 1; }
+.bs-pips.is-vin i.is-on { border-color: #EDB949; background: #EDB949; opacity: 1; }
+/* Чий хід — великий напис-плашка; мій хід — яскравий з пульсом, чекаю — тихий */
+.duel-status.bs-status { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; margin: 0; padding: 10px 16px; border-radius: 999px; background: color-mix(in srgb, var(--powder) 35%, transparent); font-size: 1.0625rem; font-weight: 700; text-align: center; }
+[data-side="vin"] .duel-status.bs-status { background: rgba(255, 255, 255, .07); }
+.duel-status.bs-status[data-mode="me"] { background: linear-gradient(135deg, #FF6FA3, #B24A7E); color: #fff; box-shadow: 0 10px 22px -12px #B24A7E; }
+[data-side="vin"] .duel-status.bs-status[data-mode="me"] { background: linear-gradient(135deg, #F6D27A, #EDB949); color: #0B384B; box-shadow: 0 10px 24px -12px rgba(237, 185, 73, .9); }
+.bs-status[data-mode="me"]::before { content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%; background: currentColor; animation: bs-pulse 1.2s ease-in-out infinite; }
+@keyframes bs-pulse { 0%, 100% { transform: scale(.6); opacity: .5; } 50% { transform: none; opacity: 1; } }
+.duel-status.bs-status.is-final { border-radius: 18px; font-size: 1rem; }
 .bs-stage { position: relative; }
+/* Мій хід — чуже поле в рамці, що дихає */
+.bs-stage.is-aim .bs-board::after { content: ''; position: absolute; inset: 0; z-index: 4; border-radius: inherit; box-shadow: inset 0 0 0 3px #FF4F8E; pointer-events: none; animation: bs-aim 1.6s ease-in-out infinite alternate; }
+.bs-stage.is-aim .bs-board.is-vin::after { box-shadow: inset 0 0 0 3px var(--star); }
+@keyframes bs-aim { from { opacity: .25; } to { opacity: .9; } }
 .bs-note-pop { position: absolute; left: 50%; top: 52%; z-index: 5; display: grid; gap: 6px; width: min(86%, 280px); padding: 14px 16px; translate: -50% -50%;
   border: 0; border-radius: 16px; background: #FFF8FB; color: #4A2545; box-shadow: 0 0 0 1.5px #FF9DC0, 0 14px 34px -12px rgba(74, 37, 69, .55); text-align: center; font: inherit; }
-.bs-note-pop.is-vin { background: linear-gradient(160deg, #17506A, #0B384B); color: #F4E6C4; box-shadow: 0 0 0 1.5px var(--star), 0 14px 34px -12px rgba(0, 0, 0, .7); }
+.bs-note-pop.is-vin { background: linear-gradient(160deg, #134A60, #0A2E40); color: #F4E6C4; box-shadow: 0 0 0 1.5px var(--star), 0 14px 34px -12px rgba(0, 0, 0, .7); }
 .bs-note-head { font-size: .8125rem; font-weight: 700; opacity: .8; }
 .bs-note-text { font: 1.6rem/1.15 var(--hand); overflow-wrap: anywhere; }
-.bs-found { display: grid; gap: 6px; }
+/* Знайдені записки — листочки зі значком конверта, трохи навскіс */
+.bs-found { display: grid; gap: 10px; }
 .bs-found:empty { display: none; }
 .bs-found-title { margin: 0; font-size: .8125rem; font-weight: 700; color: var(--ink-soft); }
-.bs-found-note { margin: 0; padding: 6px 12px; border-radius: 12px; background: color-mix(in srgb, var(--powder) 35%, transparent); font: 1.3rem/1.2 var(--hand); overflow-wrap: anywhere; }
-[data-side="vin"] .bs-found-note { background: rgba(255, 255, 255, .07); }
-/* Розстановка: кубик, записки, готові варіанти */
-.bs-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
-.bs-tools .hint { margin: 0; font-size: .8125rem; }
-.bs-dice { min-height: 40px; padding: 0 14px; }
-.bs-note-row { display: grid; grid-template-columns: 66px 1fr; align-items: center; gap: 8px; }
-.bs-note-ship { display: grid; place-items: center start; height: 24px; }
-.bs-note-ship svg { display: block; height: 100%; width: auto; max-width: 100%; }
-.bs-note-input { min-height: 40px; font-size: 1.15rem; }
+.bs-found-note { position: relative; margin: 0 4px; padding: 10px 14px 10px 42px; border-radius: 14px; background: #FFF8FB; color: #4A2545; box-shadow: 0 0 0 1.5px #FF9DC0, 0 8px 18px -12px rgba(74, 37, 69, .5); font: 1.35rem/1.2 var(--hand); overflow-wrap: anywhere; transform: rotate(var(--tilt, 0deg)); }
+.bs-found-note::before { content: '💌'; position: absolute; left: 12px; top: 11px; font: 1.1rem/1 system-ui, sans-serif; }
+.bs-found-note.is-vin { background: linear-gradient(160deg, #134A60, #0A2E40); color: #F4E6C4; box-shadow: 0 0 0 1.5px var(--star), 0 8px 18px -12px rgba(0, 0, 0, .7); }
+/* Фінал у стилі світу: плашка з короною чи якорем і частинки */
+.bs-final { position: absolute; left: 50%; top: 50%; z-index: 6; display: grid; justify-items: center; gap: 2px; width: min(78%, 250px); padding: 16px 18px 14px; translate: -50% -50%;
+  border: 0; border-radius: 22px; background: rgba(255, 248, 251, .95); color: #4A2545; box-shadow: 0 0 0 2px #FF9DC0, 0 18px 40px -14px rgba(74, 37, 69, .6); font: inherit; text-align: center; }
+.bs-final.is-vin { background: rgba(10, 46, 64, .95); color: #F4E6C4; box-shadow: 0 0 0 2px var(--star), 0 18px 40px -14px rgba(0, 0, 0, .8); }
+.bs-final-icon { font-size: 2.6rem; line-height: 1; }
+.bs-final-title { font: 2.1rem/1.05 var(--hand); }
+.bs-final-sub { font-size: .875rem; opacity: .8; }
+.bs-final-bit { position: absolute; bottom: 8%; z-index: 5; font-style: normal; font-size: 1.3rem; line-height: 1; pointer-events: none; }
+/* Розстановка: кубик, підказка, записки з корабликами, готові варіанти за темами */
+.bs-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; margin-top: 12px; }
+.bs-dice { min-height: 44px; padding: 0 18px; font-weight: 700; }
+.bs-turn-hint { padding: 7px 12px; border-radius: 999px; background: color-mix(in srgb, var(--powder) 35%, transparent); color: var(--ink-soft); font-size: .8125rem; font-weight: 600; }
+[data-side="vin"] .bs-turn-hint { background: rgba(255, 255, 255, .07); }
+.bs-note-row { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 14px; }
+.bs-note-row:focus-within { background: color-mix(in srgb, var(--powder) 30%, transparent); }
+[data-side="vin"] .bs-note-row:focus-within { background: rgba(255, 255, 255, .06); }
+.bs-note-ship { display: grid; place-items: center start; min-height: 30px; }
+.bs-note-ship svg { display: block; width: calc(var(--len, 1) * 22px); height: auto; overflow: visible; }
+.bs-note-input { min-height: 42px; font-size: 1.15rem; }
+.bs-idea-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.bs-idea-tab { flex: none; padding: 6px 12px; border: 0; border-radius: 999px; background: none; color: var(--ink-soft); font: inherit; font-size: .8125rem; font-weight: 700; cursor: pointer; }
+.bs-idea-tab[aria-pressed="true"] { background: linear-gradient(135deg, #FF6FA3, #B24A7E); color: #fff; }
+[data-side="vin"] .bs-idea-tab[aria-pressed="true"] { background: var(--star); color: #0B384B; }
 .bs-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
-.bs-idea { padding: 6px 10px; border: 1.5px solid var(--lavender); border-radius: 999px; background: var(--paper); color: inherit; font: inherit; font-size: .8125rem; }
+.bs-idea { padding: 7px 11px; border: 1.5px solid var(--lavender); border-radius: 999px; background: var(--paper); color: inherit; font: inherit; font-size: .8125rem; text-align: left; }
 .bs-idea:active { transform: scale(.96); }
 [data-side="vin"] .bs-idea { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .18); }
-@media (prefers-reduced-motion: reduce) { .bs-waves, .bs-sky i { animation: none; } }
-html.is-still .bs-waves, html.is-still .bs-sky i { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .bs-waves, .bs-sky i, .bs-glints i, .bs-moon, .bs-ship svg, .bs-flag, .bs-lamp, .bs-mark.is-fire, .bs-stage.is-aim .bs-board::after, .bs-status::before { animation: none !important; }
+}
+html.is-still .bs-waves, html.is-still .bs-sky i, html.is-still .bs-glints i, html.is-still .bs-moon, html.is-still .bs-ship svg, html.is-still .bs-flag, html.is-still .bs-lamp,
+html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after, html.is-still .bs-status::before { animation: none !important; }
 /* Налагодження «Играть за двоих»: кнопка в шапці гри */
 .duel-head .duel-as { margin-left: auto; margin-right: 8px; padding: 6px 12px; border: 1px dashed currentColor; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; opacity: .85; }
 .duel-head .duel-as { white-space: nowrap; flex: none; padding: 4px 10px; font-size: .75rem; }

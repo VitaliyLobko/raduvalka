@@ -3300,13 +3300,13 @@ function duelNote(from, what, game, score) {
   if (what === 'done') return { ...base, title: '🏆 Игра окончена', body: `${t || 'Игра'} — посмотри, кто победил` };
   // Ігри на полі: push на кожен хід
   const [icon, name] = BOARD_TITLE[game.game] || BOARD_TITLE.ttt;
-  // Морський бій: ціль — у світі того, кому пишемо: у неї кораблик, у нього ракета
+  // Морський бій: ціль — у світі того, кому пишемо: в обох кораблики
   if (what === 'bs-start') return { ...base, title: '🚢 Морской бой', body: `${sender(from, 'Он зовёт сыграть', 'Она зовёт сыграть')}${stake}. Расставь кораблики!` };
-  if (what === 'bs-ready') return { ...base, title: '🚢 Морской бой', body: sender(from, 'Он расставил ракеты — стреляй первой!', 'Она расставила кораблики — стреляй первым!') };
+  if (what === 'bs-ready') return { ...base, title: '🚢 Морской бой', body: sender(from, 'Он расставил кораблики — стреляй первой!', 'Она расставила кораблики — стреляй первым!') };
   if (what === 'bs-shot') {
-    const target = sender(from, 'твой кораблик', 'твою ракету');
+    const target = 'твой кораблик';
     const body = !score.hit ? `${sender(from, 'Он промахнулся', 'Она промахнулась')} — твой ход!`
-      : score.sunk ? `${sender(from, 'Он потопил', 'Она сбила')} ${target}${score.note ? ` и ${sender(from, 'нашёл', 'нашла')} записку 💌` : ' 💔'} — стреляет ещё`
+      : score.sunk ? `${sender(from, 'Он потопил', 'Она потопила')} ${target}${score.note ? ` и ${sender(from, 'нашёл', 'нашла')} записку 💌` : ' 💔'} — стреляет ещё`
         : `${sender(from, 'Он попал', 'Она попала')} в ${target} 💥 — стреляет ещё`;
     return { ...base, title: '🚢 Морской бой', body };
   }
