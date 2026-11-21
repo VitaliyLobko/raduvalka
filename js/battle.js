@@ -151,13 +151,17 @@ export const noteBadge = (ship) => ship.append(h('i', { class: 'bs-ship-note', '
 // біля місяця густі й короткі, ближче до нас — рідші й ширші; мерехтять кожен у своєму ритмі
 function moonPath() {
   const el = h('span', { class: 'bs-moon', 'aria-hidden': 'true' });
-  const n = 16;
+  // Псевдовипадкові, але щоразу однакові — розклад відблисків не стрибає при перемальовуванні
+  const rnd = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
+  const n = 34;
   for (let i = 0; i < n; i += 1) {
-    const t = i / (n - 1);
+    const t = (i + rnd(i, 1) * 0.8) / n;
+    // Розкид від осі — «дзвоном»: здебільшого біля центру, зрідка далі; донизу доріжка трохи ширшає
+    const spread = (rnd(i, 2) + rnd(i, 3) + rnd(i, 4) - 1.5) * (10 + t * 22);
+    const near = 1 - Math.min(1, Math.abs(spread) / 22);
     const g = h('i');
-    const w = 8 + t * 30 + ((i * 37) % 11);
-    const x = 50 + Math.sin(i * 2.3) * (6 + t * 18);
-    g.style.cssText = `top:${12 + t * 84}%;left:${x}%;width:${w}%;--d:${(1.6 + ((i * 13) % 7) * 0.35).toFixed(2)}s;animation-delay:${(-((i * 29) % 17) * 0.23).toFixed(2)}s;opacity:${(0.95 - t * 0.45).toFixed(2)}`;
+    g.style.cssText = `top:${8 + t * 90}%;left:${50 + spread}%;width:${(3 + rnd(i, 5) * 7 + t * 5).toFixed(1)}%;`
+      + `--o:${(0.35 + near * 0.6 - t * 0.2).toFixed(2)};--d:${(1.2 + rnd(i, 6) * 2.2).toFixed(2)}s;animation-delay:${(-rnd(i, 7) * 3).toFixed(2)}s`;
     el.append(g);
   }
   return el;
@@ -184,8 +188,10 @@ export function seaEl(world, { label, cls = '', onCell = null } = {}) {
 export const cellOf = (board, c) => board.querySelector(`.bs-cell[data-c="${c}"]`);
 
 // Відмітка пострілу: мимо — кільця на воді, влучив — вогник; клітинка вже не в тумані й не натискається
-const FIRE = '<svg viewBox="0 0 24 30"><path d="M12 29C5 29 2 24 2 19 2 12 8 9 9 2c4 3 5 7 4 10 2-1 3-3 3-5 4 4 6 8 6 12 0 6-4 10-10 10Z" fill="#FF7A3D"/>'
-  + '<path d="M12 28c-4 0-6-3-6-6 0-4 3-6 4-9 2 2 2 4 2 6 1-1 2-2 2-4 2 2 4 5 4 7 0 4-2 6-6 6Z" fill="#FFD36E"/><ellipse cx="12" cy="24" rx="2.4" ry="3" fill="#FFF6D5"/></svg>';
+const FIRE = '<svg viewBox="0 0 24 30"><path d="M12 29C5 29 2 24 2 19 2 12 8 9 9 2c4 3 5 7 4 10 2-1 3-3 3-5 4 4 6 8 6 12 0 6-4 10-10 10Z" fill="#E8473C"/>'
+  + '<path d="M12 28.4C6.4 28.4 3.6 24.3 3.6 20 3.6 14 8.4 11.4 9.6 5.6c3 2.6 3.8 5.8 3 8.4 1.8-.9 2.7-2.6 2.7-4.4 3.2 3.4 4.9 6.6 4.9 10 0 5-3.4 8.8-8.2 8.8Z" fill="#FF8A3D"/>'
+  + '<path d="M12 28c-4 0-6-3-6-6 0-4 3-6 4-9 2 2 2 4 2 6 1-1 2-2 2-4 2 2 4 5 4 7 0 4-2 6-6 6Z" fill="#FFD36E"/><ellipse cx="12" cy="24" rx="2.6" ry="3.2" fill="#FFF6D5"/>'
+  + '<circle class="bs-spark" cx="7" cy="9" r="1.1" fill="#FFD36E"/><circle class="bs-spark is-b" cx="17" cy="6" r=".9" fill="#FFE9A8"/></svg>';
 export function markShot(board, c, hit) {
   const cell = cellOf(board, c);
   if (!cell) return null;
@@ -397,14 +403,77 @@ export function placer(world) {
   let ships = randomFleet();
   const notes = FLEET.map(() => '');
   const board = seaEl(world, { label: 'Расстановка', cls: ' is-place' });
+  // Перетягування пальцем: корабель їде за пальцем, під ним силует — зелений, якщо стане, червоний, якщо ні.
+  // Відпустив на доброму місці — стає (м'яко «доїжджає» в клітинку), на поганому — повертається назад
+  const ghost = h('span', { class: 'bs-ghost', 'aria-hidden': 'true' });
+  // Коли щойно відпустили після перетягування: клік, що прилетить слідом (і на перемальований корабель), — не тап
+  let draggedAt = 0;
+  function drag(el, s, k) {
+    let d = null;
+    const len = s.cells.length;
+    const vert = isVert(s.cells);
+    el.addEventListener('pointerdown', (e) => {
+      const r = board.getBoundingClientRect();
+      const cw = r.width / W;
+      const ch = r.height / W;
+      const [sr, sc] = rc(s.cells[0]);
+      d = { x: e.clientX, y: e.clientY, r, cw, ch, dr: Math.floor((e.clientY - r.top) / ch) - sr, dc: Math.floor((e.clientX - r.left) / cw) - sc, moved: false, at: -1 };
+      el.setPointerCapture?.(e.pointerId);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!d) return;
+      const dx = e.clientX - d.x;
+      const dy = e.clientY - d.y;
+      if (!d.moved && Math.hypot(dx, dy) < 8) return;
+      d.moved = true;
+      el.classList.add('is-dragging');
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      const r0 = Math.floor((e.clientY - d.r.top) / d.ch) - d.dr;
+      const c0 = Math.floor((e.clientX - d.r.left) / d.cw) - d.dc;
+      const at = r0 >= 0 && c0 >= 0 && r0 < W && c0 < W ? r0 * W + c0 : -1;
+      const good = at >= 0 && fits(at, len, vert) && !clash(shipCells(at, len, vert), ships.filter((_, i) => i !== k));
+      d.at = good ? at : -1;
+      el.classList.toggle('is-bad', !good);
+      if (at >= 0 && fits(at, len, vert)) {
+        ghost.style.gridArea = area(shipCells(at, len, vert));
+        ghost.classList.toggle('is-bad', !good);
+        if (!ghost.isConnected) board.append(ghost);
+      } else ghost.remove();
+    });
+    const end = () => {
+      if (!d) return;
+      const was = d;
+      d = null;
+      ghost.remove();
+      el.classList.remove('is-dragging', 'is-bad');
+      if (!was.moved) return;
+      draggedAt = Date.now();
+      if (was.at >= 0) {
+        const old = el.getBoundingClientRect();
+        ships = ships.map((x, i) => (i === k ? { ...x, cells: shipCells(was.at, len, vert) } : x));
+        el.style.transform = '';
+        paint();
+        flip(board.querySelectorAll('.bs-ship')[k], old);
+        return;
+      }
+      const from = el.style.transform;
+      el.style.transform = '';
+      if (!reduceMotion) el.animate([{ transform: from }, { transform: 'none' }], { duration: 260, easing: 'ease-out' });
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
   const paint = () => {
     board.querySelectorAll('.bs-ship').forEach((s) => s.remove());
     ships.forEach((s, k) => {
       const el = shipEl(world, s.cells, s.cells.length > 1 ? ' is-turnable' : '');
       el.setAttribute('role', 'button');
       el.removeAttribute('aria-hidden');
-      el.setAttribute('aria-label', `${WORLD[world].one} на ${s.cells.length} — повернуть`);
+      el.setAttribute('aria-label', `${WORLD[world].one} на ${s.cells.length} — повернуть или перетащить`);
+      drag(el, s, k);
       el.addEventListener('click', () => {
+        // Щойно тягли — це не тап, не повертаємо
+        if (Date.now() - draggedAt < 450) return;
         const next = rotate(ships, k);
         if (!next) {
           if (!reduceMotion) el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(0)' }], { duration: 260 });
@@ -456,7 +525,7 @@ export function placer(world) {
   const rows = FLEET.map((len, k) => h('label', { class: 'bs-note-row' }, h('span', { class: `bs-note-ship is-${world}`, 'aria-hidden': 'true', style: `--len:${len}`, html: shipSvg(world, shipCells(0, len, false)) }), inputs[k]));
   return {
     board,
-    tools: h('div', { class: 'bs-tools' }, dice, h('span', { class: 'bs-turn-hint' }, '↻ Тап по кораблику — повернуть')),
+    tools: h('div', { class: 'bs-tools' }, dice, h('span', { class: 'bs-turn-hint' }, '↻ Тап — повернуть, потяни — переставить')),
     notes: [h('p', { class: 'hint duel-hint' }, `Спрячь в кораблики записки — ${world === 'vona' ? 'он' : 'она'} прочитает, когда потопит.`), ...rows, tabs, ideas],
     fleet: () => ships.map((s, k) => ({ cells: s.cells, note: notes[k].replace(/\s+/g, ' ').trim() || undefined })),
   };

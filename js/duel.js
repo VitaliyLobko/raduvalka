@@ -43,7 +43,7 @@ const TIPS = {
     'Если что, я болею из-под одеяла.'],
 };
 // Як часто порада на мій хід: у «Четыре в ряд» ходів багато — рідше, щоб не набридало
-const TIP_CHANCE = { rps: 0.5, ttt: 0.5, c4: 0.2, bs: 0.2 };
+const TIP_CHANCE = { rps: 0.5, ttt: 0.5, c4: 0.2, bs: 0.5 };
 // Випадковий улюбленець із порадою під полем
 function petTip(kind) {
   const pets = Object.keys(DATA.mascots || {});
@@ -744,12 +744,16 @@ async function showBs(g) {
   const found = h('div', { class: 'bs-found' });
   const stage = h('div', { class: `bs-stage${play ? ' is-aim' : ''}` }, theirs);
   const act = h('div', { class: 'duel-act' });
+  // Порада улюбленця — одразу під «Твой ход», над полем другого (унизу її не було видно)
+  const tip = h('div', { class: 'bs-tip' });
   open.body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`),
     h('div', { class: 'duel-arena bs-arena' },
       h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), score),
       status,
+      tip,
+      found,
       h('p', { class: 'bs-label is-big' }, WORLD[them].their), stage),
-    found, act);
+    act);
 
   // Напис ходу: mode — me (стріляю я), wait (чекаю), shot (програються постріли), final; новий режим — плавно перемикається
   const setStatus = (text, mode) => {
@@ -817,7 +821,8 @@ async function showBs(g) {
     if (!g.ready) setStatus(`Ждём, когда ${who().partner} расставит кораблики…`, 'wait');
     else if (play) setStatus(last?.by === 'me' && last.hit ? `${last.sunk ? byMe('Потопил', 'Потопила') : byMe('Попал', 'Попала')}! Стреляй ещё ${SHOT[me]}` : `Твой ход — стреляй ${SHOT[me]}`, 'me');
     else setStatus(last?.by === 'them' && last.hit ? `${cap(who().partner)} ${theyDid('попал', 'попала')} и стреляет ещё…` : `Ждём ${gen()} ход…`, 'wait');
-    act.replaceChildren(...[play ? petTip('bs') : null, h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
+    tip.replaceChildren(...[play ? petTip('bs') : null].filter(Boolean));
+    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
   }
   if (fresh.length || (g.done && !sawEnd(g))) {
     markSeen(g);

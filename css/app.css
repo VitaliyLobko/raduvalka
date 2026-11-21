@@ -4353,11 +4353,11 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .bs-cell.is-miss::before { content: ''; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: #C26B8E; opacity: .85; }
 .bs-board.is-vin .bs-cell.is-miss { background: rgba(0, 0, 0, .28); }
 .bs-board.is-vin .bs-cell.is-miss::before { background: #EDB949; }
-.bs-cell.is-hit { box-shadow: inset 0 0 0 2px rgba(232, 80, 91, .55); }
+.bs-cell.is-hit { box-shadow: inset 0 0 12px 1px rgba(232, 71, 60, .4); }
 .bs-cell.is-near { background: repeating-linear-gradient(45deg, rgba(74, 37, 69, .06) 0 4px, transparent 4px 9px); }
 .bs-board.is-vin .bs-cell.is-near { background: repeating-linear-gradient(45deg, rgba(0, 0, 0, .2) 0 4px, transparent 4px 9px); }
 .bs-cell.is-last-shot { box-shadow: inset 0 0 0 2.5px #E0A93A; }
-.bs-cell.is-hit.is-last-shot { box-shadow: inset 0 0 0 2.5px #E0A93A, inset 0 0 0 5px rgba(232, 80, 91, .45); }
+.bs-cell.is-hit.is-last-shot { box-shadow: inset 0 0 0 2.5px #E0A93A, inset 0 0 12px 1px rgba(232, 71, 60, .4); }
 /* Своє поле в бою — трохи більше (120 → 150px): кораблики й чужі постріли по ньому видно краще */
 .bs-top { grid-template-columns: minmax(0, 150px) 1fr; gap: 10px; }
 @media (max-width: 370px) { .bs-top { grid-template-columns: minmax(0, 134px) 1fr; } }
@@ -4384,3 +4384,61 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .bs-board.is-mine .bs-moon i { height: 1.6px; }
 @media (prefers-reduced-motion: reduce) { .bs-moon i { animation: none; } }
 html.is-still .bs-moon i { animation: none; }
+
+/* Перетягування корабликів при розстановці: палець не гортає сторінку, корабель над усіма, силует цілі */
+.bs-board.is-place .bs-ship { touch-action: none; }
+.bs-ship.is-dragging { z-index: 6; transition: none; cursor: grabbing; }
+.bs-ship.is-dragging svg { animation: none; transform: scale(1.08); }
+.bs-ship.is-dragging.is-bad { opacity: .75; }
+.bs-ghost { position: relative; z-index: 2; border-radius: 10px; pointer-events: none;
+  background: rgba(120, 200, 140, .28); box-shadow: inset 0 0 0 2px rgba(90, 170, 110, .75); }
+.bs-ghost.is-bad { background: rgba(232, 80, 91, .2); box-shadow: inset 0 0 0 2px rgba(232, 80, 91, .7); }
+
+/* Ігри — на весь екран: поле, підказки улюбленців і кнопки видно без шторки, що обрізає низ */
+.duel-sheet { inset: 0; height: 100dvh; max-height: none; border-radius: 0; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+
+/* Місячна доріжка v2: не конус, а розсип коротких тремтливих відблисків уздовж осі під місяцем —
+   густіше й яскравіше в центрі, рідше до країв; під ними ледь помітне розмите сяйво; місяць з ореолом біля «обрію» */
+.bs-moon { left: 30%; width: 40%; }
+.bs-moon::after {
+  inset: 6% 18% 0; clip-path: none;
+  background: radial-gradient(50% 60% at 50% 0%, rgba(255, 236, 170, .22), rgba(255, 236, 170, .08) 55%, transparent 80%);
+}
+.bs-moon::before { top: -6px; width: 34px; height: 34px; margin-left: -17px; box-shadow: 0 0 22px 10px rgba(255, 236, 170, .28), 0 0 60px 18px rgba(255, 236, 170, .12); }
+.bs-moon i {
+  height: 2px; border-radius: 50%; opacity: var(--o, .7);
+  background: linear-gradient(90deg, transparent, rgba(255, 246, 214, 1) 35% 65%, transparent);
+  animation: bs-shimmer var(--d, 2s) ease-in-out infinite alternate;
+}
+@keyframes bs-shimmer {
+  0% { transform: translateX(-50%) scaleX(.4); opacity: calc(var(--o, .7) * .3); }
+  60% { transform: translateX(-46%) scaleX(1); opacity: var(--o, .7); }
+  100% { transform: translateX(-54%) scaleX(.7); opacity: calc(var(--o, .7) * .6); }
+}
+
+/* Попадання виразніше: клітинка — тепла підпалина з червоним краєм, полумʼя більше, іскри злітають угору */
+.bs-cell.is-hit {
+  background: radial-gradient(circle at 50% 58%, rgba(255, 196, 110, .55), rgba(232, 71, 60, .3) 45%, rgba(60, 20, 16, .18) 70%, transparent 74%);
+  box-shadow: inset 0 0 12px 1px rgba(232, 71, 60, .4);
+}
+.bs-mark.is-fire { width: 66%; }
+.bs-spark { transform-box: fill-box; transform-origin: center; animation: bs-spark 1.6s ease-out infinite; }
+.bs-spark.is-b { animation-delay: -.8s; }
+@keyframes bs-spark { 0% { transform: translateY(6px) scale(.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-10px) scale(.3); opacity: 0; } }
+.bs-cell.is-sunk .bs-spark { animation: none; opacity: 0; }
+.bs-board.is-mine .bs-mark.is-fire { width: 74%; }
+@media (prefers-reduced-motion: reduce) { .bs-spark { animation: none; } }
+html.is-still .bs-spark { animation: none; }
+
+/* Місяць прибрано — лишається сама доріжка; записки — компактно над полем */
+.bs-moon::before { display: none; }
+.bs-found { margin: 0 0 6px; gap: 6px; }
+.bs-found-note { padding: 6px 12px 6px 38px; font-size: 1.1rem; }
+.bs-found-note::before { top: 7px; }
+
+/* 1 — чуже поле: мʼяке світіння без рамки (вище). 2 — своє поле: пробоїна на корпусі, клітинку не фарбуємо. 3 — потоплений: контур по всьому кораблю */
+.bs-board.is-mine .bs-cell.is-hit { background: none; box-shadow: none; }
+.bs-board.is-mine .bs-cell.is-hit.is-last-shot { box-shadow: inset 0 0 0 2px #E0A93A; }
+.bs-board.is-mine .bs-cell.is-hit .bs-mark.is-fire { background: radial-gradient(50% 30% at 50% 84%, rgba(24, 10, 8, .8), rgba(24, 10, 8, .35) 60%, transparent 100%); }
+.bs-cell.is-sunk, .bs-cell.is-sunk.is-hit, .bs-cell.is-sunk.is-last-shot { box-shadow: none; }
+.bs-ship.is-sunk svg { filter: drop-shadow(0 0 1px #E8473C) drop-shadow(0 0 1.5px #E8473C); }
