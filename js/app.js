@@ -556,7 +556,10 @@ function primeShell() {
 }
 
 async function hardReload(v) {
-  if (!(await updateShell(v))) { toast('Не получилось обновить — нет связи'); return; }
+  if (!(await updateShell(v))) {
+    toast(navigator.onLine ? 'Не получилось обновить — попробуй ещё раз через минуту' : 'Не получилось обновить — нет связи');
+    return;
+  }
   leave(() => location.reload());
 }
 

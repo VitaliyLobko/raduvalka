@@ -97,8 +97,8 @@ export function shootConstellation() {
   const x0 = spout.left + spout.width / 2;
   const y0 = spout.top + spout.height / 2;
   // Ціль — праворуч угорі (Стрілець цілиться в Антарес, на карті він праворуч); дуга — вище прямої
-  const x2 = Math.min(W - 30, x0 + Math.max(150, W * 0.5));
-  const y2 = Math.max(90, y0 - innerHeight * 0.3);
+  const x2 = Math.min(W - 90, x0 + Math.max(150, W * 0.5));
+  const y2 = Math.max(150, y0 - innerHeight * 0.3);
   const cx = (x0 + x2) / 2;
   const cy = Math.min(y0, y2) - 45;
   const at = (t) => [(1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x2, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y2];
@@ -144,30 +144,42 @@ export function shootConstellation() {
   // у нього — велика зірка й промінчики-зірочки
   const hit = DRAW + FLY;
   if (her) {
-    const [bx, by] = [x2 - Math.cos(end) * 10 - 18, y2 - Math.sin(end) * 10 - 17];
-    part('sa-big', HEART_SVG, [{ opacity: 0, transform: tr(bx, by, 0.2) }, { opacity: 1, offset: 0.2, transform: tr(bx, by, 1.35) },
-      { offset: 0.32, transform: tr(bx, by, 0.95) }, { offset: 0.42, transform: tr(bx, by, 1.05) }, { opacity: 1, offset: 0.75, transform: tr(bx, by, 1) },
-      { opacity: 0, transform: tr(bx, by - 10, 1.1) }], { duration: STUCK, delay: hit - 30, easing: 'ease-out' });
+    const [bx, by] = [x2 - Math.cos(end) * 12 - 28, y2 - Math.sin(end) * 12 - 26];
+    part('sa-big', HEART_SVG, [{ opacity: 0, transform: tr(bx, by, 0.2) }, { opacity: 1, offset: 0.16, transform: tr(bx, by, 1.5) },
+      { offset: 0.28, transform: tr(bx, by, 0.9) }, { offset: 0.38, transform: tr(bx, by, 1.12) }, { offset: 0.48, transform: tr(bx, by, 1) },
+      { opacity: 1, offset: 0.78, transform: tr(bx, by, 1) }, { opacity: 0, transform: tr(bx, by - 14, 1.15) }],
+    { duration: STUCK + 300, delay: hit - 30, easing: 'ease-out' });
     // Під стрілою — щоб стріла «пробивала» сердце
     box.prepend(box.lastChild);
   } else {
-    part('sa-flash', STAR4, [{ opacity: 0, transform: tr(x2 - 14, y2 - 14, 0.2, ' rotate(0deg)') }, { opacity: 1, offset: 0.45, transform: tr(x2 - 14, y2 - 14, 1.7, ' rotate(45deg)') },
-      { opacity: 0, transform: tr(x2 - 14, y2 - 14, 0.4, ' rotate(90deg)') }], { duration: 800, delay: hit, easing: 'ease-out' });
+    part('sa-flash', STAR4, [{ opacity: 0, transform: tr(x2 - 20, y2 - 20, 0.2, ' rotate(0deg)') }, { opacity: 1, offset: 0.4, transform: tr(x2 - 20, y2 - 20, 2.2, ' rotate(45deg)') },
+      { opacity: 0, transform: tr(x2 - 20, y2 - 20, 0.5, ' rotate(100deg)') }], { duration: 900, delay: hit, easing: 'ease-out' });
   }
-  for (let i = 0; i < 8; i += 1) {
-    const a = (i / 8) * Math.PI * 2 + (i % 2 ? 0.2 : -0.1);
-    const d = 34 + (i % 3) * 12;
+  // Ударна хвиля: два кільця розходяться від цілі
+  for (const k of [0, 1]) {
+    part('sa-ring', '', [{ opacity: 0.9, transform: tr(x2 - 20, y2 - 20, 0.3) }, { opacity: 0, transform: tr(x2 - 20, y2 - 20, 5 + k * 2) }],
+      { duration: 750 + k * 200, delay: hit + k * 130, easing: 'cubic-bezier(.15,.7,.3,1)' });
+  }
+  // Вибух: ближнє коло — швидко й недалеко, дальнє — ширше, повільніше й падає вниз, як конфеті
+  const N = 22;
+  const half = her ? 10 : 8;
+  for (let i = 0; i < N; i += 1) {
+    const far = i >= 10;
+    const a = (far ? (i - 10) / 12 : i / 10) * Math.PI * 2 + (far ? 0.26 : 0) + (Math.random() - 0.5) * 0.35;
+    const d = far ? 95 + Math.random() * 70 : 48 + Math.random() * 30;
     const dx = Math.cos(a) * d;
     const dy = Math.sin(a) * d;
-    const half = her ? 10 : 8;
+    const s = far ? 0.8 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5;
+    const spin = ` rotate(${Math.round((Math.random() - 0.5) * (far ? 120 : 60))}deg)`;
     part(her ? 'sa-heart' : 'sa-star', her ? HEART_SVG : STAR4, [
       { opacity: 0, transform: tr(x2 - half, y2 - half, 0.2) },
-      { opacity: 1, offset: 0.45, transform: tr(x2 - half + dx, y2 - half + dy, her ? 1 - (i % 3) * 0.15 : 0.9) },
-      { opacity: 0, transform: tr(x2 - half + dx * 1.2, y2 - half + dy * 1.2 + 16, 0.6) },
-    ], { duration: 950, delay: hit + (i % 2) * 40, easing: 'cubic-bezier(.2,.7,.3,1)' });
-    if (her) box.lastChild.style.setProperty('--c', ['#FF5C9A', '#FF8DBB', '#E0679F', '#C25A95'][i % 4]);
+      { opacity: 1, offset: 0.12, transform: tr(x2 - half + dx * 0.35, y2 - half + dy * 0.35, s * 0.9) },
+      { opacity: 1, offset: 0.5, transform: tr(x2 - half + dx, y2 - half + dy, s, spin) },
+      { opacity: 0, transform: tr(x2 - half + dx * 1.15, y2 - half + dy * 1.15 + (far ? 70 : 24), s * 0.6, spin) },
+    ], { duration: far ? 1500 : 1000, delay: hit + (far ? 60 : 0) + (i % 3) * 25, easing: 'cubic-bezier(.2,.75,.35,1)' });
+    if (her) box.lastChild.style.setProperty('--c', ['#FF5C9A', '#FF8DBB', '#E0679F', '#C25A95', '#FFB3D1'][i % 5]);
   }
-  setTimeout(() => { box.remove(); shooting = false; }, DRAW + T + 150);
+  setTimeout(() => { box.remove(); shooting = false; }, Math.max(DRAW + T, hit + 1700) + 150);
 }
 
 // «💞 Люблю тебя!»: над усіма вікнами вгорі — сузірʼя із сердечок, вони спалахують по черзі, лінії загоряються, і все тане

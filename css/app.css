@@ -3179,12 +3179,14 @@ body.is-plus .screen.is-chat { padding-bottom: calc(var(--tabs-h, 84px) + var(--
 .sa-spark { width: 5px; height: 5px; border-radius: 50%; background: #F6D27A; box-shadow: 0 0 6px 1px rgba(246, 210, 122, .8); }
 .sa-star { width: 16px; height: 16px; filter: drop-shadow(0 0 3px #F6D27A); }
 .sa-star path { fill: #FFF1B8; }
-.sa-flash { width: 28px; height: 28px; filter: drop-shadow(0 0 8px #FFD45C); }
+.sa-flash { width: 40px; height: 40px; filter: drop-shadow(0 0 10px #FFD45C); }
 .sa-flash path { fill: #FFF8DC; }
 .sa-heart { width: 20px; height: 18px; }
 .sa-heart path { fill: var(--c, #FF5C9A); stroke: #fff; stroke-width: .45; }
-.sa-big { width: 36px; height: 33px; filter: drop-shadow(0 2px 6px rgba(255, 92, 154, .55)); }
+.sa-big { width: 56px; height: 51px; filter: drop-shadow(0 3px 10px rgba(255, 92, 154, .6)); }
 .sa-big path { fill: #FF4F93; stroke: #fff; stroke-width: .35; }
+.sa-ring { width: 40px; height: 40px; box-sizing: border-box; border: 3px solid #F6D27A; border-radius: 50%; }
+.sgr-shot.is-her .sa-ring { border-color: #FF8DBB; }
 .sgr-shot.is-her .sa-arrow { filter: drop-shadow(0 0 3px rgba(255, 140, 190, .9)); }
 .sgr-shot.is-her .sa-arrow line, .sgr-shot.is-her .sa-tail { stroke: #9C3D74; }
 .sgr-shot.is-her .sa-head { fill: #E0679F; }

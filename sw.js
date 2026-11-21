@@ -47,12 +47,14 @@ async function updateShell(urls, v) {
   try {
     const all = [...new Set([scope(), ...urls.filter((u) => u.startsWith(scope()) && !u.endsWith('/sw.js'))])];
     const fresh = (u) => (v ? `${u}${u.includes('?') ? '&' : '?'}shell=${encodeURIComponent(v)}` : u);
-    const got = await Promise.all(all.map(async (u) => {
+    // Список дає стара версія: файл, який нова прибрала (404), не потрібен — пропускаємо, а не валимо все оновлення
+    const got = (await Promise.all(all.map(async (u) => {
       const res = await fetch(fresh(u), { cache: 'reload' });
+      if (res.status === 404 && u !== scope() && !/\/js\/version\.js$/.test(u)) return null;
       if (!res.ok) throw new Error(u);
       if (v && /\/js\/version\.js$/.test(u) && !(await res.clone().text()).includes(`VERSION = '${v}'`)) throw new Error('stale');
       return [u, res];
-    }));
+    }))).filter(Boolean);
     const cache = await caches.open(SHELL);
     await Promise.all(got.map(([u, res]) => cache.put(u, res)));
     return true;
