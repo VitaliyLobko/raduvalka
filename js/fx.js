@@ -1351,3 +1351,109 @@ export function openFx(el, text) {
   }
   best?.(el);
 }
+
+// ── Фінал гри на полі (знаки ♂/♀): svg — знак, sex — he/she, колір береться з CSS (--he / --she)
+const SALUTE = { he: ['#3d8bfd', '#8cc4ff', '#ffffff', '#ffd25a'], she: ['#ef476f', '#ff9db2', '#ffffff', '#ffd25a'] };
+const boardMid = (board) => {
+  const r = board.getBoundingClientRect();
+  return { r, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
+const bigSym = (svg, sex, x, y, size) => shape('fx-gsym', x, y, `<span class="gsym is-${sex}" style="width:${size}px;height:${size}px">${svg}</span>`);
+// Салют кольору переможця: кольорові іскри розлітаються й опадають
+function salute(x, y, colors, n, delay) {
+  for (let i = 0; i < n; i += 1) {
+    const s = shape('fx-dot', x, y);
+    s.style.background = colors[i % colors.length];
+    const a = (Math.PI * 2 * (i + Math.random() * 0.5)) / n;
+    const d = 60 + Math.random() * 70;
+    const dx = Math.cos(a) * d;
+    const dy = Math.sin(a) * d;
+    gone(s)(s.animate([
+      { transform: `${C} scale(.4)`, opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(calc(-50% + ${dx * 1.1}px), calc(-50% + ${dy + 70}px)) scale(.5)`, opacity: 0 },
+    ], { duration: 1300 + Math.random() * 400, delay, easing: 'cubic-bezier(.15, .7, .4, 1)', fill: 'backwards' }));
+  }
+}
+// Перемога: мої фішки підстрибують, салют мого кольору, великий знак з 👑
+export function boardWin(board, svg, sex) {
+  if (reduceMotion || !board?.isConnected) return;
+  const { r, x, y } = boardMid(board);
+  board.querySelectorAll('.ttt-cell.is-me .gsym').forEach((p, k) => jolt(p, [
+    { transform: 'translateY(0)' }, { transform: 'translateY(-24%) scale(1.18)' }, { transform: 'translateY(0)' },
+    { transform: 'translateY(-10%) scale(1.06)' }, { transform: 'translateY(0)' },
+  ], 750, 250 + k * 70));
+  const c = SALUTE[sex] || SALUTE.he;
+  salute(r.left + r.width * 0.22, r.top + r.height * 0.3, c, 18, 350);
+  salute(r.left + r.width * 0.78, r.top + r.height * 0.25, c, 18, 750);
+  salute(x, r.top + r.height * 0.15, c, 22, 1150);
+  const s = bigSym(svg, sex, x, y, 124);
+  gone(s)(s.animate([
+    { transform: `${C} scale(.2) rotate(-25deg)`, opacity: 0 },
+    { transform: `${C} scale(1.15) rotate(6deg)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} scale(1) rotate(0)`, opacity: 1, offset: 0.4 },
+    { transform: `${C} scale(1.05)`, opacity: 1, offset: 0.8 },
+    { transform: `${C} scale(1.4)`, opacity: 0 },
+  ], { duration: 2600, delay: 500, easing: 'ease-out', fill: 'backwards' }));
+  const crown = glyphAt('👑', x, y - 78, '3rem', 'fx-big');
+  gone(crown)(crown.animate([
+    { transform: `translate(-50%, -260%) rotate(-20deg)`, opacity: 0 },
+    { transform: `${C} rotate(8deg)`, opacity: 1, offset: 0.3 },
+    { transform: `${C} rotate(-4deg)`, opacity: 1, offset: 0.4 },
+    { transform: `${C} rotate(0)`, opacity: 1, offset: 0.8 },
+    { transform: `translate(-50%, -80%) scale(1.3)`, opacity: 0 },
+  ], { duration: 2400, delay: 800, easing: 'ease-out', fill: 'backwards' }));
+  for (let i = 0; i < 6; i += 1) twinkle('✨', x + (Math.random() - 0.5) * 170, y + (Math.random() - 0.5) * 150, '1.4rem', 900 + i * 180);
+}
+// Поразка: мої фішки никнуть і бліднуть, легкий дощик над полем, потім «Реванш?»
+export function boardLose(board, svg, sex) {
+  if (reduceMotion || !board?.isConnected) return;
+  const { r, x, y } = boardMid(board);
+  board.querySelectorAll('.ttt-cell.is-me .gsym').forEach((p, k) => p.animate([
+    { transform: 'none', opacity: 1 },
+    { transform: 'translateY(14%) rotate(16deg) scale(.88)', opacity: 0.45 },
+  ], { duration: 900, delay: 300 + k * 90, easing: 'ease-in', fill: 'forwards' }));
+  for (let i = 0; i < 16; i += 1) {
+    const s = glyphAt('💧', r.left + 14 + Math.random() * (r.width - 28), r.top - 30, `${0.9 + Math.random() * 0.5}rem`);
+    gone(s)(s.animate([
+      { transform: `${C} translateY(0)`, opacity: 0 },
+      { transform: `${C} translateY(30px)`, opacity: 0.85, offset: 0.15 },
+      { transform: `${C} translateY(${r.height * 0.9}px)`, opacity: 0 },
+    ], { duration: 1200 + Math.random() * 500, delay: 400 + i * 110, easing: 'ease-in', fill: 'backwards' }));
+  }
+  const s = bigSym(svg, sex, x, y - 10, 96);
+  gone(s)(s.animate([
+    { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1.05)`, opacity: 0.95, offset: 0.25 },
+    { transform: `${C} scale(1) rotate(-6deg)`, opacity: 0.95, offset: 0.45 }, { transform: `${C} scale(1) rotate(6deg)`, opacity: 0.95, offset: 0.65 },
+    { transform: `${C} scale(.9)`, opacity: 0 },
+  ], { duration: 2000, delay: 300, easing: 'ease-out', fill: 'backwards' }));
+  const say = glyphAt('Реванш? 😉', x, r.bottom - 26, '1.6rem', 'fx-say');
+  gone(say)(say.animate([
+    { transform: `${C} scale(.4)`, opacity: 0 }, { transform: `${C} scale(1.1)`, opacity: 1, offset: 0.15 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.25 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.85 },
+    { transform: `${C} translateY(-20px)`, opacity: 0 },
+  ], { duration: 2600, delay: 1900, easing: 'ease-out', fill: 'backwards' }));
+}
+// Нічия: ♂ і ♀ з'їжджаються до середини й обіймаються, між ними ❤️, угору — сердечка
+export function boardDraw(board, svgHe, svgShe) {
+  if (reduceMotion || !board?.isConnected) return;
+  const { x, y } = boardMid(board);
+  const pair = [[svgHe, 'he', -1], [svgShe, 'she', 1]];
+  for (const [svg, sex, dir] of pair) {
+    const s = bigSym(svg, sex, x, y, 84);
+    gone(s)(s.animate([
+      { transform: `translate(calc(-50% + ${dir * 170}px), -50%) scale(.6)`, opacity: 0 },
+      { transform: `translate(calc(-50% + ${dir * 46}px), -50%) scale(1) rotate(${-dir * 10}deg)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(calc(-50% + ${dir * 40}px), -50%) scale(1.04) rotate(${-dir * 4}deg)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(calc(-50% + ${dir * 46}px), -50%) scale(1) rotate(${-dir * 10}deg)`, opacity: 1, offset: 0.85 },
+      { transform: `translate(calc(-50% + ${dir * 46}px), -60%) scale(.9)`, opacity: 0 },
+    ], { duration: 2200, easing: 'ease-out', fill: 'backwards' }));
+  }
+  const heart = glyphAt('❤️', x, y, '2.4rem', 'fx-big');
+  gone(heart)(heart.animate([
+    { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(1.3)`, opacity: 1, offset: 0.3 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.45 }, { transform: `${C} scale(1.2)`, opacity: 1, offset: 0.6 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.85 }, { transform: `${C} scale(1.4)`, opacity: 0 },
+  ], { duration: 1900, delay: 500, easing: 'ease-out', fill: 'backwards' }));
+  rise(x, y, ['💙', '❤️', '💜'], 10, { delay: 900, up: 200, spread: 200, size: 1.1 });
+}

@@ -37,8 +37,8 @@ export function openGames() {
   const sh = gameSheet({ icon: '🎲', title: 'Игры', cls: 'games-sheet' });
   sh.body.append(
     tile('✊', 'Камень-ножницы', 'До двух побед, руки открываются одновременно', go(() => openDuel({ game: 'rps' })), 'rps'),
-    tile('❌', 'Крестики-нолики', 'Поле 3×3, ходите по очереди', go(() => openDuel({ game: 'ttt' })), 'ttt'),
-    tile('🔴', 'Четыре в ряд', 'Бросайте фишки по очереди — кто первым соберёт четыре', go(() => openDuel({ game: 'c4' })), 'c4'),
+    tile('♂️♀️', 'Крестики-нолики', 'Поле 3×3, ходите по очереди', go(() => openDuel({ game: 'ttt' })), 'ttt'),
+    tile('🔵🔴', 'Четыре в ряд', 'Бросайте фишки по очереди — кто первым соберёт четыре', go(() => openDuel({ game: 'c4' })), 'c4'),
   );
   get('duel').then((r) => {
     for (const [k, turn] of Object.entries(r.live || {})) {

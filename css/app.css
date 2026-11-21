@@ -3914,6 +3914,26 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ttt-board.is-c4.is-pick .ttt-cell { border-radius: 50%; font-size: 1.3rem; }
 [data-side="vin"] .ttt-board.is-c4 { background: rgba(255, 255, 255, .06); }
 .cell-piece { display: inline-block; line-height: 1; }
+/* Знаки ♂/♀ лінією: він — синій, вона — червона */
+:root { --he: #2f7ff5; --she: #e8395f; }
+[data-side="vin"] { --he: #62adff; --she: #ff6b85; }
+.gsym { display: inline-grid; place-items: center; width: 1.1em; height: 1.1em; vertical-align: -.2em; }
+.gsym svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.gsym.is-he { color: var(--he); }
+.gsym.is-she { color: var(--she); }
+.ttt-board.is-ttt .gsym { width: 62%; height: 62%; }
+.gsym.is-draw :is(circle, path) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gsym-draw .4s ease-out forwards; }
+.gsym.is-draw path { animation-delay: .3s; }
+.gsym.is-draw path + path { animation-delay: .45s; }
+@keyframes gsym-draw { to { stroke-dashoffset: 0; } }
+/* «Четыре в ряд»: фішка — кольоровий диск з білим знаком */
+.is-c4 .gsym { width: 86%; height: 86%; border-radius: 50%; background: currentColor; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .18); }
+.is-c4 .gsym svg { width: 62%; height: 62%; stroke: #fff; stroke-width: 5; }
+.duel-card-board .gsym { width: 72%; height: 72%; }
+.duel-card-board.is-c4 .gsym { width: 100%; height: 100%; box-shadow: none; }
+.fx-gsym { z-index: 64; }
+.fx-gsym .gsym { display: grid; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .25)); }
+.fx-dot { z-index: 63; width: 9px; height: 9px; border-radius: 50%; }
 .duel-card-board.is-c4 { grid-template-columns: repeat(7, 15px); gap: 2px; }
 .duel-card-board.is-c4 i { height: 15px; border-radius: 50%; font-size: .6rem; }
 /* Порада улюбленця на мій хід: мордочка й фраза */

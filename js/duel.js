@@ -3,7 +3,7 @@
 import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
-import { burst } from './fx.js';
+import { burst, boardWin, boardLose, boardDraw } from './fx.js';
 import { mascotImg, petName, petLine } from './icons.js';
 
 // Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
@@ -66,16 +66,26 @@ const PRESETS = {
 };
 const POLL = 3000;
 
-const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '❌⭕', name: 'Крестики-нолики' }, c4: { icon: '🔴🟡', name: 'Четыре в ряд' } };
+const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '♂️♀️', name: 'Крестики-нолики' }, c4: { icon: '🔵🔴', name: 'Четыре в ряд' } };
 // Ігри на полі: розмір, фішки, дієслово ходу; drop — фішка падає донизу стовпчика
 const GRIDS = {
-  ttt: { kind: 'ttt', w: 3, h: 3, mark: { x: '❌', o: '⭕' }, verb: 'ставь' },
-  c4: { kind: 'c4', w: 7, h: 6, mark: { x: '🔴', o: '🟡' }, verb: 'бросай', drop: true },
+  ttt: { kind: 'ttt', w: 3, h: 3, icon: '♂️', verb: 'ставь' },
+  c4: { kind: 'c4', w: 7, h: 6, icon: '🔵', verb: 'бросай', drop: true },
 };
 const gridOf = (g) => (Object.hasOwn(GRIDS, g?.game ?? '') ? GRIDS[g.game] : null);
+// Фішки — знаки ♂/♀ лінією: фішка належить стороні (він — синій ♂, вона — червона ♀), хто б не ходив першим
+const SYM = {
+  he: '<circle cx="16" cy="24" r="10" pathLength="1"/><path d="M23.5 16.5 34 6" pathLength="1"/><path d="M25 6h9v9" pathLength="1"/>',
+  she: '<circle cx="20" cy="15" r="10" pathLength="1"/><path d="M20 25v12" pathLength="1"/><path d="M14 31h12" pathLength="1"/>',
+};
+const mySex = () => (DATA.side === 'vona' ? 'she' : 'he');
+const otherSex = () => (mySex() === 'he' ? 'she' : 'he');
+const sexOf = (c, mine) => (c === mine ? mySex() : otherSex());
+const symSvg = (sex) => '<svg viewBox="0 0 40 40">' + SYM[sex] + '</svg>';
+const sym = (sex, cls = '') => h('span', { class: 'gsym is-' + sex + cls, 'aria-hidden': 'true', html: symSvg(sex) });
 
 const gen = () => (who().partner === 'она' ? 'её' : 'его');
-const icon = (g) => PRESETS[g.preset]?.icon || (gridOf(g)?.mark.x ?? '✊');
+const icon = (g) => PRESETS[g.preset]?.icon || (gridOf(g)?.icon ?? '✊');
 const isBoard = (g) => !!gridOf(g);
 const kindOf = (g) => gridOf(g)?.kind ?? 'rps';
 export const duelKind = kindOf;
@@ -130,7 +140,7 @@ export function duelCard(g, onOpen) {
   // Хрестики: замість рахунку — маленьке поле; догране й ще не бачене — «?»
   const mid = !isBoard(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
     : hidden ? h('span', { class: 'duel-card-score' }, h('b', {}, '?'))
-      : h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : gridOf(g).mark[c])));
+      : h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : sym(sexOf(c, g.mark)))));
   return h('button', {
     type: 'button', class: `duel-card${turn || toWish ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
     'aria-label': `${GAMES[kindOf(g)].name}, «${g.topic}»: ${state}`,
@@ -435,10 +445,10 @@ function setup() {
   const block = (title, ...kids) => h('section', { class: 'duel-block' }, h('h3', { class: 'duel-block-title' }, title), ...kids);
   const HINT = {
     rps: 'До двух побед. Ходы откроются, когда сходите оба.',
-    ttt: `Ты — ❌, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`,
-    c4: `Ты — 🔴, твой ход первый. Нужно четыре в ряд, можно и наискосок. Ничья — новая партия, начинает ${who().partner}.`,
+    ttt: ['Ты — ', sym(mySex()), `, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`],
+    c4: ['Ты — ', sym(mySex()), `, твой ход первый. Нужно четыре в ряд, можно и наискосок. Ничья — новая партия, начинает ${who().partner}.`],
   };
-  const hint = h('p', { class: 'hint duel-hint' }, HINT[kind]);
+  const hint = h('p', { class: 'hint duel-hint' }, ...[HINT[kind]].flat());
   const pick = h('div', { class: 'duel-pick' });
   // Перший хід: камінь-ножиці — рука, хрестики — клітинка на маленькому полі, «Четыре в ряд» — нижній ряд (стовпчик)
   const paintPick = () => {
@@ -478,7 +488,7 @@ const fall = (el, row) => {
 // Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — поява
 const land = (grid, board, i) => {
   const piece = board.children[i]?.firstElementChild;
-  if (grid.drop) fall(piece, Math.floor(i / grid.w)); else pop(piece);
+  if (grid.drop) fall(piece, Math.floor(i / grid.w)); else { piece?.classList.add('is-draw'); pop(piece); }
 };
 // Куди ляже хід: клітинка або найнижча вільна у стовпчику (-1 — нікуди)
 function cellFor(grid, bd, move) {
@@ -492,7 +502,7 @@ function cells(grid, bd, { mine, line = null, play = false, onPick = null } = {}
     const col = i % grid.w;
     // Хрестики — вільна клітинка; «Четыре в ряд» — будь-яка клітинка неповного стовпчика
     const open = grid.drop ? bd[col] === '.' : c === '.';
-    const what = c === '.' ? '' : `: ${grid.mark[c]}`;
+    const what = c === '.' ? '' : `: ${c === mine ? 'твой' : gen()} знак`;
     return h('button', {
       type: 'button',
       class: `ttt-cell${line?.includes(i) ? ' is-line' : ''}${c !== '.' ? ` is-${c === mine ? 'me' : 'them'}` : ''}`,
@@ -500,7 +510,7 @@ function cells(grid, bd, { mine, line = null, play = false, onPick = null } = {}
       'aria-label': grid.drop ? `Столбец ${col + 1}, ряд ${grid.h - Math.floor(i / grid.w)}${what}` : `Клетка ${i + 1}${what}`,
       disabled: !play || !open,
       onclick: onPick ? () => onPick(grid.drop ? col : i) : null,
-    }, c === '.' ? '' : h('span', { class: 'cell-piece' }, grid.mark[c]));
+    }, c === '.' ? '' : sym(sexOf(c, mine), ' cell-piece'));
   });
 }
 const boardEl = (grid, label, cls = '') => h('div', { class: `ttt-board is-${grid.kind}${cls}`, role: 'group', 'aria-label': label });
@@ -510,9 +520,8 @@ async function showBoard(g) {
   const grid = gridOf(g);
   const seen = g.done && sawEnd(g) ? g.n : seenRounds(g);
   const mine = g.mark;
-  const theirs = mine === 'x' ? 'o' : 'x';
   const legend = h('p', { class: 'ttt-legend' },
-    h('span', { class: 'ttt-who' }, `${cap(who().partner)} ${grid.mark[theirs]}`), h('span', { class: 'ttt-vs' }, 'vs'), h('span', { class: 'ttt-who' }, `Ты ${grid.mark[mine]}`));
+    h('span', { class: 'ttt-who' }, `${cap(who().partner)} `, sym(otherSex())), h('span', { class: 'ttt-vs' }, 'vs'), h('span', { class: 'ttt-who' }, 'Ты ', sym(mySex())));
   const board = boardEl(grid, 'Поле');
   const status = h('p', { class: 'duel-status' });
   const history = h('div', { class: 'duel-history', 'aria-label': 'Партии' });
@@ -530,7 +539,8 @@ async function showBoard(g) {
     board.replaceChildren(...cells(grid, prev.board, { mine }));
     paintHistory(g.rounds.length - 1);
     status.textContent = 'Ничья!';
-    await wait(1400);
+    if (!reduceMotion) boardDraw(board, symSvg('he'), symSvg('she'));
+    await wait(reduceMotion ? 1400 : 2400);
     if (!open) return;
     status.textContent = `Новая партия — ${prev.first === 'me' ? `начинает ${who().partner}` : 'начинаешь ты'}`;
     await wait(1000);
@@ -551,10 +561,10 @@ async function showBoard(g) {
     });
     status.textContent = duelResult(g);
     status.classList.add('is-final');
-    if (fresh) burst(board, g.done.won ? '🎉' : '💪', 12);
+    if (fresh) { if (g.done.won) boardWin(board, symSvg(mySex()), mySex()); else boardLose(board, symSvg(otherSex()), otherSex()); }
     act.replaceChildren(...doneActs(g));
   } else {
-    status.textContent = `${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ${grid.mark[mine]}` : `Ждём ${gen()} ход…`}`;
+    status.replaceChildren(`${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ` : `Ждём ${gen()} ход…`}`, play ? sym(mySex()) : '');
     act.replaceChildren(...[play ? petTip(grid.kind) : null, h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
   }
   if (fresh || (g.done && !sawEnd(g))) {
