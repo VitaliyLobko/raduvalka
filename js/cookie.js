@@ -145,6 +145,60 @@ export function previewCookie(gold) {
 }
 export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN });
 
+const STAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z"/></svg>';
+const GOLDS = ['#FFE7A0', '#FFD45C', '#F5C543', '#FFF3C4', '#E0A93A'];
+
+// Золота до тапу: промені за печенькою повільно обертаються, довкола мерехтять зірочки
+function goldIdle() {
+  const tw = h('div', { class: 'ck-twinkles', 'aria-hidden': 'true' });
+  for (let i = 0; i < 10; i += 1) {
+    const a = (Math.PI * 2 * i) / 10 + Math.random() * 0.4;
+    const z = Math.round(12 + Math.random() * 12);
+    tw.append(h('span', {
+      class: 'ck-tw',
+      html: STAR,
+      style: `left:${Math.round(165 + Math.cos(a) * (125 + Math.random() * 35))}px;top:${Math.round(140 + Math.sin(a) * (100 + Math.random() * 28))}px;`
+        + `width:${z}px;height:${z}px;animation-delay:${(Math.random() * 1.9).toFixed(2)}s`,
+    }));
+  }
+  return [h('div', { class: 'ck-rays', 'aria-hidden': 'true' }), tw];
+}
+
+// Розлом золотої: спалах, три хвилі й зірочки-іскри навсібіч (лише transform/opacity)
+function goldBurst(layer, cookie) {
+  if (reduceMotion) return;
+  const r = cookie.getBoundingClientRect();
+  const x = r.left + r.width / 2;
+  const y = r.top + r.height / 2;
+  const C = `translate(${x}px, ${y}px)`;
+  const fx = h('div', { class: 'ck-fx', 'aria-hidden': 'true' });
+  layer.append(fx);
+  const at = (cls, html) => fx.appendChild(h('span', { class: cls, ...(html ? { html } : {}) }));
+  at('ck-flash').animate([{ transform: `${C} scale(.2)`, opacity: 1 }, { transform: `${C} scale(1.7)`, opacity: 0 }],
+    { duration: 750, easing: 'ease-out', fill: 'forwards' });
+  [0, 180, 360].forEach((delay, i) => at('ck-wave').animate(
+    [{ transform: `${C} scale(.4)`, opacity: 0.95 }, { transform: `${C} scale(${6 + i * 1.5})`, opacity: 0 }],
+    { duration: 1000 + i * 200, delay, easing: 'ease-out', fill: 'both' },
+  ));
+  for (let i = 0; i < 28; i += 1) {
+    const s = at('ck-spark', STAR);
+    s.style.color = GOLDS[i % GOLDS.length];
+    const a = (Math.PI * 2 * i) / 28 + Math.random() * 0.3;
+    const far = i % 2;
+    const d = far ? 150 + Math.random() * 90 : 70 + Math.random() * 50;
+    const z = far ? 0.8 + Math.random() * 0.5 : 0.6 + Math.random() * 0.6;
+    const dx = Math.cos(a) * d;
+    const dy = Math.sin(a) * d;
+    const spin = (Math.random() - 0.5) * 360;
+    s.animate([
+      { transform: `${C} scale(.2)`, opacity: 1 },
+      { transform: `translate(${x + dx * 0.8}px, ${y + dy * 0.8}px) scale(${z * 1.3}) rotate(${spin * 0.6}deg)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(${x + dx}px, ${y + dy + 40}px) scale(0) rotate(${spin}deg)`, opacity: 0 },
+    ], { duration: far ? 1500 : 1000, delay: Math.random() * 120, easing: 'cubic-bezier(.15, .8, .3, 1)', fill: 'backwards' });
+  }
+  setTimeout(() => fx.remove(), 1900);
+}
+
 function show(day, gold, preset = null) {
   const me = who();
   const text = preset || fortuneFor(day, DATA.side, gold);
@@ -172,13 +226,16 @@ function show(day, gold, preset = null) {
   const layer = h('div', {
     class: `cookie-layer${gold ? ' is-gold' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': gold ? 'Золотая печенька' : 'Печенька с предсказанием',
     onclick: (e) => { if (e.target === layer && layer.classList.contains('is-open')) close(); },
-  }, h('div', { class: 'ck-box' }, title, cookie, paper, hint, acts));
+  }, h('div', { class: 'ck-box' }, title, ...(gold ? goldIdle() : []), cookie, paper, hint, acts));
   cookie.addEventListener('click', () => {
     if (layer.classList.contains('is-open')) return;
     layer.classList.add('is-open');
-    navigator.vibrate?.(30);
-    // Золота — розсипає іскри
-    if (gold) setTimeout(() => burst(cookie, '✨', 14), 150);
+    navigator.vibrate?.(gold ? [30, 60, 30] : 30);
+    // Золота — спалах, хвилі й іскри
+    if (gold) {
+      goldBurst(layer, cookie);
+      setTimeout(() => burst(cookie, '✨', 14), 150);
+    }
     setTimeout(() => shareBtn.focus(), 700);
   });
   document.body.append(layer);
