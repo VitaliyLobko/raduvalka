@@ -847,7 +847,8 @@ function envBubble(l) {
   },
     // Улюбленець тримає конверт; до свята — у святковому ковпаку
     pet ? h('span', { class: 'mascot feed-env-pet', 'aria-hidden': 'true', html: mascotImg(pet, festive ? firstPose(pet, 'party', 'festive') : letterPose(pet, l.id ?? l.date)) }) : null,
-    h('span', { class: 'feed-env-pic', 'aria-hidden': 'true' }),
+    // Без улюбленця — малюнок конверта; з ним конверт не стирчить з-під кружечка
+    pet ? null : h('span', { class: 'feed-env-pic', 'aria-hidden': 'true' }),
     h('span', { class: 'feed-env-text' },
       h('b', {}, name),
       h('span', {}, `${pet ? `${petName(pet)} ${she ? 'принесла' : 'принёс'} · ` : ''}${hhmm(l.at)}${l.tpl ? ' · первое письмо' : ''}`)),

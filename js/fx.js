@@ -225,7 +225,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '🫶': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '🫶': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 2900 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -1106,6 +1106,69 @@ REACT_FX['☕'] = (el, x, y) => {
     { transform: 'translateY(-26px) scale(.8)', opacity: 0 },
   ], 1400, 1250, '3rem');
   [[-46, -96, 1500], [44, -70, 1650], [10, -124, 1800]].forEach(([dx, dy, d]) => twinkle('✨', x + dx, y + dy, '1.2rem', d));
+};
+
+// «Клас» 👍: палець вистрибує з відскоком і ставить печатку «ОК!», навсібіч — іскри
+REACT_FX['👍'] = (el, x, y) => {
+  big('👍', x - 20, y + 10, [
+    { transform: 'translateY(80px) scale(.3) rotate(-20deg)', opacity: 0 }, { transform: 'translateY(-16px) scale(1.15) rotate(6deg)', opacity: 1, offset: 0.16 },
+    { transform: 'translateY(0) scale(1) rotate(0)', offset: 0.26 }, { transform: 'translateY(6px) scale(1.05, .92)', offset: 0.34 },
+    { transform: 'scale(1.08) rotate(-4deg)', offset: 0.42 }, { transform: 'scale(1) rotate(0)', opacity: 1, offset: 0.86 },
+    { transform: 'scale(.7)', opacity: 0 },
+  ], 2500, '5.8rem');
+  const st = glyphAt('ОК!', x + 62, y - 46, '1.9rem', 'fx-stamp');
+  gone(st)(st.animate([
+    { transform: `${C} scale(2.6) rotate(-24deg)`, opacity: 0 }, { transform: `${C} scale(.92) rotate(-12deg)`, opacity: 1, offset: 0.16 },
+    { transform: `${C} scale(1) rotate(-12deg)`, opacity: 1, offset: 0.24 }, { transform: `${C} scale(1) rotate(-12deg)`, opacity: 1, offset: 0.85 },
+    { transform: `${C} scale(1.1) rotate(-12deg)`, opacity: 0 },
+  ], { duration: 1800, delay: 650, easing: 'ease-out', fill: 'backwards' }));
+  ring(x + 62, y - 46, 900, 'is-gold');
+  jolt(el, [{ transform: 'none' }, { transform: 'translateY(3px) scale(.99)' }, { transform: 'none' }], 220, 900);
+  spray(x, y, ['✨', '⭐', '🌟'], 10, { dist: 130, size: '1.3rem', delay: 920, dur: 900 });
+};
+
+// «Доброго ранку» ☀️: сонце сходить знизу, повільно крутиться, екран теплішає, довкола кружляють промінчики
+REACT_FX['☀️'] = (el, x, y) => {
+  veil('fx-sun', [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], 3200, 0, x, y);
+  big('☀️', x, y, [
+    { transform: 'translateY(140px) scale(.4) rotate(0)', opacity: 0 }, { transform: 'translateY(0) scale(1.1) rotate(40deg)', opacity: 1, offset: 0.3 },
+    { transform: 'scale(1) rotate(80deg)', offset: 0.5 }, { transform: 'scale(1.08) rotate(130deg)', opacity: 1, offset: 0.85 },
+    { transform: 'scale(.8) rotate(160deg)', opacity: 0 },
+  ], 3000, '6.2rem');
+  orbit(x, y, ['✨', '🌟'], 10, 96, 700, 2200);
+  ring(x, y, 900, 'is-gold');
+  ring(x, y, 1300, 'is-gold');
+  rise(x, y + 40, ['🌼', '🌸', '✨'], 7, { delay: 1300, size: 1.1 });
+};
+
+// «Добраніч» 🌙: екран темніє, місяць гойдається, як колиска, довкола спалахують зорі
+REACT_FX['🌙'] = (el, x, y) => {
+  veil('fx-night', [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], 3400, 0, x, y);
+  big('🌙', x, y, [
+    { transform: 'translateY(-60px) scale(.4) rotate(-30deg)', opacity: 0 }, { transform: 'translateY(0) scale(1.05) rotate(12deg)', opacity: 1, offset: 0.22 },
+    { transform: 'rotate(-14deg)', offset: 0.4 }, { transform: 'rotate(10deg)', offset: 0.56 }, { transform: 'rotate(-6deg)', offset: 0.7 },
+    { transform: 'rotate(0)', opacity: 1, offset: 0.86 }, { transform: 'translateY(-20px) scale(.8)', opacity: 0 },
+  ], 3300, '6.2rem');
+  for (let i = 0; i < 14; i += 1) {
+    twinkle(i % 3 ? '✨' : '⭐', 20 + Math.random() * (innerWidth - 40), 60 + Math.random() * (innerHeight * 0.6), `${0.9 + Math.random() * 0.9}rem`, 500 + i * 130, 900);
+  }
+};
+
+// «Янгол» 😇: зверху опускається золотий німб і сідає на голову, ореол світиться, злітають біле серце й іскри
+REACT_FX['😇'] = (el, x, y) => {
+  big('😇', x, y + 10, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1, offset: 0.16 },
+    { transform: 'scale(1) translateY(0)', offset: 0.3 }, { transform: 'scale(1.04) translateY(-6px)', offset: 0.55 },
+    { transform: 'scale(1) translateY(0)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
+  ], 2800, '5.8rem');
+  const halo = shape('fx-halo', x, y - 140);
+  gone(halo)(halo.animate([
+    { transform: `${C} scale(.6)`, opacity: 0 }, { transform: `${C} translateY(30px) scale(1)`, opacity: 1, offset: 0.2 },
+    { transform: `${C} translateY(92px) scale(1)`, opacity: 1, offset: 0.45 }, { transform: `${C} translateY(86px) scale(1.05)`, opacity: 1, offset: 0.6 },
+    { transform: `${C} translateY(92px) scale(1)`, opacity: 1, offset: 0.85 }, { transform: `${C} translateY(80px) scale(1.2)`, opacity: 0 },
+  ], { duration: 2400, delay: 250, easing: 'ease-out', fill: 'backwards' }));
+  ring(x, y - 48, 1350, 'is-gold');
+  rise(x, y - 30, ['🤍', '✨', '🤍'], 7, { delay: 1400, size: 1.2 });
 };
 
 // Відкрили лист зі смайлом-почуттям — у того, хто відкрив, ефект: сердечка, конфеті чи вогники.
