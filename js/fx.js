@@ -225,7 +225,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '🫶': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 2700, '☕': 2800 };
+const DUR = { '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '🫶': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -1031,25 +1031,58 @@ REACT_FX['🤔'] = (el, x, y) => {
   spray(x, y - 70, ['✨', '⭐'], 8, { dist: 90, size: '1.1rem', delay: 1850, dur: 800 });
 };
 
-// «Троянда» 🌹: бутон розпускається й гойдається, з неї летять і падають пелюстки
+// «Троянда» 🌹: екран теплішає, велика троянда виростає знизу й розпускається — вибух пелюсток колом,
+// хвилі, іскри; потім на весь екран згори падає пелюстковий дощ, а з троянди злітають сердечка
 REACT_FX['🌹'] = (el, x, y) => {
-  big('🌹', x, y, [
-    { transform: 'translateY(30px) scale(.2) rotate(-20deg)', opacity: 0 }, { transform: 'scale(1.15) rotate(6deg)', opacity: 1, offset: 0.2 },
-    { transform: 'scale(1) rotate(-4deg)', offset: 0.36 }, { transform: 'scale(1.05) rotate(4deg)', offset: 0.56 },
-    { transform: 'scale(1) rotate(0)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
-  ], 2700, '5.8rem');
-  for (let i = 0; i < 14; i += 1) {
-    const p = shape('fx-petal', x + (Math.random() - 0.5) * 40, y - 30);
-    const dx = (Math.random() - 0.5) * 240;
-    const fall = 140 + Math.random() * 120;
-    const rot = (Math.random() - 0.5) * 520;
+  veil('fx-rose', [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], 4000, 0, x, y);
+  // Довгий стебель із листком домальовано під смайлом (CSS .fx-rose-big) — гойдається разом із квіткою
+  big('🌹', x, y - 50, [
+    { transform: 'translateY(160px) scale(.15) rotate(-30deg)', opacity: 0 },
+    { transform: 'translateY(20px) scale(.8) rotate(8deg)', opacity: 1, offset: 0.14 },
+    { transform: 'scale(.9) rotate(-6deg)', offset: 0.22 },
+    { transform: 'scale(1.35) rotate(4deg)', offset: 0.3 },
+    { transform: 'scale(1.1) rotate(-5deg)', offset: 0.42 }, { transform: 'scale(1.15) rotate(5deg)', offset: 0.56 },
+    { transform: 'scale(1.1) rotate(-3deg)', offset: 0.7 }, { transform: 'scale(1.12) rotate(0)', opacity: 1, offset: 0.86 },
+    { transform: 'translateY(-60px) scale(.8)', opacity: 0 },
+  ], 3800, '7.6rem').classList.add('fx-rose-big');
+  const bloom = 0.3 * 3800;
+  y -= 70;
+  ring(x, y, bloom - 60);
+  ring(x, y, bloom + 220);
+  ring(x, y, bloom + 500);
+  // Розпустилась — пелюстки розлітаються колом і осідають
+  for (let i = 0; i < 24; i += 1) {
+    const p = shape('fx-petal', x, y - 10);
+    const a = ((360 * (i + Math.random() * 0.5)) / 24) * (Math.PI / 180);
+    const d = 150 + Math.random() * 90;
+    const dx = Math.cos(a) * d;
+    const dy = Math.sin(a) * d;
+    const rot = (Math.random() - 0.5) * 720;
+    const s = 0.9 + Math.random() * 0.9;
     gone(p)(p.animate([
-      { transform: `${C} scale(.4) rotate(0)`, opacity: 0 },
-      { transform: `translate(calc(-50% + ${dx * 0.4}px), calc(-50% - 50px)) rotate(${rot * 0.3}deg)`, opacity: 1, offset: 0.25 },
-      { transform: `translate(calc(-50% + ${dx * 0.8}px), calc(-50% + ${fall * 0.5}px)) rotate(${rot * 0.7}deg)`, opacity: 1, offset: 0.65 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${fall}px)) rotate(${rot}deg)`, opacity: 0 },
-    ], { duration: 1700 + Math.random() * 500, delay: 600 + i * 60, easing: 'ease-out', fill: 'backwards' }));
+      { transform: `${C} scale(.3) rotate(0)`, opacity: 0 },
+      { transform: `translate(calc(-50% + ${dx * 0.7}px), calc(-50% + ${dy * 0.7}px)) scale(${s}) rotate(${rot * 0.4}deg)`, opacity: 1, offset: 0.3 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy + 70}px)) scale(${s}) rotate(${rot * 0.8}deg)`, opacity: 1, offset: 0.75 },
+      { transform: `translate(calc(-50% + ${dx * 1.05}px), calc(-50% + ${dy + 130}px)) scale(${s * 0.8}) rotate(${rot}deg)`, opacity: 0 },
+    ], { duration: 1600 + Math.random() * 500, delay: bloom + i * 12, easing: 'cubic-bezier(.2, .8, .3, 1)', fill: 'backwards' }));
   }
+  spray(x, y, ['✨', '💖', '✨', '🌟'], 12, { dist: 170, size: '1.4rem', delay: bloom + 80, dur: 1000 });
+  // Пелюстковий дощ на весь екран
+  for (let i = 0; i < 34; i += 1) {
+    const p = shape('fx-petal', Math.random() * innerWidth, -30);
+    const sway = (Math.random() - 0.5) * 140;
+    const fall = innerHeight + 80;
+    const rot = (Math.random() - 0.5) * 900;
+    const s = 0.8 + Math.random() * 1.1;
+    gone(p)(p.animate([
+      { transform: `${C} scale(${s}) rotate(0)`, opacity: 0 },
+      { transform: `translate(calc(-50% + ${sway * 0.5}px), calc(-50% + ${fall * 0.25}px)) scale(${s}) rotate(${rot * 0.25}deg)`, opacity: 1, offset: 0.12 },
+      { transform: `translate(calc(-50% + ${-sway * 0.4}px), calc(-50% + ${fall * 0.65}px)) scale(${s}) rotate(${rot * 0.65}deg)`, opacity: 1, offset: 0.65 },
+      { transform: `translate(calc(-50% + ${sway}px), calc(-50% + ${fall}px)) scale(${s}) rotate(${rot}deg)`, opacity: 0.3 },
+    ], { duration: 2600 + Math.random() * 1300, delay: bloom + 250 + Math.random() * 1500, easing: 'linear', fill: 'backwards' }));
+  }
+  rise(x, y - 30, ['💗', '💕', '💖'], 8, { delay: bloom + 900, size: 1.3 });
+  jolt(el, [{ transform: 'none' }, { transform: 'scale(1.04)' }, { transform: 'none' }], 320, bloom);
 };
 
 // «Кава» ☕: з чашки піднімаються три цівки пари й складаються в біле сердечко — «доброго ранку»

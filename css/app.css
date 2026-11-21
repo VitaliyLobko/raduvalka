@@ -2371,11 +2371,6 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .feed-row.is-theirs .feed-bubble { border-bottom-left-radius: 6px; }
 .feed-row.is-mine .feed-bubble { border-bottom-right-radius: 6px; background: color-mix(in srgb, var(--lavender) 30%, var(--paper)); }
 .feed-row.is-meme .feed-bubble { width: 66%; }
-/* Хто приніс лист — дрібно в рядку часу */
-.feed-courier { display: inline-flex; align-items: center; gap: 5px; opacity: .9; }
-/* Мордочка кур'єра біля відкритого листа, як аватарка в месенджері */
-.feed-courier-face { flex: none; width: 26px; height: 26px; border-radius: 50%; overflow: hidden; background: var(--paper); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--lavender) 70%, transparent); }
-.feed-courier-face img { display: block; width: 100%; height: 100%; object-fit: cover; transform: none; }
 .feed-bubble.is-drag { transition: none; }
 .feed-bubble.is-new { box-shadow: inset 4px 0 0 var(--wax), 0 10px 22px -16px rgba(74, 37, 69, .5); }
 .feed-body {
@@ -2947,7 +2942,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 [data-side="vin"] .feed-env-go { background: #E8B84A; color: #1b2b33; }
 [data-side="vin"] .feed-env.is-festive { background: linear-gradient(160deg, #3A4A3E, #2A3B47); }
 /* Улюбленець, що приніс, тримає конверт */
-.feed-env-pet { flex: none; width: 72px; height: 72px; margin: -8px -24px -8px -6px; z-index: 1; }
+.feed-env-pet { flex: none; width: 86px; height: 86px; margin: -12px -36px -12px -8px; z-index: 1; }
 .feed-env-pet img { border-width: 2px; border-radius: 50%; box-shadow: 0 4px 10px -6px rgba(42, 23, 48, .6); color: transparent; font-size: 0; }
 /* Тап: печатка злітає, кнопка гасне — далі на цьому місці відкритий лист */
 .feed-env-pic::after, .feed-env-go { transition: transform .35s ease-in, opacity .35s ease-in; }
@@ -3477,6 +3472,15 @@ html.is-covered .confetti { animation-play-state: paused; }
 [data-side="vin"] .react-more { color: var(--star); }
 .react-pick.is-all { display: block; padding: 8px 6px; border-radius: 22px; animation: fade .15s; }
 .react-group + .react-group { margin-top: 8px; }
+.chat-title { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.chat-menu {
+  position: fixed; min-width: 220px; padding: 6px; border-radius: 18px; color: var(--ink);
+  background: var(--paper); box-shadow: 0 10px 28px -8px rgba(42, 23, 48, .45); animation: fade .15s;
+}
+[data-side="vin"] .chat-menu { background: #1d5469; }
+.chat-menu-act { display: block; width: 100%; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 12px; background: none; color: inherit; font: 500 1rem var(--ui); text-align: left; cursor: pointer; }
+.chat-menu-act:active { background: var(--chip); }
+.chat-menu-note { margin: 0; padding: 0 14px 6px; font-size: .8rem; color: var(--ink-soft); }
 .react-row { display: grid; grid-template-columns: repeat(9, var(--opt)); gap: 2px; }
 /* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
 .checkin-asked { min-width: 0; }
@@ -3702,6 +3706,16 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-gloom { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(70, 90, 120, .12), rgba(60, 75, 105, .42)); }
 .fx-cloud { z-index: 63; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .25)); }
 .fx-heat, .fx-night { inset: 0; z-index: 58; }
+.fx-rose-big { transform-origin: 50% 90%; }
+.fx-rose-big::after {
+  content: ''; position: absolute; left: 50%; top: 86%; width: .07em; height: .95em; margin-left: -.045em; border-radius: .04em;
+  background: linear-gradient(90deg, #2f7a26, #6cc24a 45%, #3a8a2c);
+}
+.fx-rose-big::before {
+  content: ''; position: absolute; left: 50%; top: 1.32em; width: .34em; height: .16em; margin-left: -.02em;
+  border-radius: 100% 0; background: linear-gradient(135deg, #8bd65a, #3a8a2c); transform: rotate(-24deg); transform-origin: 0 50%;
+}
+.fx-rose { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(240, 80, 110, .34), rgba(240, 80, 110, .08) 55%, transparent 80%); }
 .fx-heat { background: radial-gradient(ellipse 70% 55% at var(--vx) calc(var(--vy) + 70px), rgba(255, 120, 30, .38), transparent 75%); }
 .fx-night { background: radial-gradient(circle at var(--vx) var(--vy), rgba(12, 20, 52, .3), rgba(12, 20, 52, .66)); }
 .fx-flame { z-index: 61; transform-origin: 50% 100%; }

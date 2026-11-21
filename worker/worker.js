@@ -37,7 +37,7 @@ const SIDES = ['vona', 'vin'];
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'bdayVona', 'bdayVin'];
 const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
 // stockFrom — 'YYYY-MM-DD', з якого дня запас підстраховує; нема — запас на паузі
-const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom'];
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom', 'chatCleared'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;

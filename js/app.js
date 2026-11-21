@@ -7,7 +7,7 @@ import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
 import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
-import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
+import { letterFeed, chatTitle, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, aboutGroup, aboutRow, aboutRowBody, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
@@ -166,7 +166,7 @@ const FEED_OPS = {
 };
 
 function renderLetter() {
-  const parts = [h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(FEED_OPS)].filter(Boolean);
+  const parts = [chatTitle(), pushAsk(), letterFeed(FEED_OPS)].filter(Boolean);
   // Рядок «Написать…» — той самий вузол: перемальовуємо все навколо, а його не виймаємо з екрана,
   // інакше поле втратить фокус і клавіатура сховається посеред набору
   const bar = composeBar();

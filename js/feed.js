@@ -290,8 +290,11 @@ function draw(force = false, older = false) {
   if (!box || (!force && !box.isConnected)) return;
   const wasStuck = box.isConnected ? gap(box) < 40 : stuck;
   const restore = keepPlace(older);
-  // «Спрятать у себя» прибрано: у переписці на двох видно все
-  const shown = items();
+  // «Очистить чат» ховає старіше за мітку лише в мене; нерозкриті конверти й «Ещё в пути» лишаються
+  const all = items();
+  const c = cleared();
+  const shown = c ? all.filter((it) => keptAfterClear(it, c)) : all;
+  const hiddenOld = all.length > shown.length;
   // Найновіше змінилось: своє — донизу, щоб видно, що пішло; чуже, поки гортали вище, — «↓ Новое»
   const top = shown[0];
   const arrived = !older && newest && top && top.key !== newest ? top : null;
@@ -327,15 +330,20 @@ function draw(force = false, older = false) {
   const keep = new Set(shown.slice(0, limit).map((it) => it.key));
   for (const k of rows.keys()) if (!keep.has(k)) rows.delete(k);
 
-  const canMore = shown.length > limit || page.more;
+  // Сторінки йдуть від нових до старих: дійшли до очищеного — далі нема чого догортати
+  const canMore = shown.length > limit || (page.more && !(c && all.length && all[all.length - 1].at <= c));
   const more = canMore ? h('button', {
     type: 'button', class: 'feed-hidden-toggle feed-more',
     onclick: (e) => showMore(e.currentTarget, shown.length),
   }, page.more ? 'Показать раньше' : `Показать раньше · ${shown.length - limit}`) : null;
+  const back = c && hiddenOld && !canMore ? h('button', {
+    type: 'button', class: 'feed-hidden-toggle feed-restore', onclick: () => clearChat(false),
+  }, 'Вернуть историю') : null;
 
-  head.replaceChildren(...[more].filter(Boolean));
+  head.replaceChildren(...[more, shown.length ? back : null].filter(Boolean));
   foot.replaceChildren(...[
-    shown.length ? null : h('p', { class: 'mk-wait' }, emptyText()),
+    shown.length ? null : h('p', { class: 'mk-wait' }, c ? 'Чат очищен. Новые письма появятся здесь.' : emptyText()),
+    shown.length ? null : back,
     // Підказка про свайп — лише коли є що гортати: запечатаний конверт тільки відкривають
     shown.some((it) => !(it.type === 'in' && sealed(it.l))) && !learned('feed') ? hintBar('feed-swipe-hint', null, 'ответить') : null,
   ].filter(Boolean));
@@ -362,6 +370,44 @@ function draw(force = false, older = false) {
     first.dataset.swipe = s;
   };
   nudge('feed', first, [lean(64, 'reply-soon'), lean(0, '')]);
+}
+
+const cleared = () => DATA.mine?.chatCleared || 0;
+const keptAfterClear = (it, c) => it.at > c || (it.type === 'in' && !it.l.tpl && !it.l.opened) || (it.type === 'out' && it.later);
+export function clearChat(on) {
+  DATA.mine.chatCleared = on ? Date.now() : null;
+  save('mine', { chatCleared: DATA.mine.chatCleared });
+  draw();
+  fresh();
+  if (on) toast('Чат очищен. Вернуть — долгим нажатием на «Письма»');
+}
+
+// Заголовок «Письма»: довге натискання (чи правий клік) — «Очистить чат» або «Вернуть историю»
+export function chatTitle() {
+  const t = h('h2', { class: 'title chat-title' }, 'Письма');
+  let timer = 0;
+  const stop = () => clearTimeout(timer);
+  t.addEventListener('pointerdown', () => { stop(); timer = setTimeout(() => chatMenu(t), 500); });
+  for (const e of ['pointerup', 'pointercancel', 'pointerleave']) t.addEventListener(e, stop);
+  t.addEventListener('contextmenu', (e) => { e.preventDefault(); stop(); chatMenu(t); });
+  return t;
+}
+function chatMenu(t) {
+  document.querySelector('.react-layer')?.remove();
+  const on = !!cleared();
+  const close = () => layer.remove();
+  const menu = h('div', { class: 'chat-menu', role: 'menu', 'aria-label': 'Чат' },
+    h('button', {
+      type: 'button', class: 'chat-menu-act', role: 'menuitem',
+      onclick: (e) => { e.stopPropagation(); close(); clearChat(!on); },
+    }, on ? '↩️ Вернуть историю' : '🧹 Очистить чат'),
+    h('p', { class: 'chat-menu-note' }, on ? 'Снова покажу всю переписку' : 'Только в твоём чате, письма не удаляются'));
+  const opened = Date.now();
+  const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, menu);
+  document.body.append(layer);
+  const r = t.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, r.left)}px`;
+  menu.style.top = `${r.bottom + 6}px`;
 }
 
 function emptyText() {
@@ -753,10 +799,6 @@ function inBubble(l) {
   },
   h('span', { class: 'feed-meta' },
     h('span', {}, `${l.kind === 'date' ? '🎉' : '💌'} ${hhmm(l.at)}`),
-    // Хто приніс — маленька мордочка в позі цього листа (та сама, що була на конверті)
-    courierOf(l) ? h('span', { class: 'feed-courier' },
-      h('span', { class: 'feed-courier-face', 'aria-hidden': 'true', html: mascotImg(courierOf(l), l.kind === 'date' ? firstPose(courierOf(l), 'party', 'festive') : letterPose(courierOf(l), l.id ?? l.date)) }),
-      petName(courierOf(l))) : null,
     l.tpl ? h('span', {}, 'первое письмо') : null,
     newMark(!l.opened)),
   quoteLine(l.quote, l.created || l.at),
