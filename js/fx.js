@@ -864,15 +864,19 @@ REACT_FX['🐾'] = (el, x, y, r) => {
   rise(x + w / 2, y, ['💕'], 3, { delay: 200 + n * 190, up: 120, spread: 60, size: 1 });
 };
 
-// Лише 🤯: екран дрижить, поки голова «закипає», і здригається на вибуху — шапка, переписка й вкладки разом,
-// а самі смайлики летять поверх нерухомо. Час — як у рухах смайлика (теж × SLOW, бо викликається з reactFx)
-// will-change — шари готові заздалегідь, відеокарта лише зсуває їх (без перемальовування посеред тряски)
-const quake = (frames, duration, delay = 0) => {
-  for (const s of document.querySelectorAll('.top, #screen, .tabs')) {
-    s.style.willChange = 'transform';
-    const a = s.animate(frames, { duration, delay, easing: 'linear' });
-    a.onfinish = () => { if (!s.getAnimations().some((x) => x !== a && x.playState === 'running')) s.style.willChange = ''; };
-  }
+// Лише 🤯: дрижить саме повідомлення, поки голова «закипає», і здригається на вибуху. Увесь екран не трусимо —
+// на телефоні з довгою перепискою це був величезний шар і ривки. Час — як у рухах смайлика (× SLOW, бо з reactFx).
+// Стрічку за 0,35 с перемальовують і пузир міняється на новий — тож у мить старту шукаємо живий пузир за ключем рядка
+const quake = (el, frames, duration, delay = 0) => {
+  const key = el?.closest?.('.feed-row')?.dataset.key;
+  setTimeout(() => {
+    const live = el?.isConnected ? el : key ? document.querySelector(`.feed-row[data-key="${CSS.escape(key)}"] .feed-bubble`) : null;
+    if (!live) return;
+    live.style.willChange = 'transform';
+    // Тут уже поза reactFx — уповільнення × SLOW рахуємо самі
+    const a = live.animate(frames, { duration: duration * SLOW, easing: 'linear' });
+    a.onfinish = () => { if (!live.getAnimations().some((x) => x !== a && x.playState === 'running')) live.style.willChange = ''; };
+  }, delay * SLOW);
 };
 // Плавне гойдання: кадр на ~16 мс, синусоїда з обвідною env(t) 0…1. px — розмах, cycles — скільки разів туди-назад, rot — нахил
 const sway = (px, cycles, ms, env, rot = 0) => {
@@ -890,7 +894,8 @@ const sway = (px, cycles, ms, env, rot = 0) => {
 const swell = (t) => Math.sin(Math.PI * t) ** 2 * (0.4 + 0.6 * t);
 const decay = (t) => (1 - t) ** 2.2 * Math.min(1, t * 12);
 const QUAKE = {
-  '🤯': () => { quake(sway(1.4, 6, 700, swell), 700, 330); quake(sway(9, 4.5, 800, decay, 0.6), 800, 1030); },
+  // Повідомлення менше за екран — розмах трохи більший, з нахилом
+  '🤯': (el) => { quake(el, sway(2.4, 6, 700, swell, 0.8), 700, 330); quake(el, sway(10, 4.5, 800, decay, 2.2), 800, 1030); },
 };
 
 let fxCalm = 0;
@@ -912,7 +917,7 @@ export function reactFx(el, glyph) {
     return animate.call(this, frames, typeof o === 'number' ? o * SLOW : { ...o, duration: (o?.duration || 0) * SLOW, delay: (o?.delay || 0) * SLOW });
   };
   try {
-    QUAKE[glyph]?.();
+    QUAKE[glyph]?.(el);
     if (fx) fx(el, x, y, r);
     else {
       big(glyph, x, y, [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.3 }, { transform: 'scale(1)', opacity: 1, offset: 0.8 }, { transform: 'scale(.6)', opacity: 0 }], 1300);
