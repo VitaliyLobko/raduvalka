@@ -21,6 +21,7 @@ import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
 import { openDuel } from './duel.js';
+import { openSame } from './same.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
@@ -395,6 +396,8 @@ function goTo(go) {
   if (go === 'together') { openTogether(); return true; }
   // «✊ Спор» — на «Письма» і одразу сам спор
   if (go === 'duel') { if (tab !== 'letter') selectTab('letter'); openDuel(); return true; }
+  // «💞 Совпадёт?» — так само
+  if (go === 'same') { if (tab !== 'letter') selectTab('letter'); openSame(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
   if (tab !== go) selectTab(go);

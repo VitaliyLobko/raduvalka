@@ -12,6 +12,7 @@ import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
 import { duelCard, duelSig, openDuel } from './duel.js';
+import { sameCard, sameSig, openSame } from './same.js';
 import { loveConstellation } from './depth.js';
 
 const SWIPE = 70;
@@ -392,7 +393,7 @@ function isFresh(it) {
 }
 function rowFor(it) {
   // Рядок спору залежить і від того, чи я вже бачив розкриття (localStorage), — текст рядка теж у підписі
-  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : null;
+  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : it.n?.kind === 'same' ? sameSig(it.n.same) : null;
   const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
@@ -420,6 +421,8 @@ function newsRow(n) {
   if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain' || n.kind === 'bell') return markRow(n, she);
   // «✊ Спор»: картка — тема, рахунок, чий хід чи підсумок; тап — сам спор
   if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel()));
+  // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
+  if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame()));
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
   if (n.kind === 'gifted') {
     const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;

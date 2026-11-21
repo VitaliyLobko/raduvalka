@@ -306,6 +306,7 @@ async function route(req, env, ctx, info = {}) {
     return json({ reaches, sent: reaches && notify.on });
   }
   if (path === 'duel' || path.startsWith('duel/')) return duelRoute(req, env.DB, side, path.slice(4), notify);
+  if (path === 'same' || path.startsWith('same/')) return sameRoute(req, env.DB, side, path.slice(4), notify);
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
@@ -1194,6 +1195,13 @@ async function feedPage(db, side, url) {
     const t = Math.max(duel.at, st.last);
     if (t < before) wheel.push({ id: `d${duel.id}`, duel: gameView(duel, st, side), t });
   }
+  // «💞 Совпадёт?», що триває, — рядок там, де була остання відповідь; дограний — рядок marks kind same
+  const same = await getDoc(db, 'same');
+  if (same?.id) {
+    const ans = await sameAnswers(db, same.id);
+    const t = Math.max(same.at, ...Object.values(ans).map((a) => a.at));
+    if (t < before) wheel.push({ id: `m${same.id}`, same: sameView(same, ans, side), t });
+  }
   const spin = await getDoc(db, 'plan-spin');
   if (spin?.at && spin.at < before) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
@@ -1218,6 +1226,8 @@ async function feedPage(db, side, url) {
     sent: of('out').map(({ t, ...r }) => ({ ...r, opened: !!r.opened, liked: !!r.liked })),
     memes: of('meme').map((r) => view(r, side)),
     news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
+      : r.same ? { kind: 'same', id: r.id, same: r.same, at: r.t }
+      : r.kind === 'same' ? { kind: 'same', id: r.id, same: sameMarkView(r, side), at: r.t }
       : r.kind === 'duel' ? { kind: 'duel', id: r.id, duel: duelMarkView({ ...r, at: r.t }, side), at: r.t }
       : r.titles
       ? { kind: r.kind, id: r.id, titles: [...r.titles].reverse(), at: r.t }
@@ -2693,6 +2703,121 @@ async function tttMove(db, game, side, cell, now, reaches, notify) {
   return json({ duel: tttView(game, st, side), reaches });
 }
 
+// ── «💞 Совпадёт?»: 5 питань із двома варіантами, кожен відповідає за себе, коли зручно; відповіді другого
+// не видно, поки не відповіли обидва. doc same — гра (питання — ключі з набору в телефоні або своє зашифроване
+// { q, a, b }); відповіді — docs same:<side>; кінець — рядок marks kind same з усім
+const SAME_N = 5;
+// Забута гра не тримає вічно: через три дні новий виклик її замінює
+const SAME_STALE = 3 * 24 * 3600000;
+const SAME_KEY = /^[a-z0-9]{1,12}$/;
+
+function sameQs(qs) {
+  if (!Array.isArray(qs) || qs.length !== SAME_N) throw fail(400, 'same');
+  let own = 0;
+  const out = qs.map((q) => {
+    if (typeof q === 'string' && SAME_KEY.test(q)) return q;
+    if (q && typeof q === 'object') {
+      const v = { q: clip(q.q, 80), a: clip(q.a, 24), b: clip(q.b, 24) };
+      if (v.q && v.a && v.b) { own += 1; return v; }
+    }
+    throw fail(400, 'same');
+  });
+  if (own > 1 || new Set(out.filter((q) => typeof q === 'string')).size !== SAME_N - own) throw fail(400, 'same');
+  return out;
+}
+function sameAns(a) {
+  if (!Array.isArray(a) || a.length !== SAME_N || !a.every((x) => x === 0 || x === 1)) throw fail(400, 'same');
+  return a;
+}
+
+async function sameAnswers(db, id) {
+  const out = {};
+  for (const sd of SIDES) {
+    // eslint-disable-next-line no-await-in-loop
+    const a = await getDoc(db, `same:${sd}`);
+    if (a?.id === id) out[sd] = a;
+  }
+  return out;
+}
+
+// Що бачить сторона: свої відповіді завжди, чужі — лише коли відповіли обидва
+function sameView(g, ans, side) {
+  const o = other(side);
+  const me = ans[side]?.ans || null;
+  const them = ans[o]?.ans || null;
+  const done = !!(me && them);
+  return {
+    id: g.id,
+    mine: g.by === side,
+    at: g.at,
+    qs: g.qs,
+    me,
+    theirDone: !!them,
+    them: done ? them : null,
+    done,
+    hits: done ? me.filter((x, i) => x === them[i]).length : null,
+  };
+}
+function sameMarkView(row, side) {
+  const g = JSON.parse(row.mood);
+  return sameView({ ...g, at: row.at }, { vona: { ans: g.ans.vona }, vin: { ans: g.ans.vin } }, side);
+}
+async function lastSame(db, side) {
+  const row = await db.prepare("SELECT mood, at FROM marks WHERE kind = 'same' ORDER BY at DESC LIMIT 1").first();
+  return row ? sameMarkView(row, side) : null;
+}
+async function dropSame(db, id) {
+  await db.prepare("DELETE FROM docs WHERE k = 'same' AND v LIKE ?").bind(`%"id":"${id}"%`).run();
+  await db.prepare("DELETE FROM docs WHERE k IN ('same:vona', 'same:vin') AND v LIKE ?").bind(`%"id":"${id}"%`).run();
+}
+
+async function sameRoute(req, db, side, rest, notify) {
+  const m = req.method;
+  const now = Date.now();
+  if (m === 'GET' && !rest) {
+    const g = await getDoc(db, 'same');
+    return json({ same: g?.id ? sameView(g, await sameAnswers(db, g.id), side) : null, last: await lastSame(db, side) });
+  }
+  const b = m === 'POST' ? await readJson(req) : {};
+  const reaches = await hasPush(db, other(side));
+  // Виклик: питання й одразу мої відповіді
+  if (m === 'POST' && !rest) {
+    const qs = sameQs(b.qs);
+    const ans = sameAns(b.ans);
+    const prev = await getDoc(db, 'same');
+    if (prev?.id && now - prev.at < SAME_STALE) throw fail(409, 'busy');
+    if (prev?.id) await dropSame(db, prev.id);
+    const g = { id: newId(), by: side, qs, at: now };
+    await putDoc(db, 'same', g);
+    await putDoc(db, `same:${side}`, { id: g.id, ans, at: now });
+    if (reaches) notify.send(other(side), sameNote(side, 'start'));
+    return json({ same: sameView(g, await sameAnswers(db, g.id), side), reaches }, 201);
+  }
+  const g = await getDoc(db, 'same');
+  if (m === 'POST' && rest === '/answer') {
+    if (!g?.id || g.id !== String(b.id || '')) throw fail(409, 'gone');
+    const ans = sameAns(b.ans);
+    // Уже відповів — повтор (черга, подвійний тап) нічого не міняє
+    if (!(await sameAnswers(db, g.id))[side]) await putDoc(db, `same:${side}`, { id: g.id, ans, at: now });
+    const all = await sameAnswers(db, g.id);
+    const view = sameView(g, all, side);
+    if (view.done) {
+      const mood = JSON.stringify({ id: g.id, by: g.by, qs: g.qs, ans: { vona: all.vona.ans, vin: all.vin.ans } });
+      await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+        .bind(`same-${g.id}`, g.by, 'same', mood, now).run();
+      await dropSame(db, g.id);
+      if (reaches) notify.send(other(side), sameNote(side, 'done'));
+    }
+    return json({ same: view, reaches });
+  }
+  // Передумали — гра зникає без сліду в чаті
+  if (m === 'POST' && rest === '/cancel') {
+    if (g?.id && g.id === b.id) await dropSame(db, g.id);
+    return json({ ok: true });
+  }
+  throw fail(404, 'not found');
+}
+
 async function checkinSeen(req, db, side) {
   const b = await readJson(req);
   const k = `checkin:${other(side)}`;
@@ -2959,6 +3084,13 @@ function duelNote(from, what, topic, score) {
   if (what === 'ttt-turn') return { ...base, title: '❌⭕ Спор', body: `${t ? `${t}: ` : ''}${t ? 'т' : 'Т'}вой ход!` };
   const s = score.me === score.them ? `пока ${score.me}:${score.them}` : `счёт ${score.them}:${score.me} ${score.them > score.me ? 'в твою пользу' : sender(from, 'в его пользу', 'в её пользу')}`;
   return { ...base, title: '✊ Спор', body: `${t ? `${t}: ` : ''}${t ? s : cap1(s)}. Твой ход!` };
+}
+
+// «💞 Совпадёт?»: виклик і «відповіді відкрились» (скільки збіглося — не пишемо: хай подивиться сама/сам)
+function sameNote(from, what) {
+  const base = { tag: 'same', go: 'same', title: '💞 Совпадёт?' };
+  if (what === 'start') return { ...base, body: sender(from, 'Он ответил на 5 вопросов — теперь ты. Совпадёт?', 'Она ответила на 5 вопросов — теперь ты. Совпадёт?') };
+  return { ...base, body: 'Ответы открылись — посмотри, сколько совпало' };
 }
 
 function captainNote(from, quote) {

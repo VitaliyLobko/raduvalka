@@ -117,6 +117,8 @@ const FIELDS = [
   [/^sos\/[\w-]+$/, { audio: { data: 'bin' } }],
   // Своя тема «✊ Спора» (готові теми йдуть ключем preset)
   [/^duel$/, { topic: 60 }],
+  // Своє питання «Совпадёт?» (готові йдуть ключем-рядком — їх sealBy не чіпає)
+  [/^same$/, { qs: [{ q: 80, a: 24, b: 24 }] }],
 ];
 export async function sealBy(spec, v) {
   if (typeof spec === 'number') return typeof v === 'string' && v.trim() && !isSealed(v) ? seal(v.trim().slice(0, spec)) : v;

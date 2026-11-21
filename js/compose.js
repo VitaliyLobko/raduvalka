@@ -8,7 +8,7 @@ import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, ARROW, hhmm, dayWord as dayName } from './ui.js';
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
-import { openDuel } from './duel.js';
+import { openGames } from './games.js';
 import { openWrite, draft, nextMorning, QUEUED, sentToast } from './write.js';
 import { listen, canDictate, MIC } from './voice.js';
 
@@ -335,7 +335,7 @@ function openPlus() {
       h('label', { class: 'cbar-tile' }, picker, h('span', { 'aria-hidden': 'true' }, '📷'), 'Фото'),
       DATA.files ? h('label', { class: 'cbar-tile' }, filePicker, h('span', { 'aria-hidden': 'true' }, '📎'), 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
-      reply ? null : tile('✊', 'Спор', () => { closePlus(); openDuel(); }),
+      reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),
     h('div', { class: 'cbar-tiles' }, ...[

@@ -243,7 +243,9 @@ export function startDepth() {
   document.body.prepend(box);
   document.addEventListener('click', (e) => {
     // Лише по фону: не по кнопках, полях, шторках і не по повідомленнях чи картках (у них свої дії)
-    if (e.target.closest('button, a, input, textarea, select, label, summary, [role="dialog"], .sheet, .plan-wheel, .feed-row, .feed-news, .want, .env-card, .plan-card, .letter, .bubble, .courier')) return;
+    // Шлях події, а не e.target.closest: кнопка могла замінити свій значок (＋ → ✕), і ціль уже відірвана від кнопки
+    const SKIP = 'button, a, input, textarea, select, label, summary, [role="dialog"], .sheet, .plan-wheel, .feed-row, .feed-news, .want, .env-card, .plan-card, .letter, .bubble, .courier';
+    if (!e.target.isConnected || e.composedPath().some((n) => n instanceof Element && n.matches(SKIP))) return;
     const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
     const r = el?.getBoundingClientRect();
     if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) shootConstellation();
