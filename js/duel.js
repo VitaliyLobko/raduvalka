@@ -10,10 +10,10 @@ const GLYPH = Object.fromEntries(MOVES.map(([k, g]) => [k, g]));
 const BEAT = { r: 'Камень тупит ножницы', s: 'Ножницы режут бумагу', p: 'Бумага накрывает камень' };
 // doer — хто робить: справу (собака, посуд) — той, хто програв; вибір (фільм, куди піти) — переможець
 const PRESETS = {
-  dog: { icon: '🐶', label: 'Кто гуляет с собакой', doer: 'loser', me: 'С собакой гуляешь ты', them: (p) => `С собакой гуляет ${p}` },
-  dishes: { icon: '🍽', label: 'Кто моет посуду', doer: 'loser', me: 'Посуду моешь ты', them: (p) => `Посуду моет ${p}` },
-  film: { icon: '🎬', label: 'Кто выбирает фильм', doer: 'winner', me: 'Фильм выбираешь ты', them: (p) => `Фильм выбирает ${p}` },
-  place: { icon: '🗺', label: 'Кто выбирает, куда пойдём', doer: 'winner', me: 'Куда пойдём — выбираешь ты', them: (p) => `Куда пойдём — выбирает ${p}` },
+  dog: { icon: '🐶', label: 'Кто гуляет с собакой', short: 'Гулять с собакой', doer: 'loser', me: 'С собакой гуляешь ты', them: (p) => `С собакой гуляет ${p}` },
+  dishes: { icon: '🍽', label: 'Кто моет посуду', short: 'Мыть посуду', doer: 'loser', me: 'Посуду моешь ты', them: (p) => `Посуду моет ${p}` },
+  film: { icon: '🎬', label: 'Кто выбирает фильм', short: 'Выбрать фильм', doer: 'winner', me: 'Фильм выбираешь ты', them: (p) => `Фильм выбирает ${p}` },
+  place: { icon: '🗺', label: 'Кто выбирает, куда пойдём', short: 'Куда пойдём', doer: 'winner', me: 'Куда пойдём — выбираешь ты', them: (p) => `Куда пойдём — выбирает ${p}` },
 };
 const POLL = 3000;
 
@@ -51,12 +51,24 @@ export function duelResult(g) {
   return `🏆 «${g.topic}»: победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}, ${scoreOf(g)}`;
 }
 
-// Рядок у чаті: поки йде — чий хід; дограли — підсумок, але не раніше, ніж я побачив розкриття
-export function duelLine(g) {
-  if (g.done) return sawEnd(g) ? duelResult(g) : `🏆 Спор «${g.topic}» решён — посмотри, кто победил`;
-  const score = g.score.me || g.score.them ? ` · ${g.score.me}:${g.score.them}` : '';
-  return `${icon(g)} Спор «${g.topic}» — ${g.myMove ? `ждём ${gen()} ход` : 'твой ход'}${score}`;
+// Картка спору в стрічці: тема, рахунок, чий хід. Дограний, але розкриття ще не бачила — рахунок «?», щоб не зіпсувати
+export function duelCard(g, onOpen) {
+  const hidden = g.done && !sawEnd(g);
+  const turn = !g.done && !g.myMove;
+  const state = g.done ? (hidden ? '🏆 Спор решён' : duelResult(g)) : turn ? 'Твой ход' : `Ждём ${gen()} ход`;
+  const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : null;
+  const n = (x) => h('b', {}, hidden ? '?' : String(x));
+  return h('button', {
+    type: 'button', class: `duel-card${turn ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
+    'aria-label': `Спор «${g.topic}»: ${state}`,
+  },
+  h('span', { class: 'duel-card-head' }, '✊ Спор · до двух побед'),
+  h('span', { class: 'duel-card-topic' }, `${icon(g)} ${g.topic}`),
+  h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты')),
+  h('span', { class: 'duel-card-foot' }, h('span', { class: 'duel-card-state' }, state), go ? h('span', { class: 'duel-card-go' }, go) : null));
 }
+// Що малює картка — для підпису рядка стрічки (перемальовується, лише коли змінилось)
+export const duelSig = (g) => JSON.stringify([g.score, g.myMove, g.theirMoved, g.done, sawEnd(g), g.rounds.length]);
 
 let open = null;
 
@@ -114,11 +126,13 @@ async function show(g, fresh) {
   const paintScore = (s) => scoreEl.replaceChildren(
     h('span', {}, cap(who().partner)), h('b', {}, String(s.them)), h('span', { class: 'duel-colon' }, ':'), h('b', {}, String(s.me)), h('span', {}, 'Ты'));
   const history = h('div', { class: 'duel-history', 'aria-label': 'Раунды' });
+  // Раунд: номер, ходи (другий · я) і чий — словом
   const paintHistory = (n) => history.replaceChildren(...g.rounds.slice(0, n).map((r, i) => h('span', {
     class: `duel-past${r.win ? ` is-${r.win}` : ''}`, title: `Раунд ${i + 1}`,
-  }, `${GLYPH[r.them]} ${GLYPH[r.me]}`)));
+  }, h('small', {}, String(i + 1)), `${GLYPH[r.them]} ${GLYPH[r.me]}`, h('small', {}, r.win === 'me' ? 'твой' : r.win ? gen() : 'ничья'))));
   const act = h('div', { class: 'duel-act' });
-  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), scoreEl, history, stage, status, act);
+  // Арена: рахунок, руки одна проти одної, що сталося; під нею — розіграні раунди
+  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), h('div', { class: 'duel-arena' }, scoreEl, stage, status), history, act);
 
   // Новий розіграний раунд — розкриваємо останній, рахунок до нього — без нього
   const fresh1 = g.rounds.length > seen;
@@ -219,16 +233,16 @@ function setup() {
   const sync = () => { go.disabled = !topic() || !mv; };
   const chips = h('div', { class: 'duel-topics', role: 'radiogroup', 'aria-label': 'О чём спор' },
     ...Object.entries(PRESETS).map(([k, p]) => h('button', {
-      type: 'button', class: 'mk-chip', role: 'radio', 'aria-checked': 'false', 'data-k': k,
+      type: 'button', class: 'duel-topic-tile', role: 'radio', 'aria-checked': 'false', 'aria-label': p.label, 'data-k': k,
       onclick: () => {
         preset = preset === k ? null : k;
         if (preset) own.value = '';
-        chips.querySelectorAll('.mk-chip').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.k === preset)));
+        chips.querySelectorAll('.duel-topic-tile').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.k === preset)));
         sync();
       },
-    }, `${p.icon} ${p.label}`)));
+    }, h('span', { class: 'duel-topic-icon', 'aria-hidden': 'true' }, p.icon), h('span', {}, p.short))));
   own.addEventListener('input', () => {
-    if (own.value.trim() && preset) { preset = null; chips.querySelectorAll('.mk-chip').forEach((c) => c.setAttribute('aria-checked', 'false')); }
+    if (own.value.trim() && preset) { preset = null; chips.querySelectorAll('.duel-topic-tile').forEach((c) => c.setAttribute('aria-checked', 'false')); }
     sync();
   });
   go.addEventListener('click', async () => {
@@ -246,11 +260,12 @@ function setup() {
       toast('Вызов не улетел — нет связи');
     }
   });
+  // Блоки по порядку: о чём → твій хід → кинути виклик
+  const block = (title, ...kids) => h('section', { class: 'duel-block' }, h('h3', { class: 'duel-block-title' }, title), ...kids);
   return [
-    h('p', { class: 'hint duel-hint' }, 'Камень, ножницы, бумага — до двух побед. Ходы откроются, когда сходите оба.'),
-    chips, own,
-    h('p', { class: 'duel-label' }, 'Твой ход'),
-    movesRow((k) => { mv = k; sync(); }),
+    block('О чём спор', chips, own),
+    block('Твой ход · камень, ножницы, бумага', movesRow((k) => { mv = k; sync(); })),
+    h('p', { class: 'hint duel-hint' }, 'До двух побед. Ходы откроются, когда сходите оба.'),
     go,
   ];
 }

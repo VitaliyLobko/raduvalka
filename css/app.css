@@ -3725,7 +3725,20 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .duel-head h2 { margin: 0; }
 .duel-head .sheet-close { position: static; flex: none; margin: 0; }
 .duel-hint { margin: 0; }
-.duel-topics { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Новий спор: блоки «О чём спор» і «Твой ход»; теми — плитки 2×2 */
+.duel-block { display: grid; gap: 8px; padding: 10px 12px 12px; border-radius: 16px; background: color-mix(in srgb, var(--lavender) 22%, transparent); }
+[data-side="vin"] .duel-block { background: rgba(255, 255, 255, .05); }
+.duel-block-title { margin: 0; font-size: .8125rem; font-weight: 700; color: var(--ink-soft); }
+.duel-topics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.duel-topic-tile {
+  display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 6px 10px;
+  border: 1.5px solid var(--lavender); border-radius: 14px; background: var(--paper); color: var(--ink);
+  font: inherit; font-size: .9375rem; line-height: 1.15; text-align: left; cursor: pointer;
+}
+.duel-topic-tile[aria-checked="true"] { border-color: var(--plum); box-shadow: 0 0 0 2px var(--plum) inset; }
+.duel-topic-icon { flex: none; font-size: 1.35rem; }
+[data-side="vin"] .duel-topic-tile { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .18); }
+[data-side="vin"] .duel-topic-tile[aria-checked="true"] { border-color: var(--star); box-shadow: 0 0 0 2px var(--star) inset; }
 .duel-own {
   width: 100%;
   min-height: 44px;
@@ -3736,7 +3749,6 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   color: var(--plum);
   font: 1.25rem var(--hand);
 }
-.duel-label { margin: 4px 0 0; font-weight: 600; }
 .duel-moves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .duel-move {
   display: flex;
@@ -3761,17 +3773,46 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .duel-colon { font-size: 1.6rem; }
 .duel-history { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 0; }
 .duel-history:empty { display: none; }
-.duel-past { padding: 2px 10px; border: 1.5px solid var(--lavender); border-radius: 999px; font-size: 1rem; }
+.duel-past { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 1.5px solid var(--lavender); border-radius: 999px; font-size: 1rem; }
+.duel-past small { font-size: .6875rem; color: var(--ink-soft); }
 .duel-past.is-me { border-color: var(--plum); }
 .duel-past.is-them { opacity: .6; }
-.duel-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.duel-stage { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.duel-stage::after { content: 'vs'; position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font: 700 1.1rem/1 var(--hand); color: var(--ink-soft); opacity: .75; }
+/* Арена: рахунок, руки, що сталося — в одній рамці */
+.duel-arena {
+  display: grid; gap: 6px; padding: 12px 12px 10px; border-radius: 20px;
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--powder) 35%, transparent), color-mix(in srgb, var(--lavender) 25%, transparent));
+}
+[data-side="vin"] .duel-arena { background: radial-gradient(120% 90% at 50% 0%, rgba(246, 210, 122, .14), rgba(255, 255, 255, .04)); }
 .duel-hand { display: flex; flex-direction: column; align-items: center; transition: opacity .3s; }
 .duel-glyph { display: inline-block; font-size: 4.2rem; line-height: 1.15; }
 .duel-who { font-size: .875rem; color: var(--ink-soft); }
 .duel-hand.is-win .duel-glyph { filter: drop-shadow(0 0 12px var(--powder)); }
 .duel-hand.is-lose { opacity: .45; }
 .duel-status { min-height: 2.7em; margin: 0; text-align: center; }
-.duel-status.is-final { font-size: 1.2rem; font-weight: 600; }
+.duel-status.is-final { padding: 10px 12px; border: 2px solid #E0A93A; border-radius: 14px; background: linear-gradient(135deg, #FFF8DC, #FFE9A8); color: #5a3a00; font-size: 1.15rem; font-weight: 700; }
+[data-side="vin"] .duel-status.is-final { background: linear-gradient(135deg, #4A4227, #2A3B47); color: #FFE7A0; }
+/* «✊ Спор» у стрічці — картка посередині: тема, рахунок, чий хід */
+.feed-duel { justify-self: center; width: min(92%, 340px); list-style: none; }
+.duel-card {
+  display: grid; gap: 4px; width: 100%; padding: 12px 16px; border: 1.5px solid color-mix(in srgb, var(--plum) 25%, transparent);
+  border-radius: 18px; background: color-mix(in srgb, var(--paper) 88%, transparent); color: var(--ink);
+  font: inherit; text-align: center; cursor: pointer; box-shadow: 0 8px 20px -14px rgba(42, 23, 48, .5);
+}
+.duel-card.is-turn { border-color: var(--wax); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wax) 18%, transparent), 0 8px 20px -14px rgba(42, 23, 48, .5); }
+.duel-card-head { font-size: .75rem; font-weight: 700; color: var(--ink-soft); }
+.duel-card-topic { font: 1.35rem/1.15 var(--hand); }
+.duel-card-score { display: flex; align-items: baseline; justify-content: center; gap: 8px; color: var(--ink-soft); font-size: .875rem; }
+.duel-card-score b { font-size: 1.7rem; line-height: 1; color: var(--plum); }
+.duel-card-score i { font-style: normal; font-size: 1.3rem; }
+.duel-card-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; font-size: .875rem; font-weight: 600; }
+.duel-card.is-done .duel-card-state { color: var(--plum); }
+.duel-card-go { padding: 5px 14px; border-radius: 999px; background: var(--plum); color: #fff; }
+[data-side="vin"] .duel-card { background: rgba(255, 255, 255, .07); border-color: color-mix(in srgb, var(--star) 45%, transparent); }
+[data-side="vin"] .duel-card.is-turn { border-color: var(--star); box-shadow: 0 0 0 3px color-mix(in srgb, var(--star) 18%, transparent); }
+[data-side="vin"] .duel-card-score b, [data-side="vin"] .duel-card.is-done .duel-card-state { color: var(--star); }
+[data-side="vin"] .duel-card-go { background: var(--star); color: #10232c; }
 .duel-act:empty { display: none; }
 .duel-cancel { display: block; margin: 0 auto; padding: 10px; border: 0; background: none; color: var(--ink-soft); text-decoration: underline; font: inherit; }
 

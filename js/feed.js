@@ -11,7 +11,7 @@ import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reac
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
-import { duelLine, openDuel } from './duel.js';
+import { duelCard, duelSig, openDuel } from './duel.js';
 import { loveConstellation } from './depth.js';
 
 const SWIPE = 70;
@@ -392,7 +392,7 @@ function isFresh(it) {
 }
 function rowFor(it) {
   // Рядок спору залежить і від того, чи я вже бачив розкриття (localStorage), — текст рядка теж у підписі
-  const duel = it.n?.kind === 'duel' ? duelLine(it.n.duel) : null;
+  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : null;
   const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
@@ -418,10 +418,8 @@ const spinSeen = (at) => { try { return localStorage.getItem(`radovalka:wheel-se
 function newsRow(n) {
   const she = who().partner === 'она';
   if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain' || n.kind === 'bell') return markRow(n, she);
-  // «✊ Спор»: поки йде — чий хід, дограли — підсумок; тап — сам спор
-  if (n.kind === 'duel') {
-    return h('li', { class: 'feed-news feed-news-duel' }, h('button', { type: 'button', class: 'feed-news-btn', onclick: () => openDuel() }, duelLine(n.duel)));
-  }
+  // «✊ Спор»: картка — тема, рахунок, чий хід чи підсумок; тап — сам спор
+  if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel()));
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
   if (n.kind === 'gifted') {
     const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;
