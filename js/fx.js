@@ -751,8 +751,8 @@ REACT_FX['💯'] = (el, x, y) => {
   ], { duration: 1300, delay: 900, fill: 'backwards' }));
 };
 
-// Екран тремтить у такт реакції: шапка, переписка й вкладки разом, а самі смайлики летять поверх нерухомо.
-// Час — як у рухах самого смайлика (теж × SLOW, бо викликається з reactFx)
+// Лише 🤯: екран дрижить, поки голова «закипає», і здригається на вибуху — шапка, переписка й вкладки разом,
+// а самі смайлики летять поверх нерухомо. Час — як у рухах смайлика (теж × SLOW, бо викликається з reactFx)
 const quake = (frames, duration, delay = 0) => {
   for (const s of document.querySelectorAll('.top, #screen, .tabs')) s.animate(frames, { duration, delay, easing: 'linear' });
 };
@@ -766,16 +766,9 @@ const rattle = (px, n, rot = 0) => [
   }),
   { transform: 'none' },
 ];
-const THUMP = [{ transform: 'none' }, { transform: 'scale(1.015)', offset: 0.35 }, { transform: 'none' }];
 const QUAKE = {
-  '❤️': () => { quake(THUMP, 260, 460); quake(THUMP, 260, 1090); },
-  '😍': () => { quake(THUMP, 240, 380); quake(THUMP, 240, 860); },
-  '😂': () => quake(rattle(4, 12, 0.5), 1400, 250),
   '🤯': () => { quake(rattle(1.5, 14), 700, 330); quake(rattle(11, 12, 0.8), 650, 1030); },
-  '🔥': () => quake(rattle(2.5, 18), 1500, 200),
-  '💯': () => quake(rattle(6, 6), 420, 280),
 };
-const nudge = () => quake(rattle(2.5, 4), 320, 260);
 
 export function reactFx(el, glyph) {
   if (reduceMotion || !el?.isConnected || !glyph) return;
@@ -790,7 +783,7 @@ export function reactFx(el, glyph) {
     return animate.call(this, frames, typeof o === 'number' ? o * SLOW : { ...o, duration: (o?.duration || 0) * SLOW, delay: (o?.delay || 0) * SLOW });
   };
   try {
-    (QUAKE[glyph] || nudge)();
+    QUAKE[glyph]?.();
     if (fx) fx(el, x, y, r);
     else {
       big(glyph, x, y, [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.3 }, { transform: 'scale(1)', opacity: 1, offset: 0.8 }, { transform: 'scale(.6)', opacity: 0 }], 1300);
