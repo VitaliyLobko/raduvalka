@@ -226,7 +226,7 @@ function show(day, gold, preset = null) {
   const layer = h('div', {
     class: `cookie-layer${gold ? ' is-gold' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': gold ? 'Золотая печенька' : 'Печенька с предсказанием',
     onclick: (e) => { if (e.target === layer && layer.classList.contains('is-open')) close(); },
-  }, h('div', { class: 'ck-box' }, title, ...(gold ? goldIdle() : []), cookie, paper, hint, acts));
+  }, h('div', { class: 'ck-box' }, title, gold ? h('div', { class: 'ck-stage' }, ...goldIdle(), cookie) : cookie, paper, hint, acts));
   cookie.addEventListener('click', () => {
     if (layer.classList.contains('is-open')) return;
     layer.classList.add('is-open');

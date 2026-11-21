@@ -3163,10 +3163,9 @@ body.is-plus .screen.is-chat { padding-bottom: calc(var(--tabs-h, 84px) + var(--
 .cookie-layer.is-gold .ck-half { filter: sepia(1) saturate(3.2) hue-rotate(-8deg) brightness(1.12); }
 .cookie-layer.is-gold .ck-title { color: #FFE08A; }
 .cookie-layer.is-gold .ck-paper { background: linear-gradient(135deg, #FFF8DC, #FFE9A8); box-shadow: 0 0 0 2px #E0A93A, 0 8px 22px -8px rgba(0, 0, 0, .45); }
-/* Промені й мерехтіння — у тій самій клітинці сітки, що й печенька, але не розпирають її */
-.cookie-layer.is-gold .ck-box { position: relative; }
-.cookie-layer.is-gold .ck-cookie { grid-row: 2; grid-column: 1; }
-.ck-rays, .ck-twinkles { position: absolute; grid-row: 2; grid-column: 1; left: 50%; top: 50%; translate: -50% -50%; pointer-events: none; }
+/* Промені й мерехтіння — в обгортці розміром із печеньку, центр у центрі печеньки; розміру не розпирають */
+.ck-stage { position: relative; display: grid; place-items: center; }
+.ck-rays, .ck-twinkles { position: absolute; left: 50%; top: 50%; translate: -50% -50%; pointer-events: none; }
 .ck-rays {
   width: 360px; height: 360px; border-radius: 50%;
   background: repeating-conic-gradient(rgba(255, 214, 110, .42) 0 8deg, transparent 8deg 22deg);
