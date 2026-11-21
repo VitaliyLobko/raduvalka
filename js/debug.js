@@ -49,7 +49,7 @@ function openSameQs() {
   const total = SAME_TOPICS.reduce((n, [, , qs]) => n + Object.keys(qs).length, 0);
   sheet('Вопросы «Совпадёт?»', 'debug-sub', openDebug,
     h('h2', { class: 'title' }, `Совпадёт? · ${total}`),
-    h('p', { class: 'hint' }, 'В каждой игре — по вопросу из каждой темы'),
+    h('p', { class: 'hint' }, 'В игре 10 вопросов, из каждой темы хотя бы один'),
     ...SAME_TOPICS.flatMap(([emoji, title, qs]) => section(`${emoji} ${title} · ${Object.keys(qs).length}`,
       Object.values(qs).map(([q, a, b]) => h('li', {}, q, h('br'), h('small', {}, `${a} · ${b}`))))));
 }

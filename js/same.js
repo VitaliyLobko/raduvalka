@@ -1,4 +1,4 @@
-// «💞 Совпадёт?»: 5 питань із двома варіантами. Хто кинув виклик — відповідає одразу, другий — коли зручно;
+// «💞 Совпадёт?»: 10 питань із двома варіантами. Хто кинув виклик — відповідає одразу, другий — коли зручно;
 // відповіді другого не видно, поки не відповіли обидва. Питання — ключі з набору нижче; своє — { q, a, b } (шифрується)
 import { DATA, who } from './data.js';
 import { get, send } from './api.js';
@@ -89,9 +89,38 @@ export const SAME_TOPICS = [
     games: ['Настолки: играть на победу или просто посмеяться?', 'На победу', 'Посмеяться'],
     late: ['На встречу: приходить заранее или впритык?', 'Заранее', 'Впритык'],
   }],
+  ['🌟', 'Мечты', {
+    dreamhome: ['Дом мечты: у моря или в лесу?', 'У моря', 'В лесу'],
+    homesize: ['Дом: просторный или маленький и уютный?', 'Просторный', 'Уютный'],
+    oldage: ['В старости: домик в деревне или квартира в городе?', 'Домик', 'Квартира'],
+    lottery: ['Выиграли миллион: потратить или отложить?', 'Потратить', 'Отложить'],
+    world: ['Кругосветка: на корабле или на машине?', 'На корабле', 'На машине'],
+    bigparty: ['Наш большой праздник: шумный или только для своих?', 'Шумный', 'Для своих'],
+    learn: ['Научиться вместе: танцевать или готовить?', 'Танцевать', 'Готовить'],
+    garden: ['Свой огород: да или ни за что?', 'Да', 'Ни за что'],
+    dreamcar: ['Машина мечты: большая или маленькая и шустрая?', 'Большая', 'Шустрая'],
+    tradition: ['Наша традиция: ужин раз в неделю или поездка раз в год?', 'Ужин', 'Поездка'],
+    reunion: ['После разлуки первым делом: поехать куда-то или неделю не выходить из дома?', 'Поехать', 'Не выходить'],
+    superpower: ['Суперсила: летать или читать мысли?', 'Летать', 'Читать мысли'],
+  }],
+  ['🙈', 'Признавайся', {
+    fridge: ['Ночью к холодильнику: бывает или никогда?', 'Бывает', 'Никогда'],
+    cry: ['Над фильмами плачешь или держишься?', 'Плачу', 'Держусь'],
+    argue: ['В споре: уступить или стоять до конца?', 'Уступить', 'До конца'],
+    pairsocks: ['Носки: всегда парные или как получится?', 'Парные', 'Как получится'],
+    jealous: ['Ревнуешь: немножко или совсем нет?', 'Немножко', 'Совсем нет'],
+    lostway: ['Заблудились: спросить дорогу или искать по карте?', 'Спросить', 'По карте'],
+    snore: ['Храпишь: бывает или это не про меня?', 'Бывает', 'Не про меня'],
+    peek: ['В конец книги подглядываешь?', 'Подглядываю', 'Никогда'],
+    chair: ['Одежда на стуле: это порядок или бардак?', 'Порядок', 'Бардак'],
+    talkpet: ['С питомцами разговариваешь вслух?', 'Ещё как', 'Нет'],
+    lastcake: ['Последний кусок торта: отдать или съесть?', 'Отдать', 'Съесть'],
+    shoplist: ['В магазине: строго по списку или что глянется?', 'По списку', 'Что глянется'],
+    giftpeek: ['Подарок заранее: потрясти и угадать или терпеть?', 'Угадать', 'Терпеть'],
+  }],
 ];
 export const SAME_QS = Object.assign({}, ...SAME_TOPICS.map(([, , qs]) => qs));
-const N = 5;
+const N = 10;
 const POLL = 3000;
 const qOf = (q) => (typeof q === 'string' ? SAME_QS[q] || ['Вопрос из новой версии — обнови Радовалку', 'Первое', 'Второе'] : [q.q, q.a, q.b]);
 const gen = () => (who().partner === 'она' ? 'её' : 'его');
@@ -107,13 +136,15 @@ function markSeen(g) {
   document.dispatchEvent(new CustomEvent('radovalka:duel-seen'));
 }
 
-const VERDICT = ['Противоположности притягиваются', 'Совпало одно — зато какое', 'Есть о чём поговорить', 'Больше половины — хорошо', 'Почти одно целое', 'Полное совпадение! 💞'];
+const VERDICT = ['Противоположности притягиваются', 'Совпало немного, зато точно', 'Есть о чём поговорить', 'Больше половины — хорошо', 'Почти одно целое', 'Полное совпадение! 💞'];
+// Вердикт за часткою збігів (ігри бувають і на 5 питань — початі старим телефоном)
+const verdict = (hits, n) => VERDICT[hits === 0 ? 0 : hits === n ? 5 : Math.min(4, Math.max(1, Math.floor((hits / n) * 5)))];
 
 // Картка в стрічці: поки йде — хто ще відповідає; догране й не бачене — «Посмотреть» без рахунку
 export function sameCard(g, onOpen) {
   const hidden = g.done && !sawEnd(g);
   const turn = !g.done && !g.me;
-  const state = g.done ? (hidden ? 'Ответы открылись' : `Совпало ${g.hits} из ${N}`) : turn ? 'Твоя очередь отвечать' : `Ждём ${gen()} ответы`;
+  const state = g.done ? (hidden ? 'Ответы открылись' : `Совпало ${g.hits} из ${g.qs.length}`) : turn ? 'Твоя очередь отвечать' : `Ждём ${gen()} ответы`;
   const go = hidden ? 'Посмотреть' : turn ? 'Ответить' : null;
   const dots = h('span', { class: 'same-dots', 'aria-hidden': 'true' }, ...g.qs.map((_, i) => h('i', {
     class: g.done && !hidden ? (g.me[i] === g.them[i] ? 'is-hit' : 'is-miss') : '',
@@ -122,7 +153,7 @@ export function sameCard(g, onOpen) {
     type: 'button', class: `duel-card same-card${turn ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
     'aria-label': `Совпадёт? ${state}`,
   },
-  h('span', { class: 'duel-card-head' }, `💞 Совпадёт? · ${N} вопросов`),
+  h('span', { class: 'duel-card-head' }, `💞 Совпадёт? · ${g.qs.length} вопросов`),
   dots,
   h('span', { class: 'duel-card-foot' }, h('span', { class: 'duel-card-state' }, state), go ? h('span', { class: 'duel-card-go' }, go) : null));
 }
@@ -217,13 +248,14 @@ function waiting(g) {
     h('div', { class: 'duel-arena same-wait' },
       h('p', { class: 'same-big' }, '🤫'),
       h('p', { class: 'duel-status' }, `Твои ответы ушли. Ждём ${gen()} — откроются, когда ответите оба`)),
-    rows(g),
+    ...paged(g),
     h('div', { class: 'duel-act' }, h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')));
 }
 
-// Рядки питань: моя відповідь і (коли відкрито) — другого; збіг — золотим
-function rows(g) {
-  return h('ol', { class: 'same-rows' }, ...g.qs.map((q, i) => {
+// Рядки питань: моя відповідь і (коли відкрито) — другого; збіг — золотим. from/to — сторінка
+function rows(g, from = 0, to = g.qs.length) {
+  return h('ol', { class: 'same-rows', start: String(from + 1) }, ...g.qs.slice(from, to).map((q, k) => {
+    const i = from + k;
     const [text, a, b] = qOf(q);
     const opt = (v) => (v === 0 ? a : b);
     const hit = g.done && g.me[i] === g.them[i];
@@ -234,6 +266,27 @@ function rows(g) {
         g.done ? h('span', { class: 'same-chip' }, h('small', {}, cap(who().partner)), opt(g.them[i])) : null,
         g.done ? h('span', { class: 'same-mark', 'aria-label': hit ? 'Совпало' : 'Не совпало' }, hit ? '💞' : '≠') : null));
   }));
+}
+
+// Більше 5 питань — сторінками по 5 (усе на один екран): перемикач «1–5 · 6–10», на ньому — скільки збіглося
+const PER = 5;
+function paged(g) {
+  if (g.qs.length <= PER) return [rows(g)];
+  const box = h('div', { class: 'same-page' });
+  const pages = Array.from({ length: Math.ceil(g.qs.length / PER) }, (_, i) => [i * PER, Math.min((i + 1) * PER, g.qs.length)]);
+  const label = ([from, to]) => {
+    const hits = g.done ? g.me.slice(from, to).filter((x, k) => x === g.them[from + k]).length : 0;
+    return `${from + 1}–${to}${hits ? ` · 💞${hits}` : ''}`;
+  };
+  const tabs = h('div', { class: 'same-pager', role: 'tablist', 'aria-label': 'Вопросы' }, ...pages.map((p, i) => h('button', {
+    type: 'button', class: 'mk-chip', role: 'tab', 'aria-selected': String(i === 0), onclick: () => show1(i),
+  }, label(p))));
+  function show1(i) {
+    tabs.querySelectorAll('button').forEach((x, k) => x.setAttribute('aria-selected', String(k === i)));
+    box.replaceChildren(rows(g, ...pages[i]));
+  }
+  show1(0);
+  return [tabs, box];
 }
 
 // «Сыграть ещё»: якщо вже йде інша гра — вона, інакше вибір питань
@@ -247,26 +300,32 @@ function again() {
 
 function result(g) {
   const fresh = !sawEnd(g);
-  const big = h('p', { class: 'same-score' }, h('b', {}, String(g.hits)), ` из ${N}`);
-  const list = rows(g);
+  const big = h('p', { class: 'same-score' }, h('small', {}, 'Совпало'), h('b', {}, String(g.hits)), ` из ${g.qs.length}`);
+  const list = paged(g);
   open.body.replaceChildren(
-    h('div', { class: 'duel-arena same-result' }, h('p', { class: 'same-score-label' }, 'Совпало'), big, h('p', { class: 'duel-status is-final' }, VERDICT[g.hits])),
-    list,
+    h('div', { class: 'duel-arena same-result' }, big, h('p', { class: 'duel-status is-final' }, verdict(g.hits, g.qs.length))),
+    ...list,
     h('div', { class: 'duel-act' }, h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: again }, 'Сыграть ещё')));
   if (fresh) {
     if (!reduceMotion) {
       big.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.6 }, { transform: 'scale(1)' }], { duration: 520, easing: 'ease-out' });
-      [...list.children].forEach((li, i) => li.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: 300 + i * 120, easing: 'ease-out', fill: 'backwards' }));
+      [...open.body.querySelectorAll('.same-row')].forEach((li, i) => li.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: 300 + i * 120, easing: 'ease-out', fill: 'backwards' }));
     }
     if (g.hits >= 3) burst(big, '💞', g.hits * 3);
     markSeen(g);
   }
 }
 
-// Новий виклик: по питанню з кожної теми, «Другие вопросы», своє питання замість останнього, потім — свої відповіді
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
+// Новий виклик: з кожної теми хоч одне питання (решта — другі з випадкових тем), «Другие вопросы»,
+// своє питання замість останнього, потім — свої відповіді
+const mix = (list) => [...list].sort(() => Math.random() - 0.5);
 function setup() {
-  const shuffle = () => SAME_TOPICS.map(([, , qs]) => pick(Object.keys(qs))).sort(() => Math.random() - 0.5).slice(0, N);
+  const shuffle = () => {
+    const pools = SAME_TOPICS.map(([, , qs]) => mix(Object.keys(qs)));
+    const out = pools.map((p) => p[0]);
+    for (const p of mix(pools)) if (out.length < N && p[1]) out.push(p[1]);
+    return mix(out).slice(0, N);
+  };
   let picked = shuffle();
   const list = h('ol', { class: 'same-list' });
   const q = h('input', { type: 'text', class: 'duel-own', maxlength: '80', placeholder: 'Свой вопрос (можно пропустить)', 'aria-label': 'Свой вопрос' });
@@ -292,7 +351,7 @@ function setup() {
   const block = (title, ...kids) => h('section', { class: 'duel-block' }, h('h3', { class: 'duel-block-title' }, title), ...kids);
   const view = [
     block('Вопросы', list, reroll),
-    block('Свой вопрос вместо пятого', q, h('div', { class: 'same-own-opts' }, a, b)),
+    block('Свой вопрос вместо последнего', q, h('div', { class: 'same-own-opts' }, a, b)),
     h('p', { class: 'hint duel-hint' }, `Сначала твои ответы, потом — ${gen()}. Откроются, когда ответите оба.`),
     go,
   ];

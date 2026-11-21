@@ -4,6 +4,39 @@ import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst } from './fx.js';
+import { mascotImg, petName, petLine } from './icons.js';
+
+// Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
+const TIPS = {
+  rps: ['Бумагу не бери, она ненадёжная.', 'Камень. Всегда камень. Ну, почти всегда.', 'Покажи ножницы, но с очень уверенным лицом.',
+    'Смотри в глаза и выбирай третье.', 'Говорят, после камня всегда бумага. Или нет.', 'Ножницы режут бумагу, а я — колбаску. Бери ножницы.',
+    'Закрой глаза и тыкай. Я всегда так делаю.', 'Покажи лапу. А, у тебя рука. Ну, тоже сойдёт.', 'Шепну по секрету: камень. Только никому.',
+    'Ножницы сегодня острые. Мне так кажется.', 'Считай до трёх и бери то, что первое в голову придёт.'],
+  ttt: ['Конём ходи!', 'Ставь в угол, углы любят победителей.', 'Центр — для слабаков. Хотя нет, ставь в центр.',
+    'Нарисуй сердечко. Ой, тут так нельзя?', 'Главное — не туда, где уже занято.', 'Лапой бы вот сюда. Или туда.',
+    'Крестик — это два нолика, которые поссорились.', 'Нолики круглые, как мячик. Уважаю нолики.',
+    'Хочешь, сяду на клеточку? Тогда её никто не займёт.', 'Угол, центр, угол. Или наоборот. Я забываю.'],
+  c4: ['Конём ходи!', 'Бросай в середину, там теплее.', 'Смотри наискосок, там вечно кто-то прячется.',
+    'Брось и сделай вид, что так и задумано.', 'Если проиграешь — это был не мой совет.', 'Бросай повыше. Хм, всё равно падает вниз.',
+    'Я тоже люблю ронять вещи сверху. Бросай!', 'Четыре в ряд? У меня четыре лапы, я в теме.', 'Столбик слева скучает. Порадуй его.',
+    'Можно я подержу фишку? Обещаю не грызть.', 'Не спеши. Я вот могу полдня смотреть в окно.'],
+  any: ['Хвостом чую: сейчас будет красиво.', 'Думай сколько надо. Только миска сама не наполнится.', 'Победишь — с тебя вкусняшка.',
+    'Я в тебя верю. Почти.', 'Выиграешь или нет, обнимашки всё равно будут.', 'Почеши мне за ухом и ходи. Так удачнее.',
+    'Сделай умное лицо. Мне помогает.', 'Я тихонько посмотрю. Только посоплю немножко.'],
+};
+// Як часто порада на мій хід: у «Четыре в ряд» ходів багато — рідше, щоб не набридало
+const TIP_CHANCE = { rps: 0.5, ttt: 0.5, c4: 0.2 };
+// Випадковий улюбленець із порадою під полем
+function petTip(kind) {
+  const pets = Object.keys(DATA.mascots || {});
+  if (!pets.length || Math.random() >= TIP_CHANCE[kind]) return null;
+  const key = pets[Math.floor(Math.random() * pets.length)];
+  const list = [...TIPS[kind], ...TIPS.any];
+  const line = petLine(key, 'gametip', list[Math.floor(Math.random() * list.length)]);
+  return h('div', { class: 'pet-tip', role: 'note' },
+    h('span', { class: 'pet-tip-face', 'aria-hidden': 'true', html: mascotImg(key) }),
+    h('p', {}, h('b', {}, petName(key)), ' ', line));
+}
 
 const MOVES = [['r', '✊', 'Камень'], ['s', '✌️', 'Ножницы'], ['p', '✋', 'Бумага']];
 const GLYPH = Object.fromEntries(MOVES.map(([k, g]) => [k, g]));
@@ -290,7 +323,7 @@ async function show(g, fresh) {
     return;
   }
   if (!fresh1) status.textContent = g.theirMoved ? `${cap(who().partner)} уже ${who().partner === 'она' ? 'сходила' : 'сходил'} — твой ход` : `Раунд ${g.rounds.length + 1} — твой ход`;
-  act.replaceChildren(movesRow((m) => move(g, m)));
+  act.replaceChildren(...[movesRow((m) => move(g, m)), petTip('rps')].filter(Boolean));
 }
 
 // Під дограною грою: желание (якщо грали на нього) і «Сыграть ещё» — та сама гра; поруч із желанием кнопка тихіша
@@ -507,7 +540,7 @@ async function showBoard(g) {
     act.replaceChildren(...doneActs(g));
   } else {
     status.textContent = `${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ${grid.mark[mine]}` : `Ждём ${gen()} ход…`}`;
-    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
+    act.replaceChildren(...[play ? petTip(grid.kind) : null, h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
   }
   if (fresh || (g.done && !sawEnd(g))) {
     markSeen(g);

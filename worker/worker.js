@@ -2776,13 +2776,14 @@ async function boardMove(db, game, side, move, now, reaches, notify) {
 // ── «💞 Совпадёт?»: 5 питань із двома варіантами, кожен відповідає за себе, коли зручно; відповіді другого
 // не видно, поки не відповіли обидва. doc same — гра (питання — ключі з набору в телефоні або своє зашифроване
 // { q, a, b }); відповіді — docs same:<side>; кінець — рядок marks kind same з усім
-const SAME_N = 5;
+// Питань у грі: 10 (з 0.4.1); 5 — ігри, почати старим телефоном
+const SAME_LENS = [5, 10];
 // Забута гра не тримає вічно: через три дні новий виклик її замінює
 const SAME_STALE = 3 * 24 * 3600000;
 const SAME_KEY = /^[a-z0-9]{1,12}$/;
 
 function sameQs(qs) {
-  if (!Array.isArray(qs) || qs.length !== SAME_N) throw fail(400, 'same');
+  if (!Array.isArray(qs) || !SAME_LENS.includes(qs.length)) throw fail(400, 'same');
   let own = 0;
   const out = qs.map((q) => {
     if (typeof q === 'string' && SAME_KEY.test(q)) return q;
@@ -2792,11 +2793,12 @@ function sameQs(qs) {
     }
     throw fail(400, 'same');
   });
-  if (own > 1 || new Set(out.filter((q) => typeof q === 'string')).size !== SAME_N - own) throw fail(400, 'same');
+  if (own > 1 || new Set(out.filter((q) => typeof q === 'string')).size !== qs.length - own) throw fail(400, 'same');
   return out;
 }
-function sameAns(a) {
-  if (!Array.isArray(a) || a.length !== SAME_N || !a.every((x) => x === 0 || x === 1)) throw fail(400, 'same');
+// n — скільки питань у цій грі
+function sameAns(a, n) {
+  if (!Array.isArray(a) || a.length !== n || !a.every((x) => x === 0 || x === 1)) throw fail(400, 'same');
   return a;
 }
 
@@ -2853,7 +2855,7 @@ async function sameRoute(req, db, side, rest, notify) {
   // Виклик: питання й одразу мої відповіді
   if (m === 'POST' && !rest) {
     const qs = sameQs(b.qs);
-    const ans = sameAns(b.ans);
+    const ans = sameAns(b.ans, qs.length);
     const prev = await getDoc(db, 'same');
     if (prev?.id && now - prev.at < SAME_STALE) throw fail(409, 'busy');
     if (prev?.id) await dropSame(db, prev.id);
@@ -2866,7 +2868,7 @@ async function sameRoute(req, db, side, rest, notify) {
   const g = await getDoc(db, 'same');
   if (m === 'POST' && rest === '/answer') {
     if (!g?.id || g.id !== String(b.id || '')) throw fail(409, 'gone');
-    const ans = sameAns(b.ans);
+    const ans = sameAns(b.ans, g.qs.length);
     // Уже відповів — повтор (черга, подвійний тап) нічого не міняє
     if (!(await sameAnswers(db, g.id))[side]) await putDoc(db, `same:${side}`, { id: g.id, ans, at: now });
     const all = await sameAnswers(db, g.id);
@@ -3170,7 +3172,7 @@ function gwishNote(from, what) {
 // «💞 Совпадёт?»: виклик і «відповіді відкрились» (скільки збіглося — не пишемо: хай подивиться сама/сам)
 function sameNote(from, what) {
   const base = { tag: 'same', go: 'same', title: '💞 Совпадёт?' };
-  if (what === 'start') return { ...base, body: sender(from, 'Он ответил на 5 вопросов — теперь ты. Совпадёт?', 'Она ответила на 5 вопросов — теперь ты. Совпадёт?') };
+  if (what === 'start') return { ...base, body: sender(from, 'Он ответил на вопросы — теперь ты. Совпадёт?', 'Она ответила на вопросы — теперь ты. Совпадёт?') };
   return { ...base, body: 'Ответы открылись — посмотри, сколько совпало' };
 }
 

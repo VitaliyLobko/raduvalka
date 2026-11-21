@@ -3847,6 +3847,14 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .cell-piece { display: inline-block; line-height: 1; }
 .duel-card-board.is-c4 { grid-template-columns: repeat(7, 15px); gap: 2px; }
 .duel-card-board.is-c4 i { height: 15px; border-radius: 50%; font-size: .6rem; }
+/* Порада улюбленця на мій хід: мордочка й фраза */
+.pet-tip { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 16px; background: color-mix(in srgb, var(--lavender) 25%, transparent); font-size: .875rem; line-height: 1.25; animation: pet-tip-in .35s ease-out both; }
+.pet-tip p { margin: 0; }
+.pet-tip-face { flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: var(--paper); }
+.pet-tip-face img { display: block; width: 100%; height: 100%; object-fit: cover; }
+[data-side="vin"] .pet-tip { background: rgba(255, 255, 255, .06); }
+@keyframes pet-tip-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .pet-tip { animation: none; } }
 .ttt-legend { display: flex; align-items: baseline; justify-content: center; gap: 12px; margin: 0; font-size: 1rem; font-weight: 600; }
 .ttt-vs { font: 700 1.1rem/1 var(--hand); color: var(--ink-soft); }
 /* Маленьке поле в картці стрічки */
@@ -3872,7 +3880,9 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .same-dots i.is-hit { background: #FFE9A8; }
 [data-side="vin"] .same-dots i { background: rgba(255, 255, 255, .08); }
 [data-side="vin"] .same-dots i.is-hit { background: rgba(237, 185, 73, .45); }
-.same-list { display: grid; gap: 4px; margin: 0; padding-left: 22px; font-size: .9375rem; line-height: 1.25; }
+.same-list { display: grid; gap: 2px; margin: 0; padding-left: 24px; font-size: .875rem; line-height: 1.25; }
+/* Попередній перегляд: питання в один рядок, повністю — коли відповідаєш */
+.same-list li { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .same-reroll { justify-self: start; }
 .same-own-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .same-q { display: grid; gap: 14px; padding: 16px 14px 18px; border-radius: 20px; background: color-mix(in srgb, var(--lavender) 22%, transparent); }
@@ -3891,21 +3901,29 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .same-opt:active { transform: scale(.96); border-color: var(--plum); }
 [data-side="vin"] .same-opt { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .18); }
 .same-big { margin: 0; font-size: 2.6rem; text-align: center; line-height: 1; }
-.same-score-label { margin: 0; text-align: center; font-weight: 600; color: var(--ink-soft); }
-.same-score { margin: 0; text-align: center; font-size: 1.2rem; color: var(--ink-soft); }
-.same-score b { font-size: 3.2rem; line-height: 1; color: var(--plum); }
+/* Підсумок на 10 питань — на один екран: рахунок і вердикт в один рядок, рядки питань щільні */
+.duel-arena.same-result { display: flex; align-items: center; gap: 12px; padding: 8px 12px; }
+.same-result .duel-status.is-final { flex: 1; min-height: 0; padding: 6px 10px; font-size: .9375rem; line-height: 1.2; }
+.same-score { display: grid; justify-items: center; margin: 0; font-size: .9375rem; line-height: 1.1; color: var(--ink-soft); }
+.same-score small { font-size: .75rem; font-weight: 600; }
+.same-score b { font-size: 2.2rem; line-height: 1; color: var(--plum); }
 [data-side="vin"] .same-score b { color: var(--star); }
-.same-rows { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.same-row { display: grid; gap: 4px; padding: 8px 10px; border-radius: 14px; background: color-mix(in srgb, var(--lavender) 18%, transparent); }
+.same-rows { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.same-row { display: grid; gap: 3px; padding: 6px 10px; border-radius: 14px; background: color-mix(in srgb, var(--lavender) 18%, transparent); }
 .same-row.is-hit { background: linear-gradient(135deg, #FFF8DC, #FFE9A8); color: #5a3a00; }
 [data-side="vin"] .same-row { background: rgba(255, 255, 255, .05); }
 [data-side="vin"] .same-row.is-hit { background: linear-gradient(135deg, #4A4227, #2A3B47); color: #FFE7A0; }
 .same-row-q { font-size: .8125rem; font-weight: 600; line-height: 1.2; }
-.same-row-a { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.same-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 10px; border-radius: 999px; background: var(--paper); color: var(--ink); font-size: .875rem; }
+.same-row-a { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.same-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 0 8px; border-radius: 999px; background: var(--paper); color: var(--ink); font-size: .875rem; line-height: 1.4; }
 .same-chip small { font-size: .6875rem; color: var(--ink-soft); }
 [data-side="vin"] .same-chip { background: rgba(255, 255, 255, .1); }
+/* Сторінки питань по 5: «1–5 · 💞3» */
+.same-pager { display: flex; justify-content: center; gap: 8px; }
+.same-pager .mk-chip[aria-selected="true"] { background: var(--plum); border-color: var(--plum); color: #fff; }
+[data-side="vin"] .same-pager .mk-chip[aria-selected="true"] { background: var(--star); border-color: var(--star); color: var(--night); }
 .same-mark { margin-left: auto; font-size: 1rem; }
+.duel-act { display: grid; gap: 8px; }
 .duel-act:empty { display: none; }
 .duel-cancel { display: block; margin: 0 auto; padding: 10px; border: 0; background: none; color: var(--ink-soft); text-decoration: underline; font: inherit; }
 
