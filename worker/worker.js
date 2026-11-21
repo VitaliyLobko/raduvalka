@@ -72,6 +72,7 @@ const CHECKIN_PUSH_AGE = 12 * 3600 * 1000;
 const SOS_MAX_AGE = 24 * 3600 * 1000;
 const SOS_AUDIO = /^audio\/(webm|ogg|mp4|mpeg|aac)(;[a-z0-9=.,\s-]*)?$/i;
 const MAX_AUDIO_B64 = 900_000;
+const EVERY_MINUTE = '* * * * *';
 const MAX_DATE_AHEAD = 400 * 24 * 3600 * 1000; // «К дате» — до року вперед
 
 // Колонки, додані пізніше: ALTER на вже існуючій таблиці (помилка «вже є» — норма)
@@ -137,10 +138,15 @@ export default {
   // Cron: спершу видати лист із запасу (без нього push не потрібен), потім сповістити про «На утро» і «К дате».
   // scheduledTime — час запуску; локальний /__cron підставляє свій, щоб тест не залежав від годинника
   async scheduled(event, env, ctx) {
+    // Cron щохвилини — заради push листів «Ко времени» точно в їхню хвилину; решта, як і раніше, раз на 10 хвилин
+    // (прибирання сканують базу). Локальний сервер і ручний запуск — усе одразу
+    const at = event.scheduledTime || Date.now();
+    const all = event.cron !== EVERY_MINUTE || new Date(at).getUTCMinutes() % 10 === 0;
     ctx.waitUntil((async () => {
       await ensureSchema(env.DB);
-      await releaseStock(env.DB, event.scheduledTime || Date.now());
+      if (all) await releaseStock(env.DB, at);
       await cronPush(env);
+      if (!all) return;
       await wishReminders(env);
       await sosCleanup(env.DB);
       await photoCleanup(env);
