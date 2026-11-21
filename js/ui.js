@@ -30,6 +30,14 @@ const DAY_MONTH_YEAR = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'l
 export const hhmm = (ms) => HHMM.format(ms);
 export const dayMonth = (ms) => DAY_MONTH.format(ms);
 export const dayMonthYear = (ms) => DAY_MONTH_YEAR.format(ms);
+// Коли прийде відкладений лист: «сегодня», «завтра» чи «25 декабря»
+export function dayWord(ms) {
+  const d = new Date(ms).toDateString();
+  const t = new Date();
+  if (d === t.toDateString()) return 'сегодня';
+  t.setDate(t.getDate() + 1);
+  return d === t.toDateString() ? 'завтра' : dayMonth(ms);
+}
 
 // Стрічка чипів, що гортається вбік: край, за яким ще щось є, тане — видно, що можна горнути; вибраний чип — у полі зору
 export function ribbon(row) {

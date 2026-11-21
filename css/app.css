@@ -3630,7 +3630,6 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-cap-big svg { width: 126px; height: 79px; }
 /* Реакції (reactFx): великий смайлик над повідомленням, з тінню, щоб читався на обох темах */
 .fx-react { z-index: 62; }
-.fx-hug { z-index: 62; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .22)); }
 .fx-big { z-index: 63; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }
 .fx-shades { z-index: 64; line-height: 0; }
 .fx-ring { z-index: 61; width: 64px; height: 64px; border-radius: 50%; border: 4px solid #ff5c8a; box-shadow: 0 0 14px rgba(255, 92, 138, .6); }

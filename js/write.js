@@ -3,7 +3,7 @@
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
-import { h, toast, ARROW, reduceMotion, ribbon, hhmm, dayMonth } from './ui.js';
+import { h, toast, ARROW, reduceMotion, ribbon, hhmm, dayMonth, dayWord } from './ui.js';
 import { mountHelper } from './helper.js';
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
@@ -32,7 +32,7 @@ export const isShe = (key) => DATA.mascots[key]?.g === 'f';
 // Однаково для вікна й рядка під чатом
 export const QUEUED = 'Нет связи. Письмо ждёт в телефоне и уйдёт само, когда Радовалка будет открыта с интернетом 📮';
 export const sentToast = (pet) => `${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} письмо ➶`;
-export const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
+export { dayWord };
 // Над полем: сьогоднішнє — годиною, інше — днем
 // Поява й зникнення — лише зсув і прозорість: їх рахує відеокарта без перемальовування вікна.
 // clip-path перемальовував усе вікно кожен кадр і на телефоні гальмував (18.11)

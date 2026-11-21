@@ -72,7 +72,6 @@ const CHECKIN_PUSH_AGE = 12 * 3600 * 1000;
 const SOS_MAX_AGE = 24 * 3600 * 1000;
 const SOS_AUDIO = /^audio\/(webm|ogg|mp4|mpeg|aac)(;[a-z0-9=.,\s-]*)?$/i;
 const MAX_AUDIO_B64 = 900_000;
-const MAX_AHEAD = 3 * 24 * 3600 * 1000;
 const MAX_DATE_AHEAD = 400 * 24 * 3600 * 1000; // «К дате» — до року вперед
 
 // Колонки, додані пізніше: ALTER на вже існуючій таблиці (помилка «вже є» — норма)
@@ -991,7 +990,8 @@ async function lettersRoute(req, db, side, rest, notify) {
     const now = Date.now();
     let at = now;
     // Час «на ранок» рахує телефон (його часовий пояс); сервер лише не пускає в минуле й далеко вперед
-    if (kind === 'morning') at = Math.max(now, Math.min(now + MAX_AHEAD, Number(b.at) || now));
+    // «Ко времени» — будь-який день наперед, як «К дате»
+    if (kind === 'morning') at = Math.max(now, Math.min(now + MAX_DATE_AHEAD, Number(b.at) || now));
     if (kind === 'date') at = Math.max(now, Math.min(now + MAX_DATE_AHEAD, Number(b.at) || now));
     let envId = null;
     if (kind === 'env') {

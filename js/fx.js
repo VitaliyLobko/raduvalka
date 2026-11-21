@@ -625,9 +625,8 @@ REACT_FX['😴'] = (el, x, y) => {
   }
 };
 
-// «Обіймаю» 🤗: смайлик визирає з-за верхнього краю листа, жовті руки обвивають його з двох боків і
-// зчіплюються долонями внизу; лист разом з руками двічі стискається й погойдується, з обіймів — сердечка
-const SVGNS = 'http://www.w3.org/2000/svg';
+// «Обіймаю» 🤗: долоні лягають на лівий і правий край листа, трохи стискають його й погойдують разом з ним;
+// смайлик визирає з-за верхнього краю, з обіймів — сердечка
 // Найближчий предок, що прокручується (стрічка «Письма»)
 function scroller(el) {
   for (let p = el?.parentElement; p && p !== document.body; p = p.parentElement) {
@@ -635,73 +634,50 @@ function scroller(el) {
   }
   return null;
 }
+// Обійми: [момент 0..1, стиснення по ширині, нахил у градусах]
+const HUG = [[0, 1, 0], [0.18, 0.95, 0], [0.34, 0.95, -2.2], [0.52, 0.955, 2], [0.7, 0.95, -1.6], [0.84, 0.96, 0.8], [1, 1, 0]];
+const HUG_MS = 1700;
+const HUG_AT = 420;
 REACT_FX['🤗'] = (el, x, y, r) => {
-  // Довгий лист чи частково під шапкою — обіймаємо видиму в стрічці частину, руки не лізуть на шапку й рядок
-  const pad = 9;
+  // Довгий лист чи частково під шапкою — тримаємо за видиму в стрічці частину
   const box = scroller(el)?.getBoundingClientRect();
   const top = Math.max(64, box?.top ?? 0);
   const bottom = Math.min(innerHeight - 84, box?.bottom ?? innerHeight);
-  const t = clamp(r.top, top + pad, bottom - 70) - pad;
-  const bt = clamp(r.bottom, t + 56, bottom - pad) + pad;
-  const l = Math.max(7, r.left - pad);
-  const rt = Math.min(innerWidth - 7, r.right + pad);
-  const cx = (l + rt) / 2;
-  const R = Math.min(26, (rt - l) / 4, (bt - t) / 3);
-  const arm = (side) => {
-    const e = side < 0 ? l : rt;
-    const sw = side < 0 ? 0 : 1;
-    return `M${cx} ${t} H${e - side * R} A${R} ${R} 0 0 ${sw} ${e} ${t + R} V${bt - R} A${R} ${R} 0 0 ${sw} ${e - side * R} ${bt} H${cx}`;
-  };
-  const svg = document.createElementNS(SVGNS, 'svg');
-  svg.setAttribute('class', 'fx-burst fx-hug');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('width', String(innerWidth));
-  svg.setAttribute('height', String(innerHeight));
-  svg.style.transformOrigin = `${cx}px ${(t + bt) / 2}px`;
-  const paths = [];
-  for (const side of [-1, 1]) {
-    for (const [color, w] of [['#E8A317', 15], ['#FFCB3D', 10]]) {
-      const p = document.createElementNS(SVGNS, 'path');
-      p.setAttribute('d', arm(side));
-      p.setAttribute('pathLength', '1');
-      p.setAttribute('fill', 'none');
-      p.setAttribute('stroke', color);
-      p.setAttribute('stroke-width', String(w));
-      p.setAttribute('stroke-linecap', 'round');
-      p.setAttribute('stroke-linejoin', 'round');
-      p.style.strokeDasharray = '1 1';
-      p.style.strokeDashoffset = '1';
-      svg.append(p);
-      paths.push(p);
-    }
-  }
-  // Руки ростуть від смайлика вниз, обома боками разом
-  gone(svg)(svg.animate([
-    { opacity: 0 }, { opacity: 1, offset: 0.06 }, { opacity: 1, transform: 'none', offset: 0.42 },
-    { transform: 'scale(.95, .975)', offset: 0.5 }, { transform: 'rotate(-1.2deg)', offset: 0.6 },
-    { transform: 'scale(.955, .98) rotate(1deg)', offset: 0.7 }, { transform: 'none', opacity: 1, offset: 0.84 }, { opacity: 0 },
-  ], { duration: 2500, delay: 150, easing: 'ease-in-out', fill: 'backwards' }));
-  paths.forEach((p) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
-    { duration: 650, delay: 300, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }));
-  // Обличчя — над верхнім краєм, по центру листа
-  big('🤗', cx, t + 2, [
-    { transform: 'translateY(18px) scale(.3)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.14 },
-    { transform: 'scale(1)', offset: 0.26 }, { transform: 'scale(1.14, 1.06)', offset: 0.42 }, { transform: 'scale(1) rotate(-6deg)', offset: 0.6 },
-    { transform: 'scale(1.06) rotate(5deg)', offset: 0.7 }, { transform: 'scale(1)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
-  ], 2650, '3.6rem');
-  // Долоні зустрічаються внизу, де зійшлись руки
-  for (const [g, from] of [['🫱', -1], ['🫲', 1]]) {
-    const hnd = glyphAt(g, cx + from * 13, bt, '2.3rem', 'fx-big');
+  const vt = Math.max(r.top, top);
+  const vb = Math.max(vt + 40, Math.min(r.bottom, bottom));
+  const hy = (vt + vb) / 2;
+  const cx = (r.left + r.right) / 2;
+  const half = r.width / 2;
+  // Точка, навколо якої гойдається лист (центр пузиря), — щоб долоні йшли разом з його краями
+  const cy = (r.top + r.bottom) / 2;
+  for (const [g, side] of [['🫱', -1], ['🫲', 1]]) {
+    const hx = clamp(cx + side * (half + 2), 22, innerWidth - 22);
+    const hnd = glyphAt(g, hx, hy, '3rem', 'fx-big');
+    const at = (sx, rot) => {
+      const rad = (rot * Math.PI) / 180;
+      const dx = -side * half * (1 - sx) + side * half * (Math.cos(rad) - 1) - (hy - cy) * Math.sin(rad);
+      const dy = side * half * Math.sin(rad) + (hy - cy) * (Math.cos(rad) - 1);
+      return `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${rot}deg)`;
+    };
+    const t0 = HUG_AT / (HUG_AT + HUG_MS + 380);
+    const span = HUG_MS / (HUG_AT + HUG_MS + 380);
     gone(hnd)(hnd.animate([
-      { transform: `translate(calc(-50% + ${from * 26}px), -50%) scale(.4)`, opacity: 0 },
-      { transform: `${C} scale(1.1)`, opacity: 1, offset: 0.2 },
-      { transform: `translate(calc(-50% + ${-from * 4}px), -50%) scale(1)`, offset: 0.35 },
-      { transform: `${C}`, opacity: 1, offset: 0.78 }, { transform: `${C} scale(.7)`, opacity: 0 },
-    ], { duration: 1750, delay: 880, easing: 'ease-out', fill: 'backwards' }));
+      { transform: `translate(calc(-50% + ${side * 60}px), -50%) rotate(${side * 25}deg)`, opacity: 0 },
+      { transform: at(1, 0), opacity: 1, offset: t0 * 0.85 },
+      ...HUG.slice(1, -1).map(([o, sx, rot]) => ({ transform: at(sx, rot), offset: t0 + o * span })),
+      { transform: at(1, 0), opacity: 1, offset: t0 + span },
+      { transform: `translate(calc(-50% + ${side * 40}px), -50%)`, opacity: 0 },
+    ], { duration: HUG_AT + HUG_MS + 380, delay: 100, easing: 'ease-in-out', fill: 'backwards' }));
   }
-  jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, .975)', offset: 0.25 }, { transform: 'rotate(-1.2deg)', offset: 0.5 },
-    { transform: 'scale(.955, .98) rotate(1deg)', offset: 0.75 }, { transform: 'none' }], 1050, 1200);
-  rise(cx, t, ['💕', '💗', '🧡', '💖'], 9, { delay: 1300, up: 210, spread: Math.min(240, rt - l) });
+  jolt(el, HUG.map(([o, sx, rot]) => ({ transform: sx === 1 && !rot ? 'none' : `scale(${sx}, ${(2 - sx).toFixed(3)}) rotate(${rot}deg)`, offset: o })),
+    HUG_MS, 100 + HUG_AT);
+  big('🤗', cx, Math.max(vt, top + 20) + 4, [
+    { transform: 'translateY(16px) scale(.3)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: 0.16 },
+    { transform: 'scale(1)', offset: 0.28 }, { transform: 'scale(1) rotate(-7deg)', offset: 0.46 },
+    { transform: 'scale(1.05) rotate(6deg)', offset: 0.6 }, { transform: 'scale(1) rotate(-4deg)', offset: 0.72 },
+    { transform: 'scale(1)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
+  ], 2600, '3.2rem');
+  rise(cx, vt, ['💕', '💗', '🧡', '💖'], 8, { delay: 1300, up: 200, spread: Math.min(220, r.width) });
 };
 
 // «Сумно» 😢: над обличчям згущується хмарка й крапає дощиком, обличчя никне, котиться сльоза,

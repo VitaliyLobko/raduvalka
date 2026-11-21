@@ -5,7 +5,7 @@
 import { DATA } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
-import { h, toast, ARROW, hhmm } from './ui.js';
+import { h, toast, ARROW, hhmm, dayWord as dayName } from './ui.js';
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
 import { openDuel } from './duel.js';
@@ -71,16 +71,22 @@ function build() {
       paint();
     },
   });
-  // Годинник телефона: найближчі вибрані години й хвилини — сьогодні, якщо ще не минули, інакше завтра
+  // Дата й час телефона: типово сьогодні, але можна будь-який день наперед (до року, як «К дате»).
+  // Час сьогодні, що вже минув, — той самий час завтра
   const clock = h('input', {
-    type: 'time', class: 'visually-hidden cbar-clock', tabindex: '-1', 'aria-label': 'Ко времени',
+    type: 'datetime-local', class: 'visually-hidden cbar-clock', tabindex: '-1', 'aria-label': 'Ко времени',
     onchange: () => {
-      const [hh, mm] = clock.value.split(':').map(Number);
       // Годинник очистили — знову «сейчас»
-      if (!Number.isFinite(hh)) { if (when === 'time') { when = 'now'; paint(); } return; }
-      const d = new Date();
-      d.setHours(hh, mm || 0, 0, 0);
-      if (d.getTime() <= Date.now() + 60000) d.setDate(d.getDate() + 1);
+      if (!clock.value) { if (when === 'time') { when = 'now'; paint(); } return; }
+      const d = new Date(clock.value);
+      if (Number.isNaN(d.getTime())) return;
+      if (d.getTime() <= Date.now() + 60000) {
+        const t = new Date();
+        t.setHours(d.getHours(), d.getMinutes(), 0, 0);
+        if (t.getTime() <= Date.now() + 60000) t.setDate(t.getDate() + 1);
+        d.setTime(t.getTime());
+      }
+      d.setTime(Math.min(d.getTime(), Date.now() + MAX_AHEAD));
       atTime = d.getTime();
       when = 'time';
       paint();
@@ -122,19 +128,34 @@ function stepPet(pets, d) {
 
 // Коли прийде: undefined — зараз
 const sendAt = () => (when === 'morning' ? nextMorning().getTime() : when === 'time' ? atTime : undefined);
-const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? '' : 'завтра ');
+// Над рядком: сьогоднішнє — лише годиною, інше — «завтра в …» чи «25 декабря в …»
+// Дальній день — коротким місяцем («1 дек»), щоб чип не виштовхнув «Помочь» з рядка
+const SHORT = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' });
+const dayWord = (ms) => {
+  const w = dayName(ms);
+  if (w === 'сегодня') return '';
+  return w === 'завтра' ? 'завтра ' : `${SHORT.format(ms).replace('.', '')} `;
+};
+const MAX_AHEAD = 365 * 24 * 3600 * 1000;
+// datetime-local хоче місцевий час без зони: 2026-11-21T14:00
+const local = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 // «Ко времени»: годинник телефона одразу (той самий тап — інакше браузер його не відкриє)
-// Годинник відкривається на час, що ще сьогодні: удень — наступна ціла година, увечері й уночі — 8:00 ранку
+// Годинник відкривається на найближче: удень — наступна ціла година сьогодні, увечері й уночі — 8:00 ранку
 function firstTime() {
-  const h = new Date().getHours();
-  return h >= 20 || h < 7 ? '08:00' : `${String(h + 1).padStart(2, '0')}:00`;
+  const d = new Date();
+  const h = d.getHours();
+  if (h >= 20) d.setDate(d.getDate() + 1);
+  d.setHours(h >= 20 || h < 7 ? 8 : h + 1, 0, 0, 0);
+  return d;
 }
 function pickTime() {
   closePlus();
   const { clock } = ui;
   const d = when === 'time' ? new Date(atTime) : null;
-  clock.value = d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : firstTime();
+  clock.min = local(new Date());
+  clock.max = local(new Date(Date.now() + MAX_AHEAD));
+  clock.value = local(d || firstTime());
   try { clock.showPicker(); } catch { clock.focus(); clock.click(); }
 }
 

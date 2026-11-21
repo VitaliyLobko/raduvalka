@@ -3,7 +3,7 @@
 // Свайп вліво — сховати в себе, вправо — відповісти; те саме кнопками
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
-import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear } from './ui.js';
+import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
@@ -371,7 +371,6 @@ function dayTitle(at) {
   return d.getFullYear() !== now.getFullYear() ? dayMonthYear(d) : dayMonth(d);
 }
 
-const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 
 // Рядок, що не змінився, — той самий вузол: картинка не вантажиться вдруге, гифка не починається спочатку.
 // Заплановані «на потім» міняють підпис із часом — їх щоразу заново
@@ -556,7 +555,13 @@ function row(it) {
   const reaction = reactionOf(it);
   // Значок реакції — у власному рядку під вмістом (has-react дає місце), щоб не накривав час і «Ответить»
   // Тап по своєму смайлику на чужому повідомленні — змінити чи прибрати
-  if (reaction) {
+  // Свій смайлик на чужому — прямо на кнопці 🤍 (тап — змінити), окремого рядка не треба
+  const heart = reaction && !closed && canReact(it) ? bubble.querySelector('.feed-acts .feed-act[aria-label="Сердечко"]') : null;
+  if (heart) {
+    heart.textContent = reaction;
+    heart.classList.add('is-reacted');
+    heart.setAttribute('aria-label', `Реакция: ${reaction}. Тап — поменять`);
+  } else if (reaction) {
     bubble.classList.add('has-react');
     const own = !closed && canReact(it);
     bubble.append(h('span', {
