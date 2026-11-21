@@ -206,7 +206,14 @@ export function letterFeed(o) {
 const fresh = () => document.dispatchEvent(new CustomEvent('radovalka:fresh'));
 
 // Гифка з пошуку — за посиланням, решта — фото з галереї; icon — з значком, для рядка переписки
-const memeWord = (m, icon = false) => (m.url ? `${icon ? '🎞 ' : ''}Гифка` : `${icon ? '🖼 ' : ''}Фото`);
+const memeWord = (m, icon = false) => (m.url ? `${icon ? '🎞 ' : ''}Гифка`
+  : m.file ? `${icon ? '📎 ' : ''}${m.file.n || 'Файл'}` : `${icon ? '🖼 ' : ''}Фото`);
+// Що цитувати у відповіді на мемчик/файл і на що відповідають (для push)
+const memeSaid = (m) => m.caption || (m.url ? 'гифка' : m.file ? `📎 ${m.file.n || 'файл'}` : 'фото');
+const memeOn = (m) => (m.url ? 'gif' : m.file ? 'file' : 'photo');
+// Іконка файлу за типом
+const fileIcon = (t = '') => (/^image\//.test(t) ? '🖼' : /^video\//.test(t) ? '🎬' : /^audio\//.test(t) ? '🎵'
+  : /pdf$/.test(t) ? '📕' : /zip|rar|7z|tar|gzip/.test(t) ? '🗜' : /sheet|excel|csv/.test(t) ? '📊' : /word|document|text/.test(t) ? '📄' : '📎');
 
 // До найновішого — плавно (без анімацій — одразу)
 function toEnd() {
@@ -609,7 +616,7 @@ function quoteLine(q, at) {
 
 // Цитата — лише текст (до 300 знаків і «…»), тож шукаємо найновіше повідомлення з таким текстом, написане раніше за відповідь
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
-const saidIn = (it) => (it.type === 'meme' ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : it.l?.text || '');
+const saidIn = (it) => (it.type === 'meme' ? memeSaid(it.m) : it.l?.text || '');
 const writtenAt = (it) => (it.type === 'meme' ? it.m.created : it.l?.created || it.at);
 function quoted(q, at) {
   const want = norm(q);
@@ -817,12 +824,27 @@ function outBubble(l, later) {
   return bubble;
 }
 
+// Файл «як файл»: значок, назва, розмір і «Скачать»; стертий (місце в сховищі) — лише назва
+function fileCard(m) {
+  const f = m.file;
+  const size = f.s < 1024 * 1024 ? `${Math.max(1, Math.round(f.s / 1024))} КБ` : `${(f.s / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
+  return h('div', { class: `file-card${m.gone ? ' is-gone' : ''}` },
+    h('span', { class: 'file-card-icon', 'aria-hidden': 'true' }, fileIcon(f.t)),
+    h('span', { class: 'file-card-text' },
+      h('b', { class: 'file-card-name' }, f.n || 'Файл'),
+      h('small', {}, m.gone ? 'Файл удалён, чтобы освободить место' : size)),
+    m.gone ? null : h('button', {
+      type: 'button', class: 'file-card-get', 'aria-label': `Скачать ${f.n || 'файл'}`,
+      onclick: async (e) => { e.stopPropagation(); (await import('./files.js')).downloadFile(m); },
+    }, '⬇ Скачать'));
+}
+
 function memeBubble(m) {
   const me = who();
   const it = { type: 'meme', key: `m:${m.id}`, m };
   const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
   // Старе фото стерли, щоб у базі лишалось місце: підпис і відповіді лишаються, картинки нема
-  const pic = m.gone && !m.url
+  const pic = m.file ? fileCard(m) : m.gone && !m.url
     ? h('p', { class: 'meme-gone' }, '🖼 Фото удалено, чтобы освободить место')
     : h('button', {
       type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть на весь экран',
@@ -852,13 +874,13 @@ function memeBubble(m) {
     m.caption && !over ? h('p', { class: 'meme-cap' }, m.caption) : null,
     replyLine,
     h('div', { class: 'feed-acts' },
-      h('span', { class: 'feed-meta' }, `🖼 ${hhmm(m.created)}`, newMark(!m.mine && isNew)),
+      h('span', { class: 'feed-meta' }, `${m.file ? '📎' : '🖼'} ${hhmm(m.created)}`, newMark(!m.mine && isNew)),
       ...acts));
 }
 
 
 async function removeMeme(m) {
-  if (!await ask({ title: `Удалить ${m.url ? 'эту гифку' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
+  if (!await ask({ title: `Удалить ${m.url ? 'эту гифку' : m.file ? 'этот файл' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
   try {
     await send(`memes/${m.id}`, 'DELETE');
     DATA.memes = DATA.memes.filter((x) => x.id !== m.id);
@@ -874,13 +896,13 @@ function openReplyFor(it) {
   // Привітальний — без відправника: відповідь іде звичайним листом, це робить app.js
   if (target.tpl) { ops.reply?.(it.l); return; }
   const meme = it.type === 'meme';
-  const quote = meme ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : (it.l.text || '');
+  const quote = meme ? memeSaid(it.m) : (it.l.text || '');
   // Відповіла на лист — значить, прочитала
   const sent = meme || it.l.opened ? null : () => {
     liveLetter(it.l).opened = true;
     send(target.path, 'PUT', { opened: true }).catch(() => {});
   };
-  replySheet(quote, meme ? (it.m.url ? 'gif' : 'photo') : 'letter', sent);
+  replySheet(quote, meme ? memeOn(it.m) : 'letter', sent);
 }
 
 // Відповідь — той самий екран «Написать» (app.js передає openWrite) з цитатою зверху; піде новим повідомленням

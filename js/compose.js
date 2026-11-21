@@ -291,6 +291,17 @@ function openPlus() {
       composeMeme(file, sent, re);
     },
   });
+  // Будь-який файл до 25 МБ — як файл, не картинкою; модуль files.js вантажиться лише тепер
+  const filePicker = h('input', {
+    type: 'file', class: 'visually-hidden',
+    onchange: async (e) => {
+      const [file] = e.target.files;
+      if (!file) return;
+      closePlus();
+      const { sendFile } = await import('./files.js');
+      sendFile(file, sent, re);
+    },
+  });
   const tile = (icon, label, onclick, cls = '') => h('button', { type: 'button', class: `cbar-tile${cls}`, onclick },
     h('span', { 'aria-hidden': 'true' }, icon), label);
   const envs = DATA.partnerEnvelopes || [];
@@ -299,6 +310,7 @@ function openPlus() {
     h('p', { class: 'cbar-plus-label' }, 'Прикрепить'),
     h('div', { class: 'cbar-tiles' }, ...[
       h('label', { class: 'cbar-tile' }, picker, h('span', { 'aria-hidden': 'true' }, '📷'), 'Фото'),
+      DATA.files ? h('label', { class: 'cbar-tile' }, filePicker, h('span', { 'aria-hidden': 'true' }, '📎'), 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
       reply ? null : tile('✊', 'Спор', () => { closePlus(); openDuel(); }),
     ].filter(Boolean)),

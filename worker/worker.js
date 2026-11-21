@@ -46,6 +46,16 @@ const MAX_IMG = 1.4 * 1024 * 1024;
 // рядок D1 — до 2 МБ, тож base64 до 1,9 млн символів (≈1,4 МБ картинки)
 const MAX_B64 = 1_900_000;
 const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
+// Файл «як файл» — у R2 (FILES), не в D1: до 25 МБ (+ RAD1, iv і тег шифрування)
+const MAX_FILE = 25 * 1024 * 1024 + 64;
+// Сховище файлів: понад межу — найстаріші стираються (безкоштовно в R2 — 10 ГБ)
+const FILES_LIMIT = 8 * 1024 ** 3;
+const MIME = /^[\w.+-]{1,60}\/[\w.+-]{1,80}$/;
+// Захист від чужого, якщо ключ раптом витече: за добу з одного боку — не більше 60 файлів і 1 ГБ
+// (рахунок R2 тоді не виросте: межа зберігання й операцій безкоштовного плану недосяжна)
+const FILES_PER_DAY = 60;
+const FILES_BYTES_PER_DAY = 1024 ** 3;
+const DAY_MS = 24 * 3600 * 1000;
 // Реакції на лист і фото (ставить отримувач; старі 😂 і ❤️ мемчиків — серед них)
 const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏', '😎', '🫡', '🤯', '🤷', '🔥', '😴', '🤗', '😢', '🙃', '🍀', '💯'];
 // stock — «в запас»: без дати; утром, коли листа на сьогодні нема, cron робить із найстарішого «На утро»
@@ -106,6 +116,8 @@ const MIGRATIONS = [
   'ALTER TABLE memes ADD COLUMN gone INTEGER',
   // Реакція отримувача на лист (з REACTIONS) — відправник бачить її значком на своєму повідомленні
   'ALTER TABLE letters ADD COLUMN reaction TEXT',
+  // Файл «як файл» (R2): JSON { n — назва (e1.), t — тип, s — розмір }
+  'ALTER TABLE memes ADD COLUMN file TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -150,6 +162,7 @@ export default {
       await wishReminders(env);
       await sosCleanup(env.DB);
       await photoCleanup(env);
+      await fileCleanup(env);
     })());
   },
 };
@@ -217,6 +230,8 @@ async function route(req, env, ctx, info = {}) {
       mascots: mascots || {},
       // Чи дійде до другого push — від цього залежить, чи обіцяти «узнает»
       partnerPush: await hasPush(env.DB, other(side)),
+      // Сховище файлів підключене — телефон показує «📎 Файл»
+      files: !!env.FILES,
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
       partnerSign: (await getDoc(env.DB, 'signs'))?.[other(side)] || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
@@ -242,7 +257,8 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7), notify);
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6), notify);
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
-  if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify);
+  if (m === 'POST' && path === 'files') return postFile(req, env, side, notify);
+  if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify, env.FILES);
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
   if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
   if (m === 'POST' && path === 'wish-from-url') return wishFromUrl(req, env);
@@ -348,7 +364,7 @@ function corsHeaders(req) {
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET, PUT, POST, DELETE, OPTIONS',
-    'access-control-allow-headers': 'authorization, content-type, x-no-push',
+    'access-control-allow-headers': 'authorization, content-type, x-no-push, x-file-meta',
     'access-control-max-age': '86400',
     vary: 'Origin',
   };
@@ -449,7 +465,7 @@ async function putImg(db, name, req) {
 }
 
 // Мемчики: картинку завантажують обоє, але тільки сюди — PUT img/* лишається за його ключем
-async function memesRoute(req, db, side, rest, notify) {
+async function memesRoute(req, db, side, rest, notify, files) {
   const m = req.method;
   if (m === 'GET' && !rest) return json(await listMemes(db, side));
 
@@ -509,6 +525,16 @@ async function memesRoute(req, db, side, rest, notify) {
     });
   }
 
+  // Файл — байтами з R2 (зашифрований RAD1 — розшифровує телефон)
+  if (m === 'GET' && sub === 'file') {
+    if (!meme.file || meme.gone || !files) throw fail(404, 'not found');
+    const obj = await files.get(`f-${id}`);
+    if (!obj) throw fail(404, 'not found');
+    return new Response(obj.body, {
+      headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, max-age=31536000, immutable' },
+    });
+  }
+
   // Реакцію й відповідь ставить лише отримувач; null — зняти. Лише поля із запиту:
   // відповідь без reaction не має стерти реакцію
   if (m === 'PUT' && !sub) {
@@ -525,7 +551,7 @@ async function memesRoute(req, db, side, rest, notify) {
     }
     await db.prepare('UPDATE memes SET reaction = ?, reply = ?, replied = ? WHERE id = ?')
       .bind(next.reaction ?? null, next.reply ?? null, next.replied ?? null, id).run();
-    if (next.reply && next.reply !== meme.reply) notify.send(meme.src, replyNote(side, meme.url ? 'gif' : 'photo'));
+    if (next.reply && next.reply !== meme.reply) notify.send(meme.src, replyNote(side, meme.url ? 'gif' : meme.file ? 'file' : 'photo'));
     return json(view(next, side));
   }
 
@@ -536,10 +562,52 @@ async function memesRoute(req, db, side, rest, notify) {
       db.prepare('DELETE FROM memes WHERE id = ?').bind(id),
       ...(meme.img ? [db.prepare('DELETE FROM imgs WHERE name = ?').bind(meme.img)] : []),
     ]);
+    if (meme.file && files) await files.delete(`f-${id}`);
     return json({ ok: true });
   }
 
   throw fail(404, 'not found');
+}
+
+// Файл «як файл»: тіло — самі байти (телефон шифрує їх у RAD1), опис — у заголовку x-file-meta
+// (base64url JSON: n — назва, вже «e1.», t — тип, s — розмір до шифрування, quote/on — відповідь)
+async function postFile(req, env, side, notify) {
+  if (!env.FILES) throw fail(503, 'files');
+  const len = Number(req.headers.get('content-length'));
+  if (len > MAX_FILE) throw fail(413, 'size');
+  // Лічильник доби окремим записом — видалення файлу його не зменшує, тож межу не обійти «завантажив — стер»
+  const quotaKey = `files-day:${side}`;
+  const now = Date.now();
+  const q0 = await getDoc(env.DB, quotaKey);
+  const quota = q0 && now - q0.from < DAY_MS ? q0 : { from: now, n: 0, b: 0 };
+  if (quota.n >= FILES_PER_DAY || quota.b + (len || 0) > FILES_BYTES_PER_DAY) throw fail(429, 'files-day');
+  let meta;
+  try {
+    meta = JSON.parse(atob(String(req.headers.get('x-file-meta') || '').replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    throw fail(400, 'meta');
+  }
+  const buf = await req.arrayBuffer();
+  if (!buf.byteLength || buf.byteLength > MAX_FILE) throw fail(413, 'size');
+  const size = Math.round(Number(meta?.s));
+  const file = {
+    n: clip(meta?.n, 1200) || 'файл',
+    t: MIME.test(String(meta?.t || '')) ? meta.t : 'application/octet-stream',
+    s: size > 0 && size <= MAX_FILE ? size : buf.byteLength,
+  };
+  const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  const meme = {
+    id, src: side, dst: other(side), img: '', url: null, caption: null, style: null,
+    quote: quoteOf(meta || {}), created: Date.now(), reaction: null, file: JSON.stringify(file),
+  };
+  if (quota.b + buf.byteLength > FILES_BYTES_PER_DAY) throw fail(429, 'files-day');
+  await putDoc(env.DB, quotaKey, { from: quota.from, n: quota.n + 1, b: quota.b + buf.byteLength });
+  await env.FILES.put(`f-${id}`, buf);
+  await env.DB.prepare(
+    'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).bind(meme.id, meme.src, meme.dst, '', null, null, null, meme.quote, meme.created, null, meme.file).run();
+  notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(meta), 'file') : fileNote(side));
+  return json(view(meme, side), 201);
 }
 
 const other = (side) => (side === 'vin' ? 'vona' : 'vin');
@@ -1214,6 +1282,7 @@ function view(r, side) {
     id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, quote: r.quote || null,
     created: r.created, reaction: r.reaction,
     reply: r.reply || null, replied: r.replied || null, gone: r.gone || null,
+    ...(r.file ? { file: JSON.parse(r.file) } : {}),
   };
 }
 
@@ -2240,6 +2309,9 @@ const sender = (side, he, she) => (side === 'vin' ? he : she);
 function memeNote(from, gif) {
   return { title: gif ? 'Тебе гифка 🎞' : 'Тебе фото 📷', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
+function fileNote(from) {
+  return { title: 'Тебе файл 📎', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
+}
 // go — куди відкрити застосунок за тапом
 // Тап — «Написать» одразу в цей конверт
 function envEmptyNote(from, e) {
@@ -2761,6 +2833,31 @@ async function photoCleanup(env, now = Date.now()) {
   return gone;
 }
 
+// Файли в R2 понад FILES_LIMIT: стираємо найстаріші, сам рядок лишається з позначкою gone
+async function fileCleanup(env, now = Date.now()) {
+  const db = env.DB;
+  if (!env.FILES) return 0;
+  const live = "FROM memes WHERE file IS NOT NULL AND gone IS NULL";
+  let over = (await db.prepare(`SELECT IFNULL(SUM(json_extract(file, '$.s')), 0) AS n ${live}`).first('n'))
+    - (Number(env.FILES_LIMIT_BYTES) || FILES_LIMIT);
+  let gone = 0;
+  while (over > 0) {
+    const { results } = await db.prepare(`SELECT id, json_extract(file, '$.s') AS n ${live} ORDER BY created ASC LIMIT 50`).all();
+    if (!results.length) break;
+    const pick = [];
+    for (const r of results) {
+      if (over <= 0) break;
+      pick.push(r);
+      over -= r.n;
+    }
+    await env.FILES.delete(pick.map((r) => `f-${r.id}`));
+    await db.batch(pick.map((r) => db.prepare('UPDATE memes SET gone = ? WHERE id = ?').bind(now, r.id)));
+    gone += pick.length;
+  }
+  if (gone) console.log('fileCleanup', { gone });
+  return gone;
+}
+
 async function sosCleanup(db) {
   const now = Date.now();
   for (const side of SIDES) {
@@ -2861,16 +2958,17 @@ function likeNote(from, kind) {
 
 // as — чим відповіли, якщо не словами: 'gif' | 'photo'
 function replyNote(from, on, as) {
-  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : 'на твоё письмо';
+  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : on === 'file' ? 'на твой файл' : 'на твоё письмо';
+  const how = { gif: 'Гифкой', photo: 'Фото', file: 'Файлом' }[as];
   return {
     title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
-    body: as === 'gif' ? `Гифкой ${what}` : as === 'photo' ? `Фото ${what}` : what[0].toUpperCase() + what.slice(1),
+    body: how ? `${how} ${what}` : what[0].toUpperCase() + what.slice(1),
     tag: 'reply',
   };
 }
 // Відповідь новим повідомленням: цитата (до 300 знаків) і на що — для push
 const quoteOf = (b) => clip(b.quote, 300) || null;
-const quoteOn = (b) => (['gif', 'photo'].includes(b.on) ? b.on : 'letter');
+const quoteOn = (b) => (['gif', 'photo', 'file'].includes(b.on) ? b.on : 'letter');
 
 async function pushRoute(req, env, side, path) {
   const m = req.method;

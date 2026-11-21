@@ -134,6 +134,15 @@ export async function sealBody(path, body) {
   return rule ? sealBy(rule[1], body) : body;
 }
 
+// Файл «як файл»: ті самі RAD1 ‖ iv ‖ шифротекст, але байтами (Blob), без base64 — до 25 МБ
+export async function sealFile(blob) {
+  const k = await aes();
+  if (!k) return blob;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, await blob.arrayBuffer());
+  return new Blob([new Uint8Array(MAGIC), iv, ct], { type: 'application/octet-stream' });
+}
+
 // Перехід: уже завантажене відкрите фото → зашифрований base64
 export async function sealBlob(blob) {
   return sealBytes(toB64(new Uint8Array(await blob.arrayBuffer())));
