@@ -2079,8 +2079,9 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 [data-side="vin"] .plan-banner { background: color-mix(in srgb, var(--night) 85%, #fff); }
 
 /* «О Радовалке»: ✕ не просвічує текстом під собою, давні версії — під «Ранее» */
-.sheet-about .sheet-close { background: var(--paper); box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
-[data-side="vin"] .sheet-about .sheet-close { background: var(--night); color: var(--cream); }
+/* У цих шторок є й клас sheet-together — його кремовий ✕ (під темну листівку) на світлому не видно */
+.sheet-together.sheet-about .sheet-close { background: var(--paper); color: var(--plum); box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+[data-side="vin"] .sheet-together.sheet-about .sheet-close { background: var(--night); color: var(--cream); }
 .news-more { margin: -12px 0 22px; }
 .news-more summary { min-height: 40px; display: flex; align-items: center; color: var(--ink-soft); font-weight: 500; cursor: pointer; }
 .news-more .news { margin: 6px 0 0; }
