@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
-import { media, memeUrl, REACTIONS } from './memes.js';
+import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
@@ -523,20 +523,54 @@ function openReactions(bubble, it) {
   const cur = reactionOf(it);
   const r = bubble.getBoundingClientRect();
   const close = () => layer.remove();
-  const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Реакция' },
-    ...REACTIONS.map((e) => h('button', {
-      type: 'button', role: 'menuitem', class: `react-opt${e === cur ? ' is-on' : ''}`, 'aria-label': e,
-      onclick: (ev) => { ev.stopPropagation(); close(); setReaction(it, e === cur ? null : e, bubble); },
-    }, e)));
+  const opt = (e) => h('button', {
+    type: 'button', role: 'menuitem', class: `react-opt${e === cur ? ' is-on' : ''}`, 'aria-label': e,
+    onclick: (ev) => { ev.stopPropagation(); close(); if (e !== cur) countReaction(e); setReaction(it, e === cur ? null : e, bubble); },
+  }, e);
+  // Спершу — ряд частих і «⌄»; розгорнули — усі реакції групами
+  const more = h('button', {
+    type: 'button', class: 'react-opt react-more', 'aria-label': 'Все реакции', 'aria-expanded': 'false',
+    onclick: (ev) => {
+      ev.stopPropagation();
+      pick.classList.add('is-all');
+      pick.replaceChildren(...REACT_GROUPS.map(([title, g]) => h('div', { class: 'react-group react-row', role: 'group', 'aria-label': title }, ...g.map(opt))));
+      place();
+    },
+  }, h('span', { 'aria-hidden': 'true', html: CHEVRON }));
+  const pick = h('div', { class: 'react-pick', role: 'menu', 'aria-label': 'Реакция' }, ...topReactions(cur).map(opt), more);
   // Палець, що щойно відпустили після довгого натискання, теж «клацає» — перші пів секунди шар не закривається
   const opened = Date.now();
   const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, pick);
   document.body.append(layer);
   // Над повідомленням, а коли нагорі місця нема — під ним; не виходимо за краї екрана
-  const w = pick.offsetWidth;
-  pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  const ph = pick.offsetHeight;
-  pick.style.top = `${r.top > ph + 20 ? r.top - ph - 6 : Math.min(r.bottom + 8, innerHeight - ph - 8)}px`;
+  const place = () => {
+    const w = pick.offsetWidth;
+    pick.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+    const ph = pick.offsetHeight;
+    pick.style.top = `${Math.max(8, r.top > ph + 20 ? r.top - ph - 6 : Math.min(r.bottom + 8, innerHeight - ph - 8))}px`;
+  };
+  place();
+}
+
+// Скільки разів кожну реакцію ставили на цьому телефоні — з цього складається ряд частих
+const REACT_COUNT = 'rad-react-count';
+const CHEVRON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+function reactCounts() {
+  try { return JSON.parse(localStorage.getItem(REACT_COUNT)) || {}; } catch { return {}; }
+}
+function countReaction(e) {
+  const c = reactCounts();
+  c[e] = (c[e] || 0) + 1;
+  try { localStorage.setItem(REACT_COUNT, JSON.stringify(c)); } catch { /* приватний режим — ряд лишається стартовим */ }
+}
+function topReactions(cur) {
+  const c = reactCounts();
+  const rank = (e) => (REACT_TOP.includes(e) ? REACT_TOP.length - REACT_TOP.indexOf(e) : 0) / 100;
+  const top = REACTIONS.filter((e) => c[e] || REACT_TOP.includes(e))
+    .sort((a, b) => (c[b] || 0) + rank(b) - (c[a] || 0) - rank(a)).slice(0, 8);
+  // Уже поставлена реакція — завжди під рукою, щоб її можна було зняти
+  if (cur && !top.includes(cur)) top[top.length - 1] = cur;
+  return top;
 }
 
 async function setReaction(it, value, bubble) {

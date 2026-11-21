@@ -3470,9 +3470,14 @@ html.is-covered .confetti { animation-play-state: paused; }
 .checkin-answer .react-opt { flex: none; }
 .react-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .react-pick .react-opt { flex: none; }
-/* 16 реакцій — два рядки по 8 (ніжні / відповіді); на вузькому телефоні кнопки трохи менші, щоб рядок влазив */
+/* Реакції: ряд з 8 частих і «⌄»; розгорнуте — групи по 9 у рядку; на вузькому телефоні кнопки трохи менші */
 .react-pick:not(.mood-pick) { --opt: min(40px, calc((100vw - 42px) / 9)); display: grid; grid-template-columns: repeat(9, var(--opt)); gap: 2px; overflow: visible; border-radius: 26px; }
 .react-pick:not(.mood-pick) .react-opt { width: var(--opt); height: var(--opt); font-size: min(1.5rem, calc(var(--opt) * .6)); }
+.react-more { display: grid; place-items: center; color: var(--plum); opacity: .75; }
+[data-side="vin"] .react-more { color: var(--star); }
+.react-pick.is-all { display: block; padding: 8px 6px; border-radius: 22px; animation: fade .15s; }
+.react-group + .react-group { margin-top: 8px; }
+.react-row { display: grid; grid-template-columns: repeat(9, var(--opt)); gap: 2px; }
 /* Стрічка смайликів не розпирає блок; пігулка на дуже вузькому — обрізає текст трикрапкою, а не лізе під «?» */
 .checkin-asked { min-width: 0; }
 .checkin-asked .rib-wrap { min-width: 0; max-width: 100%; }
@@ -3720,6 +3725,8 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   background: linear-gradient(90deg, #b8863f, #f3dca0, #a87532); }
 .fx-scroll::before { left: -6px; }
 .fx-scroll::after { right: -6px; }
+.fx-petal { z-index: 62; width: 15px; height: 11px; border-radius: 70% 0 70% 0; background: linear-gradient(135deg, #f0506e, #b3123a); box-shadow: 0 2px 4px rgba(0, 0, 0, .2); }
+.fx-steam { z-index: 62; width: 7px; height: 34px; border-radius: 999px; background: rgba(255, 255, 255, .85); filter: blur(2.5px); box-shadow: 0 0 8px rgba(255, 255, 255, .6); }
 .fx-say { z-index: 64; font-family: var(--hand); font-weight: 700; color: var(--plum); white-space: nowrap; padding: 2px 14px 4px; border-radius: 999px; background: rgba(255, 255, 255, .92); box-shadow: 0 6px 16px -6px rgba(74, 37, 69, .45); }
 [data-side="vin"] .fx-say { color: var(--star); background: rgba(8, 34, 46, .92); box-shadow: 0 0 0 1px rgba(237, 185, 73, .45), 0 6px 16px -6px rgba(0, 0, 0, .7); }
 
