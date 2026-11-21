@@ -878,3 +878,21 @@ export function reactFxQueued(el, glyph) {
   });
 }
 
+
+// Відкрили лист зі смайлом-почуттям — у того, хто відкрив, ефект: сердечка, конфеті чи вогники.
+// Вирішує перший такий смайл у тексті
+const OPEN_FX = [
+  [/❤|💕|💖|💗|💞|😍|🥰|😘|💋|🫶/u, (el) => loveRain(el)],
+  [/🎉|🎊|🥳/u, (el) => { burst(el, '🎉', 6); burst(el, '🎊', 6); burst(el, '✨', 5); }],
+  [/🔥/u, (el) => burst(el, '🔥', 10)],
+];
+export function openFx(el, text) {
+  if (!text) return;
+  let best = null;
+  let at = Infinity;
+  for (const [re, fx] of OPEN_FX) {
+    const m = re.exec(text);
+    if (m && m.index < at) { at = m.index; best = fx; }
+  }
+  best?.(el);
+}

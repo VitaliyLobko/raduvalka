@@ -7,7 +7,7 @@ import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } fr
 import { media, memeUrl, REACTIONS } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
-import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued } from './fx.js';
+import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
@@ -677,10 +677,21 @@ function againBtn(reply) {
   }, '↩ Ответить');
 }
 
+// Лист лише зі смайлів (1–3) — у чаті великими, як у месенджері; 0 — звичайний текст
+const graphemes = new Intl.Segmenter('ru', { granularity: 'grapheme' });
+const PICTO = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
+function emojiOnly(t) {
+  const s = (t || '').replace(/\s+/g, '');
+  if (!s || s.length > 32) return 0;
+  const g = [...graphemes.segment(s)].map((x) => x.segment);
+  return g.length <= 3 && g.every((x) => PICTO.test(x)) ? g.length : 0;
+}
+const textClass = (t) => { const n = emojiOnly(t); return n ? `feed-text is-emoji is-emoji-${n}` : 'feed-text'; };
+
 function inBubble(l) {
   const me = who();
   const it = { type: 'in', key: l.tpl ? welcomeKey(l) : `l:${l.id}`, l };
-  const text = h('p', { class: 'feed-text' }, l.text || '');
+  const text = h('p', { class: textClass(l.text) }, l.text || '');
   const full = unfolded.has(it.key);
   const bubble = h('div', { class: `feed-bubble${l.opened ? '' : ' is-new'}${full ? ' is-full' : ''}` });
   const body = h('button', {
@@ -702,6 +713,7 @@ function inBubble(l) {
         bubble.querySelector('.inbox-new')?.remove();
         send(`letters/${l.id}`, 'PUT', { opened: true }).catch(() => {});
         fresh();
+        openFx(bubble, l.text);
       }
     },
   },
@@ -775,6 +787,9 @@ function openHere(l, env) {
     unfolded.add(key);
     draw();
     fresh();
+    // Щойно розкритий лист уже на місці конверта — ефект від нього
+    const row = [...document.querySelectorAll('.feed-row')].find((x) => x.dataset.key === key);
+    openFx(row?.querySelector('.feed-bubble'), l.text);
   };
   if (reduceMotion) { done(); return; }
   env.classList.add('is-opening');
@@ -812,7 +827,7 @@ function outBubble(l, later) {
   const isNew = (l.replied || 0) > seenAt.replies;
   bubble.append(...[
     quoteLine(l.quote, l.created || l.at),
-    l.text ? h('p', { class: 'feed-text', onclick: () => bubble.classList.toggle('is-open') }, l.text) : null,
+    l.text ? h('p', { class: textClass(l.text), onclick: () => bubble.classList.toggle('is-open') }, l.text) : null,
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
       h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply, newMark(isNew)) : null,
