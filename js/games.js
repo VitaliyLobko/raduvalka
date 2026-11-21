@@ -1,6 +1,8 @@
 // «🎲 Игры»: вибір гри для двох (ставка — вже всередині гри); і спільна шторка для ігор
 import { h } from './ui.js';
 import { openDuel } from './duel.js';
+import { get } from './api.js';
+import { who } from './data.js';
 import { openSame } from './same.js';
 
 // Шторка гри: заголовок, ✕, тіло; Escape і тап по тлу закривають. onClose — прибрати таймери
@@ -27,14 +29,27 @@ export function gameSheet({ icon, title, cls, onClose }) {
 
 export function openGames() {
   const go = (open) => () => { sh.close(); open(); };
-  const tile = (icon, name, about, onclick) => h('button', { type: 'button', class: 'game-tile', onclick },
+  // live — плашка «идёт» на плитці гри, що вже триває: чия черга
+  const live = {};
+  const tile = (icon, name, about, onclick, kind) => h('button', { type: 'button', class: 'game-tile', onclick },
     h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, icon),
-    h('span', { class: 'game-tile-text' }, h('b', {}, name), h('span', {}, about)));
+    h('span', { class: 'game-tile-text' }, h('b', {}, name, kind ? (live[kind] = h('span', { class: 'game-tile-live', hidden: true })) : null), h('span', {}, about)));
   const sh = gameSheet({ icon: '🎲', title: 'Игры', cls: 'games-sheet' });
   sh.body.append(
-    tile('✊', 'Камень-ножницы', 'До двух побед, руки открываются одновременно', go(() => openDuel({ game: 'rps' }))),
-    tile('❌', 'Крестики-нолики', 'Поле 3×3, ходите по очереди', go(() => openDuel({ game: 'ttt' }))),
-    tile('🔴', 'Четыре в ряд', 'Бросайте фишки по очереди — кто первым соберёт четыре', go(() => openDuel({ game: 'c4' }))),
+    tile('✊', 'Камень-ножницы', 'До двух побед, руки открываются одновременно', go(() => openDuel({ game: 'rps' })), 'rps'),
+    tile('❌', 'Крестики-нолики', 'Поле 3×3, ходите по очереди', go(() => openDuel({ game: 'ttt' })), 'ttt'),
+    tile('🔴', 'Четыре в ряд', 'Бросайте фишки по очереди — кто первым соберёт четыре', go(() => openDuel({ game: 'c4' })), 'c4'),
+  );
+  get('duel').then((r) => {
+    for (const [k, turn] of Object.entries(r.live || {})) {
+      const el = live[k];
+      if (!el) continue;
+      el.textContent = turn === 'me' ? 'Твой ход' : `Ждём ${who().partner === 'она' ? 'её' : 'его'} ход`;
+      el.classList.toggle('is-me', turn === 'me');
+      el.hidden = false;
+    }
+  }).catch(() => {});
+  sh.body.append(
     tile('💞', 'Совпадёт?', '10 вопросов: отвечаете каждый за себя, потом смотрите, где совпало', go(openSame)),
   );
 }

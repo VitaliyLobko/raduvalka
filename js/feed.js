@@ -11,7 +11,7 @@ import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reac
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
-import { duelCard, duelSig, openDuel, gwishCard } from './duel.js';
+import { duelCard, duelSig, openDuel, gwishCard, duelKind } from './duel.js';
 import { sameCard, sameSig, openSame } from './same.js';
 import { loveConstellation } from './depth.js';
 
@@ -420,7 +420,7 @@ function newsRow(n) {
   const she = who().partner === 'она';
   if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain' || n.kind === 'bell') return markRow(n, she);
   // «✊ Спор»: картка — тема, рахунок, чий хід чи підсумок; тап — сам спор
-  if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel()));
+  if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel({ game: duelKind(n.duel) })));
   // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
   if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame(n.same)));
   // «🎁 Желание» з гри «на желание»: висить, поки не відмітять «Исполнено ✓»

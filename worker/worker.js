@@ -1188,9 +1188,8 @@ async function feedPage(db, side, url) {
   const wheel = [];
   const inv = await todayInvite(db);
   if (inv && inv.by === other(side) && inv.at < before) wheel.push({ kind: 'invite', id: `i${inv.at}`, title: '', t: inv.at });
-  // «✊ Спор», що триває, — один рядок там, де був останній хід; дограний — рядок marks kind duel
-  const duel = await activeDuel(db);
-  if (duel) {
+  // Ігри, що тривають (по одній кожного виду), — рядок там, де був останній хід; дограна — рядок marks kind duel
+  for (const duel of Object.values(await activeDuels(db))) {
     const st = gameState(duel, await duelMoves(db, duel.id));
     const t = Math.max(duel.at, st.last);
     if (t < before) wheel.push({ id: `d${duel.id}`, duel: gameView(duel, st, side), t });
@@ -2624,11 +2623,25 @@ async function duelMoves(db, id) {
   return (await db.prepare('SELECT round, side, move, at FROM duel_moves WHERE duel = ?').bind(id).all()).results;
 }
 
-// Чинна гра (або null)
-async function activeDuel(db) {
-  const game = await getDoc(db, 'duel');
-  return game?.id ? game : null;
+// Чинні ігри — по одній кожного виду: doc duel — КНБ, duel-ttt і duel-c4 — на полі.
+// Гра на полі, що до 0.4.2 лежала в duel (тоді гра була одна на всі види), переїжджає до свого ключа
+const DUEL_KEYS = { rps: 'duel', ttt: 'duel-ttt', c4: 'duel-c4' };
+const duelKind = (game) => (gridOf(game) ? game.game : 'rps');
+async function activeDuels(db) {
+  const rows = (await db.prepare("SELECT k, v FROM docs WHERE k IN ('duel', 'duel-ttt', 'duel-c4')").all()).results;
+  const byKey = Object.fromEntries(rows.map((r) => [r.k, JSON.parse(r.v)]));
+  const old = byKey.duel;
+  if (old?.id && gridOf(old)) {
+    const k = DUEL_KEYS[old.game];
+    if (!byKey[k]?.id) { await putDoc(db, k, old); byKey[k] = old; }
+    await db.prepare("DELETE FROM docs WHERE k = 'duel' AND v LIKE ?").bind(`%"id":"${old.id}"%`).run();
+    delete byKey.duel;
+  }
+  const games = {};
+  for (const [kind, k] of Object.entries(DUEL_KEYS)) if (byKey[k]?.id) games[kind] = byKey[k];
+  return games;
 }
+const dropDuelDoc = (db, game) => db.prepare('DELETE FROM docs WHERE k = ? AND v LIKE ?').bind(DUEL_KEYS[duelKind(game)], `%"id":"${game.id}"%`).run();
 
 // Скінчена гра — рядок у чаті; id від гри: обидва запити, що одночасно дограли, пишуть той самий рядок
 async function finishDuel(db, game, st, moves) {
@@ -2639,7 +2652,7 @@ async function finishDuel(db, game, st, moves) {
   await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
     .bind(`duel-${game.id}`, st.winner, 'duel', mood, st.last).run();
   // Ходи лишаємо: запит, що дограв одночасно, ще їх перечитає; приберуться з наступною грою
-  await db.prepare("DELETE FROM docs WHERE k = 'duel' AND v LIKE ?").bind(`%"id":"${game.id}"%`).run();
+  await dropDuelDoc(db, game);
 }
 
 // Дограна гра з рядка marks (для чату й для розкриття тому, хто сходив першим)
@@ -2651,8 +2664,10 @@ function duelMarkView(row, side) {
   return duelView({ ...g, at: row.at }, { rounds: g.rounds, wins, winner: row.side, open: null }, side);
 }
 
-async function lastDuel(db, side) {
-  const row = await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'duel' ORDER BY at DESC LIMIT 1").first();
+// Остання дограна гра цього виду (kind null — будь-якого: старий клієнт)
+async function lastDuel(db, side, kind) {
+  const rows = (await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'duel' ORDER BY at DESC LIMIT 20").all()).results;
+  const row = rows.find((r) => !kind || duelKind(JSON.parse(r.mood)) === kind);
   return row ? withGwish(duelMarkView(row, side), await gwishes(db), side) : null;
 }
 
@@ -2673,8 +2688,15 @@ async function duelRoute(req, db, side, rest, notify) {
   const m = req.method;
   const now = Date.now();
   if (m === 'GET' && !rest) {
-    const game = await activeDuel(db);
-    return json({ duel: game ? gameView(game, gameState(game, await duelMoves(db, game.id)), side) : null, last: await lastDuel(db, side) });
+    const asked = new URL(req.url).searchParams.get('game');
+    const kind = Object.hasOwn(DUEL_KEYS, asked ?? '') ? asked : null;
+    const views = {};
+    for (const [k, g] of Object.entries(await activeDuels(db))) views[k] = gameView(g, gameState(g, await duelMoves(db, g.id)), side);
+    // Без ?game= (старий клієнт) — найсвіжіша з тих, що йдуть
+    const duel = kind ? views[kind] : Object.values(views).sort((a, b) => b.at - a.at)[0];
+    // Для плиток «Игр»: що йде і чия черга
+    const live = Object.fromEntries(Object.entries(views).map(([k, v]) => [k, v.myMove ? 'wait' : 'me']));
+    return json({ duel: duel || null, last: await lastDuel(db, side, kind), live });
   }
   const b = m === 'POST' ? await readJson(req) : {};
   const reaches = await hasPush(db, other(side));
@@ -2685,19 +2707,22 @@ async function duelRoute(req, db, side, rest, notify) {
     const topic = preset ? DUEL_PRESETS[preset] : own;
     const grid = gridOf(b);
     if (!topic || !(grid ? cellFor(grid, emptyBoard(grid), b.move) >= 0 : DUEL_MOVES.includes(b.move))) throw fail(400, 'duel');
-    const prev = await activeDuel(db);
-    if (prev && now - prev.at < DUEL_STALE) throw fail(409, 'busy');
+    const kind = grid ? b.game : 'rps';
+    const games = await activeDuels(db);
+    // Одна гра кожного виду: поки ця не догра́на (і не забута на добу) — нову того ж виду не починаємо
+    if (games[kind] && now - games[kind].at < DUEL_STALE) throw fail(409, 'busy');
     const game = { id: newId(), by: side, topic, preset, at: now, ...(grid ? { game: b.game } : {}) };
-    await putDoc(db, 'duel', game);
-    // Ходи попередніх ігор (дограних чи забутих) більше не потрібні
-    await db.prepare('DELETE FROM duel_moves WHERE duel != ?').bind(game.id).run();
+    await putDoc(db, DUEL_KEYS[kind], game);
+    // Ходи дограних чи забутих ігор більше не потрібні; ходи інших ігор, що йдуть, лишаються
+    const keep = [game.id, ...Object.entries(games).filter(([k]) => k !== kind).map(([, g]) => g.id)];
+    await db.prepare(`DELETE FROM duel_moves WHERE duel NOT IN (${keep.map(() => '?').join(', ')})`).bind(...keep).run();
     await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
     if (reaches) notify.send(other(side), duelNote(side, grid ? 'board-start' : 'start', game));
     return json({ duel: gameView(game, gameState(game, await duelMoves(db, game.id)), side), reaches }, 201);
   }
-  const game = await activeDuel(db);
+  const game = Object.values(await activeDuels(db)).find((g) => g.id === String(b.id || '')) || null;
   if (m === 'POST' && rest === '/move') {
-    if (!game || game.id !== String(b.id || '')) throw fail(409, 'gone');
+    if (!game) throw fail(409, 'gone');
     if (gridOf(game)) return boardMove(db, game, side, b.move, now, reaches, notify);
     if (!DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
     const before = duelState(await duelMoves(db, game.id));
@@ -2745,8 +2770,8 @@ async function duelRoute(req, db, side, rest, notify) {
   }
   // Передумали — гра зникає без сліду в чаті
   if (m === 'POST' && rest === '/cancel') {
-    if (game && game.id === b.id) {
-      await db.prepare("DELETE FROM docs WHERE k = 'duel' AND v LIKE ?").bind(`%"id":"${game.id}"%`).run();
+    if (game) {
+      await dropDuelDoc(db, game);
       await db.prepare('DELETE FROM duel_moves WHERE duel = ?').bind(game.id).run();
     }
     return json({ ok: true });
@@ -3147,7 +3172,8 @@ function askNote(from, token, origin) {
 const cap1 = (x) => x[0].toUpperCase() + x.slice(1);
 const BOARD_TITLE = { ttt: ['❌⭕', 'Крестики-нолики'], c4: ['🔴🟡', 'Четыре в ряд'] };
 function duelNote(from, what, game, score) {
-  const base = { tag: 'duel', go: 'duel' };
+  const kind = duelKind(game);
+  const base = kind === 'rps' ? { tag: 'duel', go: 'duel' } : { tag: `duel-${kind}`, go: `duel:${kind}` };
   const { topic, preset } = game;
   const t = preset === 'free' || SEALED.test(topic) ? '' : `«${topic}»`;
   const stake = preset === 'wish' ? ' на желание' : t ? `: ${t}` : '';

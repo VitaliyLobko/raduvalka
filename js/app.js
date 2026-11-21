@@ -395,7 +395,7 @@ function goTo(go) {
   // «Встреча 💞» — одразу шторка «Вместе»
   if (go === 'together') { openTogether(); return true; }
   // «✊ Спор» — на «Письма» і одразу сам спор
-  if (go === 'duel') { if (tab !== 'letter') selectTab('letter'); openDuel(); return true; }
+  if (go === 'duel' || go.startsWith('duel:')) { if (tab !== 'letter') selectTab('letter'); openDuel({ game: go.slice(5) || 'rps' }); return true; }
   // «💞 Совпадёт?» — так само
   if (go === 'same') { if (tab !== 'letter') selectTab('letter'); openSame(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
