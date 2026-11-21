@@ -249,8 +249,17 @@ let open = null;
 // її ходи йдуть її ключем. DATA.side підмінюємо лише поки відкрита гра — закрив чи повернувся, і все назад
 let actAs = null;
 const asOpt = () => (actAs ? { key: actAs.key } : {});
-const dsend = (path, method, body) => send(path, method, body, asOpt());
+const dsend = async (path, method, body) => {
+  const r = await send(path, method, body, asOpt());
+  // «За двоих»: щойно сходив — за мить (хай догра анімація) гра сама перевернеться на того, чия черга
+  if (bothOn() && ['duel', 'duel/move', 'duel/fleet'].includes(path)) setTimeout(() => { if (open && !open.busy) refresh(); }, 1600);
+  return r;
+};
 const canActBoth = () => { try { return localStorage.getItem('radovalka:debug-both') === '1'; } catch { return false; } };
+// Режим «за двоих» доступний лише з його половини, де збережено обидва ключі
+const bothOn = () => canActBoth() && !!getAltKey() && (actAs?.real || DATA.side) === 'vin';
+// Гра чекає ходу другого: не мій хід на полі / я вже показав руку / розставив флот, а другий ще ні
+const waitingOther = (g) => !!g && !g.done && (g.myMove != null || (g.game === 'bs' && !g.ready && g.fleet));
 function playAs(on) {
   if (on && !actAs) { actAs = { key: getAltKey(), real: DATA.side }; DATA.side = DATA.side === 'vin' ? 'vona' : 'vin'; }
   if (!on && actAs) { DATA.side = actAs.real; actAs = null; }
@@ -258,6 +267,7 @@ function playAs(on) {
 
 export async function openDuel({ game = 'rps' } = {}) {
   if (open) return;
+  let asMark = null;
   if (!GAMES[game]) game = 'rps';
   const body = h('div', { class: 'duel-body' });
   const title = h('h2', {}, gameName(game));
@@ -278,17 +288,8 @@ export async function openDuel({ game = 'rps' } = {}) {
     h('div', { class: 'sheet-inner' },
       h('div', { class: 'duel-head' },
         title,
-        // «🎭 За неё» — лише з його половини, коли в «Отладке» ввімкнено «Играть за двоих»
-        DATA.side === 'vin' && canActBoth() && getAltKey() ? h('button', {
-          type: 'button', class: 'duel-as',
-          onclick: (e) => {
-            if (open?.busy) return;
-            playAs(!actAs);
-            e.currentTarget.textContent = actAs ? '🪐 За себя' : '🎭 За неё';
-            open.state = '';
-            refresh(true);
-          },
-        }, '🎭 За неё') : null,
+        // «За двоих»: позначка, за кого зараз хід (гра перевертається сама)
+        DATA.side === 'vin' && canActBoth() && getAltKey() ? (asMark = h('span', { class: 'duel-as' }, '🪐 за себя')) : null,
         h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
       body));
   // kind — яку гру показуємо: ту, що йде, або обрану плиткою; заголовок шторки — за нею
@@ -297,7 +298,7 @@ export async function openDuel({ game = 'rps' } = {}) {
     title.textContent = gameName(kind);
     el.setAttribute('aria-label', GAMES[kind].name);
   };
-  open = { body, close, state: '', busy: false, timer: 0, gameId: null, kind: game, setKind };
+  open = { body, close, state: '', busy: false, timer: 0, gameId: null, kind: game, setKind, flip: () => { if (asMark) asMark.textContent = actAs ? '🎭 за неё' : '🪐 за себя'; } };
   document.body.append(backdrop, el);
   document.addEventListener('keydown', onKey);
   body.append(h('p', { class: 'hint duel-hint' }, 'Загружаю…'));
@@ -306,13 +307,20 @@ export async function openDuel({ game = 'rps' } = {}) {
   if (open) open.timer = setInterval(() => { if (open && !open.busy && document.visibilityState === 'visible') refresh(); }, POLL);
 }
 
-async function refresh(first = false) {
+async function refresh(first = false, flipped = false) {
   let r;
   try { r = await get(`duel?game=${open.kind}`, asOpt()); } catch {
     if (first && open) { open.body.replaceChildren(h('p', { class: 'hint duel-hint' }, 'Нет связи — игра откроется, когда появится интернет')); }
     return;
   }
   if (!open || open.busy) return;
+  // «За двоих»: черга другого — граємо за нього (раз за виклик, щоб не крутитись, коли чекають обоє)
+  if (bothOn() && !flipped && waitingOther(r.duel)) {
+    playAs(!actAs);
+    open.state = '';
+    open.flip?.();
+    return refresh(first, true);
+  }
   const state = JSON.stringify(r);
   if (state === open.state) return;
   open.state = state;

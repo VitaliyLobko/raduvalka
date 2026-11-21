@@ -4,6 +4,7 @@ import { openDuel } from './duel.js';
 import { get } from './api.js';
 import { who } from './data.js';
 import { openSame } from './same.js';
+import { GAME_ICONS } from './gameicons.js';
 
 // Шторка гри: заголовок, ✕, тіло; Escape і тап по тлу закривають. onClose — прибрати таймери
 export function gameSheet({ icon, title, cls, onClose }) {
@@ -32,7 +33,8 @@ export function openGames() {
   // live — плашка «идёт» на плитці гри, що вже триває: чия черга
   const live = {};
   const tile = (icon, name, about, onclick, kind) => h('button', { type: 'button', class: 'game-tile', onclick },
-    h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, icon),
+    // Свій SVG-значок гри (gameicons.js); нема — як раніше емодзі
+    GAME_ICONS[kind || 'same'] ? h('span', { class: 'game-tile-icon game-icon', 'aria-hidden': 'true', html: GAME_ICONS[kind || 'same'] }) : h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, icon),
     h('span', { class: 'game-tile-text' }, h('b', {}, name, kind ? (live[kind] = h('span', { class: 'game-tile-live', hidden: true })) : null), h('span', {}, about)));
   const sh = gameSheet({ icon: '🎲', title: 'Игры', cls: 'games-sheet' });
   sh.body.append(

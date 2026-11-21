@@ -4303,3 +4303,46 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .duel-head .duel-as { margin-left: auto; margin-right: 8px; padding: 6px 12px; border: 1px dashed currentColor; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; opacity: .85; }
 .duel-head .duel-as { white-space: nowrap; flex: none; padding: 4px 10px; font-size: .75rem; }
 .duel-head h2 { min-width: 0; }
+
+/* Значки ігор (gameicons.js): кругла плашка, у неї світла пастельна, у нього темна бірюзова із золотою облямівкою */
+.game-icon {
+  display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px;
+  background: linear-gradient(145deg, #FFF6FB, #F1E6FF); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lavender) 80%, transparent), 0 6px 14px -10px rgba(74, 37, 69, .45);
+  --gi-ink: #4A2545; --gi-soft: #C9B6F2; --gi-he: #3E8FE0; --gi-she: #E5486F; --gi-gold: #E0A93A; --gi-paper: #fff; --gi-board: #C9B6F2; --gi-sea: #9CC9E8;
+}
+[data-side="vin"] .game-icon {
+  background: linear-gradient(145deg, #1F5D75, #0F3D50); box-shadow: inset 0 0 0 1.5px rgba(237, 185, 73, .55), 0 6px 14px -10px rgba(0, 0, 0, .7);
+  --gi-ink: #F4E6C4; --gi-soft: #5E8FA3; --gi-he: #7DB8FF; --gi-she: #FF8FA8; --gi-gold: #EDB949; --gi-paper: #F4E6C4; --gi-board: #2E6F87; --gi-sea: #5FB1D3;
+}
+.game-icon svg { width: 44px; height: 44px; overflow: visible; }
+.game-icon :is(path, circle, ellipse, rect) { stroke-linecap: round; stroke-linejoin: round; }
+.gi-grid { fill: none; stroke: var(--gi-soft); stroke-width: 3; }
+.gi-he :is(circle, path), .gi-she :is(circle, path) { fill: none; stroke-width: 3; }
+.gi-he :is(circle, path) { stroke: var(--gi-he); }
+.gi-she :is(circle, path) { stroke: var(--gi-she); }
+.gi-strike { fill: none; stroke: var(--gi-gold); stroke-width: 3.2; opacity: .9; }
+.gi-board { fill: var(--gi-board); }
+.gi-hole { fill: color-mix(in srgb, var(--gi-paper) 85%, transparent); }
+.gi-blue { fill: var(--gi-he); }
+.gi-red { fill: var(--gi-she); }
+.gi-motion { fill: none; stroke: var(--gi-he); stroke-width: 2; opacity: .5; }
+.gi-wave { fill: none; stroke: var(--gi-sea); stroke-width: 3; }
+.gi-wave.is-far { opacity: .55; }
+.gi-hull { fill: #A86A3D; }
+.gi-deck { fill: none; stroke: #7A4A28; stroke-width: 1.6; }
+.gi-mast { fill: none; stroke: #7A4A28; stroke-width: 2.4; }
+.gi-sail { fill: var(--gi-she); }
+.gi-flag { fill: var(--gi-gold); }
+.gi-star { fill: var(--gi-gold); }
+.gi-spark { fill: none; stroke: var(--gi-gold); stroke-width: 2; }
+.gi-heart-a { fill: var(--gi-she); }
+.gi-heart-b { fill: var(--gi-gold); opacity: .9; }
+.gi-paper { fill: var(--gi-paper); stroke: var(--gi-soft); stroke-width: 2; }
+.gi-fold { fill: none; stroke: var(--gi-soft); stroke-width: 2; }
+.gi-lines { fill: none; stroke: var(--gi-soft); stroke-width: 2; }
+.gi-rock { fill: #9AA6B2; }
+.gi-shine { fill: none; stroke: #fff; stroke-width: 2; opacity: .6; }
+.gi-scissors :is(circle, path) { fill: none; stroke: var(--gi-she); stroke-width: 3; }
+.game-tile:active .game-icon { transform: scale(.94); }
+.game-icon svg { width: 48px; height: 48px; }
+.duel-head .duel-as { border-style: dotted; cursor: default; }

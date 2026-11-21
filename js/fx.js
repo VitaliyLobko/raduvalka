@@ -225,7 +225,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '🌈': 2600, '😏': 2400, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 2900, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
+const DUR = { '🌈': 2600, '😏': 2400, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -1281,29 +1281,37 @@ REACT_FX['😇'] = (el, x, y) => {
 
 // «Тост» 🍷: два келихи з боків сходяться, нахиляються одне до одного — дзинь! — іскри, і разом здіймаються вгору
 REACT_FX['🍷'] = (el, x, y) => {
-  const D = 2800;
+  const D = 3000;
+  // Келихи справді чокаються: вінця сходяться внахил (дзинь!), відскок, другий легкий дзинь — і разом угору «за нас»
+  const hit1 = 0.34;
+  const hit2 = 0.5;
   [-1, 1].forEach((s) => {
-    const g = big('🍷', x + s * 34, y + 10, [
-      { transform: `translateX(${s * 140}px) rotate(0) scale(.6)`, opacity: 0 },
-      { transform: `translateX(${s * 40}px) rotate(0) scale(1)`, opacity: 1, offset: 0.2 },
-      { transform: `translateX(${s * 4}px) rotate(${-s * 18}deg) scale(1)`, offset: 0.36 },
-      { transform: `translateX(${s * 14}px) rotate(${-s * 10}deg) scale(1)`, offset: 0.42 },
-      { transform: `translateX(${s * 6}px) translateY(-40px) rotate(${-s * 14}deg) scale(1.05)`, opacity: 1, offset: 0.7 },
-      { transform: `translateX(${s * 6}px) translateY(-46px) rotate(${-s * 14}deg) scale(1.05)`, opacity: 1, offset: 0.86 },
-      { transform: `translateX(${s * 30}px) translateY(-70px) rotate(0) scale(.8)`, opacity: 0 },
-    ], D, '5rem');
-    if (s > 0) g.style.scale = '-1 1';
+    // Правий — дзеркальний: відбиття в кінці кожного кадру, тож зсув і нахил лишаються «до центру»
+    big('🍷', x + s * 34, y + 10, [
+      { transform: `translateX(${s * 150}px) rotate(${s * 8}deg) scale(.6)`, opacity: 0 },
+      { transform: `translateX(${s * 46}px) rotate(0) scale(1)`, opacity: 1, offset: 0.22 },
+      { transform: `translateX(${-s * 12}px) rotate(${-s * 24}deg) scale(1)`, offset: hit1 },
+      { transform: `translateX(${s * 10}px) rotate(${-s * 10}deg) scale(1)`, offset: 0.41 },
+      { transform: `translateX(${-s * 8}px) rotate(${-s * 20}deg) scale(1)`, offset: hit2 },
+      { transform: `translateX(${s * 4}px) rotate(${-s * 12}deg) scale(1)`, offset: 0.56 },
+      { transform: `translateX(${-s * 4}px) translateY(-52px) rotate(${-s * 16}deg) scale(1.06)`, opacity: 1, offset: 0.76 },
+      { transform: `translateX(${-s * 4}px) translateY(-58px) rotate(${-s * 16}deg) scale(1.06)`, opacity: 1, offset: 0.88 },
+      { transform: `translateX(${s * 26}px) translateY(-84px) rotate(0) scale(.8)`, opacity: 0 },
+    ].map((f) => (s > 0 ? { ...f, transform: `${f.transform} scale(-1, 1)` } : f)), D, '5rem');
   });
-  const clink = 0.36 * D;
-  ring(x, y - 30, clink, 'is-gold');
-  twinkle('✨', x, y - 40, '2.6rem', clink - 50, 600);
-  spray(x, y - 40, ['✨', '🫧', '⭐', '🫧'], 12, { dist: 110, size: '1.1rem', delay: clink, fall: -20, dur: 900 });
-  const say = glyphAt('дзынь!', x, y - 100, '1.6rem', 'fx-say');
+  // Місце зіткнення — над центром, де сходяться вінця; перший дзинь гучний, другий тихіший
+  for (const [o, loud] of [[hit1, true], [hit2, false]]) {
+    const t = o * D;
+    ring(x, y - 34, t, 'is-gold');
+    twinkle('✨', x, y - 44, loud ? '2.8rem' : '1.8rem', t - 40, 600);
+    spray(x, y - 44, ['✨', '🫧', '⭐'], loud ? 12 : 6, { dist: loud ? 120 : 70, size: '1.1rem', delay: t, fall: -20, dur: 850 });
+  }
+  const say = glyphAt('дзынь!', x, y - 108, '1.6rem', 'fx-say');
   gone(say)(say.animate([
-    { transform: `${C} scale(.4) rotate(-8deg)`, opacity: 0 }, { transform: `${C} scale(1.1) rotate(-4deg)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} scale(.4) rotate(-8deg)`, opacity: 0 }, { transform: `${C} scale(1.12) rotate(-4deg)`, opacity: 1, offset: 0.22 },
     { transform: `${C} translateY(-20px) scale(1)`, opacity: 1, offset: 0.75 }, { transform: `${C} translateY(-34px)`, opacity: 0 },
-  ], { duration: 1300, delay: clink + 40, fill: 'backwards' }));
-  rise(x, y - 40, ['🫧', '✨', '💗'], 8, { delay: clink + 500, size: 1 });
+  ], { duration: 1500, delay: hit1 * D + 30, fill: 'backwards' }));
+  rise(x, y - 60, ['🫧', '✨', '💗'], 9, { delay: 0.6 * D, size: 1 });
 };
 
 // «Смакота» 🍕: піца крутиться, з неї йде пара, а довкола водять хоровод смаколики
