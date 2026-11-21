@@ -831,7 +831,11 @@ function memeBubble(m) {
       h('button', { type: 'button', class: 'feed-act', 'aria-label': 'Удалить у обоих', onclick: () => removeMeme(m) }, '🗑'),
     ];
   } else {
-    acts = [replyBtn(it)];
+    // Смайлик на фото — та сама кнопка, що й на листі (довге натискання теж працює)
+    acts = [h('button', {
+      type: 'button', class: 'feed-act', 'aria-label': 'Сердечко',
+      onclick: (e) => { e.stopPropagation(); openReactions(e.currentTarget.closest('.feed-bubble'), it); },
+    }, '🤍'), replyBtn(it)];
   }
   const replyLine = m.reply
     ? h('p', { class: `sent-reply${m.mine && isNew ? ' is-fresh' : ''}`, 'data-replied': m.replied || 0 },

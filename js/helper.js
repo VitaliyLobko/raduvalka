@@ -42,10 +42,12 @@ function ribbonChips(items, picked, onPick) {
 }
 
 // Покласти текст у поле листа; свій попередній текст можна повернути одним тапом
-function putIntoArea(area, text) {
+// solo — поле листа сховане (помічник на весь екран, текст піде в рядок під чатом): без прокрутки й «вернуть»
+function putIntoArea(area, text, solo = false) {
   const prev = area.value;
   area.value = text;
   area.dispatchEvent(new Event('input'));
+  if (solo) return;
   area.scrollIntoView({ block: 'center', behavior: 'smooth' });
   if (prev.trim() && prev !== text) {
     const undo = h('button', {
@@ -58,8 +60,9 @@ function putIntoArea(area, text) {
   }
 }
 
-export function mountHelper(box, area) {
-  const open = h('button', { type: 'button', class: 'btn help-open', 'aria-expanded': 'false' }, '✨ Помочь написать');
+// solo — лише помічник (з рядка «✨ Помочь»): панель одразу розгорнута, без «Свернуть»; onTake() — текст узяли
+export function mountHelper(box, area, { solo = false, onTake = null } = {}) {
+  const open = h('button', { type: 'button', class: 'btn help-open', 'aria-expanded': 'false', hidden: solo }, '✨ Помочь написать');
   const panel = h('div', { class: 'help-panel', hidden: true });
   box.replaceChildren(open, panel);
 
@@ -117,6 +120,7 @@ export function mountHelper(box, area) {
     paintFix();
   };
   open.addEventListener('click', () => toggle(panel.hidden));
+  if (solo) toggle(true);
 
   const draft = async () => {
     const r = reason.value() === OWN ? own.value.trim() : reason.value();
@@ -133,7 +137,7 @@ export function mountHelper(box, area) {
       // Карточки вбік: видно, що варіантів кілька; тап — чернетка в полі, помічник згортається
       const cards = h('div', { class: 'help-drafts' }, ...drafts.map((d) => h('button', {
         type: 'button', class: 'help-draft',
-        onclick: () => { putIntoArea(area, d); toggle(false); },
+        onclick: () => { putIntoArea(area, d, solo); if (onTake) onTake(); else toggle(false); },
       }, h('span', { class: 'help-draft-text' }, d), h('span', { class: 'help-draft-take' }, 'Взять →'))));
       results.replaceChildren(
         h('p', { class: 'mk-label' }, `${drafts.length} варианта — листай вбок, тап — в письмо`),
@@ -158,8 +162,9 @@ export function mountHelper(box, area) {
     try {
       const { text: fixed } = await send('letter-ideas', 'POST', { mode: 'fix', fix: kind, text });
       if (!fixed) throw new Error('empty');
-      putIntoArea(area, fixed);
+      putIntoArea(area, fixed, solo);
       toast('Готово — проверь и поправь, если что');
+      onTake?.();
     } catch {
       toast('Не получилось — попробуй ещё раз');
     }

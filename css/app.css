@@ -3762,3 +3762,12 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 /* Сторож старту (index.html): застосунок не піднявся — напис і кнопка посередині */
 .boot-stuck { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--ink); font-size: 1.1rem; }
 .boot-stuck p { margin: 0; }
+
+/* «✨ Помочь» з рядка під чатом — у вікні лише помічник: без поля, «Когда» й вкладень, усе на один екран */
+.sheet-write.is-help-solo .write-tools > :not(.write-helper),
+.sheet-write.is-help-solo .sheet-inner > .voice-wrap,
+.sheet-write.is-help-solo .sheet-inner > .write-text,
+.sheet-write.is-help-solo .write-dock { display: none; }
+.sheet-write.is-help-solo .write-tools { margin-bottom: 0; }
+.sheet-write.is-help-solo .help-panel { margin-bottom: 0; }
+.sheet-write.is-help-solo .help-draft { max-height: 30dvh; font-size: 1.15rem; }

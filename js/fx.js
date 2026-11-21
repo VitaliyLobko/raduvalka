@@ -753,21 +753,31 @@ REACT_FX['💯'] = (el, x, y) => {
 
 // Лише 🤯: екран дрижить, поки голова «закипає», і здригається на вибуху — шапка, переписка й вкладки разом,
 // а самі смайлики летять поверх нерухомо. Час — як у рухах смайлика (теж × SLOW, бо викликається з reactFx)
+// will-change — шари готові заздалегідь, відеокарта лише зсуває їх (без перемальовування посеред тряски)
 const quake = (frames, duration, delay = 0) => {
-  for (const s of document.querySelectorAll('.top, #screen, .tabs')) s.animate(frames, { duration, delay, easing: 'linear' });
+  for (const s of document.querySelectorAll('.top, #screen, .tabs')) {
+    s.style.willChange = 'transform';
+    const a = s.animate(frames, { duration, delay, easing: 'linear' });
+    a.onfinish = () => { if (!s.getAnimations().some((x) => x !== a && x.playState === 'running')) s.style.willChange = ''; };
+  }
 };
-// n поштовхів, що згасають: px — зсув, rot — нахил
-const rattle = (px, n, rot = 0) => [
-  { transform: 'none' },
-  ...Array.from({ length: n }, (_, i) => {
-    const k = 1 - i / n;
-    const s = i % 2 ? -1 : 1;
-    return { transform: `translate(${(s * px * k).toFixed(1)}px, ${(((i * 7) % 3) - 1) * px * k * 0.5}px) rotate(${(-s * rot * k).toFixed(2)}deg)` };
-  }),
-  { transform: 'none' },
-];
+// Плавне гойдання: кадр на ~16 мс, синусоїда з обвідною env(t) 0…1. px — розмах, cycles — скільки разів туди-назад, rot — нахил
+const sway = (px, cycles, ms, env, rot = 0) => {
+  const n = Math.max(12, Math.round(ms / 16));
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const t = i / n;
+    const k = env(t);
+    const a = 2 * Math.PI * cycles * t;
+    const x = px * k * Math.sin(a);
+    const y = px * 0.3 * k * Math.sin(a * 1.5 + 1);
+    return { transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${(rot * k * Math.sin(a + 0.6)).toFixed(3)}deg)` };
+  });
+};
+// Дрож наростає й спадає на нулі якраз перед вибухом; вибух — різкий старт і довге затухання
+const swell = (t) => Math.sin(Math.PI * t) ** 2 * (0.4 + 0.6 * t);
+const decay = (t) => (1 - t) ** 2.2 * Math.min(1, t * 12);
 const QUAKE = {
-  '🤯': () => { quake(rattle(1.5, 14), 700, 330); quake(rattle(11, 12, 0.8), 650, 1030); },
+  '🤯': () => { quake(sway(1.4, 6, 700, swell), 700, 330); quake(sway(9, 4.5, 800, decay, 0.6), 800, 1030); },
 };
 
 export function reactFx(el, glyph) {

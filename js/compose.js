@@ -245,6 +245,8 @@ function big(preset = {}) {
       if (sent) when = 'now';
       grow();
       paint();
+      // Узяли текст із помічника — він у рядку, клавіатура вже відкрита: лишилось ➤
+      if (preset.help && !sent && ui.area.value.trim()) setTimeout(() => ui.area.focus(), 180);
     },
   });
 }

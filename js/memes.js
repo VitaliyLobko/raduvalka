@@ -1,6 +1,7 @@
 // Мемчики: фото й GIF одне одному (показ — у стрічці «Письма», feed.js). Картинку стискає і кодує телефон, не сервер
 import { DATA } from './data.js';
 import { get, send } from './api.js';
+import { openBlob } from './seal.js';
 import { petName, petFor } from './icons.js';
 import { h, toast, ARROW } from './ui.js';
 import { rememberGif, captionHelper } from './maker.js';
@@ -31,7 +32,8 @@ const isShe = (key) => DATA.mascots[key]?.g === 'f';
 export async function memeUrl(id) {
   if (!urls.has(id)) {
     const { type, data } = await get(`memes/${id}/img`);
-    const blob = await (await fetch(`data:${type};base64,${data}`)).blob();
+    // Фото зашифроване (RAD1) — розшифровуємо тут: інакше браузер отримує шифротекст і пише «не загрузилась»
+    const blob = await openBlob(await (await fetch(`data:${type};base64,${data}`)).blob());
     urls.set(id, URL.createObjectURL(blob));
   }
   return urls.get(id);

@@ -150,7 +150,8 @@ export function openWrite(preset = {}) {
   petRow.querySelectorAll('button').forEach((b) => { b.title = petName(b.dataset.v); });
 
   const helper = h('div', { class: 'write-helper' });
-  mountHelper(helper, area);
+  // «✨ Помочь» з рядка — лише помічник: узяли чернетку чи поправку — вікно закривається, текст іде в рядок
+  mountHelper(helper, area, preset.help ? { solo: true, onTake: () => close() } : {});
   const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
 
   const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -190,13 +191,13 @@ export function openWrite(preset = {}) {
     helper);
 
   // Відповідь — над полем цитата (тап — цілим); новий лист — кусок переписки, як у месенджері: новіше внизу, біля поля
-  const ctx = reply ? h('button', {
+  const ctx = reply && !preset.help ? h('button', {
     type: 'button', class: 'write-ctx', 'aria-expanded': 'false',
     onclick: () => ctx.setAttribute('aria-expanded', String(ctx.classList.toggle('is-open'))),
   },
     h('span', { class: 'write-ctx-label' }, 'Отвечаешь на'),
     h('span', { class: 'write-ctx-text' }, reply.quote)) : null;
-  const recent = reply ? [] : recentThread();
+  const recent = reply || preset.help ? [] : recentThread();
   const thread = recent.length ? h('div', { class: 'write-thread', role: 'log', 'aria-label': 'Последние сообщения' },
     ...recent.map((m) => h('div', { class: `write-msg ${m.mine ? 'is-mine' : 'is-theirs'}` },
       h('span', { class: 'write-msg-text' }, m.text),
@@ -245,9 +246,9 @@ export function openWrite(preset = {}) {
   });
 
   // На весь екран, як у месенджері: заголовок, переписка (або цитата), інструменти, поле, знизу — «Когда», хто понесе, «Отправить»
-  const title = reply ? 'Ответ' : `Письмо ${me.toWhom}`;
+  const title = preset.help ? '✨ Помочь написать' : reply ? 'Ответ' : `Письмо ${me.toWhom}`;
   const backdrop = h('div', { class: 'backdrop', onclick: () => close() });
-  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}${preset.help ? ' is-help-solo' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     writeDecor(),
     h('div', { class: 'sheet-inner' }, ...[
       h('div', { class: 'write-head' },
@@ -280,8 +281,6 @@ export function openWrite(preset = {}) {
     const later = self.requestIdleCallback || ((fn) => setTimeout(fn, 800));
     later(() => { if (sheet.isConnected) snapWrite(sheet); }, { timeout: 3000 });
   };
-  // «✨ Помочь» з рядка — помічник одразу розгорнутий, клавіатура не потрібна
-  if (preset.help) helper.querySelector('.help-open')?.click();
   const focusArea = () => { if (!area.value && !preset.help) area.focus(); };
   if (shown) shown.finished.then(() => { settled(); focusArea(); }, () => {});
   else { settled(); focusArea(); }
