@@ -57,7 +57,7 @@ const FILES_PER_DAY = 60;
 const FILES_BYTES_PER_DAY = 1024 ** 3;
 const DAY_MS = 24 * 3600 * 1000;
 // Реакції на лист і фото (ставить отримувач; старі 😂 і ❤️ мемчиків — серед них)
-const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏', '😎', '🫡', '🤯', '🤷', '🔥', '😴', '🤗', '😢', '🙃', '🍀', '💯', '😘', '🫶', '👏', '🎉', '💪', '🙈', '👀', '😱', '🤔', '🌹', '☕', '😇', '👍', '☀️', '🌙', '🍷', '🍕', '🥶', '🥵', '🤒'];
+const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏', '😎', '🫡', '🤯', '🤷', '🔥', '😴', '🤗', '😢', '🙃', '🍀', '💯', '😘', '🫶', '👏', '🎉', '💪', '🙈', '👀', '😱', '🤔', '🌹', '☕', '😇', '👍', '☀️', '🌙', '🍷', '🍕', '🥶', '🥵', '🤒', '🌈', '😏', '🪐', '🏹', '🐾'];
 // stock — «в запас»: без дати; утром, коли листа на сьогодні нема, cron робить із найстарішого «На утро»
 const LETTER_KINDS = ['now', 'morning', 'env', 'date', 'stock'];
 // Ранок як у «На утро» на телефоні (js/write.js MORNING_HOUR); пояс — якщо отримувач ще не дав сповіщень
@@ -2616,19 +2616,125 @@ function boardView(game, st, side) {
   };
 }
 
-const gameState = (game, moves) => (gridOf(game) ? boardState(gridOf(game), game.by, moves) : duelState(moves));
-const gameView = (game, st, side) => (gridOf(game) ? boardView(game, st, side) : duelView(game, st, side));
+// ── «🚢 Морской бой» 6×6: флот 3, 2, 2, 1, кораблі не торкаються навіть кутами. Хто покликав — стріляє першим;
+// влучив чи потопив — стріляє ще. Розстановку другого бачить лише сервер: телефону — свої кораблі, свої й чужі постріли
+// та потоплені ним кораблі (з запискою); решту чужого флоту — лише коли гра скінчилась.
+// Флоти — у doc гри (fleets: { vona, vin }), постріли — рядки duel_moves (move — номер клітинки)
+const BS_W = 6;
+const BS_FLEET = '3,2,2,1';
+const isBs = (game) => game?.game === 'bs';
+
+// Розстановка з телефона: [{ cells, note }] → перевірена (інакше 400). Записка — шифр «e1.…» чи відкритий текст до 120
+function bsFleet(raw) {
+  const bad = () => fail(400, 'fleet');
+  if (!Array.isArray(raw) || raw.length !== 4) throw bad();
+  const ships = raw.map((s) => {
+    const cells = (Array.isArray(s?.cells) ? s.cells : []).map(Number).sort((a, b) => a - b);
+    if (!cells.length || cells.some((c) => !Number.isInteger(c) || c < 0 || c >= BS_W * BS_W)) throw bad();
+    const row = cells.every((c, i) => c === cells[0] + i && Math.floor(c / BS_W) === Math.floor(cells[0] / BS_W));
+    const col = cells.every((c, i) => c === cells[0] + i * BS_W);
+    if (!row && !col) throw bad();
+    return { cells, note: clip(typeof s.note === 'string' ? s.note : '', 120) || null };
+  });
+  if (ships.map((s) => s.cells.length).sort((a, b) => b - a).join() !== BS_FLEET) throw bad();
+  const near = (a, b) => Math.abs(Math.floor(a / BS_W) - Math.floor(b / BS_W)) <= 1 && Math.abs((a % BS_W) - (b % BS_W)) <= 1;
+  for (let i = 0; i < ships.length; i += 1) {
+    for (let j = i + 1; j < ships.length; j += 1) if (ships[i].cells.some((a) => ships[j].cells.some((b) => near(a, b)))) throw bad();
+  }
+  return ships;
+}
+
+function bsState(game, moves) {
+  const seq = [...moves].sort((a, b) => a.round - b.round);
+  const fleets = game.fleets || {};
+  const ready = !!(fleets.vona && fleets.vin);
+  const fired = { vona: new Set(), vin: new Set() };
+  const shots = [];
+  let turn = ready ? game.by : null;
+  let winner = null;
+  let last = game.at;
+  const down = (s, ship) => ship.cells.every((x) => fired[s].has(x));
+  for (const mv of seq) {
+    const c = Number(mv.move);
+    // Захист від сміття: не в свою чергу чи вдруге в ту саму клітинку — пропускаємо
+    if (!ready || winner || mv.side !== turn || fired[mv.side].has(c)) continue;
+    fired[mv.side].add(c);
+    const fleet = fleets[other(mv.side)];
+    const ship = fleet.find((s) => s.cells.includes(c));
+    shots.push({ side: mv.side, c, hit: !!ship, sunk: !!ship && down(mv.side, ship) });
+    last = Math.max(last, mv.at);
+    if (!ship) turn = other(turn);
+    else if (fleet.every((s) => down(mv.side, s))) { winner = mv.side; turn = null; }
+  }
+  // sunk[s] — кораблі другого, які потопила s
+  const sunk = Object.fromEntries(SIDES.map((s) => [s, (fleets[other(s)] || []).filter((sh) => down(s, sh))]));
+  const next = seq.length ? Math.max(...seq.map((m) => m.round)) + 1 : 0;
+  return { shots, turn, winner, ready, last, next, n: shots.length, sunk, wins: { vona: sunk.vona.length, vin: sunk.vin.length } };
+}
+
+function bsView(game, st, side) {
+  const o = other(side);
+  const mine = game.fleets?.[side] || null;
+  const rel = (x) => (x ? (x === side ? 'me' : 'them') : null);
+  return {
+    id: game.id,
+    mine: game.by === side,
+    topic: game.topic,
+    preset: game.preset,
+    at: game.at,
+    game: 'bs',
+    rounds: [],
+    score: { me: st.wins[side], them: st.wins[o] },
+    // Для картки й плиток: «не мій хід» — коли чекаю розстановку чи постріл другого
+    myMove: st.winner || !mine || st.turn === side ? null : 'wait',
+    theirMoved: st.shots.at(-1)?.side === o,
+    done: st.winner ? { won: st.winner === side } : null,
+    turn: rel(st.turn),
+    ready: st.ready,
+    needFleet: !mine,
+    fleet: mine,
+    shots: st.shots.map((s) => ({ by: rel(s.side), c: s.c, hit: s.hit, sunk: s.sunk })),
+    // Чужі кораблі — лише потоплені мною (із запискою); решта — без записок і лише після кінця
+    sunk: st.sunk[side].map((s) => ({ cells: s.cells, note: s.note })),
+    rest: st.winner ? (game.fleets[o] || []).filter((s) => !st.sunk[side].includes(s)).map((s) => ({ cells: s.cells })) : null,
+    n: st.n,
+  };
+}
+
+// Постріл: лише своя черга, коли обидва флоти стоять (інакше 409), і лише туди, куди ще не стріляв (400)
+async function bsMove(db, game, side, move, now, reaches, notify) {
+  if (!/^\d{1,2}$/.test(String(move ?? '')) || Number(move) >= BS_W * BS_W) throw fail(400, 'duel');
+  const c = Number(move);
+  const before = bsState(game, await duelMoves(db, game.id));
+  if (before.turn !== side) throw fail(409, 'turn');
+  if (before.shots.some((s) => s.side === side && s.c === c)) throw fail(400, 'taken');
+  await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, ?, ?, ?, ?)')
+    .bind(game.id, before.next, side, String(c), now).run();
+  const moves = await duelMoves(db, game.id);
+  const st = bsState(game, moves);
+  if (st.winner) await finishDuel(db, game, st, moves);
+  // Push на кожен постріл (тег той самий — новий замінює попередній): мимо, влучив, потопив
+  if (reaches && st.n > before.n) {
+    const shot = st.shots.at(-1);
+    const note = shot.sunk && game.fleets[other(side)].find((s) => s.cells.includes(shot.c))?.note;
+    notify.send(other(side), duelNote(side, st.winner ? 'done' : 'bs-shot', game, { ...shot, note: !!note }));
+  }
+  return json({ duel: bsView(game, st, side), reaches });
+}
+
+const gameState = (game, moves) => (isBs(game) ? bsState(game, moves) : gridOf(game) ? boardState(gridOf(game), game.by, moves) : duelState(moves));
+const gameView = (game, st, side) => (isBs(game) ? bsView(game, st, side) : gridOf(game) ? boardView(game, st, side) : duelView(game, st, side));
 
 async function duelMoves(db, id) {
   return (await db.prepare('SELECT round, side, move, at FROM duel_moves WHERE duel = ?').bind(id).all()).results;
 }
 
-// Чинні ігри — по одній кожного виду: doc duel — КНБ, duel-ttt і duel-c4 — на полі.
+// Чинні ігри — по одній кожного виду: doc duel — КНБ, duel-ttt і duel-c4 — на полі, duel-bs — морський бій.
 // Гра на полі, що до 0.4.2 лежала в duel (тоді гра була одна на всі види), переїжджає до свого ключа
-const DUEL_KEYS = { rps: 'duel', ttt: 'duel-ttt', c4: 'duel-c4' };
-const duelKind = (game) => (gridOf(game) ? game.game : 'rps');
+const DUEL_KEYS = { rps: 'duel', ttt: 'duel-ttt', c4: 'duel-c4', bs: 'duel-bs' };
+const duelKind = (game) => (gridOf(game) || isBs(game) ? game.game : 'rps');
 async function activeDuels(db) {
-  const rows = (await db.prepare("SELECT k, v FROM docs WHERE k IN ('duel', 'duel-ttt', 'duel-c4')").all()).results;
+  const rows = (await db.prepare("SELECT k, v FROM docs WHERE k IN ('duel', 'duel-ttt', 'duel-c4', 'duel-bs')").all()).results;
   const byKey = Object.fromEntries(rows.map((r) => [r.k, JSON.parse(r.v)]));
   const old = byKey.duel;
   if (old?.id && gridOf(old)) {
@@ -2646,8 +2752,8 @@ const dropDuelDoc = (db, game) => db.prepare('DELETE FROM docs WHERE k = ? AND v
 // Скінчена гра — рядок у чаті; id від гри: обидва запити, що одночасно дограли, пишуть той самий рядок
 async function finishDuel(db, game, st, moves) {
   const base = { id: game.id, topic: game.topic, preset: game.preset, by: game.by };
-  const mood = JSON.stringify(gridOf(game)
-    ? { ...base, game: game.game, rounds: [], seq: [...moves].sort((a, b) => a.round - b.round).map((m) => [m.side, m.move, m.round, m.at]) }
+  const mood = JSON.stringify(gridOf(game) || isBs(game)
+    ? { ...base, game: game.game, ...(isBs(game) ? { fleets: game.fleets } : {}), rounds: [], seq: [...moves].sort((a, b) => a.round - b.round).map((m) => [m.side, m.move, m.round, m.at]) }
     : { ...base, rounds: st.rounds });
   await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
     .bind(`duel-${game.id}`, st.winner, 'duel', mood, st.last).run();
@@ -2658,6 +2764,7 @@ async function finishDuel(db, game, st, moves) {
 // Дограна гра з рядка marks (для чату й для розкриття тому, хто сходив першим)
 function duelMarkView(row, side) {
   const g = JSON.parse(row.mood);
+  if (isBs(g)) return bsView({ ...g, at: row.at }, bsState(g, g.seq.map(([s2, move, round, at]) => ({ side: s2, move, round, at }))), side);
   if (gridOf(g)) return boardView({ ...g, at: row.at }, boardState(gridOf(g), g.by, g.seq.map(([s2, move, round, at]) => ({ side: s2, move, round, at }))), side);
   const wins = { vona: 0, vin: 0 };
   for (const r of g.rounds) if (r.win) wins[r.win] += 1;
@@ -2706,23 +2813,26 @@ async function duelRoute(req, db, side, rest, notify) {
     const own = clip(String(b.topic || '').replace(/\s+/g, ' '), 60);
     const topic = preset ? DUEL_PRESETS[preset] : own;
     const grid = gridOf(b);
-    if (!topic || !(grid ? cellFor(grid, emptyBoard(grid), b.move) >= 0 : DUEL_MOVES.includes(b.move))) throw fail(400, 'duel');
-    const kind = grid ? b.game : 'rps';
+    // Морський бій: замість першого ходу — своя розстановка (крива — 400)
+    const fleet = isBs(b) ? bsFleet(b.fleet) : null;
+    if (!topic || !(fleet || (grid ? cellFor(grid, emptyBoard(grid), b.move) >= 0 : DUEL_MOVES.includes(b.move)))) throw fail(400, 'duel');
+    const kind = fleet ? 'bs' : grid ? b.game : 'rps';
     const games = await activeDuels(db);
     // Одна гра кожного виду: поки ця не догра́на (і не забута на добу) — нову того ж виду не починаємо
     if (games[kind] && now - games[kind].at < DUEL_STALE) throw fail(409, 'busy');
-    const game = { id: newId(), by: side, topic, preset, at: now, ...(grid ? { game: b.game } : {}) };
+    const game = { id: newId(), by: side, topic, preset, at: now, ...(grid ? { game: b.game } : {}), ...(fleet ? { game: 'bs', fleets: { [side]: fleet } } : {}) };
     await putDoc(db, DUEL_KEYS[kind], game);
     // Ходи дограних чи забутих ігор більше не потрібні; ходи інших ігор, що йдуть, лишаються
     const keep = [game.id, ...Object.entries(games).filter(([k]) => k !== kind).map(([, g]) => g.id)];
     await db.prepare(`DELETE FROM duel_moves WHERE duel NOT IN (${keep.map(() => '?').join(', ')})`).bind(...keep).run();
-    await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
-    if (reaches) notify.send(other(side), duelNote(side, grid ? 'board-start' : 'start', game));
+    if (!fleet) await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
+    if (reaches) notify.send(other(side), duelNote(side, fleet ? 'bs-start' : grid ? 'board-start' : 'start', game));
     return json({ duel: gameView(game, gameState(game, await duelMoves(db, game.id)), side), reaches }, 201);
   }
   const game = Object.values(await activeDuels(db)).find((g) => g.id === String(b.id || '')) || null;
   if (m === 'POST' && rest === '/move') {
     if (!game) throw fail(409, 'gone');
+    if (isBs(game)) return bsMove(db, game, side, b.move, now, reaches, notify);
     if (gridOf(game)) return boardMove(db, game, side, b.move, now, reaches, notify);
     if (!DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
     const before = duelState(await duelMoves(db, game.id));
@@ -2767,6 +2877,15 @@ async function duelRoute(req, db, side, rest, notify) {
       }
     }
     return json({ wish: gwishView((await gwishes(db)).get(id), side) });
+  }
+  // Морський бій: той, кого покликали, ставить свій флот (раз); першим стріляє той, хто покликав
+  if (m === 'POST' && rest === '/fleet') {
+    if (!isBs(game)) throw fail(409, 'gone');
+    if (game.by === side || game.fleets?.[side]) throw fail(409, 'turn');
+    game.fleets = { ...game.fleets, [side]: bsFleet(b.fleet) };
+    await putDoc(db, DUEL_KEYS.bs, game);
+    if (reaches) notify.send(other(side), duelNote(side, 'bs-ready', game));
+    return json({ duel: bsView(game, bsState(game, await duelMoves(db, game.id)), side), reaches });
   }
   // Передумали — гра зникає без сліду в чаті
   if (m === 'POST' && rest === '/cancel') {
@@ -3170,7 +3289,7 @@ function askNote(from, token, origin) {
 // «🫡 Да, капитан!»: на що саме погодились — у тексті; тап — у чат
 // «✊ Спор»: виклик, «твой ход» після розіграного раунду, кінець. Хто переміг — не пишемо: хай побачить розкриття
 const cap1 = (x) => x[0].toUpperCase() + x.slice(1);
-const BOARD_TITLE = { ttt: ['❌⭕', 'Крестики-нолики'], c4: ['🔴🟡', 'Четыре в ряд'] };
+const BOARD_TITLE = { ttt: ['❌⭕', 'Крестики-нолики'], c4: ['🔴🟡', 'Четыре в ряд'], bs: ['🚢', 'Морской бой'] };
 function duelNote(from, what, game, score) {
   const kind = duelKind(game);
   const base = kind === 'rps' ? { tag: 'duel', go: 'duel' } : { tag: `duel-${kind}`, go: `duel:${kind}` };
@@ -3181,6 +3300,16 @@ function duelNote(from, what, game, score) {
   if (what === 'done') return { ...base, title: '🏆 Игра окончена', body: `${t || 'Игра'} — посмотри, кто победил` };
   // Ігри на полі: push на кожен хід
   const [icon, name] = BOARD_TITLE[game.game] || BOARD_TITLE.ttt;
+  // Морський бій: ціль — у світі того, кому пишемо: у неї кораблик, у нього ракета
+  if (what === 'bs-start') return { ...base, title: '🚢 Морской бой', body: `${sender(from, 'Он зовёт сыграть', 'Она зовёт сыграть')}${stake}. Расставь кораблики!` };
+  if (what === 'bs-ready') return { ...base, title: '🚢 Морской бой', body: sender(from, 'Он расставил ракеты — стреляй первой!', 'Она расставила кораблики — стреляй первым!') };
+  if (what === 'bs-shot') {
+    const target = sender(from, 'твой кораблик', 'твою ракету');
+    const body = !score.hit ? `${sender(from, 'Он промахнулся', 'Она промахнулась')} — твой ход!`
+      : score.sunk ? `${sender(from, 'Он потопил', 'Она сбила')} ${target}${score.note ? ` и ${sender(from, 'нашёл', 'нашла')} записку 💌` : ' 💔'} — стреляет ещё`
+        : `${sender(from, 'Он попал', 'Она попала')} в ${target} 💥 — стреляет ещё`;
+    return { ...base, title: '🚢 Морской бой', body };
+  }
   if (what === 'board-start') return { ...base, title: `${icon} ${name}`, body: `${sender(from, 'Он зовёт сыграть', 'Она зовёт сыграть')}${stake}. Твой ход!` };
   if (what === 'board-draw') return { ...base, title: `${icon} Ничья`, body: `${t ? `${t}: ` : ''}${t ? 'н' : 'Н'}овая партия — ты начинаешь!` };
   if (what === 'moved') return { ...base, title: '✊ Камень-ножницы', body: `${sender(from, 'Он уже выбрал', 'Она уже выбрала')} — твой ход!` };
