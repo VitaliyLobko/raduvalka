@@ -20,15 +20,21 @@ const PRESETS = {
 };
 const POLL = 3000;
 
-const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '❌⭕', name: 'Крестики-нолики' } };
+const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '❌⭕', name: 'Крестики-нолики' }, c4: { icon: '🔴🟡', name: 'Четыре в ряд' } };
+// Ігри на полі: розмір, фішки, дієслово ходу; drop — фішка падає донизу стовпчика
+const GRIDS = {
+  ttt: { kind: 'ttt', w: 3, h: 3, mark: { x: '❌', o: '⭕' }, verb: 'ставь' },
+  c4: { kind: 'c4', w: 7, h: 6, mark: { x: '🔴', o: '🟡' }, verb: 'бросай', drop: true },
+};
+const gridOf = (g) => (Object.hasOwn(GRIDS, g?.game ?? '') ? GRIDS[g.game] : null);
 
 const gen = () => (who().partner === 'она' ? 'её' : 'его');
-const icon = (g) => PRESETS[g.preset]?.icon || (g.game === 'ttt' ? '❌' : '✊');
-const isTtt = (g) => g?.game === 'ttt';
-const kindOf = (g) => (isTtt(g) ? 'ttt' : 'rps');
+const icon = (g) => PRESETS[g.preset]?.icon || (gridOf(g)?.mark.x ?? '✊');
+const isBoard = (g) => !!gridOf(g);
+const kindOf = (g) => gridOf(g)?.kind ?? 'rps';
 const gameName = (kind) => `${GAMES[kind].icon} ${GAMES[kind].name}`;
 // Поступ гри, який я бачив: камінь-ножиці — розіграні раунди, хрестики — зроблені ходи
-const progress = (g) => (isTtt(g) ? g.n : g.rounds.length);
+const progress = (g) => (isBoard(g) ? g.n : g.rounds.length);
 const scoreOf = (g) => `${Math.max(g.score.me, g.score.them)}:${Math.min(g.score.me, g.score.them)}`;
 
 // Скільки цієї гри я вже бачив (раундів чи ходів)
@@ -58,10 +64,10 @@ export function duelResult(g) {
   const p = PRESETS[g.preset];
   const won = g.done.won;
   // У хрестиках рахунок завжди 1:0 — не пишемо
-  const score = isTtt(g) ? '' : `, ${scoreOf(g)}`;
+  const score = isBoard(g) ? '' : `, ${scoreOf(g)}`;
   const victory = `победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}`;
   if (g.preset === 'free') return `🏆 ${cap(victory)}${score}`;
-  if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)}${isTtt(g) ? '' : ` (${scoreOf(g)})`}`;
+  if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)}${isBoard(g) ? '' : ` (${scoreOf(g)})`}`;
   return `🏆 «${g.topic}»: ${victory}${score}`;
 }
 
@@ -75,14 +81,14 @@ export function duelCard(g, onOpen) {
   const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : toWish ? '🎁 Загадать' : null;
   const n = (x) => h('b', {}, hidden ? '?' : String(x));
   // Хрестики: замість рахунку — маленьке поле; догране й ще не бачене — «?»
-  const mid = !isTtt(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
+  const mid = !isBoard(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
     : hidden ? h('span', { class: 'duel-card-score' }, h('b', {}, '?'))
-      : h('span', { class: 'duel-card-board', 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : MARK[c])));
+      : h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : gridOf(g).mark[c])));
   return h('button', {
     type: 'button', class: `duel-card${turn || toWish ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
     'aria-label': `${GAMES[kindOf(g)].name}, «${g.topic}»: ${state}`,
   },
-  h('span', { class: 'duel-card-head' }, isTtt(g) ? gameName('ttt') : `${gameName('rps')} · до двух побед`),
+  h('span', { class: 'duel-card-head' }, isBoard(g) ? gameName(kindOf(g)) : `${gameName('rps')} · до двух побед`),
   h('span', { class: 'duel-card-topic' }, `${icon(g)} ${g.topic}`),
   mid,
   h('span', { class: 'duel-card-foot' }, h('span', { class: 'duel-card-state' }, state), go ? h('span', { class: 'duel-card-go' }, go) : null));
@@ -228,7 +234,7 @@ async function show(g, fresh) {
   if (fresh || !g) { open.setKind(open.kind); body.replaceChildren(...setup()); return; }
   // «Сыграть ещё» після неї — та сама гра
   open.setKind(kindOf(g));
-  if (isTtt(g)) { showTtt(g); return; }
+  if (isBoard(g)) { showBoard(g); return; }
   const seen = g.done && sawEnd(g) ? g.rounds.length : seenRounds(g);
   const stage = h('div', { class: 'duel-stage' });
   const status = h('p', { class: 'duel-status' });
@@ -366,7 +372,7 @@ function setup() {
     if (go.disabled) return;
     go.disabled = true;
     try {
-      const r = await send('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv, game: kind === 'ttt' ? 'ttt' : undefined });
+      const r = await send('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv, game: kind === 'rps' ? undefined : kind });
       markSeen(r.duel);
       document.dispatchEvent(new CustomEvent('radovalka:marked'));
       toast(`${GAMES[kind].icon} Позвали играть — ${who().partner} ${r.reaches ? 'получит уведомление' : 'увидит в чате'}`);
@@ -382,15 +388,24 @@ function setup() {
   const HINT = {
     rps: 'До двух побед. Ходы откроются, когда сходите оба.',
     ttt: `Ты — ❌, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`,
+    c4: `Ты — 🔴, твой ход первый. Нужно четыре в ряд, можно и наискосок. Ничья — новая партия, начинает ${who().partner}.`,
   };
   const hint = h('p', { class: 'hint duel-hint' }, HINT[kind]);
   const pick = h('div', { class: 'duel-pick' });
-  // Перший хід: камінь-ножиці — рука, хрестики — клітинка на маленькому полі
+  // Перший хід: камінь-ножиці — рука, хрестики — клітинка на маленькому полі, «Четыре в ряд» — нижній ряд (стовпчик)
   const paintPick = () => {
     if (kind === 'rps') { pick.replaceChildren(movesRow((k) => { mv = k; sync(); })); return; }
-    const bd = h('div', { class: 'ttt-board is-pick', role: 'group', 'aria-label': 'Первый ход' });
-    const put = (i) => { mv = String(i); bd.replaceChildren(...cells('.........'.split('').map((c, j) => (j === i ? 'x' : c)).join(''), { mine: 'x', play: true, onPick: put })); pop(bd.children[i]); sync(); };
-    bd.replaceChildren(...cells('.........', { mine: 'x', play: true, onPick: put }));
+    const grid = GRIDS[kind];
+    const pickGrid = grid.drop ? { ...grid, h: 1 } : grid;
+    const empty = '.'.repeat(pickGrid.w * pickGrid.h);
+    const bd = boardEl(pickGrid, 'Первый ход', ' is-pick');
+    const put = (i) => {
+      mv = String(i);
+      bd.replaceChildren(...cells(pickGrid, empty.split('').map((c, j) => (j === i ? 'x' : c)).join(''), { mine: 'x', play: true, onPick: put }));
+      land(pickGrid, bd, i);
+      sync();
+    };
+    bd.replaceChildren(...cells(pickGrid, empty, { mine: 'x', play: true, onPick: put }));
     pick.replaceChildren(bd);
   };
   paintPick();
@@ -402,30 +417,55 @@ function setup() {
   ];
 }
 
-// ── «❌⭕ Крестики-нолики»: одна партія 3×3, виклик — ❌ і ходить першим; нічия — нова партія, починає інший
-const MARK = { x: '❌', o: '⭕' };
+// ── Ігри на полі: «❌⭕ Крестики-нолики» 3×3 і «🔴🟡 Четыре в ряд» 7×6 (тап по стовпчику — фішка падає донизу).
+// Одна партія; хто покликав — x і ходить першим; нічия — нова партія, починає інший
 const wait = (ms) => new Promise((done) => setTimeout(done, reduceMotion ? Math.min(ms, 300) : ms));
 const pop = (el) => { if (!reduceMotion && el) el.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.6 }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' }); };
-
-function cells(bd, { mine, line = null, play = false, onPick = null } = {}) {
-  return [...bd].map((c, i) => h('button', {
-    type: 'button',
-    class: `ttt-cell${line?.includes(i) ? ' is-line' : ''}${c !== '.' ? ` is-${c === mine ? 'me' : 'them'}` : ''}`,
-    'data-i': String(i),
-    'aria-label': c === '.' ? `Клетка ${i + 1}` : `Клетка ${i + 1}: ${MARK[c]}`,
-    disabled: !play || c !== '.',
-    onclick: onPick ? () => onPick(i) : null,
-  }, c === '.' ? '' : MARK[c]));
+// Фішка падає з-над поля у свою клітинку (лише transform), наприкінці легенько підскакує
+const fall = (el, row) => {
+  if (reduceMotion || !el) return;
+  el.animate([{ transform: `translateY(${-(row + 1) * 112}%)` }, { transform: 'translateY(0)', offset: 0.75 }, { transform: 'translateY(-12%)', offset: 0.88 }, { transform: 'translateY(0)' }],
+    { duration: 300 + row * 45, easing: 'ease-in' });
+};
+// Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — поява
+const land = (grid, board, i) => {
+  const piece = board.children[i]?.firstElementChild;
+  if (grid.drop) fall(piece, Math.floor(i / grid.w)); else pop(piece);
+};
+// Куди ляже хід: клітинка або найнижча вільна у стовпчику (-1 — нікуди)
+function cellFor(grid, bd, move) {
+  if (!grid.drop) return bd[move] === '.' ? move : -1;
+  for (let r = grid.h - 1; r >= 0; r -= 1) if (bd[r * grid.w + move] === '.') return r * grid.w + move;
+  return -1;
 }
 
-async function showTtt(g) {
+function cells(grid, bd, { mine, line = null, play = false, onPick = null } = {}) {
+  return [...bd].map((c, i) => {
+    const col = i % grid.w;
+    // Хрестики — вільна клітинка; «Четыре в ряд» — будь-яка клітинка неповного стовпчика
+    const open = grid.drop ? bd[col] === '.' : c === '.';
+    const what = c === '.' ? '' : `: ${grid.mark[c]}`;
+    return h('button', {
+      type: 'button',
+      class: `ttt-cell${line?.includes(i) ? ' is-line' : ''}${c !== '.' ? ` is-${c === mine ? 'me' : 'them'}` : ''}`,
+      'data-i': String(i),
+      'aria-label': grid.drop ? `Столбец ${col + 1}, ряд ${grid.h - Math.floor(i / grid.w)}${what}` : `Клетка ${i + 1}${what}`,
+      disabled: !play || !open,
+      onclick: onPick ? () => onPick(grid.drop ? col : i) : null,
+    }, c === '.' ? '' : h('span', { class: 'cell-piece' }, grid.mark[c]));
+  });
+}
+const boardEl = (grid, label, cls = '') => h('div', { class: `ttt-board is-${grid.kind}${cls}`, role: 'group', 'aria-label': label });
+
+async function showBoard(g) {
   const { body } = open;
+  const grid = gridOf(g);
   const seen = g.done && sawEnd(g) ? g.n : seenRounds(g);
   const mine = g.mark;
   const theirs = mine === 'x' ? 'o' : 'x';
   const legend = h('p', { class: 'ttt-legend' },
-    h('span', { class: 'ttt-who' }, `${cap(who().partner)} ${MARK[theirs]}`), h('span', { class: 'ttt-vs' }, 'vs'), h('span', { class: 'ttt-who' }, `Ты ${MARK[mine]}`));
-  const board = h('div', { class: 'ttt-board', role: 'group', 'aria-label': 'Поле' });
+    h('span', { class: 'ttt-who' }, `${cap(who().partner)} ${grid.mark[theirs]}`), h('span', { class: 'ttt-vs' }, 'vs'), h('span', { class: 'ttt-who' }, `Ты ${grid.mark[mine]}`));
+  const board = boardEl(grid, 'Поле');
   const status = h('p', { class: 'duel-status' });
   const history = h('div', { class: 'duel-history', 'aria-label': 'Партии' });
   const act = h('div', { class: 'duel-act' });
@@ -436,10 +476,10 @@ async function showTtt(g) {
   const fresh = g.n > seen;
   open.busy = true;
   // Нічия, якої ще не бачив: спершу повне поле минулої партії, потім — нова
-  const drew = fresh && g.rounds.length > 0 && seen < 9 * g.rounds.length;
+  const drew = fresh && g.rounds.length > 0 && seen < grid.w * grid.h * g.rounds.length;
   if (drew) {
     const prev = g.rounds.at(-1);
-    board.replaceChildren(...cells(prev.board, { mine }));
+    board.replaceChildren(...cells(grid, prev.board, { mine }));
     paintHistory(g.rounds.length - 1);
     status.textContent = 'Ничья!';
     await wait(1400);
@@ -451,10 +491,10 @@ async function showTtt(g) {
   open.busy = false;
   paintHistory(g.rounds.length);
   const play = !g.done && g.turn === 'me';
-  board.replaceChildren(...cells(g.board, { mine, play, onPick: (i) => tttMove(g, i, board) }));
-  if (fresh && g.lastBy === 'them' && g.lastCell !== null) pop(board.children[g.lastCell]);
+  board.replaceChildren(...cells(grid, g.board, { mine, play, onPick: (m) => boardMove(g, m, board) }));
+  if (fresh && g.lastBy === 'them' && g.lastCell !== null) land(grid, board, g.lastCell);
   if (g.done) {
-    if (fresh) await wait(450);
+    if (fresh) await wait(grid.drop ? 700 : 450);
     if (!open) return;
     (g.line || []).forEach((i, k) => {
       const c = board.children[i];
@@ -466,7 +506,7 @@ async function showTtt(g) {
     if (fresh) burst(board, g.done.won ? '🎉' : '💪', 12);
     act.replaceChildren(...doneActs(g));
   } else {
-    status.textContent = `${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ставь ${MARK[mine]}` : `Ждём ${gen()} ход…`}`;
+    status.textContent = `${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ${grid.mark[mine]}` : `Ждём ${gen()} ход…`}`;
     act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
   }
   if (fresh || (g.done && !sawEnd(g))) {
@@ -475,16 +515,19 @@ async function showTtt(g) {
   }
 }
 
-async function tttMove(g, i, board) {
+// Хід на полі: фішка одразу на місці (і падає), сервер підтверджує; поле застаріло — перечитуємо
+async function boardMove(g, m, board) {
   if (!open || open.busy) return;
+  const grid = gridOf(g);
+  const i = cellFor(grid, g.board, m);
+  if (i < 0) return;
   open.busy = true;
-  board.querySelectorAll('.ttt-cell').forEach((b) => { b.disabled = true; });
-  const cell = board.children[i];
-  cell.textContent = MARK[g.mark];
-  cell.classList.add('is-me');
-  pop(cell);
+  const bd = [...g.board];
+  bd[i] = g.mark;
+  board.replaceChildren(...cells(grid, bd.join(''), { mine: g.mark }));
+  land(grid, board, i);
   let r;
-  try { r = await send('duel/move', 'POST', { id: g.id, move: String(i) }); } catch (e) {
+  try { r = await send('duel/move', 'POST', { id: g.id, move: String(m) }); } catch (e) {
     if (!open) return;
     open.busy = false;
     // Поле застаріло (другий уже сходив, клітинка зайнята) — просто перечитуємо
@@ -494,9 +537,7 @@ async function tttMove(g, i, board) {
       refresh();
       return;
     }
-    cell.textContent = '';
-    cell.classList.remove('is-me');
-    board.querySelectorAll('.ttt-cell').forEach((b) => { b.disabled = !!b.textContent; });
+    board.replaceChildren(...cells(grid, g.board, { mine: g.mark, play: true, onPick: (x) => boardMove(g, x, board) }));
     toast('Ход не ушёл — нет связи');
     return;
   }

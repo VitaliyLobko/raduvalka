@@ -422,7 +422,7 @@ function newsRow(n) {
   // «✊ Спор»: картка — тема, рахунок, чий хід чи підсумок; тап — сам спор
   if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel()));
   // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
-  if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame()));
+  if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame(n.same)));
   // «🎁 Желание» з гри «на желание»: висить, поки не відмітять «Исполнено ✓»
   if (n.kind === 'gwish') return h('li', { class: 'feed-news feed-duel', hidden: !n.wish }, n.wish ? gwishCard(n) : null);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»

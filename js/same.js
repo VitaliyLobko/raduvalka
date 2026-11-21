@@ -130,12 +130,16 @@ export const sameSig = (g) => JSON.stringify([g.me, g.theirDone, g.done, g.hits,
 
 let open = null;
 
-export async function openSame() {
+// past — дограна гра з чату: показуємо саме її (відповіді можна передивитися), поки не натиснуть «Сыграть ещё»
+export async function openSame(past = null) {
   if (open) return;
   const sh = gameSheet({ icon: '💞', title: 'Совпадёт?', cls: 'same-sheet', onClose: () => { clearInterval(open?.timer); open = null; } });
-  open = { body: sh.body, state: '', busy: false, timer: 0, gameId: null };
-  sh.body.append(h('p', { class: 'hint duel-hint' }, 'Загружаю…'));
-  await refresh(true);
+  open = { body: sh.body, state: '', busy: false, timer: 0, gameId: null, past: past?.done ? past : null };
+  if (open.past) result(open.past);
+  else {
+    sh.body.append(h('p', { class: 'hint duel-hint' }, 'Загружаю…'));
+    await refresh(true);
+  }
   // Поки відкрито — питаємо сервер: відповіді другого відкриваються самі
   if (open) open.timer = setInterval(() => { if (open && !open.busy && document.visibilityState === 'visible') refresh(); }, POLL);
 }
@@ -146,7 +150,7 @@ async function refresh(first = false) {
     if (first && open) open.body.replaceChildren(h('p', { class: 'hint duel-hint' }, 'Нет связи — игра откроется, когда появится интернет'));
     return;
   }
-  if (!open || open.busy) return;
+  if (!open || open.busy || open.past) return;
   const state = JSON.stringify(r);
   if (state === open.state) return;
   open.state = state;
@@ -232,6 +236,15 @@ function rows(g) {
   }));
 }
 
+// «Сыграть ещё»: якщо вже йде інша гра — вона, інакше вибір питань
+function again() {
+  open.past = null;
+  open.gameId = null;
+  open.state = '';
+  open.body.replaceChildren(h('p', { class: 'hint duel-hint' }, 'Загружаю…'));
+  refresh(true);
+}
+
 function result(g) {
   const fresh = !sawEnd(g);
   const big = h('p', { class: 'same-score' }, h('b', {}, String(g.hits)), ` из ${N}`);
@@ -239,7 +252,7 @@ function result(g) {
   open.body.replaceChildren(
     h('div', { class: 'duel-arena same-result' }, h('p', { class: 'same-score-label' }, 'Совпало'), big, h('p', { class: 'duel-status is-final' }, VERDICT[g.hits])),
     list,
-    h('div', { class: 'duel-act' }, h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: () => { open.gameId = null; open.body.replaceChildren(...setup()); } }, 'Сыграть ещё')));
+    h('div', { class: 'duel-act' }, h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: again }, 'Сыграть ещё')));
   if (fresh) {
     if (!reduceMotion) {
       big.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.6 }, { transform: 'scale(1)' }], { duration: 520, easing: 'ease-out' });
