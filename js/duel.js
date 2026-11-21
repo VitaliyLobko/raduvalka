@@ -5,7 +5,7 @@ import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
 import { mascotImg, petName, petLine } from './icons.js';
-import { placer, seaEl, shipEl, cellOf, markShot, markSunk, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
+import { placer, seaEl, shipEl, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
 // Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
 const TIPS = {
@@ -773,6 +773,7 @@ async function showBs(g) {
     const cell = cellOf(board, s.c);
     if (anim) await fxFly(s.by === 'me' ? mine : theirs, cell, SHOT[s.by === 'me' ? me : them]);
     const mark = markShot(board, s.c, s.hit);
+    markLast(board, s.c);
     if (anim) { fxShot(mark); if (s.hit) fxHit(cell, world); else fxMiss(cell, world); }
     if (!s.sunk) { if (anim) await pause(s.hit ? 550 : 700); return; }
     count[s.by] += 1;
@@ -781,6 +782,7 @@ async function showBs(g) {
     if (!ship) return;
     const el = s.by === 'me' ? shipEl(them, ship.cells) : ship.el;
     if (s.by === 'me') { theirs.append(el); if (ship.note) { notes.push(ship.note); noteBadge(el); } }
+    if (s.by === 'me') markAround(board, ship.cells);
     if (!anim) { el.classList.add('is-sunk'); markSunk(board, ship.cells); return; }
     await pause(300);
     await fxSink(el, world, board, ship.cells);

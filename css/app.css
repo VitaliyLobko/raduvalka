@@ -4346,3 +4346,41 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .game-tile:active .game-icon { transform: scale(.94); }
 .game-icon svg { width: 48px; height: 48px; }
 .duel-head .duel-as { border-style: dotted; cursor: default; }
+
+/* Куди вже стріляли — видно одразу: мимо — клітинка темніша з крапкою, попав — тепле підсвічування, навколо
+   потопленого — «порожньо» (туди кораблів бути не може), останній постріл — тонке кільце */
+.bs-cell.is-miss { background: rgba(74, 37, 69, .1); }
+.bs-cell.is-miss::before { content: ''; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: #C26B8E; opacity: .85; }
+.bs-board.is-vin .bs-cell.is-miss { background: rgba(0, 0, 0, .28); }
+.bs-board.is-vin .bs-cell.is-miss::before { background: #EDB949; }
+.bs-cell.is-hit { box-shadow: inset 0 0 0 2px rgba(232, 80, 91, .55); }
+.bs-cell.is-near { background: repeating-linear-gradient(45deg, rgba(74, 37, 69, .06) 0 4px, transparent 4px 9px); }
+.bs-board.is-vin .bs-cell.is-near { background: repeating-linear-gradient(45deg, rgba(0, 0, 0, .2) 0 4px, transparent 4px 9px); }
+.bs-cell.is-last-shot { box-shadow: inset 0 0 0 2.5px #E0A93A; }
+.bs-cell.is-hit.is-last-shot { box-shadow: inset 0 0 0 2.5px #E0A93A, inset 0 0 0 5px rgba(232, 80, 91, .45); }
+/* Своє поле в бою — трохи більше (120 → 150px): кораблики й чужі постріли по ньому видно краще */
+.bs-top { grid-template-columns: minmax(0, 150px) 1fr; gap: 10px; }
+@media (max-width: 370px) { .bs-top { grid-template-columns: minmax(0, 134px) 1fr; } }
+
+/* Місячна доріжка (moonPath): диск із ореолом угорі, конус сяйва донизу, що тане, і мерехтливі відблиски */
+.bs-moon { left: 34%; width: 52%; opacity: 1; background: none; -webkit-mask: none; mask: none; animation: none; }
+.bs-moon::before {
+  content: ''; position: absolute; top: 1.5%; left: 50%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%;
+  background: radial-gradient(circle at 42% 40%, #FFFBEA 0 45%, #FFE9A8 70%, rgba(255, 233, 168, 0) 72%);
+  box-shadow: 0 0 18px 6px rgba(255, 236, 170, .35);
+}
+.bs-moon::after {
+  content: ''; position: absolute; inset: 8% 0 0;
+  background: linear-gradient(180deg, rgba(255, 236, 170, .32), rgba(255, 236, 170, .14) 45%, rgba(255, 236, 170, .04) 85%, transparent);
+  clip-path: polygon(44% 0, 56% 0, 92% 100%, 8% 100%);
+}
+.bs-moon i {
+  position: absolute; z-index: 1; height: 2.4px; border-radius: 3px; transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 205, .95) 30% 70%, transparent);
+  animation: bs-glimmer var(--d, 2.4s) ease-in-out infinite alternate;
+}
+@keyframes bs-glimmer { 0% { transform: translateX(-50%) scaleX(.55); opacity: .25; } 100% { transform: translateX(-50%) scaleX(1.05); } }
+.bs-board.is-mine .bs-moon::before { width: 18px; height: 18px; margin-left: -9px; }
+.bs-board.is-mine .bs-moon i { height: 1.6px; }
+@media (prefers-reduced-motion: reduce) { .bs-moon i { animation: none; } }
+html.is-still .bs-moon i { animation: none; }

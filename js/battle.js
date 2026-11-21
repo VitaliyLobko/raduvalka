@@ -2,7 +2,7 @@
 // під вітрилами-сердечками, його нічне бірюзове з місячною доріжкою й корабликами під золотими вітрилами з ліхтариком.
 // Розстановка без перетягування, постріли, потоплення, записки. Стан гри й черга — у duel.js; тут лише те, що видно.
 // Анімації — лише transform/opacity (Web Animations API чи CSS), без filter; reduceMotion — без руху
-import { h, reduceMotion, sky } from './ui.js';
+import { h, reduceMotion, sky, toast } from './ui.js';
 
 export const W = 6;
 export const FLEET = [3, 2, 2, 1];
@@ -46,14 +46,33 @@ export function randomFleet() {
   }
 }
 
-// Поворот корабля k навколо першої клітинки; не влазить чи торкається інших — null
+// Поворот корабля k. На 6×6, де кораблі не торкаються навіть кутами, поворот навколо першої клітинки
+// майже завжди впирався в сусіда чи край — тап «не працював». Тепер: пробуємо повернути навколо кожної його
+// клітинки, а не влазить — ставимо повернутим на найближче вільне місце. Зовсім нікуди — null
 export function rotate(ships, k) {
   const s = ships[k];
-  if (s.cells.length < 2) return null;
+  const len = s.cells.length;
+  if (len < 2) return null;
   const vert = !isVert(s.cells);
-  if (!fits(s.cells[0], s.cells.length, vert)) return null;
-  const cells = shipCells(s.cells[0], s.cells.length, vert);
-  return clash(cells, ships.filter((_, i) => i !== k)) ? null : ships.map((x, i) => (i === k ? { ...x, cells } : x));
+  const others = ships.filter((_, i) => i !== k);
+  const ok = (at) => at >= 0 && at < W * W && fits(at, len, vert) && !clash(shipCells(at, len, vert), others);
+  const put = (at) => ships.map((x, i) => (i === k ? { ...x, cells: shipCells(at, len, vert) } : x));
+  // 1) навколо кожної клітинки: опорна клітинка стає j-ю в новому положенні
+  for (const p of s.cells) {
+    const [pr, pc] = rc(p);
+    for (let j = 0; j < len; j += 1) {
+      const r = vert ? pr - j : pr;
+      const c = vert ? pc : pc - j;
+      if (r >= 0 && c >= 0 && ok(r * W + c)) return put(r * W + c);
+    }
+  }
+  // 2) найближче вільне місце до центру корабля
+  const mid = (cells) => cells.map(rc).reduce(([a, b], [r, c]) => [a + r / len, b + c / len], [0, 0]);
+  const [cr, cc] = mid(s.cells);
+  const spots = [...Array(W * W).keys()].filter(ok)
+    .map((at) => { const [r, c] = mid(shipCells(at, len, vert)); return [at, (r - cr) ** 2 + (c - cc) ** 2]; })
+    .sort((a, b) => a[1] - b[1]);
+  return spots.length ? put(spots[0][0]) : null;
 }
 
 // ── Малюнки корабликів: згори, горизонтально, 40 одиниць на клітинку, ніс праворуч; вертикальні повертаємо носом угору.
@@ -128,10 +147,26 @@ export const noteBadge = (ship) => ship.append(h('i', { class: 'bs-ship-note', '
 
 // Поле у світі сторони world: вода з хвилями (у неї — сонячні відблиски, у нього — зорі й місячна доріжка), клітинки-кнопки
 // з явним місцем у сітці — кораблі лягають поверх тих самих рядків
+// Місячна доріжка: сяйво від місяця розширюється донизу й тане, по ньому — відблиски різної довжини,
+// біля місяця густі й короткі, ближче до нас — рідші й ширші; мерехтять кожен у своєму ритмі
+function moonPath() {
+  const el = h('span', { class: 'bs-moon', 'aria-hidden': 'true' });
+  const n = 16;
+  for (let i = 0; i < n; i += 1) {
+    const t = i / (n - 1);
+    const g = h('i');
+    const w = 8 + t * 30 + ((i * 37) % 11);
+    const x = 50 + Math.sin(i * 2.3) * (6 + t * 18);
+    g.style.cssText = `top:${12 + t * 84}%;left:${x}%;width:${w}%;--d:${(1.6 + ((i * 13) % 7) * 0.35).toFixed(2)}s;animation-delay:${(-((i * 29) % 17) * 0.23).toFixed(2)}s;opacity:${(0.95 - t * 0.45).toFixed(2)}`;
+    el.append(g);
+  }
+  return el;
+}
+
 export function seaEl(world, { label, cls = '', onCell = null } = {}) {
   const board = h('div', { class: `bs-board is-${world}${cls}`, role: 'group', 'aria-label': label });
   const deco = world === 'vin'
-    ? [sky(14, 7, 'bs-sky'), h('span', { class: 'bs-moon', 'aria-hidden': 'true' })]
+    ? [sky(14, 7, 'bs-sky'), moonPath()]
     : [h('span', { class: 'bs-glints', 'aria-hidden': 'true' }, ...[[18, 22], [64, 12], [40, 48], [80, 58], [22, 76], [62, 86]].map(([x, y], i) => {
       const g = h('i');
       g.style.cssText = `left:${x}%;top:${y}%;animation-delay:${-i * 0.9}s`;
@@ -161,6 +196,28 @@ export function markShot(board, c, hit) {
   cell.setAttribute('aria-label', `${cell.getAttribute('aria-label').slice(0, 2)}: ${hit ? 'попадание' : 'мимо'}`);
   return mark;
 }
+// Навколо потопленого — кораблів бути не може (не торкаються навіть кутами): ці клітинки тихо «порожні»,
+// по них більше не стріляють. Останній постріл — кільцем, щоб було видно, куди пішов хід
+export function markAround(board, cells) {
+  for (const a of cells) {
+    const [r, c] = rc(a);
+    for (let dr = -1; dr <= 1; dr += 1) for (let dc = -1; dc <= 1; dc += 1) {
+      const y = r + dr;
+      const x = c + dc;
+      if (y < 0 || x < 0 || y >= W || x >= W) continue;
+      const cell = cellOf(board, y * W + x);
+      if (!cell || cells.includes(y * W + x) || cell.classList.contains('is-hit') || cell.classList.contains('is-miss')) continue;
+      cell.classList.add('is-near');
+      cell.disabled = true;
+      cell.setAttribute('aria-label', `${cell.getAttribute('aria-label').slice(0, 2)}: пусто`);
+    }
+  }
+}
+export function markLast(board, c) {
+  board.querySelector('.bs-cell.is-last-shot')?.classList.remove('is-last-shot');
+  cellOf(board, c)?.classList.add('is-last-shot');
+}
+
 // Потоплені клітинки: вогник гасне в димок
 export function markSunk(board, cells) {
   cells.forEach((c) => {
@@ -351,6 +408,8 @@ export function placer(world) {
         const next = rotate(ships, k);
         if (!next) {
           if (!reduceMotion) el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(0)' }], { duration: 260 });
+          // Повернутому ніде немає місця (поле тісне) — кажемо, що робити, а не мовчки трусимось
+          toast('Повёрнутому тут негде встать — нажми «🎲 Расставить» или поверни соседа');
           return;
         }
         ships = next;
