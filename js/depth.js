@@ -78,6 +78,98 @@ export function flashConstellation() {
   setTimeout(() => el.classList.remove('is-lit'), 2600);
 }
 
+// Тап по сузірʼю: Стрілець натягує лук і стріляє — з «носика» чайника по дузі летить стріла з іскрами
+// й застрягає, тремтячи; у неї в цілі розлітаються сердечка, у нього — спалахує зірка.
+// Лише transform/opacity (WAAPI, без rAF), ~20 елементів, після — усе прибирається
+const ARROW = '<svg viewBox="0 0 44 12" aria-hidden="true"><path class="sa-tail" d="M1 2.5l5 3.5-5 3.5M5 2.5l5 3.5-5 3.5"/>'
+  + '<line x1="4" y1="6" x2="37" y2="6"/><path class="sa-head" d="M33 1.5L44 6 33 10.5 35.5 6Z"/></svg>';
+const STAR4 = '<svg viewBox="-5 -5 10 10" aria-hidden="true"><path d="M0-5L1.1-1.1 5 0 1.1 1.1 0 5-1.1 1.1-5 0-1.1-1.1Z"/></svg>';
+const HEART_SVG = `<svg viewBox="-3.4 -4.4 6.8 6.2" aria-hidden="true"><path d="${HEART}"/></svg>`;
+let shooting = false;
+export function shootConstellation() {
+  const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
+  const spout = el?.querySelector('.sgr-stars > :first-child')?.getBoundingClientRect();
+  if (!spout || reduceMotion || shooting) return;
+  shooting = true;
+  flashConstellation();
+  const her = DATA.side !== 'vin';
+  const W = innerWidth;
+  const x0 = spout.left + spout.width / 2;
+  const y0 = spout.top + spout.height / 2;
+  // Ціль — праворуч угорі (Стрілець цілиться в Антарес, на карті він праворуч); дуга — вище прямої
+  const x2 = Math.min(W - 30, x0 + Math.max(150, W * 0.5));
+  const y2 = Math.max(90, y0 - innerHeight * 0.3);
+  const cx = (x0 + x2) / 2;
+  const cy = Math.min(y0, y2) - 45;
+  const at = (t) => [(1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x2, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y2];
+  const dir = (t) => Math.atan2(2 * (1 - t) * (cy - y0) + 2 * t * (y2 - cy), 2 * (1 - t) * (cx - x0) + 2 * t * (x2 - cx));
+  const ease = (t) => 1 - (1 - t) ** 2;
+  const DRAW = 380;
+  const FLY = 700;
+  const STUCK = 900;
+  const box = h('div', { class: `sgr-shot${her ? ' is-her' : ''}`, 'aria-hidden': 'true' });
+  document.body.append(box);
+  const part = (cls, html, frames, opts) => {
+    const p = h('span', { class: cls, html });
+    box.append(p);
+    p.animate(frames, { fill: 'both', ...opts });
+  };
+  const tr = (x, y, s, extra = '') => `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)${extra} scale(${s})`;
+
+  // Лук натягується: сузірʼя відтягується назад і відпускає
+  el.animate([{ transform: 'none' }, { transform: 'translateX(-7px) scaleX(.94)', offset: 0.75 }, { transform: 'translateX(3px)', offset: 0.88 }, { transform: 'none' }],
+    { duration: DRAW / 0.75, easing: 'ease-in-out' });
+
+  // Стріла 60×16: вістря (60, 8) — у точці дуги, кут — за дотичною; в кінці тремтить і тане
+  const T = FLY + STUCK;
+  const end = dir(1);
+  const frames = Array.from({ length: 11 }, (_, i) => {
+    const u = ease(i / 10);
+    const [x, y] = at(u);
+    return { offset: (i / 10) * FLY / T, opacity: i ? 1 : 0, transform: `translate(${(x - 60).toFixed(1)}px, ${(y - 8).toFixed(1)}px) rotate(${dir(u).toFixed(3)}rad)` };
+  });
+  const stuck = (k, wob, opacity = 1) => ({ offset: (FLY + k) / T, opacity, transform: `translate(${(x2 - 60).toFixed(1)}px, ${(y2 - 8).toFixed(1)}px) rotate(${(end + wob).toFixed(3)}rad)` });
+  frames.push(stuck(70, 0.16), stuck(140, -0.12), stuck(210, 0.08), stuck(280, -0.04), stuck(350, 0), stuck(600, 0), stuck(STUCK, 0, 0));
+  part('sa-arrow', ARROW, frames, { duration: T, delay: DRAW });
+
+  // Іскри слідом: з'являються там, де стріла щойно пролетіла, і осідають
+  for (let i = 1; i <= 7; i += 1) {
+    const s = i / 8;
+    const [x, y] = at(ease(s));
+    part('sa-spark', '', [{ opacity: 0, transform: tr(x - 2.5, y - 2.5, 1) }, { opacity: 1, offset: 0.15 }, { opacity: 0, transform: tr(x - 2.5, y + 8, 0.3) }],
+      { duration: 650, delay: DRAW + s * FLY, easing: 'ease-out' });
+  }
+
+  // Влучання: у неї — велике сердце, пробите стрілою (як у Купідона), і сердечка навсібіч;
+  // у нього — велика зірка й промінчики-зірочки
+  const hit = DRAW + FLY;
+  if (her) {
+    const [bx, by] = [x2 - Math.cos(end) * 10 - 18, y2 - Math.sin(end) * 10 - 17];
+    part('sa-big', HEART_SVG, [{ opacity: 0, transform: tr(bx, by, 0.2) }, { opacity: 1, offset: 0.2, transform: tr(bx, by, 1.35) },
+      { offset: 0.32, transform: tr(bx, by, 0.95) }, { offset: 0.42, transform: tr(bx, by, 1.05) }, { opacity: 1, offset: 0.75, transform: tr(bx, by, 1) },
+      { opacity: 0, transform: tr(bx, by - 10, 1.1) }], { duration: STUCK, delay: hit - 30, easing: 'ease-out' });
+    // Під стрілою — щоб стріла «пробивала» сердце
+    box.prepend(box.lastChild);
+  } else {
+    part('sa-flash', STAR4, [{ opacity: 0, transform: tr(x2 - 14, y2 - 14, 0.2, ' rotate(0deg)') }, { opacity: 1, offset: 0.45, transform: tr(x2 - 14, y2 - 14, 1.7, ' rotate(45deg)') },
+      { opacity: 0, transform: tr(x2 - 14, y2 - 14, 0.4, ' rotate(90deg)') }], { duration: 800, delay: hit, easing: 'ease-out' });
+  }
+  for (let i = 0; i < 8; i += 1) {
+    const a = (i / 8) * Math.PI * 2 + (i % 2 ? 0.2 : -0.1);
+    const d = 34 + (i % 3) * 12;
+    const dx = Math.cos(a) * d;
+    const dy = Math.sin(a) * d;
+    const half = her ? 10 : 8;
+    part(her ? 'sa-heart' : 'sa-star', her ? HEART_SVG : STAR4, [
+      { opacity: 0, transform: tr(x2 - half, y2 - half, 0.2) },
+      { opacity: 1, offset: 0.45, transform: tr(x2 - half + dx, y2 - half + dy, her ? 1 - (i % 3) * 0.15 : 0.9) },
+      { opacity: 0, transform: tr(x2 - half + dx * 1.2, y2 - half + dy * 1.2 + 16, 0.6) },
+    ], { duration: 950, delay: hit + (i % 2) * 40, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    if (her) box.lastChild.style.setProperty('--c', ['#FF5C9A', '#FF8DBB', '#E0679F', '#C25A95'][i % 4]);
+  }
+  setTimeout(() => { box.remove(); shooting = false; }, DRAW + T + 150);
+}
+
 // «💞 Люблю тебя!»: над усіма вікнами вгорі — сузірʼя із сердечок, вони спалахують по черзі, лінії загоряються, і все тане
 export function loveConstellation() {
   if (reduceMotion) return;
@@ -142,7 +234,7 @@ export function startDepth() {
     if (e.target.closest('button, a, input, textarea, select, label, summary, [role="dialog"], .sheet, .plan-wheel, .feed-row, .feed-news, .want, .env-card, .plan-card, .letter, .bubble, .courier')) return;
     const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
     const r = el?.getBoundingClientRect();
-    if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) flashConstellation();
+    if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) shootConstellation();
   });
   if (reduceMotion) return;
 
