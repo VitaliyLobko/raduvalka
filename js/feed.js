@@ -623,9 +623,9 @@ async function setReaction(it, value, bubble) {
   const live = it.type === 'meme' ? liveMeme(it.m) : liveLetter(it.l);
   const prev = live.reaction || null;
   live.reaction = value;
-  draw();
-  // Рядок перемальовано — анімуємо вже новий пузир
-  if (value) reactFx(rows.get(it.key)?.el?.firstElementChild || bubble, value);
+  // Спершу анімація (від старого пузиря — він на тому ж місці), а перемальовування стрічки — трохи згодом:
+  // інакше перебудова всього чату в ту саму мить, коли рух стартує, давала ривки
+  if (value) { reactFx(bubble, value); setTimeout(draw, 350); } else draw();
   try {
     await send(it.type === 'meme' ? `memes/${live.id}` : `letters/${live.id}`, 'PUT', { reaction: value });
   } catch {

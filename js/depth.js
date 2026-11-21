@@ -253,8 +253,10 @@ export function startDepth() {
   if (reduceMotion) return;
 
   let tx = 0; let ty = 0; let x = 0; let y = 0; let raf = 0;
-  const idle = () => document.hidden || document.documentElement.classList.contains('is-covered');
+  const idle = () => document.hidden || document.documentElement.classList.contains('is-covered') || document.documentElement.classList.contains('is-fx');
   const step = () => {
+    // Шторка чи реакція — стоїмо; наступний нахил після них знову запустить
+    if (idle()) { raf = 0; return; }
     // Мʼяко доганяємо ціль — шари пливуть, а не смикаються
     x += (tx - x) * 0.055;
     y += (ty - y) * 0.055;

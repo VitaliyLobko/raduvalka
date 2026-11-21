@@ -810,8 +810,14 @@ const QUAKE = {
   '🤯': () => { quake(sway(1.4, 6, 700, swell), 700, 330); quake(sway(9, 4.5, 800, decay, 0.6), 800, 1030); },
 };
 
+let fxCalm = 0;
 export function reactFx(el, glyph) {
   if (reduceMotion || !el?.isConnected || !glyph) return;
+  // Поки йде реакція, тло не їздить за нахилом (depth.js) — відеокарта зайнята лише смайликами
+  const root = document.documentElement;
+  root.classList.add('is-fx');
+  clearTimeout(fxCalm);
+  fxCalm = setTimeout(() => root.classList.remove('is-fx'), (DUR[glyph] || 1600) * SLOW + 200);
   const r = el.getBoundingClientRect();
   // Центр — над повідомленням, але так, щоб уся анімація влізла в екран
   const x = clamp(r.left + r.width / 2, 125, innerWidth - 125);
