@@ -3,7 +3,7 @@ import { DATA, who } from './data.js';
 import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor, petLine } from './icons.js';
 import { h, toast, cap, showPhoto, ribbon, dayMonth } from './ui.js';
-import { prepare, toBase64 } from './memes.js';
+import { prepare, prepareError, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
 import { ask } from './ask.js';
 
@@ -454,8 +454,8 @@ function editWish(screen, w, sharedLink = '') {
     try {
       pic = await prepare(blob, PHOTO_SIDE, false);
       drawPic();
-    } catch {
-      toast('Это фото не открылось');
+    } catch (e) {
+      toast(prepareError(e));
     }
   };
   fileIn.addEventListener('change', () => { if (fileIn.files[0]) takeFile(fileIn.files[0]); fileIn.value = ''; });

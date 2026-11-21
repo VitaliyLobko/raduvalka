@@ -38,22 +38,77 @@ export async function memeUrl(id) {
 }
 
 // Фото — до maxSide px (типово 1280) у webp; GIF не чіпаємо (canvas зʼїв би анімацію), лише перевіряємо розмір
+// Тип від галереї буває порожнім (фото з хмари) — тоді вирішує сам вміст. Помилки: 'type' — не картинка,
+// 'heic' — фото HEIC, якого браузер не відкриває, 'decode' — інша картинка, що не відкрилась, 'encode' — не стиснулась
 export async function prepare(file, maxSide = MAX_SIDE, keepGif = true) {
-  if (!file.type.startsWith('image/')) throw new Error('type');
-  if (keepGif && file.type === 'image/gif') {
+  const type = file.type || '';
+  // Тип не картинки (application/octet-stream, порожній) ще не вирок: вирішує, чи відкриється
+  if (/^(video|audio|text)\//.test(type)) throw new Error('type');
+  const kind = await sniff(file);
+  if (keepGif && (type === 'image/gif' || kind === 'gif')) {
     if (file.size > GIF_MAX) throw new Error('big');
-    return file;
+    return type ? file : new Blob([file], { type: 'image/gif' });
   }
-  const bmp = await createImageBitmap(file);
-  const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bmp.width * k);
-  canvas.height = Math.round(bmp.height * k);
-  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  bmp.close();
-  const webp = await new Promise((ok) => canvas.toBlob(ok, 'image/webp', 0.82));
-  if (webp?.type === 'image/webp') return webp;
-  return new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
+  const pic = await decode(file);
+  if (!pic) throw new Error(kind === 'heic' || /hei[cf]/.test(type) ? 'heic' : type.startsWith('image/') || !type ? 'decode' : 'type');
+  try {
+    const k = Math.min(1, maxSide / Math.max(pic.w, pic.h));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(pic.w * k));
+    canvas.height = Math.max(1, Math.round(pic.h * k));
+    canvas.getContext('2d').drawImage(pic.src, 0, 0, canvas.width, canvas.height);
+    const webp = await new Promise((ok) => canvas.toBlob(ok, 'image/webp', 0.82));
+    if (webp?.type === 'image/webp') return webp;
+    const jpeg = await new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
+    if (!jpeg) throw new Error('encode');
+    return jpeg;
+  } finally {
+    pic.done();
+  }
+}
+
+// Перші байти файла: GIF чи HEIC (контейнер ftyp із брендом HEIF; mif1 буває й у AVIF — його браузер відкриває сам)
+async function sniff(file) {
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const s = String.fromCharCode(...b);
+  if (s.startsWith('GIF8')) return 'gif';
+  if (s.slice(4, 8) === 'ftyp' && /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(s.slice(8, 12))) return 'heic';
+  return '';
+}
+
+// Відкрити картинку: звичайно; не вийшло (знімок на 50–200 Мп не влазить у пам'ять) — одразу зменшену;
+// і останнє — звичайним <img>, він відкриває дещо, чого не бере createImageBitmap. null — не відкрилась
+async function decode(file) {
+  const bitmap = (bmp) => ({ src: bmp, w: bmp.width, h: bmp.height, done: () => bmp.close() });
+  try { return bitmap(await createImageBitmap(file)); } catch { /* далі */ }
+  try { return bitmap(await createImageBitmap(file, { resizeWidth: MAX_SIDE * 2, resizeQuality: 'high' })); } catch { /* далі */ }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    if (!img.naturalWidth) throw new Error('empty');
+    return { src: img, w: img.naturalWidth, h: img.naturalHeight, done: () => URL.revokeObjectURL(url) };
+  } catch {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+}
+
+// Чому фото не відкрилось — людськими словами, щоб наступна невдача сама сказала причину
+const PREPARE_ERRORS = {
+  big: 'GIF слишком большой — до 1,3 МБ',
+  type: 'Это не картинка — выбери фото',
+  heic: 'Это фото в формате HEIC, браузер его не открывает. Сделай скриншот этого фото и отправь скриншот',
+};
+export const prepareError = (e) => PREPARE_ERRORS[e?.message] || 'Эту картинку открыть не получилось. Попробуй другое фото или скриншот';
+
+// Не відправилось: немає звʼязку, сервер не прийняв чи щось інше — кажемо, що саме
+export function sendError(e) {
+  if (e?.status === 413) return 'Слишком большая картинка';
+  if (e?.status) return `Сервер не принял (код ${e.status}${e.code ? `, ${e.code}` : ''}). Попробуй ещё раз`;
+  if (!navigator.onLine || e instanceof TypeError) return 'Нет связи — не ушло. Попробуй ещё раз, когда появится интернет';
+  return `Не отправилось (${String(e?.message || e).slice(0, 60)}). Попробуй ещё раз`;
 }
 
 // Для моделі із зором — маленька JPEG (512 px): досить, щоб розгледіти, і швидко
@@ -84,7 +139,7 @@ export async function composeMeme(file, done, re = null) {
   try {
     blob = await prepare(file);
   } catch (e) {
-    toast(e.message === 'big' ? 'GIF слишком большой — до 1,3 МБ' : 'Эту картинку открыть не получилось');
+    toast(prepareError(e));
     return;
   }
   const preview = URL.createObjectURL(blob);
@@ -145,7 +200,7 @@ function sendSheet(preview, post, done, style0 = null, about = '', image = null)
       done?.();
     } catch (e) {
       go.disabled = false;
-      toast(e.status === 413 ? 'Слишком большая картинка' : 'Не отправилось — проверь интернет');
+      toast(sendError(e));
     }
   });
   const backdrop = h('div', { class: 'backdrop', onclick: close });
