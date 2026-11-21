@@ -1190,9 +1190,9 @@ async function feedPage(db, side, url) {
   // «✊ Спор», що триває, — один рядок там, де був останній хід; дограний — рядок marks kind duel
   const duel = await activeDuel(db);
   if (duel) {
-    const st = duelState(await duelMoves(db, duel.id));
+    const st = gameState(duel, await duelMoves(db, duel.id));
     const t = Math.max(duel.at, st.last);
-    if (t < before) wheel.push({ id: `d${duel.id}`, duel: duelView(duel, st, side), t });
+    if (t < before) wheel.push({ id: `d${duel.id}`, duel: gameView(duel, st, side), t });
   }
   const spin = await getDoc(db, 'plan-spin');
   if (spin?.at && spin.at < before) {
@@ -2510,6 +2510,77 @@ function duelView(game, st, side) {
   };
 }
 
+// ── «❌⭕ Крестики-нолики» у спорі: 3×3, хто кинув виклик — ❌ і ходить першим, далі по черзі.
+// Нічия — нова партія, першим ходить інший; виграв партію — виграв спор. Ходи — ті самі рядки duel_moves:
+// round — порядковий номер ходу, move — клітинка 0–8. Старий клієнт отримує ті самі поля (score, rounds, myMove…)
+const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+const isCell = (v) => /^[0-8]$/.test(String(v ?? ''));
+
+function tttState(by, moves) {
+  const seq = [...moves].sort((a, b) => a.round - b.round);
+  const mark = (x) => (x === by ? 'x' : 'o');
+  const rounds = [];
+  let first = by;
+  let turn = by;
+  let bd = Array(9).fill('.');
+  let last = 0;
+  let lastCell = null;
+  let lastBy = null;
+  let n = 0;
+  for (const mv of seq) {
+    const c = Number(mv.move);
+    // Захист від сміття: не в свою чергу чи на зайняту клітинку — пропускаємо
+    if (mv.side !== turn || !isCell(mv.move) || bd[c] !== '.') continue;
+    bd[c] = mark(mv.side);
+    last = Math.max(last, mv.at);
+    lastCell = c;
+    lastBy = mv.side;
+    n += 1;
+    const line = TTT_LINES.find((l) => l.every((i) => bd[i] === bd[c]));
+    if (line) return { rounds, board: bd.join(''), turn: null, winner: mv.side, line, lastCell, lastBy, n, last, next: 0, wins: { vona: 0, vin: 0, [mv.side]: 1 } };
+    if (!bd.includes('.')) {
+      rounds.push({ board: bd.join(''), first });
+      first = other(first);
+      turn = first;
+      bd = Array(9).fill('.');
+      lastCell = null;
+      continue;
+    }
+    turn = other(turn);
+  }
+  const next = seq.length ? Math.max(...seq.map((m) => m.round)) + 1 : 0;
+  return { rounds, board: bd.join(''), turn, winner: null, line: null, lastCell, lastBy, n, last, next, wins: { vona: 0, vin: 0 } };
+}
+
+function tttView(game, st, side) {
+  const o = other(side);
+  const rel = (x) => (x ? (x === side ? 'me' : 'them') : null);
+  return {
+    id: game.id,
+    mine: game.by === side,
+    topic: game.topic,
+    preset: game.preset,
+    at: game.at,
+    game: 'ttt',
+    rounds: st.rounds.map((r) => ({ me: null, them: null, win: null, board: r.board, first: rel(r.first) })),
+    score: { me: st.wins[side], them: st.wins[o] },
+    // Для картки й старого клієнта: «я вже сходив» = зараз не моя черга
+    myMove: st.winner || st.turn === side ? null : 'wait',
+    theirMoved: st.lastBy === o,
+    done: st.winner ? { won: st.winner === side } : null,
+    board: st.board,
+    mark: game.by === side ? 'x' : 'o',
+    turn: rel(st.turn),
+    lastCell: st.lastCell,
+    lastBy: rel(st.lastBy),
+    line: st.line,
+    n: st.n,
+  };
+}
+
+const gameState = (game, moves) => (game.game === 'ttt' ? tttState(game.by, moves) : duelState(moves));
+const gameView = (game, st, side) => (game.game === 'ttt' ? tttView(game, st, side) : duelView(game, st, side));
+
 async function duelMoves(db, id) {
   return (await db.prepare('SELECT round, side, move, at FROM duel_moves WHERE duel = ?').bind(id).all()).results;
 }
@@ -2521,8 +2592,11 @@ async function activeDuel(db) {
 }
 
 // Скінчена гра — рядок у чаті; id від гри: обидва запити, що одночасно дограли, пишуть той самий рядок
-async function finishDuel(db, game, st) {
-  const mood = JSON.stringify({ id: game.id, topic: game.topic, preset: game.preset, by: game.by, rounds: st.rounds });
+async function finishDuel(db, game, st, moves) {
+  const base = { id: game.id, topic: game.topic, preset: game.preset, by: game.by };
+  const mood = JSON.stringify(game.game === 'ttt'
+    ? { ...base, game: 'ttt', rounds: [], seq: [...moves].sort((a, b) => a.round - b.round).map((m) => [m.side, m.move, m.round, m.at]) }
+    : { ...base, rounds: st.rounds });
   await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
     .bind(`duel-${game.id}`, st.winner, 'duel', mood, st.last).run();
   // Ходи лишаємо: запит, що дограв одночасно, ще їх перечитає; приберуться з наступною грою
@@ -2532,6 +2606,7 @@ async function finishDuel(db, game, st) {
 // Дограна гра з рядка marks (для чату й для розкриття тому, хто сходив першим)
 function duelMarkView(row, side) {
   const g = JSON.parse(row.mood);
+  if (g.game === 'ttt') return tttView({ ...g, at: row.at }, tttState(g.by, g.seq.map(([s2, move, round, at]) => ({ side: s2, move, round, at }))), side);
   const wins = { vona: 0, vin: 0 };
   for (const r of g.rounds) if (r.win) wins[r.win] += 1;
   return duelView({ ...g, at: row.at }, { rounds: g.rounds, wins, winner: row.side, open: null }, side);
@@ -2547,7 +2622,7 @@ async function duelRoute(req, db, side, rest, notify) {
   const now = Date.now();
   if (m === 'GET' && !rest) {
     const game = await activeDuel(db);
-    return json({ duel: game ? duelView(game, duelState(await duelMoves(db, game.id)), side) : null, last: await lastDuel(db, side) });
+    return json({ duel: game ? gameView(game, gameState(game, await duelMoves(db, game.id)), side) : null, last: await lastDuel(db, side) });
   }
   const b = m === 'POST' ? await readJson(req) : {};
   const reaches = await hasPush(db, other(side));
@@ -2556,20 +2631,22 @@ async function duelRoute(req, db, side, rest, notify) {
     const preset = Object.hasOwn(DUEL_PRESETS, b.preset) ? b.preset : null;
     const own = clip(String(b.topic || '').replace(/\s+/g, ' '), 60);
     const topic = preset ? DUEL_PRESETS[preset] : own;
-    if (!topic || !DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
+    const ttt = b.game === 'ttt';
+    if (!topic || !(ttt ? isCell(b.move) : DUEL_MOVES.includes(b.move))) throw fail(400, 'duel');
     const prev = await activeDuel(db);
     if (prev && now - prev.at < DUEL_STALE) throw fail(409, 'busy');
-    const game = { id: newId(), by: side, topic, preset, at: now };
+    const game = { id: newId(), by: side, topic, preset, at: now, ...(ttt ? { game: 'ttt' } : {}) };
     await putDoc(db, 'duel', game);
     // Ходи попередніх ігор (дограних чи забутих) більше не потрібні
     await db.prepare('DELETE FROM duel_moves WHERE duel != ?').bind(game.id).run();
-    await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, b.move, now).run();
-    if (reaches) notify.send(other(side), duelNote(side, 'start', topic));
-    return json({ duel: duelView(game, duelState(await duelMoves(db, game.id)), side), reaches }, 201);
+    await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
+    if (reaches) notify.send(other(side), duelNote(side, ttt ? 'ttt-start' : 'start', topic));
+    return json({ duel: gameView(game, gameState(game, await duelMoves(db, game.id)), side), reaches }, 201);
   }
   const game = await activeDuel(db);
   if (m === 'POST' && rest === '/move') {
     if (!game || game.id !== String(b.id || '')) throw fail(409, 'gone');
+    if (game.game === 'ttt') return tttMove(db, game, side, b.move, now, reaches, notify);
     if (!DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
     const before = duelState(await duelMoves(db, game.id));
     // Уже сходив у цьому раунді — повтор (черга, подвійний тап) нічого не міняє
@@ -2582,7 +2659,7 @@ async function duelRoute(req, db, side, rest, notify) {
     const view = duelView(game, st, side);
     const closed = st.rounds.length > before.rounds.length;
     if (st.winner) {
-      await finishDuel(db, game, st);
+      await finishDuel(db, game, st, []);
       if (reaches && closed) notify.send(other(side), duelNote(side, 'done', game.topic));
     } else if (closed && reaches) notify.send(other(side), duelNote(side, 'turn', game.topic, view.score));
     return json({ duel: view, reaches });
@@ -2596,6 +2673,24 @@ async function duelRoute(req, db, side, rest, notify) {
     return json({ ok: true });
   }
   throw fail(404, 'not found');
+}
+
+// Хід у хрестиках: лише своя черга (інакше 409 — у телефона застарілий стан) і лише вільна клітинка
+async function tttMove(db, game, side, cell, now, reaches, notify) {
+  if (!isCell(cell)) throw fail(400, 'duel');
+  const before = tttState(game.by, await duelMoves(db, game.id));
+  if (before.turn !== side) throw fail(409, 'turn');
+  if (before.board[Number(cell)] !== '.') throw fail(400, 'taken');
+  await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, ?, ?, ?, ?)')
+    .bind(game.id, before.next, side, String(cell), now).run();
+  const moves = await duelMoves(db, game.id);
+  const st = tttState(game.by, moves);
+  if (st.winner) await finishDuel(db, game, st, moves);
+  if (reaches && st.n > before.n) {
+    const what = st.winner ? 'done' : st.rounds.length > before.rounds.length ? 'ttt-draw' : 'ttt-turn';
+    notify.send(other(side), duelNote(side, what, game.topic));
+  }
+  return json({ duel: tttView(game, st, side), reaches });
 }
 
 async function checkinSeen(req, db, side) {
@@ -2858,6 +2953,10 @@ function duelNote(from, what, topic, score) {
   const t = SEALED.test(topic) ? '' : `«${topic}»`;
   if (what === 'start') return { ...base, title: '✊ Спор', body: `${sender(from, 'Он вызывает тебя на спор', 'Она вызывает тебя на спор')}${t ? `: ${t}` : ''}. Твой ход!` };
   if (what === 'done') return { ...base, title: '🏆 Спор решён', body: `${t || 'Спор'} — посмотри, кто победил` };
+  // Хрестики: push на кожен хід
+  if (what === 'ttt-start') return { ...base, title: '❌⭕ Спор', body: `${sender(from, 'Он вызывает тебя в крестики-нолики', 'Она вызывает тебя в крестики-нолики')}${t ? `: ${t}` : ''}. Твой ход!` };
+  if (what === 'ttt-draw') return { ...base, title: '❌⭕ Ничья', body: `${t ? `${t}: ` : ''}${t ? 'н' : 'Н'}овая партия — ты начинаешь!` };
+  if (what === 'ttt-turn') return { ...base, title: '❌⭕ Спор', body: `${t ? `${t}: ` : ''}${t ? 'т' : 'Т'}вой ход!` };
   const s = score.me === score.them ? `пока ${score.me}:${score.them}` : `счёт ${score.them}:${score.me} ${score.them > score.me ? 'в твою пользу' : sender(from, 'в его пользу', 'в её пользу')}`;
   return { ...base, title: '✊ Спор', body: `${t ? `${t}: ` : ''}${t ? s : cap1(s)}. Твой ход!` };
 }

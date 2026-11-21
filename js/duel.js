@@ -1,5 +1,5 @@
-// «✊ Спор»: камінь, ножиці, папір до двох перемог. Виклик — з «Написать…», хід другого відкривається,
-// коли сходили обидва: у того, хто сходив другим, — одразу, у першого — коли відкриє спор
+// «✊ Спор»: камінь, ножиці, папір до двох перемог або хрестики-нолики (одна партія). Виклик — з «Написать…».
+// Камінь-ножиці: хід другого відкривається, коли сходили обидва; хрестики — по черзі, кожен хід видно
 import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
@@ -18,26 +18,29 @@ const PRESETS = {
 const POLL = 3000;
 
 const gen = () => (who().partner === 'она' ? 'её' : 'его');
-const icon = (g) => PRESETS[g.preset]?.icon || '✊';
+const icon = (g) => PRESETS[g.preset]?.icon || (g.game === 'ttt' ? '❌' : '✊');
+const isTtt = (g) => g?.game === 'ttt';
+// Поступ гри, який я бачив: камінь-ножиці — розіграні раунди, хрестики — зроблені ходи
+const progress = (g) => (isTtt(g) ? g.n : g.rounds.length);
 const scoreOf = (g) => `${Math.max(g.score.me, g.score.them)}:${Math.min(g.score.me, g.score.them)}`;
 
-// Скільки розіграних раундів цієї гри я вже бачив розкритими
+// Скільки цієї гри я вже бачив (раундів чи ходів)
 const seenKey = () => `radovalka:duel-seen:${DATA.side}`;
 function seenRounds(g) {
   try {
     const [id, n] = (localStorage.getItem(seenKey()) || '').split(':');
     return id === g.id ? Number(n) || 0 : 0;
-  } catch { return g.rounds.length; }
+  } catch { return progress(g); }
 }
 // Дограні ігри, підсумок яких я вже бачив (останні 30), — інакше після нової гри старі рядки знову «посмотри, кто победил»
 const doneKey = () => `radovalka:duel-done:${DATA.side}`;
 function doneSeen() {
   try { return JSON.parse(localStorage.getItem(doneKey()) || '[]'); } catch { return []; }
 }
-const sawEnd = (g) => doneSeen().includes(g.id) || (seenRounds(g) >= g.rounds.length);
+const sawEnd = (g) => doneSeen().includes(g.id) || (seenRounds(g) >= progress(g));
 function markSeen(g) {
   try {
-    localStorage.setItem(seenKey(), `${g.id}:${g.rounds.length}`);
+    localStorage.setItem(seenKey(), `${g.id}:${progress(g)}`);
     if (g.done && !doneSeen().includes(g.id)) localStorage.setItem(doneKey(), JSON.stringify([g.id, ...doneSeen()].slice(0, 30)));
   } catch { /* приватне вікно */ }
   document.dispatchEvent(new CustomEvent('radovalka:duel-seen'));
@@ -47,8 +50,9 @@ function markSeen(g) {
 export function duelResult(g) {
   const p = PRESETS[g.preset];
   const won = g.done.won;
-  if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)} (${scoreOf(g)})`;
-  return `🏆 «${g.topic}»: победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}, ${scoreOf(g)}`;
+  // У хрестиках рахунок завжди 1:0 — не пишемо
+  if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)}${isTtt(g) ? '' : ` (${scoreOf(g)})`}`;
+  return `🏆 «${g.topic}»: победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}${isTtt(g) ? '' : `, ${scoreOf(g)}`}`;
 }
 
 // Картка спору в стрічці: тема, рахунок, чий хід. Дограний, але розкриття ще не бачила — рахунок «?», щоб не зіпсувати
@@ -58,17 +62,21 @@ export function duelCard(g, onOpen) {
   const state = g.done ? (hidden ? '🏆 Спор решён' : duelResult(g)) : turn ? 'Твой ход' : `Ждём ${gen()} ход`;
   const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : null;
   const n = (x) => h('b', {}, hidden ? '?' : String(x));
+  // Хрестики: замість рахунку — маленьке поле; догране й ще не бачене — «?»
+  const mid = !isTtt(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
+    : hidden ? h('span', { class: 'duel-card-score' }, h('b', {}, '?'))
+      : h('span', { class: 'duel-card-board', 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : MARK[c])));
   return h('button', {
     type: 'button', class: `duel-card${turn ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
     'aria-label': `Спор «${g.topic}»: ${state}`,
   },
-  h('span', { class: 'duel-card-head' }, '✊ Спор · до двух побед'),
+  h('span', { class: 'duel-card-head' }, isTtt(g) ? '❌⭕ Спор · крестики-нолики' : '✊ Спор · до двух побед'),
   h('span', { class: 'duel-card-topic' }, `${icon(g)} ${g.topic}`),
-  h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты')),
+  mid,
   h('span', { class: 'duel-card-foot' }, h('span', { class: 'duel-card-state' }, state), go ? h('span', { class: 'duel-card-go' }, go) : null));
 }
 // Що малює картка — для підпису рядка стрічки (перемальовується, лише коли змінилось)
-export const duelSig = (g) => JSON.stringify([g.score, g.myMove, g.theirMoved, g.done, sawEnd(g), g.rounds.length]);
+export const duelSig = (g) => JSON.stringify([g.score, g.myMove, g.theirMoved, g.done, sawEnd(g), g.rounds.length, g.n, g.board]);
 
 let open = null;
 
@@ -119,6 +127,7 @@ async function show(g, fresh) {
   const { body } = open;
   open.gameId = fresh || !g ? null : g.id;
   if (fresh || !g) { body.replaceChildren(...setup()); return; }
+  if (isTtt(g)) { showTtt(g); return; }
   const seen = g.done && sawEnd(g) ? g.rounds.length : seenRounds(g);
   const stage = h('div', { class: 'duel-stage' });
   const status = h('p', { class: 'duel-status' });
@@ -227,6 +236,7 @@ function movesRow(onPick, picked = null) {
 function setup() {
   let preset = null;
   let mv = null;
+  let kind = 'rps';
   const own = h('input', { type: 'text', class: 'duel-own', maxlength: '60', placeholder: 'Или свой спор…', 'aria-label': 'Свой спор' });
   const go = h('button', { type: 'button', class: 'btn btn-primary duel-go', disabled: true }, 'Бросить вызов');
   const topic = () => (preset ? PRESETS[preset].label : own.value.replace(/\s+/g, ' ').trim());
@@ -249,7 +259,7 @@ function setup() {
     if (go.disabled) return;
     go.disabled = true;
     try {
-      const r = await send('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv });
+      const r = await send('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv, game: kind === 'ttt' ? 'ttt' : undefined });
       markSeen(r.duel);
       document.dispatchEvent(new CustomEvent('radovalka:marked'));
       toast(r.reaches ? `✊ Вызов улетел — ${who().partner} получит уведомление` : `✊ Вызов улетел — ${who().partner} увидит в чате`);
@@ -262,12 +272,145 @@ function setup() {
   });
   // Блоки по порядку: о чём → твій хід → кинути виклик
   const block = (title, ...kids) => h('section', { class: 'duel-block' }, h('h3', { class: 'duel-block-title' }, title), ...kids);
+  const HINT = {
+    rps: 'До двух побед. Ходы откроются, когда сходите оба.',
+    ttt: `Ты — ❌, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`,
+  };
+  const hint = h('p', { class: 'hint duel-hint' }, HINT.rps);
+  const pick = h('div', { class: 'duel-pick' });
+  // Перший хід: камінь-ножиці — рука, хрестики — клітинка на маленькому полі
+  const paintPick = () => {
+    if (kind === 'rps') { pick.replaceChildren(movesRow((k) => { mv = k; sync(); })); return; }
+    const bd = h('div', { class: 'ttt-board is-pick', role: 'group', 'aria-label': 'Первый ход' });
+    const put = (i) => { mv = String(i); bd.replaceChildren(...cells('.........'.split('').map((c, j) => (j === i ? 'x' : c)).join(''), { mine: 'x', play: true, onPick: put })); pop(bd.children[i]); sync(); };
+    bd.replaceChildren(...cells('.........', { mine: 'x', play: true, onPick: put }));
+    pick.replaceChildren(bd);
+  };
+  const games = h('div', { class: 'duel-games', role: 'radiogroup', 'aria-label': 'Игра' },
+    ...[['rps', 'Камень-ножницы'], ['ttt', 'Крестики-нолики']].map(([k, label]) => h('button', {
+      type: 'button', class: 'duel-game', role: 'radio', 'aria-checked': String(k === kind), 'data-game': k,
+      onclick: () => {
+        if (kind === k) return;
+        kind = k;
+        mv = null;
+        games.querySelectorAll('.duel-game').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.game === kind)));
+        hint.textContent = HINT[kind];
+        paintPick();
+        sync();
+      },
+    }, label)));
+  paintPick();
   return [
     block('О чём спор', chips, own),
-    block('Твой ход · камень, ножницы, бумага', movesRow((k) => { mv = k; sync(); })),
-    h('p', { class: 'hint duel-hint' }, 'До двух побед. Ходы откроются, когда сходите оба.'),
+    block('Как спорим · твой ход', games, pick),
+    hint,
     go,
   ];
+}
+
+// ── «❌⭕ Крестики-нолики»: одна партія 3×3, виклик — ❌ і ходить першим; нічия — нова партія, починає інший
+const MARK = { x: '❌', o: '⭕' };
+const wait = (ms) => new Promise((done) => setTimeout(done, reduceMotion ? Math.min(ms, 300) : ms));
+const pop = (el) => { if (!reduceMotion && el) el.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.6 }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' }); };
+
+function cells(bd, { mine, line = null, play = false, onPick = null } = {}) {
+  return [...bd].map((c, i) => h('button', {
+    type: 'button',
+    class: `ttt-cell${line?.includes(i) ? ' is-line' : ''}${c !== '.' ? ` is-${c === mine ? 'me' : 'them'}` : ''}`,
+    'data-i': String(i),
+    'aria-label': c === '.' ? `Клетка ${i + 1}` : `Клетка ${i + 1}: ${MARK[c]}`,
+    disabled: !play || c !== '.',
+    onclick: onPick ? () => onPick(i) : null,
+  }, c === '.' ? '' : MARK[c]));
+}
+
+async function showTtt(g) {
+  const { body } = open;
+  const seen = g.done && sawEnd(g) ? g.n : seenRounds(g);
+  const mine = g.mark;
+  const theirs = mine === 'x' ? 'o' : 'x';
+  const legend = h('p', { class: 'ttt-legend' },
+    h('span', { class: 'ttt-who' }, `${cap(who().partner)} ${MARK[theirs]}`), h('span', { class: 'ttt-vs' }, 'vs'), h('span', { class: 'ttt-who' }, `Ты ${MARK[mine]}`));
+  const board = h('div', { class: 'ttt-board', role: 'group', 'aria-label': 'Поле' });
+  const status = h('p', { class: 'duel-status' });
+  const history = h('div', { class: 'duel-history', 'aria-label': 'Партии' });
+  const act = h('div', { class: 'duel-act' });
+  const paintHistory = (k) => history.replaceChildren(...g.rounds.slice(0, k).map((r, i) => h('span', { class: 'duel-past', title: `Партия ${i + 1}` },
+    h('small', {}, `Партия ${i + 1}`), 'ничья')));
+  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), h('div', { class: 'duel-arena' }, legend, board, status), history, act);
+
+  const fresh = g.n > seen;
+  open.busy = true;
+  // Нічия, якої ще не бачив: спершу повне поле минулої партії, потім — нова
+  const drew = fresh && g.rounds.length > 0 && seen < 9 * g.rounds.length;
+  if (drew) {
+    const prev = g.rounds.at(-1);
+    board.replaceChildren(...cells(prev.board, { mine }));
+    paintHistory(g.rounds.length - 1);
+    status.textContent = 'Ничья!';
+    await wait(1400);
+    if (!open) return;
+    status.textContent = `Новая партия — ${prev.first === 'me' ? `начинает ${who().partner}` : 'начинаешь ты'}`;
+    await wait(1000);
+    if (!open) return;
+  }
+  open.busy = false;
+  paintHistory(g.rounds.length);
+  const play = !g.done && g.turn === 'me';
+  board.replaceChildren(...cells(g.board, { mine, play, onPick: (i) => tttMove(g, i, board) }));
+  if (fresh && g.lastBy === 'them' && g.lastCell !== null) pop(board.children[g.lastCell]);
+  if (g.done) {
+    if (fresh) await wait(450);
+    if (!open) return;
+    (g.line || []).forEach((i, k) => {
+      const c = board.children[i];
+      c.classList.add('is-line');
+      if (fresh && !reduceMotion) c.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 420, delay: k * 140, easing: 'ease-in-out' });
+    });
+    status.textContent = duelResult(g);
+    status.classList.add('is-final');
+    if (fresh) burst(board, g.done.won ? '🎉' : '💪', 12);
+    act.replaceChildren(h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: () => show(null, true) }, 'Новый спор'));
+  } else {
+    status.textContent = `${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ставь ${MARK[mine]}` : `Ждём ${gen()} ход…`}`;
+    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить спор'));
+  }
+  if (fresh || (g.done && !sawEnd(g))) {
+    markSeen(g);
+    document.dispatchEvent(new CustomEvent('radovalka:marked'));
+  }
+}
+
+async function tttMove(g, i, board) {
+  if (!open || open.busy) return;
+  open.busy = true;
+  board.querySelectorAll('.ttt-cell').forEach((b) => { b.disabled = true; });
+  const cell = board.children[i];
+  cell.textContent = MARK[g.mark];
+  cell.classList.add('is-me');
+  pop(cell);
+  let r;
+  try { r = await send('duel/move', 'POST', { id: g.id, move: String(i) }); } catch (e) {
+    if (!open) return;
+    open.busy = false;
+    // Поле застаріло (другий уже сходив, клітинка зайнята) — просто перечитуємо
+    if (e.status === 409 || e.status === 400) {
+      if (e.code === 'gone') toast('Этот спор уже закончился или отменён');
+      open.state = '';
+      refresh();
+      return;
+    }
+    cell.textContent = '';
+    cell.classList.remove('is-me');
+    board.querySelectorAll('.ttt-cell').forEach((b) => { b.disabled = !!b.textContent; });
+    toast('Ход не ушёл — нет связи');
+    return;
+  }
+  if (!open) return;
+  open.busy = false;
+  document.dispatchEvent(new CustomEvent('radovalka:marked'));
+  open.state = '';
+  show(r.duel, false);
 }
 
 async function move(g, m) {
