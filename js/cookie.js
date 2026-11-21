@@ -145,7 +145,7 @@ export function previewCookie(gold) {
 }
 export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN });
 
-const STAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z"/></svg>';
+export const STAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z"/></svg>';
 const GOLDS = ['#FFE7A0', '#FFD45C', '#F5C543', '#FFF3C4', '#E0A93A'];
 
 // Золота до тапу: промені за печенькою повільно обертаються, довкола мерехтять зірочки

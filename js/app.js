@@ -215,7 +215,7 @@ function fillLetter() {
   if (!l.opened) {
     const env = h('button', {
       type: 'button',
-      class: 'envelope',
+      class: `envelope${festive(l) ? ' is-festive' : ''}`,
       'aria-label': 'Открыть письмо',
       onclick: () => openEnvelope(env),
     },
@@ -228,6 +228,8 @@ function fillLetter() {
       env,
       h('p', { class: 'hint' }, 'Коснись печати, чтобы открыть'),
       courier(l)));
+    // Святковий — мерехтіння довкола (модуль вантажиться лише для нього)
+    if (festive(l)) import('./festive.js').then((m) => m.decorEnvelope(env)).catch(() => {});
     return;
   }
 
@@ -252,12 +254,16 @@ function fillLetter() {
 }
 
 function openEnvelope(env) {
+  // Святковий: хлопавки на печатці, кульки — коли лист розкрився
+  const fest = env.classList.contains('is-festive') ? import('./festive.js').catch(() => null) : null;
   const done = () => {
     patchLetter(sheet, { opened: true });
     fillLetter();
     redrawFeed();
+    fest?.then((m) => m?.balloons());
   };
   if (reduceMotion) return done();
+  fest?.then((m) => m?.popConfetti());
   env.classList.add('is-opening');
   env.disabled = true;
   setTimeout(() => { if (sheet) done(); }, 1050);
@@ -514,7 +520,7 @@ function noteUpdated() {
 
 // Свої файли, які завантажила ця сторінка: скрипти, стилі, шрифти
 // LAZY — модулі, що вантажаться лише за потреби (import()): кладемо в оболонку завжди, щоб версії не розійшлись
-const LAZY = ['./photoedit.js', './files.js'].map((p) => new URL(p, import.meta.url).href);
+const LAZY = ['./photoedit.js', './files.js', './festive.js'].map((p) => new URL(p, import.meta.url).href);
 const ownFiles = () => [...new Set([...performance.getEntriesByType('resource').map((e) => e.name.split('#')[0])
   .filter((u) => u.startsWith(location.origin) && /\.(js|css|woff2)(\?|$)/.test(u)), ...LAZY])];
 

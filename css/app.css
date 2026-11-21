@@ -387,6 +387,40 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .courier-all .mascot { width: 78px; height: 78px; }
 .courier-all .mascot + .mascot { margin-left: -14px; }
 .letter.is-special { outline: 2px dashed var(--star); outline-offset: -10px; }
+/* Святковий конверт: золото, відблиск по кишені, мерехтіння довкола (js/festive.js); улюбленці вистрибують по одному */
+.envelope.is-festive { --env: #F6D98A; --env-shade: #E2B04F; }
+[data-side="vin"] .envelope.is-festive { --env: #C9A24A; --env-shade: #8E6E2A; }
+.envelope.is-festive .env-back { box-shadow: 0 0 34px rgba(255, 212, 92, .55), 0 18px 40px -18px rgba(74, 37, 69, .45); }
+.envelope.is-festive .seal svg { filter: sepia(1) saturate(2.6) hue-rotate(-12deg) brightness(1.08); }
+.envelope.is-festive .env-front::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; transform: translateX(-110%);
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .6) 50%, transparent 65%);
+  animation: ck-shine 3.2s ease-in-out 1s infinite;
+}
+.envelope.is-opening .env-front::after, .envelope.is-opening .fest-tw { animation: none; opacity: 0; }
+.fest-tw { z-index: 6; }
+.stage:has(.envelope.is-festive) .courier-all .mascot { animation: fest-hop .6s cubic-bezier(.3, 1.4, .5, 1) backwards; }
+.stage:has(.envelope.is-festive) .courier-all .mascot:nth-child(2) { animation-delay: .25s; }
+.stage:has(.envelope.is-festive) .courier-all .mascot:nth-child(3) { animation-delay: .5s; }
+.stage:has(.envelope.is-festive) .courier-all .mascot:nth-child(4) { animation-delay: .75s; }
+.stage:has(.envelope.is-festive) .courier-all .mascot img { animation: fest-bob 1.8s ease-in-out 1.2s infinite; }
+.stage:has(.envelope.is-festive) .courier-all .mascot:nth-child(2) img { animation-delay: 1.5s; }
+.stage:has(.envelope.is-festive) .courier-all .mascot:nth-child(3) img { animation-delay: 1.8s; }
+@keyframes fest-hop { from { transform: translateY(36px) scale(.5); opacity: 0; } }
+@keyframes fest-bob {
+  0%, 100% { transform: rotate(var(--tilt, 0deg)); }
+  50% { transform: translateY(-6px) rotate(calc(var(--tilt, 0deg) - 3deg)); }
+}
+.fest-fx { position: fixed; inset: 0; z-index: 60; overflow: hidden; pointer-events: none; }
+.fest-fx > span { position: absolute; left: 0; top: 0; }
+.fest-bit { width: 8px; height: 14px; margin: -7px 0 0 -4px; border-radius: 2px; }
+.fest-bit.is-round { width: 9px; height: 9px; border-radius: 50%; }
+.fest-pop { margin: -24px 0 0 -24px; font-size: 3rem; line-height: 1; }
+.fest-balloon { width: 44px; height: 77px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .15)); }
+.fest-balloon svg { display: block; width: 100%; height: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .stage .courier-all .mascot, .stage .courier-all .mascot img, .envelope.is-festive .env-front::after { animation: none; }
+}
 
 /* Мордочка-наліпка: біла рамка, легкий нахил */
 .mascot img {
