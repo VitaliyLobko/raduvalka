@@ -1207,6 +1207,7 @@ async function feedPage(db, side, url) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
     if (idea) wheel.push({ kind: 'spin', id: `s${spin.at}`, title: idea.title, t: spin.at });
   }
+  const wishes = marks.results.some((r) => r.kind === 'duel' || r.kind === 'gwish') ? await gwishes(db) : new Map();
   const parts = [['in', inbox.results], ['out', sent.results], ['meme', memes.results], ['news', [...news.results, ...aiBatches(aiIdeas.results), ...bellBatches(marks.results), ...gifted.results, ...wheel]]];
   const all = parts.flatMap(([s, rows]) => rows.map((r) => ({ s, r }))).sort((a, b) => b.r.t - a.r.t);
   let page = all;
@@ -1228,7 +1229,8 @@ async function feedPage(db, side, url) {
     news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
       : r.same ? { kind: 'same', id: r.id, same: r.same, at: r.t }
       : r.kind === 'same' ? { kind: 'same', id: r.id, same: sameMarkView(r, side), at: r.t }
-      : r.kind === 'duel' ? { kind: 'duel', id: r.id, duel: duelMarkView({ ...r, at: r.t }, side), at: r.t }
+      : r.kind === 'duel' ? { kind: 'duel', id: r.id, duel: withGwish(duelMarkView({ ...r, at: r.t }, side), wishes, side), at: r.t }
+      : r.kind === 'gwish' ? { kind: 'gwish', id: r.id, game: JSON.parse(r.mood).game, wish: gwishView(wishes.get(JSON.parse(r.mood).game), side), at: r.t }
       : r.titles
       ? { kind: r.kind, id: r.id, titles: [...r.titles].reverse(), at: r.t }
       : r.side
@@ -2477,7 +2479,8 @@ async function addMark(db, side, kind, at, mood = null) {
 const DUEL_MOVES = ['r', 's', 'p'];
 const DUEL_BEATS = { r: 's', s: 'p', p: 'r' };
 // Готові теми: назву знає сервер (і пише її в push); свою тему телефон шифрує — тоді push без неї
-const DUEL_PRESETS = { dog: 'Кто гуляет с собакой', dishes: 'Кто моет посуду', film: 'Кто выбирает фильм', place: 'Кто выбирает, куда пойдём' };
+// «Просто так» — без ставки; «На желание» — переможець загадує, той, хто програв, виконує
+const DUEL_PRESETS = { free: 'Просто так', wish: 'На желание', dog: 'Кто гуляет с собакой', dishes: 'Кто моет посуду', film: 'Кто выбирает фильм', place: 'Кто выбирает, куда пойдём' };
 const DUEL_WINS = 2;
 // Забута гра не тримає вічно: новий спор через добу її замінює
 const DUEL_STALE = 24 * 3600000;
@@ -2624,7 +2627,20 @@ function duelMarkView(row, side) {
 
 async function lastDuel(db, side) {
   const row = await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'duel' ORDER BY at DESC LIMIT 1").first();
-  return row ? duelMarkView(row, side) : null;
+  return row ? withGwish(duelMarkView(row, side), await gwishes(db), side) : null;
+}
+
+// Загадані желання: рядки marks kind gwish (id gwish-<гра>, side — хто загадав, mood { game, text, done })
+async function gwishes(db) {
+  const rows = (await db.prepare("SELECT side, mood FROM marks WHERE kind = 'gwish'").all()).results;
+  return new Map(rows.map((r) => { const v = JSON.parse(r.mood); return [v.game, { ...v, by: r.side }]; }));
+}
+function gwishView(w, side) {
+  return w ? { text: w.text, done: w.done || null, mine: w.by === side } : null;
+}
+// Гра «на желание»: що загадано (чи ще ні) — у вигляді гри
+function withGwish(view, wishes, side) {
+  return view.preset === 'wish' && view.done ? { ...view, wish: gwishView(wishes.get(view.id), side) } : view;
 }
 
 async function duelRoute(req, db, side, rest, notify) {
@@ -2650,7 +2666,7 @@ async function duelRoute(req, db, side, rest, notify) {
     // Ходи попередніх ігор (дограних чи забутих) більше не потрібні
     await db.prepare('DELETE FROM duel_moves WHERE duel != ?').bind(game.id).run();
     await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
-    if (reaches) notify.send(other(side), duelNote(side, ttt ? 'ttt-start' : 'start', topic));
+    if (reaches) notify.send(other(side), duelNote(side, ttt ? 'ttt-start' : 'start', game));
     return json({ duel: gameView(game, gameState(game, await duelMoves(db, game.id)), side), reaches }, 201);
   }
   const game = await activeDuel(db);
@@ -2659,8 +2675,9 @@ async function duelRoute(req, db, side, rest, notify) {
     if (game.game === 'ttt') return tttMove(db, game, side, b.move, now, reaches, notify);
     if (!DUEL_MOVES.includes(b.move)) throw fail(400, 'duel');
     const before = duelState(await duelMoves(db, game.id));
+    const moved = !before.winner && !before.open[side];
     // Уже сходив у цьому раунді — повтор (черга, подвійний тап) нічого не міняє
-    if (!before.winner && !before.open[side]) {
+    if (moved) {
       await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, ?, ?, ?, ?)')
         .bind(game.id, before.rounds.length, side, b.move, now).run();
     }
@@ -2668,11 +2685,37 @@ async function duelRoute(req, db, side, rest, notify) {
     const st = duelState(await duelMoves(db, game.id));
     const view = duelView(game, st, side);
     const closed = st.rounds.length > before.rounds.length;
+    // Push на кожен хід: перший у раунді — «уже вибрав», другий закрив раунд — рахунок
     if (st.winner) {
       await finishDuel(db, game, st, []);
-      if (reaches && closed) notify.send(other(side), duelNote(side, 'done', game.topic));
-    } else if (closed && reaches) notify.send(other(side), duelNote(side, 'turn', game.topic, view.score));
+      if (reaches && closed) notify.send(other(side), duelNote(side, 'done', game));
+    } else if (reaches && (closed || moved)) notify.send(other(side), duelNote(side, closed ? 'turn' : 'moved', game, view.score));
     return json({ duel: view, reaches });
+  }
+  // «🎁 На желание»: переможець загадує (раз), той, хто програв, відмічає «Исполнено»
+  if (m === 'POST' && (rest === '/wish' || rest === '/wish-done')) {
+    const id = String(b.id || '');
+    const row = await db.prepare("SELECT side, mood FROM marks WHERE id = ? AND kind = 'duel'").bind(`duel-${id}`).first();
+    if (!row || JSON.parse(row.mood).preset !== 'wish') throw fail(409, 'gone');
+    const key = `gwish-${id}`;
+    if (rest === '/wish') {
+      if (row.side !== side) throw fail(403, 'forbidden');
+      const text = clip(b.text, 300);
+      if (!text) throw fail(400, 'wish');
+      const res = await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+        .bind(key, side, 'gwish', JSON.stringify({ game: id, text, done: null }), now).run();
+      if (res.meta?.changes && reaches) notify.send(other(side), gwishNote(side, 'made'));
+    } else {
+      const w = await db.prepare('SELECT side, mood FROM marks WHERE id = ?').bind(key).first();
+      if (!w || w.side === side) throw fail(409, 'gone');
+      const v = JSON.parse(w.mood);
+      if (!v.done) {
+        v.done = now;
+        await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), key).run();
+        if (reaches) notify.send(other(side), gwishNote(side, 'done'));
+      }
+    }
+    return json({ wish: gwishView((await gwishes(db)).get(id), side) });
   }
   // Передумали — гра зникає без сліду в чаті
   if (m === 'POST' && rest === '/cancel') {
@@ -2698,7 +2741,7 @@ async function tttMove(db, game, side, cell, now, reaches, notify) {
   if (st.winner) await finishDuel(db, game, st, moves);
   if (reaches && st.n > before.n) {
     const what = st.winner ? 'done' : st.rounds.length > before.rounds.length ? 'ttt-draw' : 'ttt-turn';
-    notify.send(other(side), duelNote(side, what, game.topic));
+    notify.send(other(side), duelNote(side, what, game));
   }
   return json({ duel: tttView(game, st, side), reaches });
 }
@@ -3073,17 +3116,26 @@ function askNote(from, token, origin) {
 // «🫡 Да, капитан!»: на що саме погодились — у тексті; тап — у чат
 // «✊ Спор»: виклик, «твой ход» після розіграного раунду, кінець. Хто переміг — не пишемо: хай побачить розкриття
 const cap1 = (x) => x[0].toUpperCase() + x.slice(1);
-function duelNote(from, what, topic, score) {
+function duelNote(from, what, game, score) {
   const base = { tag: 'duel', go: 'duel' };
-  const t = SEALED.test(topic) ? '' : `«${topic}»`;
-  if (what === 'start') return { ...base, title: '✊ Спор', body: `${sender(from, 'Он вызывает тебя на спор', 'Она вызывает тебя на спор')}${t ? `: ${t}` : ''}. Твой ход!` };
-  if (what === 'done') return { ...base, title: '🏆 Спор решён', body: `${t || 'Спор'} — посмотри, кто победил` };
+  const { topic, preset } = game;
+  const t = preset === 'free' || SEALED.test(topic) ? '' : `«${topic}»`;
+  const stake = preset === 'wish' ? ' на желание' : t ? `: ${t}` : '';
+  if (what === 'start') return { ...base, title: '✊ Камень-ножницы', body: `${sender(from, 'Он зовёт сыграть', 'Она зовёт сыграть')}${stake}. Твой ход!` };
+  if (what === 'done') return { ...base, title: '🏆 Игра окончена', body: `${t || 'Игра'} — посмотри, кто победил` };
   // Хрестики: push на кожен хід
-  if (what === 'ttt-start') return { ...base, title: '❌⭕ Спор', body: `${sender(from, 'Он вызывает тебя в крестики-нолики', 'Она вызывает тебя в крестики-нолики')}${t ? `: ${t}` : ''}. Твой ход!` };
+  if (what === 'ttt-start') return { ...base, title: '❌⭕ Крестики-нолики', body: `${sender(from, 'Он зовёт сыграть', 'Она зовёт сыграть')}${stake}. Твой ход!` };
   if (what === 'ttt-draw') return { ...base, title: '❌⭕ Ничья', body: `${t ? `${t}: ` : ''}${t ? 'н' : 'Н'}овая партия — ты начинаешь!` };
-  if (what === 'ttt-turn') return { ...base, title: '❌⭕ Спор', body: `${t ? `${t}: ` : ''}${t ? 'т' : 'Т'}вой ход!` };
+  if (what === 'moved') return { ...base, title: '✊ Камень-ножницы', body: `${sender(from, 'Он уже выбрал', 'Она уже выбрала')} — твой ход!` };
+  if (what === 'ttt-turn') return { ...base, title: '❌⭕ Крестики-нолики', body: `${t ? `${t}: ` : ''}${t ? 'т' : 'Т'}вой ход!` };
   const s = score.me === score.them ? `пока ${score.me}:${score.them}` : `счёт ${score.them}:${score.me} ${score.them > score.me ? 'в твою пользу' : sender(from, 'в его пользу', 'в её пользу')}`;
-  return { ...base, title: '✊ Спор', body: `${t ? `${t}: ` : ''}${t ? s : cap1(s)}. Твой ход!` };
+  return { ...base, title: '✊ Камень-ножницы', body: `${t ? `${t}: ` : ''}${t ? s : cap1(s)}. Твой ход!` };
+}
+
+// «🎁 Желание»: загадали — тому, хто програв; виконано — переможцю
+function gwishNote(from, what) {
+  if (what === 'made') return { title: '🎁 Желание', body: sender(from, 'Он загадал желание — посмотри', 'Она загадала желание — посмотри'), tag: 'gwish', go: 'letter' };
+  return { title: '🎁 Желание исполнено', body: sender(from, 'Он отметил: исполнено ✓', 'Она отметила: исполнено ✓'), tag: 'gwish', go: 'letter' };
 }
 
 // «💞 Совпадёт?»: виклик і «відповіді відкрились» (скільки збіглося — не пишемо: хай подивиться сама/сам)
