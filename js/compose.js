@@ -19,8 +19,11 @@ const MAX_H = 132;
 
 let ui = null;
 // 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at
+// (святковий свій час — kind 'date')
 let when = 'now';
 let atTime = 0;
+// Свій час можна зробити святковим: kind 'date' — золотий конверт, приносять усі разом
+let festive = false;
 let pet = null;
 let reply = null;
 let picking = false;
@@ -68,9 +71,18 @@ function build() {
     onclick: () => {
       if (when === 'now') { pickTime(); return; }
       when = 'now';
+      festive = false;
       paint();
     },
   });
+  const festBtn = h('button', {
+    type: 'button', class: 'cbar-chip cbar-fest', ...keep,
+    onclick: () => {
+      festive = !festive;
+      if (festive) toast('Праздничное: придёт золотым конвертом, принесут все вместе 🎉');
+      paint();
+    },
+  }, '🎉');
   // Дата й час телефона: типово сьогодні, але можна будь-який день наперед (до року).
   // Час сьогодні, що вже минув, — той самий час завтра
   const clock = h('input', {
@@ -93,17 +105,19 @@ function build() {
       ui.area.focus();
     },
   });
-  const helpBtn = h('button', { type: 'button', class: 'cbar-chip cbar-help', ...keep, onclick: () => big({ help: true }) }, '✨ Помочь');
+  // Слово «Помочь» ховається, коли поруч свій час і 🎉, — щоб рядок умістився на вузькому телефоні
+  const helpBtn = h('button', { type: 'button', class: 'cbar-chip cbar-help', 'aria-label': 'Помочь написать', ...keep, onclick: () => big({ help: true }) },
+    '✨', h('span', { class: 'cbar-help-word' }, ' Помочь'));
   const petRow = h('div', { class: 'cbar-pets', role: 'radiogroup', 'aria-label': 'Кто понесёт', hidden: true },
     ...pets.map((k) => h('button', {
       type: 'button', role: 'radio', class: 'cbar-pet-pick', 'data-v': k, title: petName(k), ...keep,
       html: `<img src="${petSrc(k)}" alt="${petName(k)}" width="40" height="40">`,
       onclick: () => { pet = k; picking = false; paint(); },
     })));
-  const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, helpBtn].filter(Boolean));
+  const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, festBtn, helpBtn].filter(Boolean));
   const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, area), act);
   const el = h('div', { class: 'cbar', role: 'group', 'aria-label': 'Новое письмо' }, quote, petRow, opts, row, clock);
-  ui = { el, area, act, plusBtn, quote, petBtn, whenBtn, petRow, opts, clock };
+  ui = { el, area, act, plusBtn, quote, petBtn, whenBtn, festBtn, petRow, opts, clock };
 
   area.addEventListener('input', () => { if (!reply) draft.set(area.value); grow(); paint(); });
   // Клавіатура на телефоні — нижні вкладки ховаються, місце переписці (лише на дотиковому екрані: на ноутбуці вони не заважають)
@@ -126,8 +140,9 @@ function stepPet(pets, d) {
   img?.animate([{ transform: `translateX(${d * 14}px)`, opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
 }
 
+const isFestive = () => festive && when === 'time' && !reply;
 // Коли прийде: undefined — зараз
-const sendAt = () => (when === 'morning' ? nextMorning().getTime() : when === 'time' ? atTime : undefined);
+const sendAt =() => (when === 'morning' ? nextMorning().getTime() : when === 'time' ? atTime : undefined);
 // Над рядком: сьогоднішнє — лише годиною, інше — «завтра в …» чи «25 декабря в …»
 // Дальній день — коротким місяцем («1 дек»), щоб чип не виштовхнув «Помочь» з рядка
 const SHORT = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' });
@@ -168,7 +183,7 @@ function grow() {
 
 function paint() {
   if (!ui) return;
-  const { el, area, act, plusBtn, quote, petBtn, whenBtn, petRow, opts } = ui;
+  const { el, area, act, plusBtn, quote, petBtn, whenBtn, festBtn, petRow, opts } = ui;
   const text = area.value.trim();
   const typing = document.activeElement === area;
   quote.hidden = !reply;
@@ -191,6 +206,13 @@ function paint() {
   whenBtn.textContent = morning ? '🌅 на утро' : when === 'time' ? `🕐 ${dayWord(atTime)}в ${hhmm(atTime)}` : '🕐 сейчас';
   whenBtn.setAttribute('aria-label', morning ? `На утро, в ${hhmm(nextMorning().getTime())}. Тап — отправить сейчас`
     : when === 'time' ? `Придёт ${dayWord(atTime)}в ${hhmm(atTime)}. Тап — отправить сейчас` : 'Сейчас. Тап — выбрать время');
+  // «🎉» — лише біля свого часу і не у відповіді
+  const fest = isFestive();
+  festBtn.hidden = when !== 'time' || !!reply;
+  opts.classList.toggle('is-tight', !festBtn.hidden);
+  festBtn.classList.toggle('is-on', fest);
+  festBtn.setAttribute('aria-pressed', String(fest));
+  festBtn.setAttribute('aria-label', fest ? 'Праздничное письмо — тап, чтобы обычное' : 'Сделать праздничным');
   plusBtn.innerHTML = plus ? CROSS : PLUS;
   plusBtn.setAttribute('aria-label', plus ? 'Закрыть' : 'Ещё: фото, гифка, спор, конверт');
   plusBtn.setAttribute('aria-expanded', String(!!plus));
@@ -202,7 +224,7 @@ function paint() {
     if (!listening) { act.innerHTML = MIC; act.setAttribute('aria-label', 'Сказать голосом'); }
   } else {
     act.innerHTML = ARROW;
-    act.setAttribute('aria-label', morning ? 'Отправить на утро' : when === 'time' ? `Отправить к ${hhmm(atTime)}` : 'Отправить');
+    act.setAttribute('aria-label', morning ? 'Отправить на утро' : when === 'time' ? `Отправить ${fest ? 'праздничное ' : ''}к ${hhmm(atTime)}` : 'Отправить');
     act.removeAttribute('aria-pressed');
   }
   act.classList.toggle('is-empty', mode === 'send' && !text);
@@ -219,7 +241,7 @@ async function sendText() {
   try {
     const at = sendAt();
     const r = await deliver('letter', 'letters', {
-      kind: at ? 'morning' : 'now',
+      kind: isFestive() ? 'date' : at ? 'morning' : 'now',
       text,
       mascot: p,
       at,
@@ -230,6 +252,7 @@ async function sendText() {
     draft.set('');
     if (reply === r0) reply = null;
     when = 'now';
+    festive = false;
     r0?.sent?.();
     grow();
     paint();

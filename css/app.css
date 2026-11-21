@@ -2962,6 +2962,11 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 /* Вузький екран — лише мордочка: ім'я в підказці, «Помочь» не з'їжджає за край */
 @media (max-width: 400px) { .cbar-pet > span { display: none; } }
 .cbar-when.is-on { border-color: var(--wax); background: color-mix(in srgb, var(--wax) 14%, var(--paper)); color: var(--wax); }
+.cbar-fest[hidden] { display: none; }
+.cbar-opts.is-tight .cbar-help-word { display: none; }
+.cbar-fest { flex: none; padding-inline: 10px; }
+.cbar-fest.is-on { border-color: #E0A93A; background: linear-gradient(160deg, #FFF3C4, #FFE0EC); color: #8A5A00; box-shadow: 0 0 10px rgba(255, 212, 92, .55); }
+[data-side="vin"] .cbar-fest.is-on { background: linear-gradient(160deg, #4A4227, #2A3B47); color: #FFE7A0; }
 .cbar-help { border-style: dashed; border-color: var(--wax); background: transparent; color: var(--wax); font-weight: 500; }
 
 .cbar-pets { display: flex; gap: 8px; }
