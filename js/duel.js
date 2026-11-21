@@ -43,7 +43,7 @@ const TIPS = {
     'Если что, я болею из-под одеяла.'],
 };
 // Як часто порада на мій хід: у «Четыре в ряд» ходів багато — рідше, щоб не набридало
-const TIP_CHANCE = { rps: 0.5, ttt: 0.5, c4: 0.2, bs: 0.5 };
+const TIP_CHANCE = { rps: 0.5, ttt: 0.5, c4: 0.35, bs: 0.5 };
 // Випадковий улюбленець із порадою під полем
 function petTip(kind) {
   const pets = Object.keys(DATA.mascots || {});
@@ -65,9 +65,9 @@ const PRESETS = {
   free: { icon: '🎲', label: 'Просто так', short: 'Просто так' },
   wish: { icon: '🎁', label: 'На желание', short: 'На желание', doer: 'winner', me: 'Желание загадываешь ты', them: (p) => `Желание загадывает ${p}` },
   dog: { icon: '🐶', label: 'Кто гуляет с собакой', short: 'Гулять с собакой', doer: 'loser', me: 'С собакой гуляешь ты', them: (p) => `С собакой гуляет ${p}` },
-  dishes: { icon: '🍽', label: 'Кто моет посуду', short: 'Мыть посуду', doer: 'loser', me: 'Посуду моешь ты', them: (p) => `Посуду моет ${p}` },
+  dishes: { icon: '🧽', label: 'Кто моет посуду', short: 'Мыть посуду', doer: 'loser', me: 'Посуду моешь ты', them: (p) => `Посуду моет ${p}` },
   film: { icon: '🎬', label: 'Кто выбирает фильм', short: 'Выбрать фильм', doer: 'winner', me: 'Фильм выбираешь ты', them: (p) => `Фильм выбирает ${p}` },
-  place: { icon: '🗺', label: 'Кто выбирает, куда пойдём', short: 'Куда пойдём', doer: 'winner', me: 'Куда пойдём — выбираешь ты', them: (p) => `Куда пойдём — выбирает ${p}` },
+  place: { icon: '🧳', label: 'Кто выбирает, куда пойдём', short: 'Куда пойдём', doer: 'winner', me: 'Куда пойдём — выбираешь ты', them: (p) => `Куда пойдём — выбирает ${p}` },
 };
 const POLL = 3000;
 
@@ -602,9 +602,10 @@ async function showBoard(g) {
   const status = h('p', { class: 'duel-status' });
   const history = h('div', { class: 'duel-history', 'aria-label': 'Партии' });
   const act = h('div', { class: 'duel-act' });
+  const tip = h('div', { class: 'bs-tip' });
   const paintHistory = (k) => history.replaceChildren(...g.rounds.slice(0, k).map((r, i) => h('span', { class: 'duel-past', title: `Партия ${i + 1}` },
     h('small', {}, `Партия ${i + 1}`), 'ничья')));
-  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), h('div', { class: 'duel-arena' }, legend, board, status), history, act);
+  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), h('div', { class: 'duel-arena' }, legend, board, status, tip), history, act);
 
   const fresh = g.n > seen;
   open.busy = true;
@@ -644,7 +645,8 @@ async function showBoard(g) {
     act.replaceChildren(...doneActs(g));
   } else {
     status.replaceChildren(`${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ` : `Ждём ${gen()} ход…`}`, play ? sym(mySex()) : '');
-    act.replaceChildren(...[play ? petTip(grid.kind) : null, h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
+    tip.replaceChildren(...[play ? petTip(grid.kind) : null].filter(Boolean));
+    act.replaceChildren(...[h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
   }
   if (fresh || (g.done && !sawEnd(g))) {
     markSeen(g);
@@ -751,7 +753,6 @@ async function showBs(g) {
       h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), score),
       status,
       tip,
-      found,
       h('p', { class: 'bs-label is-big' }, WORLD[them].their), stage),
     act);
 
@@ -766,10 +767,12 @@ async function showBs(g) {
   const notes = [];
   const pips = (n, world) => h('span', { class: `bs-pips is-${world}`, 'aria-hidden': 'true' }, ...[0, 1, 2, 3].map((i) => h('i', { class: i < n ? 'is-on' : '' })));
   const paintScore = () => score.replaceChildren(h('p', { class: 'bs-score-title' }, 'Потоплено'),
-    h('p', { class: 'bs-score-row' }, h('span', {}, 'ты'), pips(count.me, them), h('b', {}, `${count.me} из 4`)),
-    h('p', { class: 'bs-score-row' }, h('span', {}, who().partner), pips(count.them, me), h('b', {}, `${count.them} из 4`)));
+    h('p', { class: 'bs-score-row', 'aria-label': `Ты потопил(а) ${count.me} из 4` }, h('span', {}, 'ты'), pips(count.me, them)),
+    h('p', { class: 'bs-score-row', 'aria-label': `${cap(who().partner)}: ${count.them} из 4` }, h('span', {}, who().partner), pips(count.them, me)),
+    // Знайдені записки — тут же, поруч зі своїм полем: ні гру не зсувають, ні вниз не ховаються
+    found);
   const paintFound = () => found.replaceChildren(...(notes.length
-    ? [h('p', { class: 'bs-found-title' }, `💌 Найденные записки · ${notes.length}`), ...notes.map((t, i) => h('p', { class: `bs-found-note is-${them}`, style: `--tilt:${i % 2 ? 1.2 : -1.2}deg` }, t))] : []));
+    ? [h('p', { class: 'bs-found-title' }, '💌 Записки'), ...notes.map((t) => h('p', { class: `bs-found-note is-${them}` }, t))] : []));
   // Один постріл на поле; anim — з польотом, рухом і паузою (новий), інакше — одразу (уже бачений)
   async function apply(s, anim) {
     const board = s.by === 'me' ? theirs : mine;

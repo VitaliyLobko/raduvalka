@@ -9,10 +9,22 @@ export const FLEET = [3, 2, 2, 1];
 // Готові записки в кораблики — одним тапом; підходять і йому, і їй (без роду: «ты», «с меня», «за мной»)
 export const NOTE_SETS = [
   ['Нежные', ['Обнимаю. Крепко и долго, как ты любишь', 'С тобой даже очередь в поликлинику — свидание',
-    'Мне с тобой спокойно. Это очень много', 'Скучаю по твоему голосу. Позвони просто так']],
-  ['Обещания', ['С меня массаж, без отговорок', 'Завтрак в постель за мной 🥐', 'Фильм выбираешь ты, я не ною', 'Вечер без телефонов. Только мы']],
-  ['Игривые 🍓', ['С тебя поцелуй. С процентами 😘', 'Сегодня вечером ты в моей власти 😏', 'Приходи пораньше. Объяснять не буду 🍓', 'Целую туда, куда скажешь']],
-  ['Смешные', ['Ты красивее всего, когда споришь', 'Попадание засчитано. Любовь тоже', 'Сдаюсь. Но только тебе 🏳️', 'Ты храпишь мило. Почти']],
+    'Мне с тобой спокойно. Это очень много', 'Скучаю по твоему голосу. Позвони просто так',
+    'Ты мой любимый человек. Без вариантов', 'Хочу уснуть сегодня у тебя на плече', 'Лучше тебя никого нет. Проверено',
+    'Думаю о тебе чаще, чем признаюсь', 'Твой смех — мой любимый звук', 'Ты — мой дом. Где бы мы ни были',
+    'Спасибо, что ты есть. Вот просто так', 'Держу тебя за руку. Даже отсюда']],
+  ['Обещания', ['С меня массаж, без отговорок', 'Завтрак в постель за мной 🥐', 'Фильм выбираешь ты, я не ною', 'Вечер без телефонов. Только мы',
+    'Чай с меня. С лимоном, как ты любишь', 'Посуда сегодня на мне 🍽', 'Свидание в эти выходные. Место — сюрприз',
+    'Весь вечер слушаю тебя и не перебиваю', 'Плед, какао и твой сериал. Без споров', 'Гуляем вдвоём, куда глаза глядят',
+    'Танец на кухне. Под любую песню', 'Одно желание. Любое. Ну почти']],
+  ['Игривые 🍓', ['С тебя поцелуй. С процентами 😘', 'Сегодня вечером ты в моей власти 😏', 'Приходи пораньше. Объяснять не буду 🍓', 'Целую туда, куда скажешь',
+    'Кажется, ты попадаешь не только в кораблики 😏', 'Ещё одно попадание — и сдаюсь без боя', 'Жду вечера. И тебя в нём 🍓',
+    'Поцелуй за каждый потопленный кораблик', 'Уже придумываю, как отыграюсь 😘', 'Свет сегодня выключим пораньше 🌙',
+    'Мурашки от одной мысли о тебе', 'Найди меня вечером. Награда прилагается']],
+  ['Смешные', ['Ты красивее всего, когда споришь', 'Попадание засчитано. Любовь тоже', 'Сдаюсь. Но только тебе 🏳️', 'Ты храпишь мило. Почти',
+    'Кораблик утонул, а сердце на плаву', 'Опять попадание с первого раза. Как тогда в меня', 'Последний пельмень — твой. Это любовь 🥟',
+    'Отдам тебе одеяло. Половину. Может быть', 'Люблю тебя даже до завтрака', 'Пульт от телевизора — твой. Это серьёзно',
+    'Тут могла быть реклама. Но тут любовь', 'Мой флот тонет, а я улыбаюсь. Подозрительно']],
 ];
 // Чим стріляє сторона: вона — сердечками, він — золотими зірками
 export const SHOT = { vona: '💗', vin: '⭐' };
@@ -160,7 +172,7 @@ function moonPath() {
     const spread = (rnd(i, 2) + rnd(i, 3) + rnd(i, 4) - 1.5) * (10 + t * 22);
     const near = 1 - Math.min(1, Math.abs(spread) / 22);
     const g = h('i');
-    g.style.cssText = `top:${8 + t * 90}%;left:${50 + spread}%;width:${(3 + rnd(i, 5) * 7 + t * 5).toFixed(1)}%;`
+    g.style.cssText = `top:${1 + t * 96}%;left:${50 + spread}%;width:${(3 + rnd(i, 5) * 7 + t * 5).toFixed(1)}%;`
       + `--o:${(0.35 + near * 0.6 - t * 0.2).toFixed(2)};--d:${(1.2 + rnd(i, 6) * 2.2).toFixed(2)}s;animation-delay:${(-rnd(i, 7) * 3).toFixed(2)}s`;
     el.append(g);
   }
@@ -499,7 +511,7 @@ export function placer(world) {
   // Записки: поле на кожен корабель; готові варіанти — у поле, де курсор (чи в перше порожнє)
   let focus = null;
   const inputs = FLEET.map((len, k) => {
-    const inp = h('input', { type: 'text', class: 'duel-own bs-note-input', maxlength: '120', placeholder: 'Записка (необязательно)', 'aria-label': `Записка в кораблик на ${len}` });
+    const inp = h('input', { type: 'text', class: 'duel-own bs-note-input', maxlength: '120', placeholder: 'Записка — если хочешь', 'aria-label': `Записка в кораблик на ${len}` });
     inp.addEventListener('focus', () => { focus = k; });
     inp.addEventListener('input', () => { notes[k] = inp.value; });
     return inp;
@@ -516,13 +528,23 @@ export function placer(world) {
   // Готові записки — за темами: вкладки й варіанти обраної
   const ideas = h('div', { class: 'bs-ideas', role: 'group', 'aria-label': 'Готовые записки' });
   const tabs = h('div', { class: 'bs-idea-tabs', role: 'group', 'aria-label': 'Темы записок' });
+  let theme = 0;
   const pick = (i) => {
+    theme = i;
     tabs.querySelectorAll('.bs-idea-tab').forEach((t, j) => t.setAttribute('aria-pressed', String(j === i)));
-    ideas.replaceChildren(...NOTE_SETS[i][1].map((t) => h('button', { type: 'button', class: 'bs-idea', onclick: () => put(t) }, t)));
+    ideas.replaceChildren(...[...NOTE_SETS[i][1]].sort(() => Math.random() - 0.5).slice(0, 6).map((t) => h('button', { type: 'button', class: 'bs-idea', onclick: () => put(t) }, t)));
   };
   tabs.append(...NOTE_SETS.map(([name], i) => h('button', { type: 'button', class: 'bs-idea-tab', 'aria-pressed': 'false', onclick: () => pick(i) }, name)));
   pick(0);
-  const rows = FLEET.map((len, k) => h('label', { class: 'bs-note-row' }, h('span', { class: `bs-note-ship is-${world}`, 'aria-hidden': 'true', style: `--len:${len}`, html: shipSvg(world, shipCells(0, len, false)) }), inputs[k]));
+  const rows = FLEET.map((len, k) => h('label', { class: 'bs-note-row' }, h('span', { class: `bs-note-ship is-${world}`, 'aria-hidden': 'true', style: `--len:${len}`, html: shipSvg(world, shipCells(0, len, false)) }), inputs[k],
+    // Кубик — випадкова записка з обраної теми, якої ще немає в інших корабликах
+    h('button', { type: 'button', class: 'bs-note-dice', 'aria-label': 'Случайная записка из темы', onclick: (e) => {
+      e.preventDefault();
+      const free = NOTE_SETS[theme][1].filter((t) => !notes.includes(t));
+      if (!free.length) return;
+      focus = k;
+      put(free[Math.floor(Math.random() * free.length)]);
+    } }, '🎲')));
   return {
     board,
     tools: h('div', { class: 'bs-tools' }, dice, h('span', { class: 'bs-turn-hint' }, '↻ Тап — повернуть, потяни — переставить')),
