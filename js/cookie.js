@@ -137,11 +137,11 @@ export function maybeCookie({ force = false, gold: forceGold = null } = {}) {
   show(day, forceGold ?? isGolden(day));
 }
 
-// Перегляд для нього в меню: печенька з випадковим текстом — справжню печеньку дня не чіпає
+// Перегляд для нього в меню: печенька з випадковим текстом — справжню печеньку дня не чіпає і нікуди не шле
 export function previewCookie(gold) {
   const list = gold ? GOLDEN : FORTUNES;
   document.querySelector('.cookie-layer')?.remove();
-  show(kyivDay(), gold, list[Math.floor(Math.random() * list.length)]);
+  show(kyivDay(), gold, list[Math.floor(Math.random() * list.length)], true);
 }
 export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN });
 
@@ -199,11 +199,12 @@ function goldBurst(layer, cookie) {
   setTimeout(() => fx.remove(), 1900);
 }
 
-function show(day, gold, preset = null) {
+function show(day, gold, preset = null, preview = false) {
   const me = who();
   const text = preset || fortuneFor(day, DATA.side, gold);
   const close = () => { layer.classList.add('is-leaving'); setTimeout(() => layer.remove(), reduceMotion ? 0 : 300); };
-  const shareBtn = h('button', {
+  // Пробна — без «Отправить»: випадковий текст не має піти до неї листом
+  const shareBtn = preview ? null : h('button', {
     type: 'button', class: 'btn btn-primary',
     onclick: async () => {
       shareBtn.disabled = true;
@@ -220,9 +221,10 @@ function show(day, gold, preset = null) {
   }, me.partner === 'она' ? 'Отправить ей' : 'Отправить ему');
   const paper = h('div', { class: 'ck-paper' }, h('p', {}, text));
   const cookie = h('button', { type: 'button', class: 'ck-cookie', 'aria-label': 'Разломить печеньку', html: cookieHtml() });
-  const acts = h('div', { class: 'actions ck-acts' }, h('button', { type: 'button', class: 'btn', onclick: close }, 'Закрыть'), shareBtn);
+  const closeBtn = h('button', { type: 'button', class: 'btn', onclick: close }, 'Закрыть');
+  const acts = h('div', { class: 'actions ck-acts' }, closeBtn, shareBtn);
   const title = h('p', { class: 'ck-title' }, gold ? 'Золотая печенька ✨' : 'Тебе печенька 🥠');
-  const hint = h('p', { class: 'ck-hint' }, 'Коснись, чтобы разломить');
+  const hint = h('p', { class: 'ck-hint' }, preview ? 'Пробная — коснись, чтобы разломить' : 'Коснись, чтобы разломить');
   const layer = h('div', {
     class: `cookie-layer${gold ? ' is-gold' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': gold ? 'Золотая печенька' : 'Печенька с предсказанием',
     onclick: (e) => { if (e.target === layer && layer.classList.contains('is-open')) close(); },
@@ -236,7 +238,7 @@ function show(day, gold, preset = null) {
       goldBurst(layer, cookie);
       setTimeout(() => burst(cookie, '✨', 14), 150);
     }
-    setTimeout(() => shareBtn.focus(), 700);
+    setTimeout(() => (shareBtn || closeBtn).focus(), 700);
   });
   document.body.append(layer);
   cookie.focus();

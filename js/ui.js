@@ -179,3 +179,13 @@ export function sky(count, seed = 1, cls = '') {
   }
   return box;
 }
+
+// «О Радовалке» групами: підпис групи, під ним картка; рядок — значок, назва (і пояснення дрібно), стрілка
+export const aboutGroup = (title, ...kids) => h('section', { class: 'about-group', 'aria-label': title },
+  h('h3', { class: 'about-group-title' }, title), h('div', { class: 'about-card' }, ...kids.filter(Boolean)));
+export const aboutRowBody = (icon, label, note) => [
+  h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, icon),
+  h('span', { class: 'about-row-label' }, label, note ? h('small', {}, note) : null),
+  h('span', { class: 'about-row-go', 'aria-hidden': 'true' }, '›'),
+];
+export const aboutRow = (icon, label, note, onclick) => h('button', { type: 'button', class: 'about-row', onclick }, ...aboutRowBody(icon, label, note));

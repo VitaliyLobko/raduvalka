@@ -9,10 +9,10 @@ import { openWrite, prewarmWrite } from './write.js';
 import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
-import { h, toast, cap, reduceMotion, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
+import { h, toast, cap, reduceMotion, aboutGroup, aboutRow, aboutRowBody, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
 import { renderEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel, chipFestive } from './together.js';
-import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck, CATS } from './plans.js';
+import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck } from './plans.js';
 import { composeMeme } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
@@ -29,7 +29,7 @@ import { applyTextSize, textSizePanel } from './textsize.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck, sosSlider } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
-import { maybeCookie, previewCookie, allFortunes } from './cookie.js';
+import { maybeCookie } from './cookie.js';
 import { burst } from './fx.js';
 import { markFestive, writeDecor } from './depth.js';
 import { ask } from './ask.js';
@@ -523,7 +523,7 @@ function noteUpdated() {
 
 // Свої файли, які завантажила ця сторінка: скрипти, стилі, шрифти
 // LAZY — модулі, що вантажаться лише за потреби (import()): кладемо в оболонку завжди, щоб версії не розійшлись
-const LAZY = ['./photoedit.js', './files.js', './festive.js'].map((p) => new URL(p, import.meta.url).href);
+const LAZY = ['./photoedit.js', './files.js', './festive.js', './debug.js'].map((p) => new URL(p, import.meta.url).href);
 const ownFiles = () => [...new Set([...performance.getEntriesByType('resource').map((e) => e.name.split('#')[0])
   .filter((u) => u.startsWith(location.origin) && /\.(js|css|woff2)(\?|$)/.test(u)), ...LAZY])];
 
@@ -628,53 +628,6 @@ document.addEventListener('visibilitychange', () => {
 
 const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
 
-// «О Радовалке» групами: підпис групи, під ним картка; рядок — значок, назва (і пояснення дрібно), стрілка
-const aboutGroup = (title, ...kids) => h('section', { class: 'about-group', 'aria-label': title },
-  h('h3', { class: 'about-group-title' }, title), h('div', { class: 'about-card' }, ...kids.filter(Boolean)));
-const aboutRowBody = (icon, label, note) => [
-  h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, icon),
-  h('span', { class: 'about-row-label' }, label, note ? h('small', {}, note) : null),
-  h('span', { class: 'about-row-go', 'aria-hidden': 'true' }, '›'),
-];
-const aboutRow = (icon, label, note, onclick) => h('button', { type: 'button', class: 'about-row', onclick }, ...aboutRowBody(icon, label, note));
-
-// Усі тексти печеньок — шторкою: звичайні й золоті
-function openFortunes() {
-  const { regular, golden } = allFortunes();
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const close = () => { document.removeEventListener('keydown', onKey); sheet.remove(); backdrop.remove(); };
-  const list = (items) => h('ol', { class: 'fortune-list' }, ...items.map((t) => h('li', {}, t)));
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Все предсказания' },
-    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
-    h('div', { class: 'sheet-inner' },
-      h('h2', { class: 'title' }, 'Предсказания'),
-      h('h3', { class: 'about-group-title' }, `✨ Золотые · ${golden.length}`), list(golden),
-      h('h3', { class: 'about-group-title' }, `🥠 Обычные · ${regular.length}`), list(regular)));
-  document.body.append(backdrop, sheet);
-  document.addEventListener('keydown', onKey);
-}
-
-// Увесь запас ідей «Планов» — з сервера, за темами (лише для нього)
-async function openPool() {
-  let pool;
-  try { pool = await get('plan-pool'); } catch { toast('Не загрузилось — нет связи'); return; }
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const close = () => { document.removeEventListener('keydown', onKey); sheet.remove(); backdrop.remove(); };
-  const total = Object.values(pool).reduce((n, l) => n + l.length, 0);
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Идеи для планов' },
-    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
-    h('div', { class: 'sheet-inner' },
-      h('h2', { class: 'title' }, `Идеи · ${total}`),
-      ...CATS.filter(([k]) => pool[k]?.length).flatMap(([k, emoji, label]) => [
-        h('h3', { class: 'about-group-title' }, `${emoji} ${label} · ${pool[k].length}`),
-        h('ol', { class: 'fortune-list' }, ...pool[k].map(([t, n]) => h('li', {}, h('b', {}, t), n ? h('br') : null, n ? h('small', {}, n) : null))),
-      ])));
-  document.body.append(backdrop, sheet);
-  document.addEventListener('keydown', onKey);
-}
-
 // Перемикач «Движение фона»: нахил, пелюстки, падаюча зірка
 function stillSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
@@ -737,12 +690,12 @@ function openAbout(showNews) {
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('На всякий случай',
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
-      // Лише на його половині: подивитися печеньки й усі передбачення
-      DATA.side === 'vin' ? aboutGroup('Отладка (только у тебя)',
-        aboutRow('🥠', 'Показать печеньку', 'Случайное предсказание — настоящую не тратит', () => { close(); setTimeout(() => previewCookie(false), 300); }),
-        aboutRow('✨', 'Показать золотую', null, () => { close(); setTimeout(() => previewCookie(true), 300); }),
-        aboutRow('📜', 'Все предсказания', null, () => { close(); openFortunes(); }),
-        aboutRow('💡', 'Все идеи для планов', 'Запас для «Подкинуть идеи»', () => { close(); openPool(); })) : null,
+      // Лише на його половині: печеньки, ідеї, питання — окремою шторкою (модуль вантажиться за потреби)
+      DATA.side === 'vin' ? aboutGroup('Только у тебя',
+        aboutRow('🛠', 'Отладка', 'Печеньки, идеи для планов, вопросы «Совпадёт?»', async () => {
+          close();
+          try { (await import('./debug.js')).openDebug(); } catch { toast('Не открылось — обнови Радовалку'); }
+        })) : null,
       aboutGroup('Ещё',
         // Тур живе на «Письмах» — туди й повертаємось
         aboutRow('🐾', 'Показать подсказки заново', 'Питомцы покажут, где что', () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),

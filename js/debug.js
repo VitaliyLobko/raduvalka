@@ -1,0 +1,71 @@
+// «🛠 Отладка» — лише на його половині: печеньки, запас ідей, питання «Совпадёт?». Нічого звідси не йде до неї
+import { DATA } from './data.js';
+import { get } from './api.js';
+import { h, toast, aboutGroup, aboutRow } from './ui.js';
+import { previewCookie, allFortunes } from './cookie.js';
+import { CATS } from './plans.js';
+import { SAME_TOPICS } from './same.js';
+
+// Одна шторка за раз; підшторка замість «Отладки», після ✕ чи Escape — назад до неї (back)
+function sheet(label, cls, back, ...kids) {
+  const onKey = (e) => { if (e.key === 'Escape') close(true); };
+  const close = (goBack) => {
+    document.removeEventListener('keydown', onKey);
+    box.remove();
+    backdrop.remove();
+    if (goBack && back) back();
+  };
+  const backdrop = h('div', { class: 'backdrop', onclick: () => close(true) });
+  const box = h('div', { class: `sheet sheet-together sheet-about ${cls}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': label },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': back ? 'Назад к отладке' : 'Закрыть', onclick: () => close(true) }, '✕'),
+    h('div', { class: 'sheet-inner' }, ...kids));
+  document.body.append(backdrop, box);
+  document.addEventListener('keydown', onKey);
+  return close;
+}
+
+const section = (title, items) => [h('h3', { class: 'about-group-title' }, title), h('ol', { class: 'fortune-list' }, ...items)];
+
+function openFortunes() {
+  const { regular, golden } = allFortunes();
+  sheet('Все предсказания', 'debug-sub', openDebug,
+    h('h2', { class: 'title' }, 'Предсказания'),
+    ...section(`✨ Золотые · ${golden.length}`, golden.map((t) => h('li', {}, t))),
+    ...section(`🥠 Обычные · ${regular.length}`, regular.map((t) => h('li', {}, t))));
+}
+
+// Запас ідей «Планов» — із сервера (їй сервер його не віддає)
+async function openPool() {
+  let pool;
+  try { pool = await get('plan-pool'); } catch { toast('Не загрузилось — нет связи'); return; }
+  const total = Object.values(pool).reduce((n, l) => n + l.length, 0);
+  sheet('Идеи для планов', 'debug-sub', openDebug,
+    h('h2', { class: 'title' }, `Идеи · ${total}`),
+    ...CATS.filter(([k]) => pool[k]?.length).flatMap(([k, emoji, label]) => section(`${emoji} ${label} · ${pool[k].length}`,
+      pool[k].map(([t, n]) => h('li', {}, h('b', {}, t), n ? h('br') : null, n ? h('small', {}, n) : null)))));
+}
+
+function openSameQs() {
+  const total = SAME_TOPICS.reduce((n, [, , qs]) => n + Object.keys(qs).length, 0);
+  sheet('Вопросы «Совпадёт?»', 'debug-sub', openDebug,
+    h('h2', { class: 'title' }, `Совпадёт? · ${total}`),
+    h('p', { class: 'hint' }, 'В каждой игре — по вопросу из каждой темы'),
+    ...SAME_TOPICS.flatMap(([emoji, title, qs]) => section(`${emoji} ${title} · ${Object.keys(qs).length}`,
+      Object.values(qs).map(([q, a, b]) => h('li', {}, q, h('br'), h('small', {}, `${a} · ${b}`))))));
+}
+
+export function openDebug() {
+  if (DATA.side !== 'vin') return;
+  const cookie = (gold) => () => { close(); setTimeout(() => previewCookie(gold), 300); };
+  const sub = (open) => () => { close(); open(); };
+  const count = SAME_TOPICS.reduce((n, [, , qs]) => n + Object.keys(qs).length, 0);
+  const close = sheet('Отладка', 'debug-sheet', null,
+    h('h2', { class: 'title' }, 'Отладка'),
+    h('p', { class: 'hint' }, 'Видно только тебе. Отсюда ничего не уходит'),
+    aboutGroup('Печеньки',
+      aboutRow('🥠', 'Показать печеньку', 'Пробная: настоящую не тратит, отправить нельзя', cookie(false)),
+      aboutRow('✨', 'Показать золотую', null, cookie(true)),
+      aboutRow('📜', 'Все предсказания', null, sub(openFortunes))),
+    aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),
+    aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs))));
+}
