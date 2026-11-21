@@ -625,31 +625,83 @@ REACT_FX['😴'] = (el, x, y) => {
   }
 };
 
-// «Обіймаю» 🤗: з двох боків до листа тягнуться долоні й стискають його, з обіймів вистрибують сердечка
-REACT_FX['🤗'] = (el, x, y, r) => {
-  big('🤗', x, y, [
-    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.18 },
-    { transform: 'scale(1.05)', offset: 0.3 }, { transform: 'scale(1.2, 1.1)', offset: 0.38 },
-    { transform: 'scale(1.1)', offset: 0.48 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
-  ], 2500);
-  const hy = clamp(r.top + r.height / 2, 80, innerHeight - 120);
-  const lx = Math.max(26, r.left + 14);
-  const rx = Math.min(innerWidth - 26, r.right - 14);
-  for (const [g, hx, from] of [['🫱', lx, -1], ['🫲', rx, 1]]) {
-    const hnd = glyphAt(g, hx, hy, '3.6rem', 'fx-big');
-    gone(hnd)(hnd.animate([
-      { transform: `translate(calc(-50% + ${from * 120}px), -50%) rotate(${from * 30}deg)`, opacity: 0 },
-      { transform: `${C} rotate(0)`, opacity: 1, offset: 0.25 },
-      { transform: `translate(calc(-50% + ${-from * 12}px), -50%) scale(1.1)`, offset: 0.36 },
-      { transform: `${C} scale(1)`, offset: 0.46 },
-      { transform: `translate(calc(-50% + ${-from * 10}px), -50%) scale(1.08)`, offset: 0.56 },
-      { transform: `${C} scale(1)`, opacity: 1, offset: 0.84 },
-      { transform: `translate(calc(-50% + ${from * 60}px), -50%)`, opacity: 0 },
-    ], { duration: 2400, delay: 100, easing: 'ease-out', fill: 'backwards' }));
+// «Обіймаю» 🤗: смайлик визирає з-за верхнього краю листа, жовті руки обвивають його з двох боків і
+// зчіплюються долонями внизу; лист разом з руками двічі стискається й погойдується, з обіймів — сердечка
+const SVGNS = 'http://www.w3.org/2000/svg';
+// Найближчий предок, що прокручується (стрічка «Письма»)
+function scroller(el) {
+  for (let p = el?.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight) return p;
   }
-  jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, 1.02)', offset: 0.3 }, { transform: 'none', offset: 0.5 },
-    { transform: 'scale(.96, 1.015)', offset: 0.7 }, { transform: 'none' }], 1000, 600);
-  rise(x, hy - 20, ['💕', '💗', '🧡', '💖'], 9, { delay: 950, up: 230, spread: 220 });
+  return null;
+}
+REACT_FX['🤗'] = (el, x, y, r) => {
+  // Довгий лист чи частково під шапкою — обіймаємо видиму в стрічці частину, руки не лізуть на шапку й рядок
+  const pad = 9;
+  const box = scroller(el)?.getBoundingClientRect();
+  const top = Math.max(64, box?.top ?? 0);
+  const bottom = Math.min(innerHeight - 84, box?.bottom ?? innerHeight);
+  const t = clamp(r.top, top + pad, bottom - 70) - pad;
+  const bt = clamp(r.bottom, t + 56, bottom - pad) + pad;
+  const l = Math.max(7, r.left - pad);
+  const rt = Math.min(innerWidth - 7, r.right + pad);
+  const cx = (l + rt) / 2;
+  const R = Math.min(26, (rt - l) / 4, (bt - t) / 3);
+  const arm = (side) => {
+    const e = side < 0 ? l : rt;
+    const sw = side < 0 ? 0 : 1;
+    return `M${cx} ${t} H${e - side * R} A${R} ${R} 0 0 ${sw} ${e} ${t + R} V${bt - R} A${R} ${R} 0 0 ${sw} ${e - side * R} ${bt} H${cx}`;
+  };
+  const svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('class', 'fx-burst fx-hug');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('width', String(innerWidth));
+  svg.setAttribute('height', String(innerHeight));
+  svg.style.transformOrigin = `${cx}px ${(t + bt) / 2}px`;
+  const paths = [];
+  for (const side of [-1, 1]) {
+    for (const [color, w] of [['#E8A317', 15], ['#FFCB3D', 10]]) {
+      const p = document.createElementNS(SVGNS, 'path');
+      p.setAttribute('d', arm(side));
+      p.setAttribute('pathLength', '1');
+      p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', color);
+      p.setAttribute('stroke-width', String(w));
+      p.setAttribute('stroke-linecap', 'round');
+      p.setAttribute('stroke-linejoin', 'round');
+      p.style.strokeDasharray = '1 1';
+      p.style.strokeDashoffset = '1';
+      svg.append(p);
+      paths.push(p);
+    }
+  }
+  // Руки ростуть від смайлика вниз, обома боками разом
+  gone(svg)(svg.animate([
+    { opacity: 0 }, { opacity: 1, offset: 0.06 }, { opacity: 1, transform: 'none', offset: 0.42 },
+    { transform: 'scale(.95, .975)', offset: 0.5 }, { transform: 'rotate(-1.2deg)', offset: 0.6 },
+    { transform: 'scale(.955, .98) rotate(1deg)', offset: 0.7 }, { transform: 'none', opacity: 1, offset: 0.84 }, { opacity: 0 },
+  ], { duration: 2500, delay: 150, easing: 'ease-in-out', fill: 'backwards' }));
+  paths.forEach((p) => p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
+    { duration: 650, delay: 300, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' }));
+  // Обличчя — над верхнім краєм, по центру листа
+  big('🤗', cx, t + 2, [
+    { transform: 'translateY(18px) scale(.3)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.14 },
+    { transform: 'scale(1)', offset: 0.26 }, { transform: 'scale(1.14, 1.06)', offset: 0.42 }, { transform: 'scale(1) rotate(-6deg)', offset: 0.6 },
+    { transform: 'scale(1.06) rotate(5deg)', offset: 0.7 }, { transform: 'scale(1)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 },
+  ], 2650, '3.6rem');
+  // Долоні зустрічаються внизу, де зійшлись руки
+  for (const [g, from] of [['🫱', -1], ['🫲', 1]]) {
+    const hnd = glyphAt(g, cx + from * 13, bt, '2.3rem', 'fx-big');
+    gone(hnd)(hnd.animate([
+      { transform: `translate(calc(-50% + ${from * 26}px), -50%) scale(.4)`, opacity: 0 },
+      { transform: `${C} scale(1.1)`, opacity: 1, offset: 0.2 },
+      { transform: `translate(calc(-50% + ${-from * 4}px), -50%) scale(1)`, offset: 0.35 },
+      { transform: `${C}`, opacity: 1, offset: 0.78 }, { transform: `${C} scale(.7)`, opacity: 0 },
+    ], { duration: 1750, delay: 880, easing: 'ease-out', fill: 'backwards' }));
+  }
+  jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, .975)', offset: 0.25 }, { transform: 'rotate(-1.2deg)', offset: 0.5 },
+    { transform: 'scale(.955, .98) rotate(1deg)', offset: 0.75 }, { transform: 'none' }], 1050, 1200);
+  rise(cx, t, ['💕', '💗', '🧡', '💖'], 9, { delay: 1300, up: 210, spread: Math.min(240, rt - l) });
 };
 
 // «Сумно» 😢: над обличчям згущується хмарка й крапає дощиком, обличчя никне, котиться сльоза,

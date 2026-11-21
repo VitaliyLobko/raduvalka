@@ -125,11 +125,16 @@ const sendAt = () => (when === 'morning' ? nextMorning().getTime() : when === 't
 const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? '' : 'завтра ');
 
 // «Ко времени»: годинник телефона одразу (той самий тап — інакше браузер його не відкриє)
+// Годинник відкривається на час, що ще сьогодні: удень — наступна ціла година, увечері й уночі — 8:00 ранку
+function firstTime() {
+  const h = new Date().getHours();
+  return h >= 20 || h < 7 ? '08:00' : `${String(h + 1).padStart(2, '0')}:00`;
+}
 function pickTime() {
   closePlus();
   const { clock } = ui;
   const d = when === 'time' ? new Date(atTime) : null;
-  clock.value = d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '08:00';
+  clock.value = d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : firstTime();
   try { clock.showPicker(); } catch { clock.focus(); clock.click(); }
 }
 
