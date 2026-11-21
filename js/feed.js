@@ -11,7 +11,7 @@ import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reac
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
-import { duelCard, duelSig, openDuel } from './duel.js';
+import { duelCard, duelSig, openDuel, gwishCard } from './duel.js';
 import { sameCard, sameSig, openSame } from './same.js';
 import { loveConstellation } from './depth.js';
 
@@ -423,6 +423,8 @@ function newsRow(n) {
   if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel()));
   // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
   if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame()));
+  // «🎁 Желание» з гри «на желание»: висить, поки не відмітять «Исполнено ✓»
+  if (n.kind === 'gwish') return h('li', { class: 'feed-news feed-duel', hidden: !n.wish }, n.wish ? gwishCard(n) : null);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
   if (n.kind === 'gifted') {
     const text = n.mine ? `🎁 Подарено: «${n.title}»` : `✨ ${cap(who().partner)} ${she ? 'подарила' : 'подарил'}: «${n.title}»`;

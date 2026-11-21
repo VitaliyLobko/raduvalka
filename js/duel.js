@@ -1,4 +1,4 @@
-// «✊ Спор»: камінь, ножиці, папір до двох перемог або хрестики-нолики (одна партія). Виклик — з «Написать…».
+// Ігри на двох з «🎲 Игры»: камінь-ножиці до двох перемог і хрестики-нолики (одна партія); ставка — «На что играем».
 // Камінь-ножиці: хід другого відкривається, коли сходили обидва; хрестики — по черзі, кожен хід видно
 import { DATA, who } from './data.js';
 import { get, send } from './api.js';
@@ -8,8 +8,11 @@ import { burst } from './fx.js';
 const MOVES = [['r', '✊', 'Камень'], ['s', '✌️', 'Ножницы'], ['p', '✋', 'Бумага']];
 const GLYPH = Object.fromEntries(MOVES.map(([k, g]) => [k, g]));
 const BEAT = { r: 'Камень тупит ножницы', s: 'Ножницы режут бумагу', p: 'Бумага накрывает камень' };
-// doer — хто робить: справу (собака, посуд) — той, хто програв; вибір (фільм, куди піти) — переможець
+// doer — хто робить: справу (собака, посуд) — той, хто програв; вибір (фільм, куди піти, желание) — переможець.
+// «Просто так» — без ставки
 const PRESETS = {
+  free: { icon: '🎲', label: 'Просто так', short: 'Просто так' },
+  wish: { icon: '🎁', label: 'На желание', short: 'На желание', doer: 'winner', me: 'Желание загадываешь ты', them: (p) => `Желание загадывает ${p}` },
   dog: { icon: '🐶', label: 'Кто гуляет с собакой', short: 'Гулять с собакой', doer: 'loser', me: 'С собакой гуляешь ты', them: (p) => `С собакой гуляет ${p}` },
   dishes: { icon: '🍽', label: 'Кто моет посуду', short: 'Мыть посуду', doer: 'loser', me: 'Посуду моешь ты', them: (p) => `Посуду моет ${p}` },
   film: { icon: '🎬', label: 'Кто выбирает фильм', short: 'Выбрать фильм', doer: 'winner', me: 'Фильм выбираешь ты', them: (p) => `Фильм выбирает ${p}` },
@@ -17,9 +20,13 @@ const PRESETS = {
 };
 const POLL = 3000;
 
+const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '❌⭕', name: 'Крестики-нолики' } };
+
 const gen = () => (who().partner === 'она' ? 'её' : 'его');
 const icon = (g) => PRESETS[g.preset]?.icon || (g.game === 'ttt' ? '❌' : '✊');
 const isTtt = (g) => g?.game === 'ttt';
+const kindOf = (g) => (isTtt(g) ? 'ttt' : 'rps');
+const gameName = (kind) => `${GAMES[kind].icon} ${GAMES[kind].name}`;
 // Поступ гри, який я бачив: камінь-ножиці — розіграні раунди, хрестики — зроблені ходи
 const progress = (g) => (isTtt(g) ? g.n : g.rounds.length);
 const scoreOf = (g) => `${Math.max(g.score.me, g.score.them)}:${Math.min(g.score.me, g.score.them)}`;
@@ -46,43 +53,129 @@ function markSeen(g) {
   document.dispatchEvent(new CustomEvent('radovalka:duel-seen'));
 }
 
-// Підсумок словами: для готової теми — хто робить, для своєї — за ким перемога
+// Підсумок словами: для готової ставки — хто робить, «Просто так» і своя — за ким перемога
 export function duelResult(g) {
   const p = PRESETS[g.preset];
   const won = g.done.won;
   // У хрестиках рахунок завжди 1:0 — не пишемо
+  const score = isTtt(g) ? '' : `, ${scoreOf(g)}`;
+  const victory = `победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}`;
+  if (g.preset === 'free') return `🏆 ${cap(victory)}${score}`;
   if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)}${isTtt(g) ? '' : ` (${scoreOf(g)})`}`;
-  return `🏆 «${g.topic}»: победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}${isTtt(g) ? '' : `, ${scoreOf(g)}`}`;
+  return `🏆 «${g.topic}»: ${victory}${score}`;
 }
 
 // Картка спору в стрічці: тема, рахунок, чий хід. Дограний, але розкриття ще не бачила — рахунок «?», щоб не зіпсувати
 export function duelCard(g, onOpen) {
   const hidden = g.done && !sawEnd(g);
   const turn = !g.done && !g.myMove;
-  const state = g.done ? (hidden ? '🏆 Спор решён' : duelResult(g)) : turn ? 'Твой ход' : `Ждём ${gen()} ход`;
-  const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : null;
+  // «На желание»: переможець ще не загадав — кличемо загадати
+  const toWish = g.done && !hidden && g.preset === 'wish' && g.done.won && !g.wish;
+  const state = g.done ? (hidden ? '🏆 Игра окончена' : duelResult(g)) : turn ? 'Твой ход' : `Ждём ${gen()} ход`;
+  const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : toWish ? '🎁 Загадать' : null;
   const n = (x) => h('b', {}, hidden ? '?' : String(x));
   // Хрестики: замість рахунку — маленьке поле; догране й ще не бачене — «?»
   const mid = !isTtt(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
     : hidden ? h('span', { class: 'duel-card-score' }, h('b', {}, '?'))
       : h('span', { class: 'duel-card-board', 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : MARK[c])));
   return h('button', {
-    type: 'button', class: `duel-card${turn ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
-    'aria-label': `Спор «${g.topic}»: ${state}`,
+    type: 'button', class: `duel-card${turn || toWish ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
+    'aria-label': `${GAMES[kindOf(g)].name}, «${g.topic}»: ${state}`,
   },
-  h('span', { class: 'duel-card-head' }, isTtt(g) ? '❌⭕ Спор · крестики-нолики' : '✊ Спор · до двух побед'),
+  h('span', { class: 'duel-card-head' }, isTtt(g) ? gameName('ttt') : `${gameName('rps')} · до двух побед`),
   h('span', { class: 'duel-card-topic' }, `${icon(g)} ${g.topic}`),
   mid,
   h('span', { class: 'duel-card-foot' }, h('span', { class: 'duel-card-state' }, state), go ? h('span', { class: 'duel-card-go' }, go) : null));
 }
 // Що малює картка — для підпису рядка стрічки (перемальовується, лише коли змінилось)
-export const duelSig = (g) => JSON.stringify([g.score, g.myMove, g.theirMoved, g.done, sawEnd(g), g.rounds.length, g.n, g.board]);
+export const duelSig = (g) => JSON.stringify([g.score, g.myMove, g.theirMoved, g.done, sawEnd(g), g.rounds.length, g.n, g.board, g.wish]);
+
+// «🎁 Желание» окремим рядком у стрічці: висить, поки той, хто програв, не відмітить «Исполнено ✓»
+export function gwishCard(n) {
+  const w = n.wish;
+  if (!w) return null;
+  const card = h('div', { class: `duel-card gwish-card${w.done ? ' is-done' : !w.mine ? ' is-turn' : ''}` });
+  const paint = () => card.replaceChildren(
+    h('span', { class: 'duel-card-head' }, w.mine ? '🎁 Твоё желание' : `🎁 Желание ${who().partner === 'она' ? 'от неё' : 'от него'}`),
+    h('span', { class: 'duel-card-topic gwish-text' }, w.text),
+    h('span', { class: 'duel-card-foot' }, w.done ? h('span', { class: 'duel-card-state' }, 'Исполнено ✓')
+      : w.mine ? h('span', { class: 'duel-card-state' }, `Ждёт, когда ${who().partner} исполнит`)
+        : h('button', { type: 'button', class: 'duel-card-go gwish-done', onclick: done }, 'Исполнено ✓')));
+  async function done(e) {
+    e.currentTarget.disabled = true;
+    const r = await wishDone(n.game);
+    if (!r) { e.currentTarget.disabled = false; return; }
+    Object.assign(w, r);
+    card.className = 'duel-card gwish-card is-done';
+    paint();
+    burst(card, '🎁', 10);
+  }
+  paint();
+  return card;
+}
+
+async function wishDone(id) {
+  try {
+    const r = await send('duel/wish-done', 'POST', { id });
+    document.dispatchEvent(new CustomEvent('radovalka:marked'));
+    toast(`Исполнено ✓ — ${who().partner} узнает`);
+    return r.wish;
+  } catch (e) {
+    toast(e.status ? 'Не получилось — желание уже отмечено' : 'Не отметилось — нет связи');
+    return null;
+  }
+}
+
+// «🎁 На желание» під підсумком: переможець пише желание, той, хто програв, бачить його і відмічає «Исполнено ✓»
+function wishBox(g) {
+  if (g.preset !== 'wish' || !g.done) return null;
+  const box = h('div', { class: 'duel-wish' });
+  const state = (text) => h('p', { class: 'duel-wish-state' }, text);
+  const paint = (w) => {
+    if (w) {
+      box.replaceChildren(h('p', { class: 'duel-wish-text' }, `🎁 ${w.text}`),
+        w.done ? state('Исполнено ✓') : w.mine ? state(`Ждёт, когда ${who().partner} исполнит`)
+          : h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: async (e) => {
+            e.currentTarget.disabled = true;
+            const r = await wishDone(g.id);
+            if (r) { g.wish = r; paint(r); burst(box, '🎁', 10); } else e.currentTarget.disabled = false;
+          } }, 'Исполнено ✓'));
+      return;
+    }
+    if (!g.done.won) { box.replaceChildren(state(`🎁 Ждём, что ${who().partner} загадает`)); return; }
+    const input = h('textarea', { class: 'duel-own duel-wish-input', maxlength: '300', rows: '2', placeholder: 'Твоё желание…', 'aria-label': 'Твоё желание' });
+    const go = h('button', { type: 'button', class: 'btn btn-primary duel-go', disabled: true }, '🎁 Загадать');
+    input.addEventListener('input', () => { go.disabled = !input.value.trim(); });
+    go.addEventListener('click', async () => {
+      const text = input.value.replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      go.disabled = true;
+      if (open) open.busy = true;
+      try {
+        const r = await send('duel/wish', 'POST', { id: g.id, text });
+        g.wish = r.wish;
+        document.dispatchEvent(new CustomEvent('radovalka:marked'));
+        toast(`🎁 Желание улетело — ${who().partner} увидит в чате`);
+        paint(r.wish);
+      } catch (e) {
+        go.disabled = false;
+        toast(e.status ? 'Не получилось — эта игра уже не на желание' : 'Желание не ушло — нет связи');
+      }
+      if (open) { open.busy = false; open.state = ''; }
+    });
+    box.replaceChildren(input, go);
+  };
+  paint(g.wish);
+  return box;
+}
 
 let open = null;
 
-export async function openDuel() {
+// game — з плитки «Игры»: яку гру пропонувати, коли зараз нічого не йде
+export async function openDuel({ game = 'rps' } = {}) {
   if (open) return;
   const body = h('div', { class: 'duel-body' });
+  const title = h('h2', {}, gameName(game));
   const close = () => {
     clearInterval(open?.timer);
     open = null;
@@ -92,13 +185,19 @@ export async function openDuel() {
   };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const el = h('div', { class: 'sheet duel-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Спор' },
+  const el = h('div', { class: 'sheet duel-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': GAMES[game].name },
     h('div', { class: 'sheet-inner' },
       h('div', { class: 'duel-head' },
-        h('h2', {}, '✊ Спор'),
+        title,
         h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
       body));
-  open = { body, close, state: '', busy: false, timer: 0, gameId: null };
+  // kind — яку гру показуємо: ту, що йде, або обрану плиткою; заголовок шторки — за нею
+  const setKind = (kind) => {
+    open.kind = kind;
+    title.textContent = gameName(kind);
+    el.setAttribute('aria-label', GAMES[kind].name);
+  };
+  open = { body, close, state: '', busy: false, timer: 0, gameId: null, kind: game, setKind };
   document.body.append(backdrop, el);
   document.addEventListener('keydown', onKey);
   body.append(h('p', { class: 'hint duel-hint' }, 'Загружаю…'));
@@ -110,7 +209,7 @@ export async function openDuel() {
 async function refresh(first = false) {
   let r;
   try { r = await get('duel'); } catch {
-    if (first && open) { open.body.replaceChildren(h('p', { class: 'hint duel-hint' }, 'Нет связи — спор откроется, когда появится интернет')); }
+    if (first && open) { open.body.replaceChildren(h('p', { class: 'hint duel-hint' }, 'Нет связи — игра откроется, когда появится интернет')); }
     return;
   }
   if (!open || open.busy) return;
@@ -126,7 +225,9 @@ async function refresh(first = false) {
 async function show(g, fresh) {
   const { body } = open;
   open.gameId = fresh || !g ? null : g.id;
-  if (fresh || !g) { body.replaceChildren(...setup()); return; }
+  if (fresh || !g) { open.setKind(open.kind); body.replaceChildren(...setup()); return; }
+  // «Сыграть ещё» після неї — та сама гра
+  open.setKind(kindOf(g));
   if (isTtt(g)) { showTtt(g); return; }
   const seen = g.done && sawEnd(g) ? g.rounds.length : seenRounds(g);
   const stage = h('div', { class: 'duel-stage' });
@@ -173,17 +274,23 @@ async function show(g, fresh) {
     status.textContent = duelResult(g);
     status.classList.add('is-final');
     if (fresh1) burst(stage, g.done.won ? '🎉' : '💪', 12);
-    act.replaceChildren(h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: () => show(null, true) }, 'Новый спор'));
+    act.replaceChildren(...doneActs(g));
     return;
   }
   if (g.myMove) {
     if (!fresh1) status.textContent = `Ждём ${gen()} ход…`;
     else status.textContent += ` Твой ход — ${GLYPH[g.myMove]}. Ждём ${gen()}…`;
-    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить спор'));
+    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
     return;
   }
   if (!fresh1) status.textContent = g.theirMoved ? `${cap(who().partner)} уже ${who().partner === 'она' ? 'сходила' : 'сходил'} — твой ход` : `Раунд ${g.rounds.length + 1} — твой ход`;
   act.replaceChildren(movesRow((m) => move(g, m)));
+}
+
+// Під дограною грою: желание (якщо грали на нього) і «Сыграть ещё» — та сама гра; поруч із желанием кнопка тихіша
+function doneActs(g) {
+  const wish = wishBox(g);
+  return [wish, h('button', { type: 'button', class: `btn ${wish ? '' : 'btn-primary '}duel-go`, onclick: () => show(null, true) }, 'Сыграть ещё')].filter(Boolean);
 }
 
 // Я — праворуч, як свої повідомлення в чаті й рахунок «Она 0 : 1 Ты»
@@ -232,18 +339,18 @@ function movesRow(onPick, picked = null) {
   return row;
 }
 
-// Новий спор: тема (готова чи своя) і одразу свій перший хід
+// Нова гра (тієї, що в open.kind): на що граємо (готове чи своє, спершу «Просто так») і одразу свій перший хід
 function setup() {
-  let preset = null;
+  let preset = 'free';
   let mv = null;
-  let kind = 'rps';
-  const own = h('input', { type: 'text', class: 'duel-own', maxlength: '60', placeholder: 'Или свой спор…', 'aria-label': 'Свой спор' });
-  const go = h('button', { type: 'button', class: 'btn btn-primary duel-go', disabled: true }, 'Бросить вызов');
+  const { kind } = open;
+  const own = h('input', { type: 'text', class: 'duel-own', maxlength: '60', placeholder: 'Или своя ставка…', 'aria-label': 'Своя ставка' });
+  const go = h('button', { type: 'button', class: 'btn btn-primary duel-go', disabled: true }, 'Позвать играть');
   const topic = () => (preset ? PRESETS[preset].label : own.value.replace(/\s+/g, ' ').trim());
   const sync = () => { go.disabled = !topic() || !mv; };
-  const chips = h('div', { class: 'duel-topics', role: 'radiogroup', 'aria-label': 'О чём спор' },
+  const chips = h('div', { class: 'duel-topics', role: 'radiogroup', 'aria-label': 'На что играем' },
     ...Object.entries(PRESETS).map(([k, p]) => h('button', {
-      type: 'button', class: 'duel-topic-tile', role: 'radio', 'aria-checked': 'false', 'aria-label': p.label, 'data-k': k,
+      type: 'button', class: 'duel-topic-tile', role: 'radio', 'aria-checked': String(k === preset), 'aria-label': p.label, 'data-k': k,
       onclick: () => {
         preset = preset === k ? null : k;
         if (preset) own.value = '';
@@ -262,21 +369,21 @@ function setup() {
       const r = await send('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv, game: kind === 'ttt' ? 'ttt' : undefined });
       markSeen(r.duel);
       document.dispatchEvent(new CustomEvent('radovalka:marked'));
-      toast(r.reaches ? `✊ Вызов улетел — ${who().partner} получит уведомление` : `✊ Вызов улетел — ${who().partner} увидит в чате`);
+      toast(`${GAMES[kind].icon} Позвали играть — ${who().partner} ${r.reaches ? 'получит уведомление' : 'увидит в чате'}`);
       if (open) { open.state = ''; await refresh(); }
     } catch (e) {
       go.disabled = false;
-      if (e.status === 409) { toast('Спор уже идёт — сначала доиграйте'); if (open) { open.state = ''; refresh(); } return; }
-      toast('Вызов не улетел — нет связи');
+      if (e.status === 409) { toast('Игра уже идёт — сначала доиграйте'); if (open) { open.state = ''; refresh(); } return; }
+      toast('Не ушло — нет связи');
     }
   });
-  // Блоки по порядку: о чём → твій хід → кинути виклик
+  // Блоки по порядку: на що граємо → твій хід → покликати
   const block = (title, ...kids) => h('section', { class: 'duel-block' }, h('h3', { class: 'duel-block-title' }, title), ...kids);
   const HINT = {
     rps: 'До двух побед. Ходы откроются, когда сходите оба.',
     ttt: `Ты — ❌, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`,
   };
-  const hint = h('p', { class: 'hint duel-hint' }, HINT.rps);
+  const hint = h('p', { class: 'hint duel-hint' }, HINT[kind]);
   const pick = h('div', { class: 'duel-pick' });
   // Перший хід: камінь-ножиці — рука, хрестики — клітинка на маленькому полі
   const paintPick = () => {
@@ -286,23 +393,10 @@ function setup() {
     bd.replaceChildren(...cells('.........', { mine: 'x', play: true, onPick: put }));
     pick.replaceChildren(bd);
   };
-  const games = h('div', { class: 'duel-games', role: 'radiogroup', 'aria-label': 'Игра' },
-    ...[['rps', 'Камень-ножницы'], ['ttt', 'Крестики-нолики']].map(([k, label]) => h('button', {
-      type: 'button', class: 'duel-game', role: 'radio', 'aria-checked': String(k === kind), 'data-game': k,
-      onclick: () => {
-        if (kind === k) return;
-        kind = k;
-        mv = null;
-        games.querySelectorAll('.duel-game').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.game === kind)));
-        hint.textContent = HINT[kind];
-        paintPick();
-        sync();
-      },
-    }, label)));
   paintPick();
   return [
-    block('О чём спор', chips, own),
-    block('Как спорим · твой ход', games, pick),
+    block('На что играем', chips, own),
+    block('Твой ход', pick),
     hint,
     go,
   ];
@@ -370,10 +464,10 @@ async function showTtt(g) {
     status.textContent = duelResult(g);
     status.classList.add('is-final');
     if (fresh) burst(board, g.done.won ? '🎉' : '💪', 12);
-    act.replaceChildren(h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: () => show(null, true) }, 'Новый спор'));
+    act.replaceChildren(...doneActs(g));
   } else {
     status.textContent = `${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ставь ${MARK[mine]}` : `Ждём ${gen()} ход…`}`;
-    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить спор'));
+    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
   }
   if (fresh || (g.done && !sawEnd(g))) {
     markSeen(g);
@@ -395,7 +489,7 @@ async function tttMove(g, i, board) {
     open.busy = false;
     // Поле застаріло (другий уже сходив, клітинка зайнята) — просто перечитуємо
     if (e.status === 409 || e.status === 400) {
-      if (e.code === 'gone') toast('Этот спор уже закончился или отменён');
+      if (e.code === 'gone') toast('Эта игра уже закончилась или отменена');
       open.state = '';
       refresh();
       return;
@@ -421,7 +515,7 @@ async function move(g, m) {
   try { r = await send('duel/move', 'POST', { id: g.id, move: m }); } catch (e) {
     if (!open) return;
     open.busy = false;
-    if (e.status === 409) { toast('Этот спор уже закончился или отменён'); open.state = ''; refresh(); return; }
+    if (e.status === 409) { toast('Эта игра уже закончилась или отменена'); open.state = ''; refresh(); return; }
     open.body.querySelectorAll('.duel-move').forEach((b) => { b.disabled = false; });
     toast('Ход не ушёл — нет связи');
     return;
@@ -436,6 +530,6 @@ async function move(g, m) {
 async function cancel(g) {
   try { await send('duel/cancel', 'POST', { id: g.id }); } catch { toast('Не отменилось — нет связи'); return; }
   document.dispatchEvent(new CustomEvent('radovalka:marked'));
-  toast('Спор отменён');
+  toast('Игра отменена');
   if (open) { open.state = ''; show(null, true); }
 }

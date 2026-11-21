@@ -3814,16 +3814,16 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 [data-side="vin"] .duel-card.is-turn { border-color: var(--star); box-shadow: 0 0 0 3px color-mix(in srgb, var(--star) 18%, transparent); }
 [data-side="vin"] .duel-card-score b, [data-side="vin"] .duel-card.is-done .duel-card-state { color: var(--star); }
 [data-side="vin"] .duel-card-go { background: var(--star); color: #10232c; }
-/* Вибір гри в новому спорі — два перемикачі в ряд */
-.duel-games { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.duel-game {
-  display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 40px; padding: 4px 6px; overflow: hidden;
-  border: 1.5px solid var(--lavender); border-radius: 999px; background: var(--paper); color: var(--ink);
-  font: inherit; font-size: .8125rem; font-weight: 600; white-space: nowrap; cursor: pointer;
-}
-.duel-game[aria-checked="true"] { border-color: var(--plum); background: var(--plum); color: var(--on-plum, #fff); }
-[data-side="vin"] .duel-game { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .18); }
-[data-side="vin"] .duel-game[aria-checked="true"] { background: var(--star); border-color: var(--star); color: var(--night); }
+/* «🎁 На желание»: під підсумком — поле й кнопка переможцю, желание й «Исполнено ✓» тому, хто програв */
+.duel-wish { display: grid; gap: 8px; padding: 10px 12px; border: 1.5px dashed #E0A93A; border-radius: 14px; background: color-mix(in srgb, #FFE9A8 35%, transparent); }
+.duel-wish .duel-go { margin-top: 0; }
+.duel-wish-input { min-height: 64px; padding: 8px 12px; resize: none; line-height: 1.2; }
+.duel-wish-text { margin: 0; font: 1.35rem/1.2 var(--hand); color: var(--plum); text-align: center; overflow-wrap: anywhere; }
+.duel-wish-state { margin: 0; text-align: center; font-size: .875rem; font-weight: 600; color: var(--ink-soft); }
+.gwish-text { overflow-wrap: anywhere; }
+.gwish-done { border: 0; font: inherit; cursor: pointer; }
+[data-side="vin"] .duel-wish { border-color: color-mix(in srgb, var(--star) 60%, transparent); background: rgba(255, 231, 160, .07); }
+[data-side="vin"] .duel-wish-text { color: #FFE7A0; }
 /* Поле хрестиків: 3×3 квадратні клітинки; у виборі першого ходу — менше */
 .ttt-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: min(100%, 252px); margin: 0 auto; }
 .ttt-board.is-pick { width: min(100%, 150px); gap: 5px; }
