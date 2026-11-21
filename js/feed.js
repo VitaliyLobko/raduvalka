@@ -719,7 +719,10 @@ function inBubble(l) {
   },
   h('span', { class: 'feed-meta' },
     h('span', {}, `${l.kind === 'date' ? '🎉' : '💌'} ${hhmm(l.at)}`),
-    courierOf(l) ? h('span', { class: 'feed-courier' }, `🐾 ${petName(courierOf(l))}`) : null,
+    // Хто приніс — маленька мордочка в позі цього листа (та сама, що була на конверті)
+    courierOf(l) ? h('span', { class: 'feed-courier' },
+      h('span', { class: 'feed-courier-face', 'aria-hidden': 'true', html: mascotImg(courierOf(l), l.kind === 'date' ? firstPose(courierOf(l), 'party', 'festive') : letterPose(courierOf(l), l.id ?? l.date)) }),
+      petName(courierOf(l))) : null,
     l.tpl ? h('span', {}, 'первое письмо') : null,
     newMark(!l.opened)),
   quoteLine(l.quote, l.created || l.at),

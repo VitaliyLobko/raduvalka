@@ -971,8 +971,14 @@ const OPEN_FX = [
   [/🎉|🎊|🥳/u, (el) => { burst(el, '🎉', 6); burst(el, '🎊', 6); burst(el, '✨', 5); }],
   [/🔥/u, (el) => burst(el, '🔥', 10)],
 ];
+// Смайл без відтінку шкіри, статі та VS16 — щоб 👏🏻 і 🤷‍♀️ впізнавались як реакції 👏 і 🤷
+const bare = (s) => s.replace(/[\u{1F3FB}-\u{1F3FF}️]|‍[♀♂]/gu, '');
+const REACT_BY_BARE = new Map(Object.keys(DUR).map((g) => [bare(g), g]));
 export function openFx(el, text) {
   if (!text) return;
+  // Лист з одного смайла, на який є анімація реакції, — граємо її саму
+  const one = REACT_BY_BARE.get(bare(text.replace(/\s+/g, '')));
+  if (one) { reactFx(el, one); return; }
   let best = null;
   let at = Infinity;
   for (const [re, fx] of OPEN_FX) {

@@ -27,6 +27,8 @@ let atTime = 0;
 // Будь-який лист можна зробити святковим: kind 'date' — золотий конверт, приносять усі разом
 let festive = false;
 let pet = null;
+// Вибрали кур'єра самі — він і носить далі; не вибирали — після кожного листа новий випадковий
+let petPicked = false;
 let reply = null;
 let picking = false;
 let plus = null;
@@ -37,8 +39,14 @@ let caret = null;
 // Кнопки над полем не забирають фокус: клавіатура не ховається, рядок не стрибає
 const keep = { onmousedown: (e) => e.preventDefault() };
 
+// Хто понесе наступний лист: щоразу випадковий улюбленець (у чаті різні мордочки й пози); вибрати свого — як і раніше
+function anyPet() {
+  const pets = Object.keys(DATA.mascots);
+  return pets[Math.floor(Math.random() * pets.length)] || petFor('push');
+}
+
 function build() {
-  pet = petFor('push');
+  pet = anyPet();
   const area = h('textarea', {
     class: 'cbar-text', rows: '1', enterkeyhint: 'enter', placeholder: 'Написать…', 'aria-label': 'Текст письма',
   });
@@ -116,7 +124,7 @@ function build() {
     ...pets.map((k) => h('button', {
       type: 'button', role: 'radio', class: 'cbar-pet-pick', 'data-v': k, title: petName(k), ...keep,
       html: `<img src="${petSrc(k)}" alt="${petName(k)}" width="40" height="40">`,
-      onclick: () => { pet = k; picking = false; paint(); },
+      onclick: () => { pet = k; petPicked = true; picking = false; paint(); },
     })));
   const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, festBtn, helpBtn].filter(Boolean));
   // 😊 у полі зліва, як у месенджері: тап — смайли замість клавіатури, ще тап (⌨) — назад до клавіатури
@@ -143,6 +151,7 @@ function build() {
 }
 
 function stepPet(pets, d) {
+  petPicked = true;
   const i = pets.indexOf(pet);
   pet = pets[(i + d + pets.length) % pets.length];
   picking = false;
@@ -267,6 +276,7 @@ async function sendText() {
     if (reply === r0) reply = null;
     when = 'now';
     festive = false;
+    if (!petPicked) pet = anyPet();
     r0?.sent?.();
     grow();
     paint();

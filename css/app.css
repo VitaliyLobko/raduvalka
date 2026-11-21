@@ -2372,7 +2372,10 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .feed-row.is-mine .feed-bubble { border-bottom-right-radius: 6px; background: color-mix(in srgb, var(--lavender) 30%, var(--paper)); }
 .feed-row.is-meme .feed-bubble { width: 66%; }
 /* Хто приніс лист — дрібно в рядку часу */
-.feed-courier { opacity: .85; }
+.feed-courier { display: inline-flex; align-items: center; gap: 5px; opacity: .9; }
+/* Мордочка кур'єра біля відкритого листа, як аватарка в месенджері */
+.feed-courier-face { flex: none; width: 26px; height: 26px; border-radius: 50%; overflow: hidden; background: var(--paper); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--lavender) 70%, transparent); }
+.feed-courier-face img { display: block; width: 100%; height: 100%; object-fit: cover; transform: none; }
 .feed-bubble.is-drag { transition: none; }
 .feed-bubble.is-new { box-shadow: inset 4px 0 0 var(--wax), 0 10px 22px -16px rgba(74, 37, 69, .5); }
 .feed-body {
