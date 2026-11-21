@@ -71,7 +71,7 @@ function build() {
       paint();
     },
   });
-  // Дата й час телефона: типово сьогодні, але можна будь-який день наперед (до року, як «К дате»).
+  // Дата й час телефона: типово сьогодні, але можна будь-який день наперед (до року).
   // Час сьогодні, що вже минув, — той самий час завтра
   const clock = h('input', {
     type: 'datetime-local', class: 'visually-hidden cbar-clock', tabindex: '-1', 'aria-label': 'Ко времени',
@@ -318,7 +318,6 @@ function openPlus() {
     h('div', { class: 'cbar-tiles' }, ...[
       tile('🕐', 'Ко времени', () => pickTime(), ' is-special'),
       envs.length ? tile('✉️', 'В конверт', () => big({ where: 'env' }), ' is-special') : null,
-      tile('🎂', 'К дате', () => big({ where: 'date' }), ' is-special'),
       tile('⤢', 'Большое', () => big({ where: when === 'morning' ? 'morning' : 'now' }), ' is-special'),
     ].filter(Boolean)));
   plus = panel;

@@ -77,7 +77,7 @@ export function prewarmWrite() {
 // preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
 // { reply: { quote, on, sent } } — відповідь: той самий екран із цитатою зверху; лист, фото чи гифка йдуть новим
 // повідомленням із цією цитатою; on — на що відповідають ('letter' | 'gif' | 'photo'), sent() — після відправки.
-// З рядка під чатом: where ('morning' | 'env' | 'date'), pet — хто понесе, text — уже набране (для відповіді),
+// З рядка під чатом: where ('morning' | 'env'), pet — хто понесе, text — уже набране (для відповіді),
 // help — одразу розгорнути «✨ Помочь», onClose(sent, text) — вікно закрилось: надіслано чи ні і що лишилось у полі
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
@@ -85,7 +85,7 @@ export function openWrite(preset = {}) {
   const envs = DATA.partnerEnvelopes || [];
   const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
   let where = presetEnv || (preset.where === 'env' && envs.length) ? 'env'
-    : ['morning', 'date'].includes(preset.where) ? preset.where : 'now';
+    : preset.where === 'morning' ? 'morning' : 'now';
   let envId = presetEnv || envs[0]?.id || null;
   let pet = DATA.mascots[preset.pet] ? preset.pet : petFor('push');
   let sentOk = false;
@@ -100,22 +100,14 @@ export function openWrite(preset = {}) {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
-  // «К дате»: свято обирає сам автор (дати — не в коді), приходить того дня о 8:00
-  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('sv');
-  const dateInput = h('input', { type: 'date', class: 'write-date', min: tomorrow, 'aria-label': 'К какой дате', onchange: () => paintNote() });
-  const dateRow = h('label', { class: 'meet-row write-date-row', hidden: true }, h('span', {}, 'Какого числа?'), dateInput);
-  const dateAt = () => (dateInput.value ? new Date(`${dateInput.value}T${String(MORNING_HOUR).padStart(2, '0')}:00`).getTime() : null);
   const paintNote = () => {
     const m = nextMorning();
     note.textContent = where === 'now'
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} запечатанным конвертом.`
-      : where === 'date'
-        ? (dateAt() ? `Придёт ${dayMonth(dateAt())} в ${hhmm(dateAt())} — праздничным письмом, принесут все вместе 🎉` : 'Выбери день — день рождения, годовщину, праздник.')
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
     envRow.hidden = where !== 'env';
-    dateRow.hidden = where !== 'date';
   };
 
   const chips = (items, picked, onPick) => {
@@ -129,12 +121,11 @@ export function openWrite(preset = {}) {
     return row;
   };
 
-  // «Когда» — одна стрічка: усі п'ять варіантів, гортається вбік
+  // «Когда» — одна стрічка: усі варіанти, гортається вбік
   const whereRow = chips([
     { v: 'now', label: 'Сейчас' },
     { v: 'morning', label: 'На утро' },
     ...(envs.length ? [{ v: 'env', label: 'В конверт' }] : []),
-    { v: 'date', label: '🎂 К дате' },
   ], where, (v) => { where = v; paintNote(); });
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
   [whereRow, envRow.firstChild].forEach((row) => { row.classList.add('write-when'); ribbon(row); });
@@ -215,7 +206,6 @@ export function openWrite(preset = {}) {
   go.addEventListener('click', async () => {
     const text = area.value.trim();
     if (!text) { area.focus(); return; }
-    if (where === 'date' && !dateAt()) { toast('Выбери дату'); dateInput.focus(); return; }
     go.disabled = true;
     try {
       const r = await deliver('letter', 'letters', {
@@ -223,7 +213,7 @@ export function openWrite(preset = {}) {
         text,
         mascot: pet,
         env: where === 'env' ? envId : undefined,
-        at: where === 'morning' ? nextMorning().getTime() : where === 'date' ? dateAt() : undefined,
+        at: where === 'morning' ? nextMorning().getTime() : undefined,
         quote: reply?.quote,
         on: reply?.on,
       });
@@ -260,7 +250,7 @@ export function openWrite(preset = {}) {
       tools,
       area,
       h('div', { class: 'write-dock' }, ...[
-        whereRow, envRow, dateRow, note,
+        whereRow, envRow, note,
         h('div', { class: 'write-send' }, ...[pets.length ? petRow : null, go].filter(Boolean)),
       ]),
     ].filter(Boolean)));
