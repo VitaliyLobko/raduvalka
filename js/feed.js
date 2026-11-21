@@ -456,7 +456,7 @@ function markRow(n, she) {
   // «🫡 Да, капитан!» на моє повідомлення: при першому погляді падає піратська треуголка (той самий loveIo)
   if (n.kind === 'captain') {
     return h('li', { class: `feed-mark is-captain${n.mine ? ' is-mine' : ' is-aye'}`, 'data-love': n.mine ? null : n.id },
-      h('span', { class: 'feed-captain' }, h('span', { class: 'feed-captain-text' }, '🫡 Да, капитан!'), quoteLine(n.mood)),
+      h('span', { class: 'feed-captain' }, h('span', { class: 'feed-captain-text' }, '🫡 Да, капитан!'), quoteLine(n.mood, n.at)),
       h('span', { class: 'feed-mark-time' }, hhmm(n.at)));
   }
   // «🔔 Звоночек»: кілька поспіль — з лічильником
@@ -592,9 +592,55 @@ function replyTarget(it) {
   return null;
 }
 
-// Над повідомленням-відповіддю — на що відповіли
-function quoteLine(q) {
-  return q ? h('span', { class: 'feed-quote' }, h('span', { class: 'feed-quote-mark', 'aria-hidden': 'true' }, '↩ '), q) : null;
+// Над повідомленням-відповіддю — на що відповіли; тап — до того повідомлення (at — коли написали відповідь)
+function quoteLine(q, at) {
+  if (!q) return null;
+  const go = (e) => { e.stopPropagation(); toQuoted(q, at); };
+  return h('span', {
+    class: 'feed-quote', role: 'button', tabindex: '0', 'aria-label': `Перейти к сообщению: ${q}`,
+    onclick: go, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } },
+  }, h('span', { class: 'feed-quote-mark', 'aria-hidden': 'true' }, '↩ '), q);
+}
+
+// Цитата — лише текст (до 300 знаків і «…»), тож шукаємо найновіше повідомлення з таким текстом, написане раніше за відповідь
+const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+const saidIn = (it) => (it.type === 'meme' ? (it.m.caption || (it.m.url ? 'гифка' : 'фото')) : it.l?.text || '');
+const writtenAt = (it) => (it.type === 'meme' ? it.m.created : it.l?.created || it.at);
+function quoted(q, at) {
+  const want = norm(q);
+  const head = want.endsWith('…') ? want.slice(0, -1) : null;
+  return items().find((it) => ['in', 'out', 'meme'].includes(it.type) && writtenAt(it) < at
+    && (norm(saidIn(it)) === want || (head && norm(saidIn(it)).startsWith(head)))) || null;
+}
+async function toQuoted(q, at) {
+  let found = quoted(q, at);
+  // Не підвантажене — гортаємо історію з сервера, поки не знайдеться (не більше кількох сторінок)
+  for (let i = 0; !found && page.more && i < 6; i += 1) {
+    try {
+      merge(await get(`feed?before=${page.horizon}`), true);
+    } catch {
+      toast('Не загрузилось — нет связи');
+      return;
+    }
+    found = quoted(q, at);
+  }
+  if (!found) { toast('Этого сообщения уже нет в переписке'); return; }
+  const idx = items().findIndex((it) => it.key === found.key);
+  if (idx >= limit) limit = idx + 3;
+  foldedDays.delete(dayTitle(found.at));
+  draw(false, true);
+  // Після того, як draw поверне прокрутку на місце, — до знайденого, і воно коротко світиться
+  setTimeout(() => {
+    const row = rows.get(found.key)?.el;
+    if (!row?.isConnected) return;
+    stuck = false;
+    row.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+    const b = row.querySelector('.feed-bubble') || row;
+    b.classList.remove('is-found');
+    void b.offsetWidth;
+    b.classList.add('is-found');
+    setTimeout(() => b.classList.remove('is-found'), 1800);
+  }, 60);
 }
 
 function newMark(on) {
@@ -652,7 +698,7 @@ function inBubble(l) {
     l.tpl ? h('span', {}, 'первое письмо') : null,
     newMark(!l.opened),
     gift ? h('span', {}, `🎁 ты ${chose}: ${gift.emoji} ${gift.title}`) : null),
-  quoteLine(l.quote),
+  quoteLine(l.quote, l.created || l.at),
   l.text ? text : null);
   const like = h('button', {
     type: 'button', class: 'feed-act', 'aria-pressed': String(!!l.liked), 'aria-label': 'Сердечко',
@@ -757,7 +803,7 @@ function outBubble(l, later) {
   }, 'Забрать');
   const isNew = (l.replied || 0) > seenAt.replies;
   bubble.append(...[
-    quoteLine(l.quote),
+    quoteLine(l.quote, l.created || l.at),
     l.text ? h('p', { class: 'feed-text', onclick: () => bubble.classList.toggle('is-open') }, l.text) : null,
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
@@ -792,7 +838,7 @@ function memeBubble(m) {
       h('b', {}, m.mine ? `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: ` : 'Твой ответ: '), m.reply, newMark(m.mine && isNew))
     : null;
   return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}`, 'data-created': m.created },
-    quoteLine(m.quote),
+    quoteLine(m.quote, m.created),
     pic,
     m.caption && !over ? h('p', { class: 'meme-cap' }, m.caption) : null,
     replyLine,

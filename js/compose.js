@@ -62,11 +62,12 @@ function build() {
   const lift = () => { x0 = null; };
   petBtn.addEventListener('pointerup', lift);
   petBtn.addEventListener('pointercancel', lift);
-  // «Сейчас» ↔ «на утро»; свій час (з «＋» → «Ко времени») тап скасовує — знову «сейчас»
+  // «Сейчас» → тап відкриває годинник (одразу 8:00 — ранок в один дотик); уже вибраний час тап скасовує — знову «сейчас»
   const whenBtn = h('button', {
     type: 'button', class: 'cbar-chip cbar-when', ...keep,
     onclick: () => {
-      when = when === 'now' ? 'morning' : 'now';
+      if (when === 'now') { pickTime(); return; }
+      when = 'now';
       paint();
     },
   });
@@ -75,7 +76,8 @@ function build() {
     type: 'time', class: 'visually-hidden cbar-clock', tabindex: '-1', 'aria-label': 'Ко времени',
     onchange: () => {
       const [hh, mm] = clock.value.split(':').map(Number);
-      if (!Number.isFinite(hh)) return;
+      // Годинник очистили — знову «сейчас»
+      if (!Number.isFinite(hh)) { if (when === 'time') { when = 'now'; paint(); } return; }
       const d = new Date();
       d.setHours(hh, mm || 0, 0, 0);
       if (d.getTime() <= Date.now() + 60000) d.setDate(d.getDate() + 1);
@@ -126,9 +128,8 @@ const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString
 function pickTime() {
   closePlus();
   const { clock } = ui;
-  const d = new Date(when === 'time' ? atTime : Date.now() + 3600000);
-  if (when !== 'time') d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15);
-  clock.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const d = when === 'time' ? new Date(atTime) : null;
+  clock.value = d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '08:00';
   try { clock.showPicker(); } catch { clock.focus(); clock.click(); }
 }
 
@@ -163,7 +164,7 @@ function paint() {
   whenBtn.setAttribute('aria-pressed', String(later));
   whenBtn.textContent = morning ? '🌅 на утро' : when === 'time' ? `🕐 ${dayWord(atTime)}в ${hhmm(atTime)}` : '🕐 сейчас';
   whenBtn.setAttribute('aria-label', morning ? `На утро, в ${hhmm(nextMorning().getTime())}. Тап — отправить сейчас`
-    : when === 'time' ? `Придёт ${dayWord(atTime)}в ${hhmm(atTime)}. Тап — отправить сейчас` : 'Сейчас. Тап — отправить на утро');
+    : when === 'time' ? `Придёт ${dayWord(atTime)}в ${hhmm(atTime)}. Тап — отправить сейчас` : 'Сейчас. Тап — выбрать время');
   plusBtn.innerHTML = plus ? CROSS : PLUS;
   plusBtn.setAttribute('aria-label', plus ? 'Закрыть' : 'Ещё: фото, гифка, спор, конверт');
   plusBtn.setAttribute('aria-expanded', String(!!plus));
