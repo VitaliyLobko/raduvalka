@@ -5,7 +5,7 @@ import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
 import { mascotImg, petName, petLine } from './icons.js';
-import { placer, seaEl, shipEl, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
+import { placer, seaEl, shipEl, miniShip, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
 // Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
 const TIPS = {
@@ -42,15 +42,21 @@ const TIPS = {
     'Ходи красиво, вдруг нас снимают.', 'Весь дом за тебя. Ну, я точно.', 'Сыграем потом в мячик? Это моя любимая игра.',
     'Если что, я болею из-под одеяла.'],
 };
-// Як часто порада на мій хід: у «Четыре в ряд» ходів багато — рідше, щоб не набридало
-const TIP_CHANCE = { rps: 0.5, ttt: 0.5, c4: 0.35, bs: 0.5 };
+// Порада: на першому моєму ході в грі — завжди, далі — на кожному другому; та сама фраза двічі поспіль не йде
+const TIP_CHANCE = 0.5;
+const tipGames = new Set();
+let lastTip = '';
 // Випадковий улюбленець із порадою під полем
-function petTip(kind) {
+function petTip(kind, g) {
   const pets = Object.keys(DATA.mascots || {});
-  if (!pets.length || Math.random() >= TIP_CHANCE[kind]) return null;
+  const first = !tipGames.has(g.id);
+  tipGames.add(g.id);
+  if (!pets.length || (!first && Math.random() >= TIP_CHANCE)) return null;
   const key = pets[Math.floor(Math.random() * pets.length)];
   const list = [...TIPS[kind], ...TIPS.any];
-  const line = petLine(key, 'gametip', list[Math.floor(Math.random() * list.length)]);
+  const pool = list.filter((t) => t !== lastTip);
+  lastTip = pool[Math.floor(Math.random() * pool.length)];
+  const line = petLine(key, 'gametip', lastTip);
   return h('div', { class: 'pet-tip', role: 'note' },
     h('span', { class: 'pet-tip-face', 'aria-hidden': 'true', html: mascotImg(key) }),
     h('p', {}, h('b', {}, petName(key)), ' ', line));
@@ -393,7 +399,7 @@ async function show(g, fresh) {
     return;
   }
   if (!fresh1) status.textContent = g.theirMoved ? `${cap(who().partner)} уже ${who().partner === 'она' ? 'сходила' : 'сходил'} — твой ход` : `Раунд ${g.rounds.length + 1} — твой ход`;
-  act.replaceChildren(...[movesRow((m) => move(g, m)), petTip('rps')].filter(Boolean));
+  act.replaceChildren(...[movesRow((m) => move(g, m)), petTip('rps', g)].filter(Boolean));
 }
 
 // Під дограною грою: желание (якщо грали на нього) і «Сыграть ещё» — та сама гра; поруч із желанием кнопка тихіша
@@ -645,7 +651,7 @@ async function showBoard(g) {
     act.replaceChildren(...doneActs(g));
   } else {
     status.replaceChildren(`${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ` : `Ждём ${gen()} ход…`}`, play ? sym(mySex()) : '');
-    tip.replaceChildren(...[play ? petTip(grid.kind) : null].filter(Boolean));
+    tip.replaceChildren(...[play ? petTip(grid.kind, g) : null].filter(Boolean));
     act.replaceChildren(...[h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
   }
   if (fresh || (g.done && !sawEnd(g))) {
@@ -765,14 +771,20 @@ async function showBs(g) {
   };
   const count = { me: 0, them: 0 };
   const notes = [];
-  const pips = (n, world) => h('span', { class: `bs-pips is-${world}`, 'aria-hidden': 'true' }, ...[0, 1, 2, 3].map((i) => h('i', { class: i < n ? 'is-on' : '' })));
+  const pips = (n, world) => h('span', { class: `bs-pips is-${world}`, 'aria-hidden': 'true' }, ...[0, 1, 2, 3].map((i) => h('i', { class: i < n ? 'is-on' : '', html: miniShip(world) })));
   const paintScore = () => score.replaceChildren(h('p', { class: 'bs-score-title' }, 'Потоплено'),
     h('p', { class: 'bs-score-row', 'aria-label': `Ты потопил(а) ${count.me} из 4` }, h('span', {}, 'ты'), pips(count.me, them)),
     h('p', { class: 'bs-score-row', 'aria-label': `${cap(who().partner)}: ${count.them} из 4` }, h('span', {}, who().partner), pips(count.them, me)),
     // Знайдені записки — тут же, поруч зі своїм полем: ні гру не зсувають, ні вниз не ховаються
     found);
-  const paintFound = () => found.replaceChildren(...(notes.length
-    ? [h('p', { class: 'bs-found-title' }, '💌 Записки'), ...notes.map((t) => h('p', { class: `bs-found-note is-${them}` }, t))] : []));
+  // Записки — конвертами: знайдена 💌 відкривається тапом, ще схована — блідий ✉ (сервер каже лише скільки їх)
+  const readNote = (t) => noteReveal(stage, t, them);
+  const paintFound = () => {
+    const total = Math.max(g.notes || 0, notes.length);
+    found.replaceChildren(...(total ? [h('p', { class: 'bs-found-title' }, 'Записки'), h('p', { class: 'bs-envs' },
+      ...notes.map((t, i) => h('button', { type: 'button', class: 'bs-env-btn', 'aria-label': `Прочитать записку ${i + 1}`, onclick: () => readNote(t) }, '💌')),
+      ...Array.from({ length: total - notes.length }, () => h('span', { class: 'bs-env-btn is-hidden', 'aria-label': 'Ещё не найдена' }, '✉️')))] : []));
+  };
   // Один постріл на поле; anim — з польотом, рухом і паузою (новий), інакше — одразу (уже бачений)
   async function apply(s, anim) {
     const board = s.by === 'me' ? theirs : mine;
@@ -788,7 +800,7 @@ async function showBs(g) {
     const ship = s.by === 'me' ? g.sunk.find((x) => x.cells.includes(s.c)) : myShips.find((x) => x.cells.includes(s.c));
     if (!ship) return;
     const el = s.by === 'me' ? shipEl(them, ship.cells) : ship.el;
-    if (s.by === 'me') { theirs.append(el); if (ship.note) { notes.push(ship.note); noteBadge(el); } }
+    if (s.by === 'me') { theirs.append(el); if (ship.note) { notes.push(ship.note); noteBadge(el); el.querySelector('.bs-ship-note').onclick = () => readNote(ship.note); } }
     if (s.by === 'me') markAround(board, ship.cells);
     if (!anim) { el.classList.add('is-sunk'); markSunk(board, ship.cells); return; }
     await pause(300);
@@ -819,12 +831,13 @@ async function showBs(g) {
     setStatus(duelResult(g), 'final');
     status.classList.add('is-final');
     if (fresh.length) bsFinal(stage, them, !!g.done.won);
-    act.replaceChildren(...doneActs(g));
+    act.replaceChildren(...(notes.length ? [h('div', { class: 'bs-found-list' }, h('p', { class: 'bs-found-title' }, `💌 Найденные записки · ${notes.length}`),
+      ...notes.map((t) => h('p', { class: `bs-found-note is-${them}` }, t)))] : []), ...doneActs(g));
   } else {
     if (!g.ready) setStatus(`Ждём, когда ${who().partner} расставит кораблики…`, 'wait');
     else if (play) setStatus(last?.by === 'me' && last.hit ? `${last.sunk ? byMe('Потопил', 'Потопила') : byMe('Попал', 'Попала')}! Стреляй ещё ${SHOT[me]}` : `Твой ход — стреляй ${SHOT[me]}`, 'me');
     else setStatus(last?.by === 'them' && last.hit ? `${cap(who().partner)} ${theyDid('попал', 'попала')} и стреляет ещё…` : `Ждём ${gen()} ход…`, 'wait');
-    tip.replaceChildren(...[play ? petTip('bs') : null].filter(Boolean));
+    tip.replaceChildren(...[play ? petTip('bs', g) : null].filter(Boolean));
     act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
   }
   if (fresh.length || (g.done && !sawEnd(g))) {

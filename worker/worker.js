@@ -2696,6 +2696,8 @@ function bsView(game, st, side) {
     shots: st.shots.map((s) => ({ by: rel(s.side), c: s.c, hit: s.hit, sunk: s.sunk })),
     // Чужі кораблі — лише потоплені мною (із запискою); решта — без записок і лише після кінця
     sunk: st.sunk[side].map((s) => ({ cells: s.cells, note: s.note })),
+    // Скільки записок сховано в чужих кораблях — лише число, для блідих конвертиків
+    notes: (game.fleets[o] || []).filter((s) => s.note).length,
     rest: st.winner ? (game.fleets[o] || []).filter((s) => !st.sunk[side].includes(s)).map((s) => ({ cells: s.cells })) : null,
     n: st.n,
   };
