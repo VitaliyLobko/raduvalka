@@ -343,6 +343,8 @@ function draw(force = false, older = false) {
   }
   sizes.disconnect();
   sizes.observe(list);
+  // Рядок вводу підріс чи вискочила клавіатура — коробка стиснулась, низ переписки лишається видно
+  sizes.observe(box);
   // Остання чужа (найближча до низу, де дивляться) — разок показує, що під нею зліва й справа.
   // Запечатаний конверт не гортається — на ньому не показуємо
   const first = [...list.querySelectorAll('.feed-row.is-theirs')].pop();

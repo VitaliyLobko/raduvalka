@@ -42,7 +42,7 @@
 
 /* Його половина: шторки й картки темні, як «Вместе», — ніч, крем, золото. Ті самі імена змінних,
    тож правила лишаються спільні: «слива» в нього — крем, «папір» — ніч, акцент — золото */
-[data-side="vin"] :is(.sheet, .bubble, .feed-bubble, .feed-hidden li, .want, .inbox-item, .meme, .sent-item) {
+[data-side="vin"] :is(.sheet, .cbar, .cbar-plus, .bubble, .feed-bubble, .feed-hidden li, .want, .inbox-item, .meme, .sent-item) {
   --paper: #134A5E;
   --plum: var(--cream);
   --lavender: rgba(244, 230, 196, .26);
@@ -2989,25 +2989,94 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .day-sheet .day-body { display: flex; flex: 1; flex-direction: column; }
 .day-sheet .stage { flex: 1; align-content: center; }
 
-/* Рядок «Написать…» під чатом — як поле вводу в месенджері */
-.compose {
-  flex: none; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin-top: 8px; padding: 0 18px;
-  border-radius: 999px; border: 1px solid var(--chip); background: var(--paper); color: var(--ink-soft);
-  font: 400 1rem/1 var(--ui); text-align: left; cursor: text;
+/* Рядок «Написать…» під чатом — як у месенджері: ＋, поле, 🎤 або ➤; над ним, поки пишуть, — хто несе, коли, «Помочь» */
+.cbar { flex: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.cbar-row { display: flex; align-items: flex-end; gap: 8px; }
+.cbar-plus-btn, .cbar-act {
+  flex: none; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border-radius: 50%;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.cbar-plus-btn { border: 1.5px solid var(--lavender); background: var(--paper); color: var(--plum); }
+.cbar-plus-btn[aria-expanded="true"] { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
+.cbar-act { border: 0; background: var(--plum); color: var(--on-plum); box-shadow: 0 6px 14px -8px rgba(42, 23, 48, .6); }
+.cbar-act svg, .cbar-plus-btn svg { width: 22px; height: 22px; }
+.cbar-act.is-empty { opacity: .45; }
+.cbar-act.is-listening { background: var(--wax); color: #fff; animation: voice-pulse 1.1s ease-in-out infinite; }
+.cbar-act:disabled { opacity: .5; }
+[data-side="vin"] .cbar-act:not(.is-listening) { background: var(--star); color: var(--night); }
+.cbar-field {
+  flex: 1; min-width: 0; display: flex; min-height: 46px; box-sizing: border-box; padding: 8px 16px;
+  border-radius: 23px; border: 1.5px solid var(--lavender); background: var(--field); cursor: text;
   box-shadow: 0 6px 16px -12px rgba(74, 37, 69, .5);
 }
-.compose:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
-[data-side="vin"] .compose { background: rgba(255, 255, 255, .08); color: #cfe0e4; }
-/* На «Письмах» «Написать…» і «до встречи» — одна смуга: зліва поле, справа чип */
-.compose-row {
-  flex: none; display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-right: 4px;
-  border-radius: 999px; border: 1px solid var(--chip); background: var(--paper);
-  box-shadow: 0 6px 16px -12px rgba(74, 37, 69, .5);
+.cbar.is-active .cbar-field { border-color: var(--wax); }
+.cbar-text {
+  flex: 1; min-width: 0; height: 28px; margin: 0; padding: 0; border: 0; outline: 0; resize: none; overflow-y: hidden;
+  background: transparent; color: var(--plum); font: 600 1.375rem/1.25 var(--hand);
 }
-[data-side="vin"] .compose-row { background: rgba(255, 255, 255, .08); }
-.compose-row > .compose, [data-side="vin"] .compose-row > .compose { flex: 1; min-width: 0; margin: 0; border: 0; background: none; box-shadow: none; }
-.compose-row > .together-chip { flex: none; min-height: 40px; }
-@media (max-width: 374px) { .compose-row .chip-planets { display: none; } }
+.cbar-text.is-tall { overflow-y: auto; }
+.cbar-text::placeholder { color: var(--ink-soft); opacity: .9; }
+.cbar :is(.cbar-plus-btn, .cbar-act, .cbar-chip, .cbar-quote-x, .cbar-pet-pick):focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+
+.cbar-opts { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.cbar-opts[hidden], .cbar-pets[hidden], .cbar-quote[hidden] { display: none; }
+.cbar-chip {
+  flex: none; display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px;
+  border-radius: 999px; border: 1.5px solid var(--lavender); background: var(--paper); color: var(--plum);
+  font: 400 .9375rem/1 var(--ui); white-space: nowrap; cursor: pointer;
+}
+.cbar-pet { padding-left: 4px; padding-right: 8px; }
+.cbar-pet img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.cbar-caret { width: 14px; height: 14px; }
+.cbar-pet[aria-expanded="true"] .cbar-caret { transform: rotate(180deg); }
+/* Вузький екран — лише мордочка: ім'я в підказці, «Помочь» не з'їжджає за край */
+@media (max-width: 400px) { .cbar-pet > span { display: none; } }
+.cbar-when.is-on { border-color: var(--wax); background: color-mix(in srgb, var(--wax) 14%, var(--paper)); color: var(--wax); }
+.cbar-help { border-style: dashed; border-color: var(--wax); background: transparent; color: var(--wax); font-weight: 500; }
+
+.cbar-pets { display: flex; gap: 8px; }
+.cbar-pet-pick { padding: 2px; border: 2px solid transparent; border-radius: 50%; background: none; cursor: pointer; }
+.cbar-pet-pick img { display: block; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
+.cbar-pet-pick[aria-checked="true"] { border-color: var(--wax); }
+
+/* Відповідь: на що — смужкою над рядком, ✕ — передумав відповідати */
+.cbar-quote {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; padding: 6px 6px 6px 12px;
+  border-left: 3px solid var(--wax); border-radius: 12px; background: var(--paper);
+}
+.cbar-quote-label { grid-column: 1; font-size: .8125rem; color: var(--wax); font-weight: 500; }
+.cbar-quote-text { grid-column: 1; font: 600 1.125rem/1.2 var(--hand); color: var(--plum); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cbar-quote-x {
+  grid-column: 2; grid-row: 1 / span 2; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--ink-soft); cursor: pointer;
+}
+.cbar-quote-x svg { width: 18px; height: 18px; }
+
+/* «＋» — шторка на місці клавіатури, над вкладками; рядок стоїть над нею */
+.cbar-plus {
+  position: fixed; left: 0; right: 0; bottom: var(--tabs-h, 84px); z-index: 9;
+  width: 100%; max-width: 480px; margin: 0 auto; box-sizing: border-box; padding: 14px 14px 16px;
+  border-radius: 22px 22px 0 0; background: var(--paper); color: var(--plum);
+  box-shadow: 0 -8px 24px rgba(42, 23, 48, .14); animation: rise .18s ease-out;
+}
+.cbar-plus-label { margin: 0 0 8px 4px; font-size: .8125rem; color: var(--ink-soft); }
+.cbar-plus-label + .cbar-tiles + .cbar-plus-label { margin-top: 12px; }
+.cbar-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cbar-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; padding: 8px 0;
+  border: 0; border-radius: 16px; background: color-mix(in srgb, var(--lavender) 22%, var(--paper)); color: var(--plum);
+  font: 400 .8125rem/1.1 var(--ui); cursor: pointer;
+}
+.cbar-tile > span { font-size: 1.625rem; line-height: 1; }
+.cbar-tile.is-special { background: color-mix(in srgb, var(--powder) 28%, var(--paper)); }
+.cbar-tile:focus-visible, .cbar-tile:focus-within { outline: 2px solid var(--wax); outline-offset: 2px; }
+body.is-plus .screen.is-chat { padding-bottom: calc(var(--tabs-h, 84px) + var(--plus-h, 0px) + 8px); }
+/* Пишуть на телефоні (вискочила клавіатура) — вкладки ховаються, переписці більше місця */
+@media (pointer: coarse) {
+  body.is-typing .tabs { display: none; }
+  body.is-typing .screen.is-chat { padding-bottom: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .cbar-plus { animation: none; } .cbar-act.is-listening { animation: none; } }
 
 /* «Написать…» на весь екран: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить» */
 .sheet-write.sheet-full { overflow-y: auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); animation: rise .25s ease-out; }

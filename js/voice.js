@@ -3,7 +3,7 @@
 import { h, toast } from './ui.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const MIC = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+export const MIC = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const ERRORS = {
   'not-allowed': 'Разреши микрофон для Радовалки в настройках браузера',
   'service-not-allowed': 'Разреши микрофон для Радовалки в настройках браузера',
@@ -13,6 +13,7 @@ const ERRORS = {
 };
 
 let active = null;
+export const canDictate = !!SR;
 
 function stop() {
   if (!active) return;
@@ -21,7 +22,8 @@ function stop() {
   try { rec.stop(); } catch { /* уже зупинено */ }
 }
 
-function listen(field, btn) {
+// onEnd — після кінця запису (рядок вводу міняє 🎤 на ➤, коли в полі з'явився текст)
+export function listen(field, btn, onEnd = null) {
   const same = active?.field === field;
   stop();
   if (same) return;
@@ -62,6 +64,7 @@ function listen(field, btn) {
   rec.onend = () => {
     if (active === me) active = null;
     paint(false);
+    onEnd?.();
   };
 
   try {

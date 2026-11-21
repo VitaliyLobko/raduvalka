@@ -6,6 +6,7 @@ import { forgetSecret, hasSecret, seal, sealBy, sealBlob } from './seal.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
+import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
 import { letterFeed, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderGift } from './gift.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
@@ -162,7 +163,8 @@ const FEED_OPS = {
   welcome: () => welcomeLetter(),
   like: () => { setWelcome({ liked: !welcomeState().liked }); redrawFeed(); markLetter(); },
   reply: () => openReply({ id: null, tpl: true }),
-  compose: (o) => openWrite(o),
+  // Відповідь із чату — цитата над рядком «Написать…»
+  compose: (o) => (o?.reply ? composeReply(o.reply) : composeFocus()),
   go: (t) => goTo(t),
 };
 
@@ -173,15 +175,14 @@ function renderLetter() {
     renderGift(screen, DATA.gift, () => { DATA.gift = null; markLetter(); render(); });
     return;
   }
-  screen.replaceChildren(...[
-    h('h2', { class: 'title' }, 'Письма'),
-    pushAsk(),
-    letterFeed(FEED_OPS),
-    // «Написать…» лише відкриває вікно. «Вместе N дн.» тимчасово прибрано з цього рядка — лишається в шапці
-    h('div', { class: 'compose-row' },
-      h('button', { type: 'button', class: 'compose', id: 'write-btn', onclick: () => openWrite() },
-        h('span', { 'aria-hidden': 'true' }, '✍️'), 'Написать…')),
-  ].filter(Boolean));
+  const parts = [h('h2', { class: 'title' }, 'Письма'), pushAsk(), letterFeed(FEED_OPS)].filter(Boolean);
+  // Рядок «Написать…» — той самий вузол: перемальовуємо все навколо, а його не виймаємо з екрана,
+  // інакше поле втратить фокус і клавіатура сховається посеред набору
+  const bar = composeBar();
+  if (bar.parentNode === screen) {
+    [...screen.children].forEach((c) => { if (c !== bar) c.remove(); });
+    bar.before(...parts);
+  } else screen.replaceChildren(...parts, bar);
 }
 
 // Шторка тримає лише { id, tpl }: фонове оновлення підміняє об'єкти листів у кеші
@@ -283,21 +284,20 @@ function toggleHeart() {
   if (liked && !sheet.tpl) toast(`${cap(who().partner)} увидит твоё ❤️`);
 }
 
-// t — { id, tpl }: відповідь на лист — екран «Написать» з цитатою; шторку листа (якщо відкрита) після відповіді оновлюємо
+// t — { id, tpl }: відповідь на лист — шторка листа (якщо відкрита) закривається, цитата стає над рядком «Написать…»
 function openReply(t) {
   const target = { id: t.id, tpl: t.tpl };
   const l = target.tpl ? welcomeLetter() : findLetter(target.id);
   if (!l) return;
-  openWrite({
-    reply: {
-      quote: l.text.length > 300 ? `${l.text.slice(0, 300)}…` : l.text,
-      on: 'letter',
-      // Відповідь — нове повідомлення (його надсилає сам екран); тут лише «прочитано»
-      sent: () => {
-        if (l.opened) return;
-        patchLetter(target, { opened: true });
-        fillLetter();
-      },
+  closeLetter();
+  composeReply({
+    quote: l.text.length > 300 ? `${l.text.slice(0, 300)}…` : l.text,
+    on: 'letter',
+    // Відповідь — нове повідомлення (його надсилає рядок); тут лише «прочитано»
+    sent: () => {
+      if (l.opened) return;
+      patchLetter(target, { opened: true });
+      fillLetter();
     },
   });
 }
@@ -314,7 +314,10 @@ function render() {
   const chat = tab === 'letter' && !DATA.gift;
   screen.classList.toggle('is-chat', chat);
   document.body.classList.toggle('is-chat', chat);
-  if (chat) document.documentElement.style.setProperty('--tabs-h', `${document.querySelector('.tabs').offsetHeight}px`);
+  // Поки пишуть, вкладки сховані (висота 0) — тоді лишаємо заміряну раніше
+  const tabsH = document.querySelector('.tabs').offsetHeight;
+  if (chat && tabsH) document.documentElement.style.setProperty('--tabs-h', `${tabsH}px`);
+  if (tab !== 'letter') composeLeave();
   if (tab === 'letter') {
     renderLetter();
     // Першим на екрані, над «Письмами»: сигнал «Нужна помощь» (якщо є), потім блок «Я в порядке» з повзунком допомоги

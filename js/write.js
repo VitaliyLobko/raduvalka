@@ -1,10 +1,10 @@
-// «✍️ Написать»: лист зараз, на ранок або записка в її/його конверт; нижче — що вже надіслано
+// Велике вікно «Написать»: лист зараз, на ранок, у її/його конверт чи до дати. Звичайний лист пишуть у рядку під
+// чатом (compose.js), сюди — з його «＋» («В конверт», «К дате», «Большое») і «✨ Помочь»
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
-import { h, toast, cap, ARROW, reduceMotion, ribbon, hhmm, dayMonth } from './ui.js';
+import { h, toast, ARROW, reduceMotion, ribbon, hhmm, dayMonth } from './ui.js';
 import { mountHelper } from './helper.js';
-import { loadWishes, fitsBudget, money, budgetSlider, ANY_BUDGET } from './wishes.js';
 import { composeMeme, composeGif } from './memes.js';
 import { openGifs } from './maker.js';
 import { recentThread } from './feed.js';
@@ -15,21 +15,24 @@ const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
 
 // Чернетку тримаємо в телефоні: випадковий тап повз шторку не з'їсть довгий лист
-const draft = {
+export const draft = {
   get: () => { try { return localStorage.getItem(DRAFT) || ''; } catch { return ''; } },
   set: (v) => { try { localStorage.setItem(DRAFT, v); } catch { /* приватне вікно — без чернетки */ } },
 };
 
 // Найближчі 8:00 за часом телефона: увечері — завтра, вночі — вже сьогодні
-function nextMorning(now = new Date()) {
+export function nextMorning(now = new Date()) {
   const d = new Date(now);
   d.setHours(MORNING_HOUR, 0, 0, 0);
   if (d <= now) d.setDate(d.getDate() + 1);
   return d;
 }
 
-const isShe = (key) => DATA.mascots[key]?.g === 'f';
-const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
+export const isShe = (key) => DATA.mascots[key]?.g === 'f';
+// Однаково для вікна й рядка під чатом
+export const QUEUED = 'Нет связи. Письмо ждёт в телефоне и уйдёт само, когда Радовалка будет открыта с интернетом 📮';
+export const sentToast = (pet) => `${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} письмо ➶`;
+export const dayWord = (ms) => (new Date(ms).toDateString() === new Date().toDateString() ? 'сегодня' : 'завтра');
 // Над полем: сьогоднішнє — годиною, інше — днем
 // Поява й зникнення — лише зсув і прозорість: їх рахує відеокарта без перемальовування вікна.
 // clip-path перемальовував усе вікно кожен кадр і на телефоні гальмував (18.11)
@@ -73,15 +76,19 @@ export function prewarmWrite() {
 
 // preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
 // { reply: { quote, on, sent } } — відповідь: той самий екран із цитатою зверху; лист, фото чи гифка йдуть новим
-// повідомленням із цією цитатою; on — на що відповідають ('letter' | 'gif' | 'photo'), sent() — після відправки
+// повідомленням із цією цитатою; on — на що відповідають ('letter' | 'gif' | 'photo'), sent() — після відправки.
+// З рядка під чатом: where ('morning' | 'env' | 'date'), pet — хто понесе, text — уже набране (для відповіді),
+// help — одразу розгорнути «✨ Помочь», onClose(sent, text) — вікно закрилось: надіслано чи ні і що лишилось у полі
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
   const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
-  let where = presetEnv ? 'env' : 'now';
+  let where = presetEnv || (preset.where === 'env' && envs.length) ? 'env'
+    : ['morning', 'date'].includes(preset.where) ? preset.where : 'now';
   let envId = presetEnv || envs[0]?.id || null;
-  let pet = petFor('push');
+  let pet = DATA.mascots[preset.pet] ? preset.pet : petFor('push');
+  let sentOk = false;
 
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
   const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': reply ? 'Текст ответа' : 'Текст письма', placeholder: reply ? 'Пару слов в ответ…' : said });
@@ -89,7 +96,7 @@ export function openWrite(preset = {}) {
   if (!reply) {
     area.value = draft.get();
     area.addEventListener('input', () => draft.set(area.value));
-  }
+  } else if (preset.text) area.value = preset.text;
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
@@ -98,31 +105,9 @@ export function openWrite(preset = {}) {
   const dateInput = h('input', { type: 'date', class: 'write-date', min: tomorrow, 'aria-label': 'К какой дате', onchange: () => paintNote() });
   const dateRow = h('label', { class: 'meet-row write-date-row', hidden: true }, h('span', {}, 'Какого числа?'), dateInput);
   const dateAt = () => (dateInput.value ? new Date(`${dateInput.value}T${String(MORNING_HOUR).padStart(2, '0')}:00`).getTime() : null);
-  // «Подарок на выбор»: 2–3 варіанти — значок, назва на конверті й що всередині (видно після вибору)
-  const SAMPLE = [['🌷', 'Цветы', 'Курьер привезёт букет'], ['🍝', 'Ужин', 'Сходим в наше место'], ['💆', 'Массаж', 'Час массажа от меня, когда вернусь']];
-  const giftRows = SAMPLE.map(([e, t, i]) => {
-    const emoji = h('input', { type: 'text', class: 'gift-emoji', maxlength: '4', value: e, 'aria-label': 'Значок' });
-    const title = h('input', { type: 'text', class: 'gift-title', maxlength: '40', placeholder: t, 'aria-label': 'Что на конверте' });
-    const inside = h('input', { type: 'text', class: 'gift-inside', maxlength: '500', placeholder: `Внутри: ${i.toLowerCase()}`, 'aria-label': 'Что внутри' });
-    return { el: h('div', { class: 'gift-row' }, emoji, h('div', { class: 'gift-texts' }, title, inside)), emoji, title, inside };
-  });
-  // Варіанти з її/його «Хотелок»: відмічаєш до трьох — вони стають конвертами
-  const fromWish = h('button', { type: 'button', class: 'btn mk-reroll gift-from-wish' }, `🎁 Из ${me.partner === 'она' ? 'её' : 'его'} хотелок`);
-  const wishPick = h('div', { class: 'gift-wish-pick', hidden: true });
-  fromWish.addEventListener('click', () => pickFromWishes(wishPick, giftRows));
-  const giftBox = h('div', { class: 'gift-edit', hidden: true },
-    fromWish, wishPick,
-    h('p', { class: 'mk-label' }, 'Варианты (минимум два)'), ...giftRows.map((r) => r.el));
-  const giftOptions = () => giftRows
-    .map((r) => ({ emoji: r.emoji.value.trim() || '🎁', title: r.title.value.trim(), inside: r.inside.value.trim() }))
-    .filter((o) => o.title);
   const paintNote = () => {
     const m = nextMorning();
-    giftBox.hidden = where !== 'gift';
-    area.placeholder = reply ? 'Пару слов в ответ…' : where === 'gift' ? 'Пару слов к подарку (можно без)' : said;
-    note.textContent = where === 'gift'
-      ? `${cap(me.partner)} увидит закрытые конверты и выберет один. Что внутри — узнает после выбора, остальные тоже откроются.`
-      : where === 'now'
+    note.textContent = where === 'now'
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'morning'
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} запечатанным конвертом.`
@@ -150,7 +135,6 @@ export function openWrite(preset = {}) {
     { v: 'morning', label: 'На утро' },
     ...(envs.length ? [{ v: 'env', label: 'В конверт' }] : []),
     { v: 'date', label: '🎂 К дате' },
-    { v: 'gift', label: '🎁 Подарок' },
   ], where, (v) => { where = v; paintNote(); });
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
   [whereRow, envRow.firstChild].forEach((row) => { row.classList.add('write-when'); ribbon(row); });
@@ -176,6 +160,7 @@ export function openWrite(preset = {}) {
     document.documentElement.classList.remove('is-covered');
     // Закрили ще під час руху — знімок для прогріву все одно потрібен
     snapWrite(sheet);
+    preset.onClose?.(sentOk, area.value);
     const done = () => { sheet.remove(); backdrop.remove(); };
     if (fast || reduceMotion) { done(); return; }
     sheet.animate([STILL, MOVE], { duration: 160, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }).onfinish = done;
@@ -228,9 +213,7 @@ export function openWrite(preset = {}) {
 
   go.addEventListener('click', async () => {
     const text = area.value.trim();
-    const gift = where === 'gift' ? giftOptions() : null;
-    if (gift && gift.length < 2) { toast('Нужно хотя бы два варианта'); giftRows[gift.length].title.focus(); return; }
-    if (!text && !gift) { area.focus(); return; }
+    if (!text) { area.focus(); return; }
     if (where === 'date' && !dateAt()) { toast('Выбери дату'); dateInput.focus(); return; }
     go.disabled = true;
     try {
@@ -240,21 +223,21 @@ export function openWrite(preset = {}) {
         mascot: pet,
         env: where === 'env' ? envId : undefined,
         at: where === 'morning' ? nextMorning().getTime() : where === 'date' ? dateAt() : undefined,
-        gift: gift || undefined,
         quote: reply?.quote,
         on: reply?.on,
       });
       // Чернетка — лише листа; відповідь її не чіпає
       if (!reply) draft.set('');
       reply?.sent?.();
+      sentOk = true;
       close();
       // Без зв'язку лист лежить у черзі телефона — чесно кажемо, коли він піде
       if (r.queued) {
-        toast(`Нет связи. ${gift ? 'Подарок ждёт' : 'Письмо ждёт'} в телефоне и уйдёт само, когда Радовалка будет открыта с интернетом 📮`);
+        toast(QUEUED);
         return;
       }
       document.dispatchEvent(new CustomEvent('radovalka:sent'));
-      toast(`${petName(pet) || 'Почтальон'} ${isShe(pet) ? 'понесла' : 'понёс'} ${gift ? 'подарок 🎁' : 'письмо ➶'}`);
+      toast(sentToast(pet));
     } catch {
       go.disabled = false;
       toast('Не отправилось. Текст сохранён — попробуй ещё раз.');
@@ -276,7 +259,7 @@ export function openWrite(preset = {}) {
       tools,
       area,
       h('div', { class: 'write-dock' }, ...[
-        whereRow, envRow, dateRow, giftBox, note,
+        whereRow, envRow, dateRow, note,
         h('div', { class: 'write-send' }, ...[pets.length ? petRow : null, go].filter(Boolean)),
       ]),
     ].filter(Boolean)));
@@ -297,8 +280,11 @@ export function openWrite(preset = {}) {
     const later = self.requestIdleCallback || ((fn) => setTimeout(fn, 800));
     later(() => { if (sheet.isConnected) snapWrite(sheet); }, { timeout: 3000 });
   };
-  if (shown) shown.finished.then(() => { settled(); if (!area.value) area.focus(); }, () => {});
-  else { settled(); if (!area.value) area.focus(); }
+  // «✨ Помочь» з рядка — помічник одразу розгорнутий, клавіатура не потрібна
+  if (preset.help) helper.querySelector('.help-open')?.click();
+  const focusArea = () => { if (!area.value && !preset.help) area.focus(); };
+  if (shown) shown.finished.then(() => { settled(); focusArea(); }, () => {});
+  else { settled(); focusArea(); }
   if (area.value) grow();
   return { sheet, area };
 }
@@ -355,58 +341,4 @@ function splitter(top, area, key) {
     new ResizeObserver(() => { if (on() && sheet.scrollHeight > sheet.clientHeight) set(topH()); }).observe(sheet);
   };
   return { bar: grip, mount, on };
-}
-
-// Список її/його хотілок із фільтром бюджету; «Взять» заповнює рядки подарунка
-async function pickFromWishes(box, rows) {
-  if (!box.hidden) { box.hidden = true; return; }
-  box.hidden = false;
-  box.replaceChildren(h('p', { class: 'mk-wait' }, 'Загружаю хотелки…'));
-  let data;
-  try {
-    data = await loadWishes();
-  } catch {
-    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Не загрузилось — нет связи'));
-    return;
-  }
-  const picked = new Set();
-  let budget = ANY_BUDGET;
-  // Хотілки кладемо лише в порожні рядки — вписане руками не чіпаємо; уже куплене не пропонуємо
-  const free = rows.filter((r) => !r.title.value.trim());
-  if (!free.length) {
-    box.replaceChildren(h('p', { class: 'mk-wait' }, 'Все три варианта заняты. Сотри название в одном, и туда встанет хотелка.'));
-    return;
-  }
-  const open = data.theirs.filter((w) => w.mark !== 'bought');
-  // Повзунок створюємо раз і поза draw — перемальовується лише список під ним
-  const slider = budgetSlider(open.map((w) => w.price), budget, (b) => { budget = b; draw(); });
-  const listBox = h('div', { class: 'gift-wish-box' });
-  box.replaceChildren(...[slider, listBox].filter(Boolean));
-  const draw = () => {
-    const list = open.filter((w) => fitsBudget(w, budget));
-    listBox.replaceChildren(
-      list.length ? h('div', { class: 'gift-wish-list' }, ...list.map((w) => h('button', {
-        type: 'button', class: 'mk-chip gift-wish', 'aria-checked': String(picked.has(w.id)),
-        onclick: () => {
-          if (picked.has(w.id)) picked.delete(w.id);
-          else if (picked.size < free.length) picked.add(w.id);
-          else toast(free.length === 1 ? 'Свободен один вариант' : `Свободно вариантов: ${free.length}`);
-          draw();
-        },
-      }, `${w.hot ? '🔥 ' : ''}${w.title}${w.price ? ` · ${money(w.price)}` : ''}`))) : h('p', { class: 'mk-wait' }, open.length ? 'В этот бюджет ничего' : 'Хотелок пока нет'),
-      h('button', {
-        type: 'button', class: 'btn btn-primary', disabled: !picked.size,
-        onclick: () => {
-          const ws = open.filter((w) => picked.has(w.id));
-          ws.forEach((w, i) => {
-            const r = free[i];
-            r.emoji.value = '🎁';
-            r.title.value = w.title.slice(0, 40);
-            r.inside.value = w.note || 'То самое из твоего списка 💜';
-          });
-          box.hidden = true;
-        },
-      }, `Взять (${picked.size})`));
-  };
-  draw();
 }
