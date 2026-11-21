@@ -1,7 +1,7 @@
 // Ігри на двох з «🎲 Игры»: камінь-ножиці до двох перемог, хрестики-нолики, «Четыре в ряд» і морський бій; ставка — «На что играем».
 // Камінь-ножиці: хід другого відкривається, коли сходили обидва; хрестики — по черзі, кожен хід видно
 import { DATA, who } from './data.js';
-import { get, send } from './api.js';
+import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
 import { mascotImg, petName, petLine } from './icons.js';
@@ -189,7 +189,7 @@ export function gwishCard(n) {
 
 async function wishDone(id) {
   try {
-    const r = await send('duel/wish-done', 'POST', { id });
+    const r = await dsend('duel/wish-done', 'POST', { id });
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
     toast(`Исполнено ✓ — ${who().partner} узнает`);
     return r.wish;
@@ -225,7 +225,7 @@ function wishBox(g) {
       go.disabled = true;
       if (open) open.busy = true;
       try {
-        const r = await send('duel/wish', 'POST', { id: g.id, text });
+        const r = await dsend('duel/wish', 'POST', { id: g.id, text });
         g.wish = r.wish;
         document.dispatchEvent(new CustomEvent('radovalka:marked'));
         toast(`🎁 Желание улетело — ${who().partner} увидит в чате`);
@@ -245,6 +245,17 @@ function wishBox(g) {
 let open = null;
 
 // game — з плитки «Игры»: яку гру пропонувати, коли зараз нічого не йде
+// Налагодження «Играть за двоих» (лише в нього, де збережено обидва ключі): гра перемальовується з її боку,
+// її ходи йдуть її ключем. DATA.side підмінюємо лише поки відкрита гра — закрив чи повернувся, і все назад
+let actAs = null;
+const asOpt = () => (actAs ? { key: actAs.key } : {});
+const dsend = (path, method, body) => send(path, method, body, asOpt());
+const canActBoth = () => { try { return localStorage.getItem('radovalka:debug-both') === '1'; } catch { return false; } };
+function playAs(on) {
+  if (on && !actAs) { actAs = { key: getAltKey(), real: DATA.side }; DATA.side = DATA.side === 'vin' ? 'vona' : 'vin'; }
+  if (!on && actAs) { DATA.side = actAs.real; actAs = null; }
+}
+
 export async function openDuel({ game = 'rps' } = {}) {
   if (open) return;
   if (!GAMES[game]) game = 'rps';
@@ -252,6 +263,7 @@ export async function openDuel({ game = 'rps' } = {}) {
   const title = h('h2', {}, gameName(game));
   const close = () => {
     clearInterval(open?.timer);
+    playAs(false);
     open = null;
     el.remove();
     backdrop.remove();
@@ -263,6 +275,17 @@ export async function openDuel({ game = 'rps' } = {}) {
     h('div', { class: 'sheet-inner' },
       h('div', { class: 'duel-head' },
         title,
+        // «🎭 За неё» — лише з його половини, коли в «Отладке» ввімкнено «Играть за двоих»
+        DATA.side === 'vin' && canActBoth() && getAltKey() ? h('button', {
+          type: 'button', class: 'duel-as',
+          onclick: (e) => {
+            if (open?.busy) return;
+            playAs(!actAs);
+            e.currentTarget.textContent = actAs ? '🪐 За себя' : '🎭 За неё';
+            open.state = '';
+            refresh(true);
+          },
+        }, '🎭 За неё') : null,
         h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
       body));
   // kind — яку гру показуємо: ту, що йде, або обрану плиткою; заголовок шторки — за нею
@@ -282,7 +305,7 @@ export async function openDuel({ game = 'rps' } = {}) {
 
 async function refresh(first = false) {
   let r;
-  try { r = await get(`duel?game=${open.kind}`); } catch {
+  try { r = await get(`duel?game=${open.kind}`, asOpt()); } catch {
     if (first && open) { open.body.replaceChildren(h('p', { class: 'hint duel-hint' }, 'Нет связи — игра откроется, когда появится интернет')); }
     return;
   }
@@ -442,7 +465,7 @@ function setup() {
     if (go.disabled) return;
     go.disabled = true;
     try {
-      const r = await send('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv || undefined, fleet: fleet?.fleet(), game: kind === 'rps' ? undefined : kind });
+      const r = await dsend('duel', 'POST', { preset: preset || undefined, topic: preset ? undefined : topic(), move: mv || undefined, fleet: fleet?.fleet(), game: kind === 'rps' ? undefined : kind });
       markSeen(r.duel);
       document.dispatchEvent(new CustomEvent('radovalka:marked'));
       toast(`${GAMES[kind].icon} Позвали играть — ${who().partner} ${r.reaches ? 'получит уведомление' : 'увидит в чате'}`);
@@ -630,7 +653,7 @@ async function boardMove(g, m, board) {
   board.replaceChildren(...cells(grid, bd.join(''), { mine: g.mark }));
   land(grid, board, i);
   let r;
-  try { r = await send('duel/move', 'POST', { id: g.id, move: String(m) }); } catch (e) {
+  try { r = await dsend('duel/move', 'POST', { id: g.id, move: String(m) }); } catch (e) {
     if (!open) return;
     open.busy = false;
     // Поле застаріло (другий уже сходив, клітинка зайнята) — просто перечитуємо
@@ -668,7 +691,7 @@ function bsAccept(g) {
     go.disabled = true;
     open.busy = true;
     let r;
-    try { r = await send('duel/fleet', 'POST', { id: g.id, fleet: fleet.fleet() }); } catch (e) {
+    try { r = await dsend('duel/fleet', 'POST', { id: g.id, fleet: fleet.fleet() }); } catch (e) {
       if (!open) return;
       open.busy = false;
       go.disabled = false;
@@ -775,7 +798,7 @@ async function bsShoot(g, c, board) {
   board.querySelectorAll('.bs-cell').forEach((b) => { b.disabled = true; });
   cellOf(board, c)?.classList.add('is-aim');
   let r;
-  try { r = await send('duel/move', 'POST', { id: g.id, move: String(c) }); } catch (e) {
+  try { r = await dsend('duel/move', 'POST', { id: g.id, move: String(c) }); } catch (e) {
     if (!open) return;
     open.busy = false;
     open.state = '';
@@ -800,7 +823,7 @@ async function move(g, m) {
   open.busy = true;
   open.body.querySelectorAll('.duel-move').forEach((b) => { b.disabled = true; });
   let r;
-  try { r = await send('duel/move', 'POST', { id: g.id, move: m }); } catch (e) {
+  try { r = await dsend('duel/move', 'POST', { id: g.id, move: m }); } catch (e) {
     if (!open) return;
     open.busy = false;
     if (e.status === 409) { toast('Эта игра уже закончилась или отменена'); open.state = ''; refresh(); return; }
@@ -816,7 +839,7 @@ async function move(g, m) {
 }
 
 async function cancel(g) {
-  try { await send('duel/cancel', 'POST', { id: g.id }); } catch { toast('Не отменилось — нет связи'); return; }
+  try { await dsend('duel/cancel', 'POST', { id: g.id }); } catch { toast('Не отменилось — нет связи'); return; }
   document.dispatchEvent(new CustomEvent('radovalka:marked'));
   toast('Игра отменена');
   if (open) { open.state = ''; show(null, true); }

@@ -54,6 +54,19 @@ function openSameQs() {
       Object.values(qs).map(([q, a, b]) => h('li', {}, q, h('br'), h('small', {}, `${a} · ${b}`))))));
 }
 
+// «Играть за двоих»: у грі зʼявляється кнопка «🎭 За неё» — її ходи йдуть її ключем (на цьому телефоні є обидва)
+const BOTH = 'radovalka:debug-both';
+const bothOn = () => { try { return localStorage.getItem(BOTH) === '1'; } catch { return false; } };
+function bothRow() {
+  const note = () => (bothOn() ? 'Включено: в игре кнопка «🎭 За неё»' : 'Ходить и за неё — проверить игру одному');
+  const row = aboutRow('🎭', 'Играть за двоих', note(), () => {
+    try { localStorage.setItem(BOTH, bothOn() ? '0' : '1'); } catch { /* приватне вікно */ }
+    row.querySelector('small').textContent = note();
+    toast(bothOn() ? 'Включено — открой игру, вверху «🎭 За неё»' : 'Выключено');
+  });
+  return row;
+}
+
 export function openDebug() {
   if (DATA.side !== 'vin') return;
   const cookie = (gold) => () => { close(); setTimeout(() => previewCookie(gold), 300); };
@@ -67,5 +80,5 @@ export function openDebug() {
       aboutRow('✨', 'Показать золотую', null, cookie(true)),
       aboutRow('📜', 'Все предсказания', null, sub(openFortunes))),
     aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),
-    aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs))));
+    aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs)), bothRow()));
 }

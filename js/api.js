@@ -83,10 +83,11 @@ export function takeKeyFromUrl() {
   history.replaceState(null, '', location.pathname + location.search);
 }
 
-async function request(path, init = {}) {
+// key — інший ключ лише для цього запиту (налагодження «Играть за двоих»); збережений не чіпаємо
+async function request(path, init = {}, key = getKey()) {
   const res = await fetch(`${API}/api/${path}`, {
     ...init,
-    headers: { authorization: `Bearer ${getKey()}`, ...(init.headers || {}) },
+    headers: { authorization: `Bearer ${key}`, ...(init.headers || {}) },
   });
   if (!res.ok) {
     // Код помилки з тіла ({ error }), щоб розрізнити причини з однаковим статусом
@@ -123,7 +124,9 @@ async function keyPrint() {
 }
 const dataUrl = async (path) => `${API}/api/${path}?saved=${await keyPrint()}`;
 
-export async function get(path) {
+export async function get(path, { key } = {}) {
+  // Чужим ключем — без кешу телефона: збережене лишається своєї половини
+  if (key) return openDeep(await (await request(path, {}, key)).json());
   if (!OFFLINE_PATHS.test(path) || !self.caches) return openDeep(await (await request(path)).json());
   try {
     const text = await (await request(path)).text();
@@ -146,7 +149,7 @@ export const forgetSaved = () => (self.caches ? caches.delete(DATA_CACHE).catch(
 
 // Запит, результат якого потрібен одразу (надіслати, видалити): помилку ловить той, хто кличе.
 // timeout — для черги без зв'язку: на слабкому сигналі fetch висить хвилинами, обрив = «нема зв'язку» (без status)
-export async function send(path, method, plain, { timeout } = {}) {
+export async function send(path, method, plain, { timeout, key } = {}) {
   const body = await sealBody(path, plain);
   const ctl = timeout ? new AbortController() : null;
   const timer = ctl && setTimeout(() => ctl.abort(), timeout);
@@ -156,7 +159,7 @@ export async function send(path, method, plain, { timeout } = {}) {
       headers: body === undefined ? {} : { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
       ...(ctl ? { signal: ctl.signal } : {}),
-    });
+    }, key || getKey());
     return await openDeep(await res.json());
   } finally {
     clearTimeout(timer);
