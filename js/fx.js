@@ -650,23 +650,25 @@ REACT_FX['🤗'] = (el, x, y, r) => {
   const half = r.width / 2;
   // Точка, навколо якої гойдається лист (центр пузиря), — щоб долоні йшли разом з його краями
   const cy = (r.top + r.bottom) / 2;
-  for (const [g, side] of [['🫱', -1], ['🫲', 1]]) {
+  // Обидві долоні — той самий 🫱, права віддзеркалена: 🫲 на деяких телефонах намальована інакше й дивиться не туди
+  for (const side of [-1, 1]) {
+    const flip = side > 0 ? ' scaleX(-1)' : '';
     const hx = clamp(cx + side * (half + 2), 22, innerWidth - 22);
-    const hnd = glyphAt(g, hx, hy, '3rem', 'fx-big');
+    const hnd = glyphAt('🫱', hx, hy, '3rem', 'fx-big');
     const at = (sx, rot) => {
       const rad = (rot * Math.PI) / 180;
       const dx = -side * half * (1 - sx) + side * half * (Math.cos(rad) - 1) - (hy - cy) * Math.sin(rad);
       const dy = side * half * Math.sin(rad) + (hy - cy) * (Math.cos(rad) - 1);
-      return `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${rot}deg)`;
+      return `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${rot}deg)${flip}`;
     };
     const t0 = HUG_AT / (HUG_AT + HUG_MS + 380);
     const span = HUG_MS / (HUG_AT + HUG_MS + 380);
     gone(hnd)(hnd.animate([
-      { transform: `translate(calc(-50% + ${side * 60}px), -50%) rotate(${side * 25}deg)`, opacity: 0 },
+      { transform: `translate(calc(-50% + ${side * 60}px), -50%) rotate(${side * 25}deg)${flip}`, opacity: 0 },
       { transform: at(1, 0), opacity: 1, offset: t0 * 0.85 },
       ...HUG.slice(1, -1).map(([o, sx, rot]) => ({ transform: at(sx, rot), offset: t0 + o * span })),
       { transform: at(1, 0), opacity: 1, offset: t0 + span },
-      { transform: `translate(calc(-50% + ${side * 40}px), -50%)`, opacity: 0 },
+      { transform: `translate(calc(-50% + ${side * 40}px), -50%)${flip}`, opacity: 0 },
     ], { duration: HUG_AT + HUG_MS + 380, delay: 100, easing: 'ease-in-out', fill: 'backwards' }));
   }
   jolt(el, HUG.map(([o, sx, rot]) => ({ transform: sx === 1 && !rot ? 'none' : `scale(${sx}, ${(2 - sx).toFixed(3)}) rotate(${rot}deg)`, offset: o })),
