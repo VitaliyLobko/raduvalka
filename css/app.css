@@ -3771,3 +3771,65 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .sheet-write.is-help-solo .write-tools { margin-bottom: 0; }
 .sheet-write.is-help-solo .help-panel { margin-bottom: 0; }
 .sheet-write.is-help-solo .help-draft { max-height: 30dvh; font-size: 1.15rem; }
+
+/* Фото перед відправкою (photoedit.js): на весь екран — зверху ✕ та інструменти, посередині фото (найбільше, що влазить),
+   знизу підпис із ✨ варіантами й ➤. Малювання / обрізка / наклейки — своя панель під фото, підпис тоді ховається */
+.sheet-photo { gap: 6px; padding-bottom: max(10px, env(safe-area-inset-bottom)); animation: none; }
+.sheet-photo .ph-top { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+.sheet-photo .ph-close { position: static; flex: none; margin: 0; align-self: center; }
+.ph-gap { flex: 1; }
+.ph-tool {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 1.5px solid var(--lavender); border-radius: 50%; background: var(--paper); font-size: 1.25rem; line-height: 1; cursor: pointer;
+}
+.ph-tool[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); }
+[data-side="vin"] .ph-tool[aria-pressed="true"] { background: var(--star); border-color: var(--star); }
+.ph-tool[hidden] { display: none; }
+.ph-tool:focus-visible, .ph-send:focus-visible, .ph-swatch:focus-visible, .ph-sticker:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+.ph-stage { position: relative; flex: 1 1 auto; min-height: 120px; display: grid; place-items: center; overflow: hidden; touch-action: none; }
+.ph-canvas { display: block; border-radius: 14px; box-shadow: 0 10px 28px -14px rgba(42, 23, 48, .55); touch-action: none; -webkit-user-select: none; user-select: none; }
+.ph-panel { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; flex-wrap: nowrap; }
+.ph-panel[hidden], .ph-bottom[hidden], .ph-looks[hidden], .ph-below[hidden], .ph-swatches[hidden] { display: none; }
+.ph-panel .mk-chip { flex: none; min-height: 40px; }
+.ph-panel .ph-done { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
+[data-side="vin"] .ph-panel .ph-done { background: var(--star); border-color: var(--star); color: var(--night); }
+.ph-undo:disabled { opacity: .4; }
+.ph-swatches { display: inline-flex; flex: none; align-items: center; gap: 6px; padding: 0 4px; }
+.ph-swatch {
+  flex: none; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  border: 2px solid rgba(42, 23, 48, .2); background: var(--c); cursor: pointer;
+}
+.ph-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--wax); }
+.ph-panel-stick { justify-content: stretch; }
+.ph-stickers { flex: 1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+.ph-stickers::-webkit-scrollbar { display: none; }
+.ph-sticker { flex: none; width: 46px; height: 46px; padding: 0; border: 0; background: none; font-size: 1.85rem; line-height: 1; cursor: pointer; }
+.ph-bottom { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ph-below { margin: 0; text-align: center; color: var(--plum); font: 400 1.3rem/1.15 var(--hand); display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ph-looks { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+.ph-looks::-webkit-scrollbar { display: none; }
+.ph-looks .mk-chip { flex: none; min-height: 36px; padding: 0 12px; font-size: .875rem; white-space: nowrap; }
+/* ✨ підписи й настрій — по рядку, без підписів-заголовків: фото лишається якомога більшим */
+.sheet-photo .cap-assist .mk-label { display: none; }
+.sheet-photo .cap-assist .mk-row { margin: 0; }
+.sheet-photo .cap-assist .mk-chip { min-height: 36px; }
+.sheet-photo .cap-assist .cap-moods { margin-top: 6px; }
+.ph-send-row { display: flex; align-items: center; gap: 8px; }
+.ph-send-row > .voice-wrap, .ph-send-row > .ph-caption { flex: 1; min-width: 0; }
+.ph-caption { width: 100%; min-height: 46px; box-sizing: border-box; border-radius: 23px; }
+.ph-send {
+  flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--plum); color: var(--on-plum); box-shadow: 0 6px 14px -8px rgba(42, 23, 48, .6); cursor: pointer;
+}
+.ph-send svg { width: 22px; height: 22px; }
+.ph-send:disabled { opacity: .5; }
+[data-side="vin"] .ph-send { background: var(--star); color: var(--night); }
+[data-side="vin"] .ph-below { color: var(--star); }
+/* Клавіатура відкрита (вікно низьке) — без рядка настрою, фото поменшає: поле й ➤ лишаються на екрані */
+@media (max-height: 520px) {
+  .sheet-photo .cap-assist .cap-moods, .sheet-photo .cap-assist .cap-own, .sheet-photo .ph-below { display: none; }
+  .sheet-photo .ph-stage { min-height: 72px; }
+  .sheet-photo .ph-top { min-height: 40px; }
+  .sheet-photo .ph-tool, .sheet-photo .ph-close { width: 40px; height: 40px; }
+}
+.sheet-photo[data-mode="crop"] .ph-canvas { border-radius: 0; }

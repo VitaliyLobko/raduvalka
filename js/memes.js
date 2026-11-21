@@ -144,12 +144,21 @@ export async function composeMeme(file, done, re = null) {
     toast(prepareError(e));
     return;
   }
-  const preview = URL.createObjectURL(blob);
-  sendSheet(preview, async (caption, style) => {
-    const meme = await send('memes', 'POST', { type: blob.type, data: await toBase64(blob), caption, style, ...re });
-    urls.set(meme.id, preview);
-    return meme;
-  }, done, null, '', once(() => aiPhoto(blob)));
+  // Редактор — окремий модуль, вантажиться лише тепер, коли вибрали фото (у кеші оболонки він уже лежить)
+  const { photoEditor } = await import('./photoedit.js');
+  photoEditor(blob, {
+    image: once(() => aiPhoto(blob)),
+    fail: sendError,
+    // out — те саме фото або вже з підписом / наклейками / малюнком; підпис текстом — лише «Под фото»
+    send: async (out, caption) => {
+      const meme = await send('memes', 'POST', { type: out.type, data: await toBase64(out), caption, style: null, ...re });
+      urls.set(meme.id, URL.createObjectURL(out));
+      DATA.memes = [meme, ...(DATA.memes || [])];
+      const key = pet();
+      toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} фото ➶`);
+      done?.();
+    },
+  });
 }
 
 // GIF із пошуку: на сервер іде лише посилання GIPHY
