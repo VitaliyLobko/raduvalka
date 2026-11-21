@@ -136,17 +136,20 @@ export function duelCard(g, onOpen) {
   const toWish = g.done && !hidden && g.preset === 'wish' && g.done.won && !g.wish;
   const state = g.done ? (hidden ? '🏆 Игра окончена' : duelResult(g)) : turn ? 'Твой ход' : `Ждём ${gen()} ход`;
   const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : toWish ? '🎁 Загадать' : null;
-  const n = (x) => h('b', {}, hidden ? '?' : String(x));
-  // Хрестики: замість рахунку — маленьке поле; догране й ще не бачене — «?»
-  const mid = !isBoard(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
-    : hidden ? h('span', { class: 'duel-card-score' }, h('b', {}, '?'))
-      : h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : sym(sexOf(c, g.mark)))));
+  const n = (x) => h('b', {}, String(x));
+  const mini = () => h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : sym(sexOf(c, g.mark)))));
+  // Догране й ще не бачене — не «?», а розмите поле (чи рахунок) і «Чья победа? 👀»: видно, що всередині результат
+  const mid = hidden
+    ? h('span', { class: 'duel-card-secret' }, isBoard(g) ? mini() : h('span', { class: 'duel-card-score' }, n('?'), h('i', {}, ':'), n('?')), h('b', {}, 'Чья победа? 👀'))
+    : !isBoard(g) ? h('span', { class: 'duel-card-score' }, h('span', {}, cap(who().partner)), n(g.score.them), h('i', {}, ':'), n(g.score.me), h('span', {}, 'Ты'))
+      : mini();
   return h('button', {
     type: 'button', class: `duel-card${turn || toWish ? ' is-turn' : ''}${g.done ? ' is-done' : ''}`, onclick: onOpen,
     'aria-label': `${GAMES[kindOf(g)].name}, «${g.topic}»: ${state}`,
   },
-  h('span', { class: 'duel-card-head' }, isBoard(g) ? gameName(kindOf(g)) : `${gameName('rps')} · до двух побед`),
-  h('span', { class: 'duel-card-topic' }, `${icon(g)} ${g.topic}`),
+  // Назва гри й ставка — одним рядком: ставка маленькою плашкою, а не великим заголовком
+  h('span', { class: 'duel-card-head' }, isBoard(g) ? gameName(kindOf(g)) : `${gameName('rps')} · до двух побед`,
+    h('span', { class: 'duel-card-stake' }, `${icon(g)} ${g.topic}`)),
   mid,
   h('span', { class: 'duel-card-foot' }, h('span', { class: 'duel-card-state' }, state), go ? h('span', { class: 'duel-card-go' }, go) : null));
 }
@@ -513,6 +516,31 @@ function cells(grid, bd, { mine, line = null, play = false, onPick = null } = {}
     }, c === '.' ? '' : sym(sexOf(c, mine), ' cell-piece'));
   });
 }
+// Перекреслення переможного ряду: лінія від першої до останньої клітинки, промальовується (fresh) або одразу
+function strike(board, line, fresh, won) {
+  if (!line?.length) return;
+  const a = board.children[line[0]];
+  const b = board.children[line.at(-1)];
+  if (!a || !b) return;
+  const box = board.getBoundingClientRect();
+  const ca = a.getBoundingClientRect();
+  const cb = b.getBoundingClientRect();
+  const pt = (r) => [r.left - box.left + r.width / 2, r.top - box.top + r.height / 2];
+  const [x1, y1] = pt(ca);
+  const [x2, y2] = pt(cb);
+  // Трохи за межі крайніх клітинок — як рукою
+  const k = 0.32;
+  const dx = (x2 - x1) * k / Math.max(1, line.length - 1);
+  const dy = (y2 - y1) * k / Math.max(1, line.length - 1);
+  board.querySelector('.ttt-strike')?.remove();
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', `ttt-strike${won ? ' is-won' : ''}${fresh && !reduceMotion ? ' is-fresh' : ''}`);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+  svg.innerHTML = `<line x1="${x1 - dx}" y1="${y1 - dy}" x2="${x2 + dx}" y2="${y2 + dy}" pathLength="1"/>`;
+  board.append(svg);
+}
 const boardEl = (grid, label, cls = '') => h('div', { class: `ttt-board is-${grid.kind}${cls}`, role: 'group', 'aria-label': label });
 
 async function showBoard(g) {
@@ -551,6 +579,8 @@ async function showBoard(g) {
   const play = !g.done && g.turn === 'me';
   board.replaceChildren(...cells(grid, g.board, { mine, play, onPick: (m) => boardMove(g, m, board) }));
   if (fresh && g.lastBy === 'them' && g.lastCell !== null) land(grid, board, g.lastCell);
+  // Куди щойно сходив другий — тонке кільце (свіжий хід — ще й спалахує)
+  if (!g.done && g.lastBy === 'them' && g.lastCell !== null) board.children[g.lastCell]?.classList.add('is-last', ...(fresh ? ['is-last-new'] : []));
   if (g.done) {
     if (fresh) await wait(grid.drop ? 700 : 450);
     if (!open) return;
@@ -559,6 +589,7 @@ async function showBoard(g) {
       c.classList.add('is-line');
       if (fresh && !reduceMotion) c.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 420, delay: k * 140, easing: 'ease-in-out' });
     });
+    strike(board, g.line, fresh, g.done.won);
     status.textContent = duelResult(g);
     status.classList.add('is-final');
     if (fresh) { if (g.done.won) boardWin(board, symSvg(mySex()), mySex()); else boardLose(board, symSvg(otherSex()), otherSex()); }

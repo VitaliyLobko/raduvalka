@@ -4121,3 +4121,30 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 [data-side="vin"] .file-up { background: #1d4a56; }
 [data-side="vin"] .file-up-bar { background: #EDB949; }
 .screen.is-chat .feed-row.is-meme .feed-bubble:has(> .file-card) { width: 84%; max-width: 360px; }
+
+/* Картка гри в чаті: щільна підложка (тло не просвічує), ставка плашкою в рядку з назвою, недивлений фінал — розмите поле */
+.duel-card { background: var(--paper); }
+[data-side="vin"] .duel-card { background: #174A5E; border-color: color-mix(in srgb, var(--star) 40%, transparent); box-shadow: 0 10px 24px -16px rgba(0, 0, 0, .7); }
+.duel-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; }
+.duel-card-stake {
+  padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 600; color: var(--ink);
+  background: color-mix(in srgb, var(--lavender) 45%, transparent);
+}
+[data-side="vin"] .duel-card-stake { background: rgba(244, 230, 196, .12); color: var(--cream); }
+.duel-card-secret { display: grid; justify-items: center; gap: 6px; }
+.duel-card-secret .duel-card-board, .duel-card-secret .duel-card-score { filter: blur(3.5px); opacity: .7; }
+.duel-card-secret > b { font-size: .95rem; color: var(--plum); }
+[data-side="vin"] .duel-card-secret > b { color: var(--star); }
+
+/* Хрестики: лінія через переможну трійку (промальовується) і кільце там, куди щойно сходив другий */
+.ttt-board { position: relative; }
+.ttt-strike { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.ttt-strike line { stroke: #E0A93A; stroke-width: 6; stroke-linecap: round; opacity: .9; filter: drop-shadow(0 0 4px rgba(224, 169, 58, .6)); }
+.ttt-strike:not(.is-won) line { stroke: #C26B8E; filter: drop-shadow(0 0 4px rgba(194, 107, 142, .5)); }
+.ttt-strike.is-fresh line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ttt-strike .6s .5s cubic-bezier(.6, 0, .3, 1) forwards; }
+@keyframes ttt-strike { to { stroke-dashoffset: 0; } }
+.ttt-cell.is-last { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--plum) 45%, transparent); }
+[data-side="vin"] .ttt-cell.is-last { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--star) 60%, transparent); }
+.ttt-cell.is-last-new { animation: ttt-last 1.2s ease-out; }
+@keyframes ttt-last { 0% { box-shadow: inset 0 0 0 2px transparent, 0 0 0 0 color-mix(in srgb, var(--star) 70%, transparent); } 40% { box-shadow: inset 0 0 0 3px var(--star), 0 0 0 8px transparent; } }
+@media (prefers-reduced-motion: reduce) { .ttt-strike.is-fresh line { animation: none; stroke-dashoffset: 0; } .ttt-cell.is-last-new { animation: none; } }
