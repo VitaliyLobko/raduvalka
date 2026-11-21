@@ -3048,6 +3048,41 @@ body.is-plus .screen.is-chat { padding-bottom: calc(var(--tabs-h, 84px) + var(--
 }
 @media (prefers-reduced-motion: reduce) { .cbar-plus { animation: none; } .cbar-act.is-listening { animation: none; } }
 
+/* 😊 у полі зліва; відкрито — ⌨ (назад до клавіатури) */
+.cbar-emo-btn {
+  flex: none; align-self: flex-end; display: grid; place-items: center; width: 30px; height: 28px; margin: 0 6px 0 -8px; padding: 0;
+  border: 0; background: none; color: var(--ink-soft); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.cbar-emo-btn svg { width: 24px; height: 24px; }
+.cbar-emo-btn[aria-expanded="true"] { color: var(--plum); }
+.cbar-emo-btn:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; border-radius: 8px; }
+[data-side="vin"] .cbar-emo-btn[aria-expanded="true"] { color: var(--star); }
+/* Панель смайлів — на місці клавіатури: сітка гортається, розділи й ⌫ — внизу */
+.cbar-emoji { display: flex; flex-direction: column; bottom: 0; height: min(280px, 36dvh); padding: 4px 6px env(safe-area-inset-bottom); }
+body.is-emoji .tabs { display: none; }
+body.is-emoji .screen.is-chat { padding-bottom: calc(var(--plus-h, 0px) + 8px); }
+.emo-grid { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 2px; }
+.emo-sec-title { margin: 8px 6px 2px; font-size: .75rem; color: var(--ink-soft); }
+.emo-cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); }
+.emo-cell {
+  aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; background: none; font-size: 1.65rem; line-height: 1;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.emo-cell:active { background: color-mix(in srgb, var(--lavender) 40%, transparent); }
+.emo-bar { flex: none; display: flex; align-items: center; gap: 4px; padding: 4px 0 6px; border-top: 1px solid color-mix(in srgb, var(--lavender) 50%, transparent); }
+.emo-tabs { flex: 1; min-width: 0; display: flex; justify-content: space-between; }
+.emo-tab {
+  width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: none; font-size: 1.2rem; line-height: 1;
+  opacity: .5; filter: grayscale(.7); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.emo-tab[aria-pressed="true"] { opacity: 1; filter: none; background: color-mix(in srgb, var(--lavender) 30%, transparent); }
+.emo-erase { flex: none; display: grid; place-items: center; width: 42px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer; }
+.emo-erase svg { width: 24px; height: 24px; }
+.emo-erase:active { background: color-mix(in srgb, var(--lavender) 40%, transparent); }
+:is(.emo-cell, .emo-tab, .emo-erase):focus-visible { outline: 2px solid var(--wax); outline-offset: -2px; }
+[data-side="vin"] :is(.emo-cell, .emo-erase):active, [data-side="vin"] .emo-tab[aria-pressed="true"] { background: rgba(255, 255, 255, .1); }
+[data-side="vin"] .emo-bar { border-top-color: rgba(255, 255, 255, .14); }
+
 /* «Написать…» на весь екран: заголовок, на що відповідаєш, інструменти, поле на всю висоту, знизу — «Когда», хто понесе, «Отправить» */
 .sheet-write.sheet-full { overflow-y: auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); animation: rise .25s ease-out; }
 .sheet-write.sheet-full .sheet-inner { gap: 8px; }

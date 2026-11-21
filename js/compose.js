@@ -15,6 +15,8 @@ import { listen, canDictate, MIC } from './voice.js';
 const PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
 const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 const CARET = '<svg class="cbar-caret" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+const SMILE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/></svg>';
+const KEYS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8" stroke-width="2.2"/></svg>';
 const MAX_H = 132;
 
 let ui = null;
@@ -28,6 +30,9 @@ let pet = null;
 let reply = null;
 let picking = false;
 let plus = null;
+// Панель смайлів (на місці клавіатури) і де стояла каретка, коли клавіатура сховалась
+let emo = null;
+let caret = null;
 
 // Кнопки над полем не забирають фокус: клавіатура не ховається, рядок не стрибає
 const keep = { onmousedown: (e) => e.preventDefault() };
@@ -114,14 +119,21 @@ function build() {
       onclick: () => { pet = k; picking = false; paint(); },
     })));
   const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, festBtn, helpBtn].filter(Boolean));
-  const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, area), act);
+  // 😊 у полі зліва, як у месенджері: тап — смайли замість клавіатури, ще тап (⌨) — назад до клавіатури
+  const emoBtn = h('button', { type: 'button', class: 'cbar-emo-btn', 'aria-expanded': 'false', ...keep, onclick: () => (emo ? closeEmoji(true) : openEmoji()) });
+  const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, emoBtn, area), act);
   const el = h('div', { class: 'cbar', role: 'group', 'aria-label': 'Новое письмо' }, quote, petRow, opts, row, clock);
-  ui = { el, area, act, plusBtn, quote, petBtn, whenBtn, festBtn, petRow, opts, clock };
+  ui = { el, area, act, plusBtn, emoBtn, quote, petBtn, whenBtn, festBtn, petRow, opts, clock };
 
   area.addEventListener('input', () => { if (!reply) draft.set(area.value); grow(); paint(); });
   // Клавіатура на телефоні — нижні вкладки ховаються, місце переписці (лише на дотиковому екрані: на ноутбуці вони не заважають)
-  area.addEventListener('focus', () => { closePlus(); document.body.classList.add('is-typing'); paint(); });
-  area.addEventListener('blur', () => { document.body.classList.remove('is-typing'); picking = false; paint(); });
+  area.addEventListener('focus', () => { closePlus(); closeEmoji(); document.body.classList.add('is-typing'); paint(); });
+  area.addEventListener('blur', () => {
+    caret = [area.selectionStart, area.selectionEnd];
+    document.body.classList.remove('is-typing');
+    picking = false;
+    paint();
+  });
   // На ноутбуці Ctrl+Enter — відправити; Enter — новий рядок, як і на телефоні
   area.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendText(); } });
   act.addEventListener('click', () => {
@@ -211,6 +223,9 @@ function paint() {
   festBtn.classList.toggle('is-on', fest);
   festBtn.setAttribute('aria-pressed', String(fest));
   festBtn.setAttribute('aria-label', fest ? 'Праздничное письмо — тап, чтобы обычное' : 'Сделать праздничным');
+  ui.emoBtn.innerHTML = emo ? KEYS : SMILE;
+  ui.emoBtn.setAttribute('aria-label', emo ? 'Клавиатура' : 'Смайлы');
+  ui.emoBtn.setAttribute('aria-expanded', String(!!emo));
   plusBtn.innerHTML = plus ? CROSS : PLUS;
   plusBtn.setAttribute('aria-label', plus ? 'Закрыть' : 'Ещё: фото, гифка, спор, конверт');
   plusBtn.setAttribute('aria-expanded', String(!!plus));
@@ -227,7 +242,7 @@ function paint() {
     act.removeAttribute('aria-pressed');
   }
   act.classList.toggle('is-empty', mode === 'send' && !text);
-  el.classList.toggle('is-active', !opts.hidden);
+  el.classList.toggle('is-active', !opts.hidden || !!emo);
 }
 
 async function sendText() {
@@ -303,6 +318,7 @@ function big(preset = {}) {
 // «＋» — шторка під рядком (на місці клавіатури). role=dialog у body: «Назад» на телефоні закриває її, як інші вікна
 function openPlus() {
   if (plus) return;
+  closeEmoji();
   ui.area.blur();
   const { re, sent } = memeReply();
   const picker = h('input', {
@@ -352,7 +368,67 @@ function openPlus() {
   paint();
 }
 
-function onEsc(e) { if (e.key === 'Escape') closePlus(); }
+function onEsc(e) { if (e.key === 'Escape') { closePlus(); closeEmoji(); } }
+
+// Куди вставляти: у фокусі — виділення поля, інакше — де була каретка (або в кінець)
+function spot() {
+  const { area } = ui;
+  if (document.activeElement === area) return [area.selectionStart, area.selectionEnd];
+  const n = area.value.length;
+  return caret ? [Math.min(caret[0], n), Math.min(caret[1], n)] : [n, n];
+}
+function putText(s, t, text) {
+  const { area } = ui;
+  area.value = area.value.slice(0, s) + text + area.value.slice(t);
+  const p = s + text.length;
+  caret = [p, p];
+  area.setSelectionRange(p, p);
+  // Той самий шлях, що й набір з клавіатури: чернетка, висота, ➤ замість 🎤
+  area.dispatchEvent(new Event('input'));
+}
+
+// 😊 — смайли на місці клавіатури (модуль — лише з першим тапом). Шторка, як «＋»: рядок стоїть над нею
+async function openEmoji() {
+  if (emo) return;
+  closePlus();
+  if (document.activeElement === ui.area) ui.area.blur();
+  const { emojiPanel, lastGrapheme } = await import('./emoji.js');
+  if (emo || !ui) return;
+  const panel = h('div', { class: 'cbar-plus cbar-emoji', role: 'dialog', 'aria-label': 'Смайлы' },
+    h('button', { type: 'button', class: 'sheet-close visually-hidden', 'aria-label': 'Закрыть', onclick: () => closeEmoji() }),
+    ...emojiPanel({
+      onPick: (e) => { const [s, t] = spot(); putText(s, t, e); },
+      onErase: () => {
+        const [s, t] = spot();
+        if (s !== t) { putText(s, t, ''); return; }
+        if (!s) return;
+        const [a] = lastGrapheme(ui.area.value, s);
+        putText(a, s, '');
+      },
+    }));
+  emo = panel;
+  document.body.append(panel);
+  // Як клавіатура: вкладки ховаються, панель — у самому низу
+  document.body.classList.add('is-emoji');
+  document.documentElement.style.setProperty('--plus-h', `${panel.offsetHeight}px`);
+  document.addEventListener('keydown', onEsc);
+  paint();
+}
+
+// keys — повернути клавіатуру (⌨): фокус у поле, каретка там, де була
+function closeEmoji(keys = false) {
+  if (!emo) return;
+  const p = emo;
+  emo = null;
+  p.remove();
+  document.body.classList.remove('is-emoji');
+  document.removeEventListener('keydown', onEsc);
+  if (keys && ui) {
+    ui.area.focus();
+    if (caret) ui.area.setSelectionRange(caret[0], caret[1]);
+  }
+  paint();
+}
 
 function closePlus() {
   if (!plus) return;
@@ -373,7 +449,7 @@ export function composeBar() {
 }
 
 // Пішли з «Писем» — «＋» закриваємо, щоб не висіла над іншою вкладкою
-export function composeLeave() { closePlus(); }
+export function composeLeave() { closePlus(); closeEmoji(); }
 
 // Відповідь на повідомлення з чату чи з відкритого листа: цитата над рядком, клавіатура — одразу (фокус у тому ж тапі)
 export function composeReply(r) {
