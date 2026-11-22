@@ -152,7 +152,7 @@ const area = (cells) => {
   return isVert(cells) ? `${r + 1} / ${c + 1} / span ${cells.length} / span 1` : `${r + 1} / ${c + 1} / span 1 / span ${cells.length}`;
 };
 // Маленький кораблик для рахунку «Потоплено»
-export const miniShip = (world) => shipSvg(world, [0, 1]);
+export const miniShip = (world, len = 2) => shipSvg(world, Array.from({ length: len }, (_, i) => i));
 export function shipEl(world, cells, cls = '') {
   const el = h('span', { class: `bs-ship${cls}`, 'aria-hidden': 'true', html: shipSvg(world, cells) });
   el.style.gridArea = area(cells);

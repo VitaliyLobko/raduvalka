@@ -771,10 +771,19 @@ async function showBs(g) {
   };
   const count = { me: 0, them: 0 };
   const notes = [];
-  const pips = (n, world) => h('span', { class: `bs-pips is-${world}`, 'aria-hidden': 'true' }, ...[0, 1, 2, 3].map((i) => h('i', { class: i < n ? 'is-on' : '', html: miniShip(world) })));
+  // Довжини потоплених кораблів: у рахунку видно, які саме пішли на дно (3, 2, 2, 1), а які ще плавають
+  const sunkLen = { me: [], them: [] };
+  const pips = (lens, world) => {
+    const left = [...lens];
+    return h('span', { class: `bs-pips is-${world}`, 'aria-hidden': 'true' }, ...[3, 2, 2, 1].map((len) => {
+      const k = left.indexOf(len);
+      if (k >= 0) left.splice(k, 1);
+      return h('i', { class: `is-l${len}${k >= 0 ? ' is-on' : ''}`, html: miniShip(world, len) });
+    }));
+  };
   const paintScore = () => score.replaceChildren(h('p', { class: 'bs-score-title' }, 'Потоплено'),
-    h('p', { class: 'bs-score-row', 'aria-label': `Ты потопил(а) ${count.me} из 4` }, h('span', {}, 'ты'), pips(count.me, them)),
-    h('p', { class: 'bs-score-row', 'aria-label': `${cap(who().partner)}: ${count.them} из 4` }, h('span', {}, who().partner), pips(count.them, me)),
+    h('p', { class: 'bs-score-row', 'aria-label': `Ты потопил(а) ${count.me} из 4` }, h('span', {}, 'ты'), pips(sunkLen.me, them)),
+    h('p', { class: 'bs-score-row', 'aria-label': `${cap(who().partner)}: ${count.them} из 4` }, h('span', {}, who().partner), pips(sunkLen.them, me)),
     // Знайдені записки — тут же, поруч зі своїм полем: ні гру не зсувають, ні вниз не ховаються
     found);
   // Записки — конвертами: знайдена 💌 відкривається тапом, ще схована — блідий ✉ (сервер каже лише скільки їх)
@@ -795,9 +804,10 @@ async function showBs(g) {
     markLast(board, s.c);
     if (anim) { fxShot(mark); if (s.hit) fxHit(cell, world); else fxMiss(cell, world); }
     if (!s.sunk) { if (anim) await pause(s.hit ? 550 : 700); return; }
-    count[s.by] += 1;
-    paintScore();
     const ship = s.by === 'me' ? g.sunk.find((x) => x.cells.includes(s.c)) : myShips.find((x) => x.cells.includes(s.c));
+    count[s.by] += 1;
+    if (ship) sunkLen[s.by].push(ship.cells.length);
+    paintScore();
     if (!ship) return;
     const el = s.by === 'me' ? shipEl(them, ship.cells) : ship.el;
     if (s.by === 'me') { theirs.append(el); if (ship.note) { notes.push(ship.note); noteBadge(el); el.querySelector('.bs-ship-note').onclick = () => readNote(ship.note); } }
@@ -831,8 +841,8 @@ async function showBs(g) {
     setStatus(duelResult(g), 'final');
     status.classList.add('is-final');
     if (fresh.length) bsFinal(stage, them, !!g.done.won);
-    act.replaceChildren(...(notes.length ? [h('div', { class: 'bs-found-list' }, h('p', { class: 'bs-found-title' }, `💌 Найденные записки · ${notes.length}`),
-      ...notes.map((t) => h('p', { class: `bs-found-note is-${them}` }, t)))] : []), ...doneActs(g));
+    // Знайдені записки — лише конвертиками в «Потоплено» (тап — читати), окремим списком не дублюємо
+    act.replaceChildren(...doneActs(g));
   } else {
     if (!g.ready) setStatus(`Ждём, когда ${who().partner} расставит кораблики…`, 'wait');
     else if (play) setStatus(last?.by === 'me' && last.hit ? `${last.sunk ? byMe('Потопил', 'Потопила') : byMe('Попал', 'Попала')}! Стреляй ещё ${SHOT[me]}` : `Твой ход — стреляй ${SHOT[me]}`, 'me');

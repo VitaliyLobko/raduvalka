@@ -4468,8 +4468,11 @@ html.is-still .bs-spark { animation: none; }
 .bs-score .bs-found-title { font-size: .8125rem; }
 .bs-score .bs-found-note { padding: 6px 10px 6px 30px; font-size: 1.2rem; line-height: 1.2; }
 .bs-score .bs-found-note::before { left: 8px; top: 8px; font-size: .9rem; }
-.bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 30px; height: 16px; }
-.bs-score-row { grid-template-columns: 2.6em auto; }
+.bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 22px; height: 11px; }
+.bs-pips i.is-l1, .bs-pips.is-vona i.is-l1.is-on, .bs-pips.is-vin i.is-l1.is-on { width: 11px; }
+.bs-pips i.is-l3, .bs-pips.is-vona i.is-l3.is-on, .bs-pips.is-vin i.is-l3.is-on { width: 33px; }
+.bs-pips { gap: 2px; }
+.bs-score-row { grid-template-columns: 2.4em auto; }
 /* Мордочка улюбленця з порадою — крупніше */
 .pet-tip { gap: 12px; padding: 6px 14px 6px 6px; border-radius: 20px; }
 .pet-tip-face { width: 56px; height: 56px; }
