@@ -322,6 +322,7 @@ async function vote(screen, idea, v, card) {
   voting = true;
   gen += 1;
   if (v === 1) burst(card);
+  sfx(v === 1 ? 'like' : 'pass');
   popNext = true;
   card.classList.add('is-gone');
   card.style.transform = v === -1 ? 'translateY(40%) scale(.8)' : `translateX(${v ? 130 : -130}%) rotate(${v ? 16 : -16}deg)`;
@@ -435,6 +436,7 @@ async function dismiss(screen, p) {
 async function revive(screen, p, btn) {
   btn.disabled = true;
   burst(btn);
+  sfx('like');
   gen += 1;
   try {
     const r = await mutate(`plans/${p.id}`, 'PUT', { vote: 1 });
