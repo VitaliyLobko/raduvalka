@@ -5,6 +5,7 @@ import { h, toast, ARROW, ribbon, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
 import { DATA } from './data.js';
 import { petName, petFiles, petFileSrc } from './icons.js';
+import { ownColor, sampleColor } from './colorpick.js';
 
 const MAX_SIDE = 1280;
 const MAX_BYTES = 1.25 * 1024 * 1024;
@@ -13,13 +14,19 @@ const LOOKS = [
   { v: 'meme', label: 'Мем' },
   { v: 'hand', label: 'Рукой' },
   { v: 'plate', label: 'Плашка' },
+  { v: 'bubble', label: 'Облачко' },
+  { v: 'tape', label: 'Скотч' },
+  { v: 'neon', label: 'Неон' },
 ];
 // Розмір шрифту — частка ширини кадру
-const SIZE = { meme: 0.075, hand: 0.1, plate: 0.06, emoji: 0.17 };
+const SIZE = { meme: 0.075, hand: 0.1, plate: 0.06, bubble: 0.06, tape: 0.09, neon: 0.11, emoji: 0.17 };
 const FONTS = {
   meme: (s) => `700 ${s}px Rubik, system-ui, sans-serif`,
   hand: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
   plate: (s) => `600 ${s}px Rubik, system-ui, sans-serif`,
+  bubble: (s) => `600 ${s}px Rubik, system-ui, sans-serif`,
+  tape: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
+  neon: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
   emoji: (s) => `${s}px 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif`,
 };
 const COLORS = ['#ffffff', '#ff4f8b', '#ffcb3d', '#6fd3ff', '#2a1730'];
@@ -31,11 +38,21 @@ const BLUR_W = 0.075;
 const BLUR_PX = 56;
 const STICKERS = ['❤️', '😍', '🥰', '😘', '🤗', '😂', '🔥', '💯', '✨', '🌸', '🍓', '💋', '🫶', '😎', '🥺', '🙈', '⭐', '🎉', '☀️', '🌙', '🐾', '💌', '👑', '🦋'];
 
-const light = (hex) => {
+const lum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
-  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6;
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 };
+const light = (hex) => lum(hex) > 0.6;
 const toBlob = (c, type, q) => new Promise((ok) => c.toBlob(ok, type, q));
+
+// Рукописні види — щільніші рядки; поля навколо тексту — частка розміру шрифту
+const SCRIPT = new Set(['hand', 'tape', 'neon']);
+const PAD = { plate: 0.45, bubble: 0.6, tape: 0.55 };
+const ink = (c) => (light(c) ? '#2a1730' : '#ffffff');
+const rrect = (ctx, x, y, w, h, r) => {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+};
 
 // Рядки під ширину: по словах, задовге слово — як є
 function wrap(ctx, text, max) {
@@ -56,9 +73,9 @@ function layout(ctx, it) {
   if (it.look === 'pet') { it.box = { w: it.size, h: it.size }; return null; }
   ctx.font = FONTS[it.look](it.size);
   const lines = it.look === 'emoji' ? [it.text] : wrap(ctx, it.look === 'meme' ? it.text.toUpperCase() : it.text, it.wrap);
-  const lh = it.size * (it.look === 'hand' ? 1.05 : 1.15);
+  const lh = it.size * (SCRIPT.has(it.look) ? 1.05 : 1.15);
   const w = Math.max(...lines.map((l) => ctx.measureText(l).width), it.size * 0.6);
-  const pad = it.look === 'plate' ? it.size * 0.45 : 0;
+  const pad = it.size * (PAD[it.look] || 0);
   it.box = { w: w + pad * 2, h: lines.length * lh + pad * 1.2 };
   return { lines, lh, w, pad };
 }
@@ -83,25 +100,105 @@ function drawPet(ctx, it) {
   if (it.img?.naturalWidth) ctx.drawImage(it.img, -r * 0.92, -r * 0.92, r * 1.84, r * 1.84);
   ctx.restore();
 }
+// Облачко з хвостиком униз-ліворуч (fx/fy переносять його); обвідку малюємо під заливкою — шва між хвостиком і тілом нема
+function drawBubble(ctx, it, bw, bh) {
+  const sx = it.fx || 1;
+  const sy = it.fy || 1;
+  const tail = () => {
+    ctx.beginPath();
+    ctx.moveTo(sx * -bw * 0.3, sy * bh * 0.3);
+    ctx.lineTo(sx * -bw * 0.38, sy * (bh / 2 + it.size * 0.85));
+    ctx.lineTo(sx * -bw * 0.06, sy * bh * 0.3);
+    ctx.closePath();
+  };
+  const body = () => rrect(ctx, -bw / 2, -bh / 2, bw, bh, Math.min(bh / 2, it.size * 1.1));
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = it.size * 0.18;
+  ctx.strokeStyle = ink(it.color);
+  ctx.shadowColor = 'rgba(0, 0, 0, .35)';
+  ctx.shadowBlur = it.size * 0.3;
+  ctx.shadowOffsetY = it.size * 0.06;
+  body(); ctx.stroke();
+  tail(); ctx.stroke();
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = it.color;
+  body(); ctx.fill();
+  tail(); ctx.fill();
+  ctx.restore();
+}
+// Смужка напівпрозорого скотчу з рваними кінцями і відблиском зверху
+function drawTape(ctx, it, bw, bh) {
+  const t = it.size * 0.16;
+  const n = Math.max(4, Math.round(bh / (it.size * 0.28)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-bw / 2, -bh / 2);
+  ctx.lineTo(bw / 2, -bh / 2);
+  for (let i = 1; i < n; i++) ctx.lineTo(bw / 2 + (i % 2 ? t : 0), -bh / 2 + (bh * i) / n);
+  ctx.lineTo(bw / 2, bh / 2);
+  ctx.lineTo(-bw / 2, bh / 2);
+  for (let i = n - 1; i > 0; i--) ctx.lineTo(-bw / 2 - (i % 2 ? t : 0), -bh / 2 + (bh * i) / n);
+  ctx.closePath();
+  ctx.shadowColor = 'rgba(0, 0, 0, .3)';
+  ctx.shadowBlur = it.size * 0.25;
+  ctx.shadowOffsetY = it.size * 0.05;
+  ctx.globalAlpha = 0.82;
+  ctx.fillStyle = it.color;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(255, 255, 255, .22)';
+  ctx.fillRect(-bw / 2, -bh / 2, bw, bh * 0.3);
+  ctx.restore();
+}
+// Неон: кольорове сяйво в два шари, кольорова обвідка і світла серцевина; темний колір — навпаки, біле сяйво
+function drawNeon(ctx, it, text, lines, y0, lh) {
+  const dark = lum(it.color) < 0.22;
+  const glow = dark ? '#ffffff' : it.color;
+  ctx.shadowColor = glow;
+  ctx.fillStyle = glow;
+  for (const b of [0.9, 0.4]) { ctx.shadowBlur = it.size * b; text(); }
+  ctx.shadowBlur = it.size * 0.12;
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = it.size * 0.07;
+  ctx.strokeStyle = glow;
+  lines.forEach((l, i) => ctx.strokeText(l, 0, y0 + i * lh));
+  ctx.fillStyle = dark ? it.color : '#ffffff';
+  text();
+}
 function drawItem(ctx, it) {
   if (it.look === 'pet') { layout(ctx, it); drawPet(ctx, it); return; }
   const { lines, lh, w, pad } = layout(ctx, it);
   ctx.save();
   ctx.translate(it.x, it.y);
   ctx.rotate(it.rot);
-  ctx.scale(it.k * (it.fx || 1), it.k * (it.fy || 1));
+  // Дзеркалимо лише смайлик; в облачку fx/fy повертають тільки хвостик, текст лишається читабельним
+  const m = it.look === 'emoji';
+  ctx.scale(it.k * (m && it.fx || 1), it.k * (m && it.fy || 1));
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const y0 = -(lines.length * lh) / 2 + lh / 2;
-  if (it.look === 'plate') {
+  const bw = w + pad * 2;
+  const bh = lines.length * lh + pad * 1.2;
+  const text = () => lines.forEach((l, i) => ctx.fillText(l, 0, y0 + i * lh));
+  if (it.look === 'bubble') {
+    drawBubble(ctx, it, bw, bh);
+    ctx.fillStyle = ink(it.color);
+    text();
+  } else if (it.look === 'tape') {
+    ctx.rotate(-0.05);
+    drawTape(ctx, it, bw, bh);
+    ctx.fillStyle = ink(it.color);
+    text();
+  } else if (it.look === 'neon') {
+    drawNeon(ctx, it, text, lines, y0, lh);
+  } else if (it.look === 'plate') {
     ctx.fillStyle = it.color;
-    ctx.beginPath();
-    const bw = w + pad * 2;
-    const bh = lines.length * lh + pad * 1.2;
-    if (ctx.roundRect) ctx.roundRect(-bw / 2, -bh / 2, bw, bh, it.size * 0.4); else ctx.rect(-bw / 2, -bh / 2, bw, bh);
+    rrect(ctx, -bw / 2, -bh / 2, bw, bh, it.size * 0.4);
     ctx.fill();
-    ctx.fillStyle = light(it.color) ? '#2a1730' : '#ffffff';
-    lines.forEach((l, i) => ctx.fillText(l, 0, y0 + i * lh));
+    ctx.fillStyle = ink(it.color);
+    text();
   } else if (it.look === 'meme') {
     ctx.lineJoin = 'round';
     ctx.lineWidth = it.size * 0.16;
@@ -176,6 +273,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let look = 'below';
   let color = COLORS[0];
   let drawColor = COLORS[1];
+  let pipette = null;
   let sel = null;
   let mode = 'move';
   let tmpCrop = null;
@@ -190,6 +288,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // Підпис чи колір — для тексту; смайл і улюбленець кольору не мають
   const textual = (it) => it && it.look !== 'emoji' && it.look !== 'pet';
   const sticker = (it) => it && (it.look === 'emoji' || it.look === 'pet');
+  // Облачку ⇆ ⇅ переносять хвостик
+  const mirrorable = (it) => sticker(it) || it?.look === 'bubble';
 
   // Фото з поворотом і віддзеркаленням — у координатах повернутого фото
   function drawBase(ctx) {
@@ -333,6 +433,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     for (const it of items) {
       if (horizontal) it.x = W - it.x; else it.y = H - it.y;
       it.rot = -it.rot;
+      // Хвостик облачка дивиться туди ж, куди й раніше, — на того, хто «говорить»
+      if (it.look === 'bubble') { const a = horizontal ? 'fx' : 'fy'; it[a] = -(it[a] || 1); }
     }
     for (const s of strokes) for (let i = horizontal ? 0 : 1; i < s.pts.length; i += 2) s.pts[i] = (horizontal ? W : H) - s.pts[i];
     const m = (c) => (!c ? null : horizontal ? { ...c, x: W - (c.x + c.w) } : { ...c, y: H - (c.y + c.h) });
@@ -425,6 +527,15 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let stroke = null;
   stage.addEventListener('pointerdown', (e) => {
     if (e.target !== canvas) return;
+    if (pipette) {
+      // Колір того, що видно під пальцем: фото разом із наклейками
+      const r = canvas.getBoundingClientRect();
+      const hex = sampleColor(ctx, ((e.clientX - r.left) * canvas.width) / r.width, ((e.clientY - r.top) * canvas.height) / r.height);
+      const k = pipette;
+      pipette = null;
+      if (hex) (k === 'cap' ? setCapColor : setDrawColor)(hex); else paintTools();
+      return;
+    }
     try { canvas.setPointerCapture(e.pointerId); } catch { /* синтетичний дотик */ }
     const p = at(e);
     if (mode === 'draw' || mode === 'blur') {
@@ -546,14 +657,23 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
     onclick: () => { look = v; syncCaption(); },
   }, label));
+  const setCapColor = (x) => {
+    color = x;
+    const target = textual(sel) ? sel : capItem;
+    if (target) target.color = x;
+    paintTools();
+    redraw();
+  };
+  const setDrawColor = (x) => { drawColor = x; paintTools(); };
+  // Піпетка: 'cap' чи 'draw' — чий колір візьме наступний дотик до фото
+  const armPipette = (k) => {
+    pipette = pipette === k ? null : k;
+    if (pipette) toast('Коснись фото — возьму оттуда цвет');
+    paintTools();
+  };
+  const capOwn = ownColor({ label: 'Цвет подписи', onPick: setCapColor, onPipette: () => armPipette('cap') });
   const capColors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет подписи' },
-    ...COLORS.map((c, i) => swatch(c, i, (x) => {
-      color = x;
-      const target = textual(sel) ? sel : capItem;
-      if (target) target.color = x;
-      paintTools();
-      redraw();
-    })));
+    ...COLORS.map((c, i) => swatch(c, i, setCapColor)), capOwn.el);
   const looksRow = h('div', { class: 'mk-chips mk-row ph-looks', role: 'radiogroup', 'aria-label': 'Где и как подпись', hidden: true }, ...lookChips, capColors);
   ribbon(looksRow);
   const helper = captionHelper(caption, { image, onPick: syncCaption });
@@ -590,10 +710,11 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   };
   const undo = h('button', { type: 'button', class: 'mk-chip ph-undo', 'aria-label': 'Отменить линию', onclick: () => undoLast(false) }, '↩');
   const blurUndo = h('button', { type: 'button', class: 'mk-chip ph-undo', 'aria-label': 'Отменить размытие', onclick: () => undoLast(true) }, '↩');
+  const drawOwn = ownColor({ label: 'Цвет карандаша', onPick: setDrawColor, onPipette: () => armPipette('draw') });
   const drawColors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет карандаша' },
-    ...COLORS.map((c, i) => swatch(c, i, (x) => { drawColor = x; paintTools(); })));
+    ...COLORS.map((c, i) => swatch(c, i, setDrawColor)), drawOwn.el);
   const done = (label = 'Готово') => h('button', { type: 'button', class: 'mk-chip ph-done', onclick: () => finishMode(true) }, label);
-  const drawPanel = h('div', { class: 'ph-panel', hidden: true }, drawColors, undo, done());
+  const drawPanel = h('div', { class: 'ph-panel ph-panel-draw', hidden: true }, drawColors, undo, done());
   const blurPanel = h('div', { class: 'ph-panel', hidden: true }, h('span', { class: 'ph-hint' }, 'Закрась, что спрятать'), blurUndo, done());
   const cropPanel = h('div', { class: 'ph-panel', hidden: true },
     h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Повернуть', onclick: () => { turn(); fit(); } }, '⟳'),
@@ -610,7 +731,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     paintTools();
     redraw();
   };
-  const mirror = (axis) => { if (!sticker(sel)) return; sel[axis] = -(sel[axis] || 1); redraw(); };
+  const mirror = (axis) => { if (!mirrorable(sel)) return; sel[axis] = -(sel[axis] || 1); redraw(); };
   const upBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-label': 'Выше остальных', onclick: () => restack(1) }, '⬆ Выше');
   const downBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-label': 'Ниже остальных', onclick: () => restack(-1) }, '⬇ Ниже');
   const mirX = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по горизонтали', onclick: () => mirror('fx') }, '⇆');
@@ -651,6 +772,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, petRow, stickRow);
 
   function setMode(m) {
+    pipette = null;
     if (mode === 'crop' && m !== 'crop') tmpCrop = null;
     mode = m;
     if (m === 'crop') tmpCrop = crop ? { ...crop } : { x: 0, y: 0, w: rw(), h: rh() };
@@ -676,21 +798,24 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     stickPanel.hidden = mode !== 'stick';
     bottom.hidden = mode === 'draw' || mode === 'crop' || mode === 'blur';
     trash.hidden = !sel || mode !== 'move';
-    selPanel.hidden = !sel || mode !== 'move' || items.length < 2 && !sticker(sel);
+    selPanel.hidden = !sel || mode !== 'move' || items.length < 2 && !mirrorable(sel);
     const idx = items.indexOf(sel);
     upBtn.hidden = items.length < 2;
     downBtn.hidden = items.length < 2;
     upBtn.disabled = idx === items.length - 1;
     downBtn.disabled = idx <= 0;
-    mirX.hidden = !sticker(sel);
-    mirY.hidden = !sticker(sel);
+    mirX.hidden = !mirrorable(sel);
+    mirY.hidden = !mirrorable(sel);
     undo.disabled = !strokes.some((s) => !s.blur);
     blurUndo.disabled = !strokes.some((s) => s.blur);
     lookChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === look)));
     capColors.hidden = look === 'below';
     const cur = textual(sel) ? sel.color : color;
-    capColors.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cur)));
-    drawColors.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === drawColor)));
+    capColors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cur)));
+    drawColors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === drawColor)));
+    capOwn.paint(cur, COLORS.includes(cur), pipette === 'cap');
+    drawOwn.paint(drawColor, COLORS.includes(drawColor), pipette === 'draw');
+    stage.classList.toggle('is-pipette', !!pipette);
   }
 
   // ── Відправка ──

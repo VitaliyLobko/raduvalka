@@ -1,21 +1,29 @@
-// Гифка перед відправкою: підпис як у фото — «Под гифкой», «Мем», «Рукой», «Плашка», 5 кольорів; пальцем тягнеться,
+// Гифка перед відправкою: підпис як у фото — «Под гифкой», «Мем», «Рукой», «Плашка», «Облачко», «Скотч», «Неон», 5 кольорів, свій (🎨 і піпетка); пальцем тягнеться,
 // двома — розмір і поворот. Гифку не перемальовуємо (canvas зʼїв би анімацію): підпис — шар поверх, на сервер іде
 // його текст (шифрується, як завжди) і код місця в style
 import { h, toast, ARROW, ribbon, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
 import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, CAP_COLOR_NAMES } from './memes.js';
+import { ownColor, sampleColor } from './colorpick.js';
 
 const LOOKS = [
   { v: 'below', label: 'Под гифкой' },
   { v: 'meme', label: 'Мем' },
   { v: 'hand', label: 'Рукой' },
   { v: 'plate', label: 'Плашка' },
+  { v: 'bubble', label: 'Облачко' },
+  { v: 'tape', label: 'Скотч' },
+  { v: 'neon', label: 'Неон' },
 ];
 
 // gif — { url, title, w, h } з пошуку; send(caption, style) — надіслати (кидає помилку — вікно лишається)
 export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   const cap = { look: 'below', color: 0, x: 0.5, y: 0.8, k: 1, r: 0 };
-  const video = media(gif.url, 'Что отправляю', gif.url);
+  // crossOrigin — щоб піпетка могла прочитати кадр (Giphy віддає дозвіл); ставимо до src, інакше не діє
+  const video = media(gif.url, 'Что отправляю');
+  video.crossOrigin = 'anonymous';
+  video.src = gif.url;
+  let armed = false;
   const layer = freeCap({ ...cap, look: 'meme' }, '');
   layer.hidden = true;
   const frame = gifFrame(video, layer, gif.w && gif.h ? gif.w / gif.h : 0);
@@ -60,6 +68,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     }
   };
   stage.addEventListener('pointerdown', (e) => {
+    if (armed) { pickFrom(e); return; }
     try { stage.setPointerCapture(e.pointerId); } catch { /* синтетичний дотик */ }
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     gesture();
@@ -94,18 +103,39 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
     onclick: () => { cap.look = v; sync(); },
   }, label));
+  const own = ownColor({
+    label: 'Цвет подписи',
+    onPick: (x) => { cap.color = x; sync(); },
+    onPipette: () => { armed = !armed; if (armed) toast('Коснись гифки — возьму оттуда цвет'); sync(); },
+  });
+  // Піпетка: поточний кадр у полотно розміром з рамку, колір під пальцем
+  function pickFrom(e) {
+    armed = false;
+    const r = frame.getBoundingClientRect();
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(r.width));
+    c.height = Math.max(1, Math.round(r.height));
+    const cx = c.getContext('2d', { willReadFrequently: true });
+    let hex = null;
+    try { cx.drawImage(video, 0, 0, c.width, c.height); hex = sampleColor(cx, e.clientX - r.left, e.clientY - r.top); } catch { /* кадр ще не готовий */ }
+    if (hex) cap.color = hex; else toast('Из этой гифки цвет не взять — выбери в 🎨');
+    sync();
+  }
   const colors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет подписи' },
     ...CAP_COLORS.map((c, i) => h('button', {
       type: 'button', class: 'ph-swatch', role: 'radio', style: `--c:${c}`, 'data-v': String(i), 'aria-label': CAP_COLOR_NAMES[i],
       onclick: () => { cap.color = i; sync(); },
-    })));
+    })), own.el);
   const looksRow = h('div', { class: 'mk-chips mk-row ph-looks', role: 'radiogroup', 'aria-label': 'Где и как подпись', hidden: true }, ...lookChips, colors);
   ribbon(looksRow);
   function sync() {
     looksRow.hidden = !caption.value.trim();
     lookChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cap.look)));
     colors.hidden = cap.look === 'below';
-    colors.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === String(cap.color))));
+    colors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === String(cap.color))));
+    const custom = typeof cap.color === 'string';
+    own.paint(custom ? cap.color : CAP_COLORS[cap.color], !custom, armed);
+    stage.classList.toggle('is-pipette', armed);
     redraw();
     requestAnimationFrame(fit);
   }

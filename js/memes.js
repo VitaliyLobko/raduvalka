@@ -41,23 +41,31 @@ export function media(kind, label, src) {
 // Малює CSS, а не canvas, тож гифка лишається живою; у редакторі, стрічці й на весь екран — той самий шар
 export const CAP_COLORS = ['#ffffff', '#ff4f8b', '#ffcb3d', '#6fd3ff', '#2a1730'];
 export const CAP_COLOR_NAMES = ['белый', 'розовый', 'жёлтый', 'голубой', 'тёмный'];
-export const capLight = (hex) => {
+const capLum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
-  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6;
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 };
-const FREE = /^(meme|hand|plate)\.([0-4])\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})$/;
+export const capLight = (hex) => capLum(hex) > 0.6;
+// Колір — номер готового кружка (0–4) або свій: шість hex-цифр без «#»
+const FREE = /^(meme|hand|plate|bubble|tape|neon)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})$/;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+// Види з фоном під текстом — на світлому фоні текст темно-сливовий
+const FILLED = new Set(['plate', 'bubble', 'tape']);
 export function freeStyle(code) {
   const m = FREE.exec(code || '');
-  return m ? { look: m[1], color: +m[2], x: clamp(+m[3] / 1000, 0, 1), y: clamp(+m[4] / 1000, 0, 1), k: clamp(+m[5] / 100, 0.25, 8), r: +m[6] } : null;
+  return m ? { look: m[1], color: m[2].length === 6 ? `#${m[2]}` : +m[2], x: clamp(+m[3] / 1000, 0, 1), y: clamp(+m[4] / 1000, 0, 1), k: clamp(+m[5] / 100, 0.25, 8), r: +m[6] } : null;
 }
-export const freeCode = (c) => [c.look, c.color, Math.round(clamp(c.x, 0, 1) * 1000), Math.round(clamp(c.y, 0, 1) * 1000),
+export const freeCode = (c) => [c.look, typeof c.color === 'string' ? c.color.slice(1) : c.color, Math.round(clamp(c.x, 0, 1) * 1000), Math.round(clamp(c.y, 0, 1) * 1000),
   Math.round(clamp(c.k, 0.25, 8) * 100), Math.round(((((c.r % 360) + 540) % 360) - 180))].join('.');
 export function paintFree(el, c, text) {
-  const color = CAP_COLORS[c.color] || CAP_COLORS[0];
+  const color = (typeof c.color === 'string' && /^#[0-9a-f]{6}$/.test(c.color) ? c.color : CAP_COLORS[c.color]) || CAP_COLORS[0];
   el.className = `meme-free is-${c.look}`;
   el.textContent = text;
-  el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${capLight(color) ? (c.look === 'plate' ? '#2a1730' : '#000') : '#fff'}`;
+  const ink = capLight(color) ? (FILLED.has(c.look) ? '#2a1730' : '#000') : '#fff';
+  // Неон: сяйво кольором і біла серцевина; темний колір — навпаки
+  const dark = capLum(color) < 0.22;
+  el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${ink};`
+    + `--glow:${dark ? '#fff' : color};--core:${dark ? color : '#fff'}`;
   return el;
 }
 export const freeCap = (c, text) => paintFree(h('span', { 'aria-hidden': 'true' }), c, text);
