@@ -228,8 +228,24 @@ function voiceBtn(s) {
   return btn;
 }
 
-// Сигнал, на який уже пролунала тривога (у цьому відкритті застосунку)
+// Тривога в того, кого кличуть: сирена й вібрація кожні 5 с, поки не натиснуто «Вижу» (чи «Отбой», чи сигнал застарів).
+// alarmed — сигнал, на який тривога вже ввімкнена (перемальовування не запускає другу)
+const ALARM_EVERY = 5000;
 let alarmed = null;
+let alarmTimer = 0;
+const ring = () => { sosAlarm(); navigator.vibrate?.([300, 150, 300, 150, 300]); };
+const alarmOff = () => clearInterval(alarmTimer);
+function alarmOn(id) {
+  if (alarmed === id) return;
+  alarmed = id;
+  alarmOff();
+  ring();
+  alarmTimer = setInterval(() => {
+    const s = DATA.sos?.theirs;
+    if (!s || s.id !== id || s.seen || s.ok) { alarmOff(); return; }
+    ring();
+  }, ALARM_EVERY);
+}
 function theirCard(raw) {
   const s = place(raw);
   const me = who();
@@ -244,17 +260,14 @@ function theirCard(raw) {
         onclick: () => { try { localStorage.setItem(OK_CLOSED, s.id); } catch { /* приватне вікно — сховається за годину */ } paintSos(); },
       }, 'Понятно'));
   }
-  // Новий сигнал, ще без «Вижу», — тривога й сильна вібрація, раз на сигнал (перемальовування не повторює)
-  if (!s.seen && alarmed !== s.id) {
-    alarmed = s.id;
-    sosAlarm();
-    navigator.vibrate?.([300, 150, 300, 150, 300]);
-  }
+  if (!s.seen) alarmOn(s.id);
   const seenBtn = s.seen ? h('p', { class: 'sos-meta' }, `Ты отметил${me.youOpened === 'открыла' ? 'а' : ''}, что видишь ✓`)
     : h('button', {
       type: 'button', class: 'btn btn-primary sos-seen',
       onclick: async (e) => {
         e.currentTarget.disabled = true;
+        // Побачив — тиша одразу, навіть якщо відмітка не пішла (нема зв'язку)
+        alarmOff();
         try { await send(`sos/${s.id}/seen`, 'POST'); } catch { toast('Не отправилось — нет связи'); }
         loadSos();
       },
