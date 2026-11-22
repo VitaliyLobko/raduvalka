@@ -1,8 +1,10 @@
-// Фото перед відправкою: підпис і наклейки тягнуться пальцем (двома — розмір і поворот), малювання, обрізка й поворот.
-// Усе впікається в саму картинку — сервер і стрічка про це не знають. Без правок іде той самий файл, що й раніше;
-// «Под фото» — звичайний підпис текстом під картинкою, як завжди
+// Фото перед відправкою: підпис і наклейки (смайли й улюбленці) тягнуться пальцем (двома — розмір і поворот), малювання,
+// розмиття пальцем, рамка «Полароид», обрізка й поворот. Усе впікається в саму картинку — сервер і стрічка про це не знають.
+// Без правок іде той самий файл, що й раніше; «Под фото» — звичайний підпис текстом під картинкою, як завжди
 import { h, toast, ARROW, ribbon, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
+import { DATA } from './data.js';
+import { petSrc, petName } from './icons.js';
 
 const MAX_SIDE = 1280;
 const MAX_BYTES = 1.25 * 1024 * 1024;
@@ -22,6 +24,11 @@ const FONTS = {
 };
 const COLORS = ['#ffffff', '#ff4f8b', '#ffcb3d', '#6fd3ff', '#2a1730'];
 const COLOR_NAMES = ['белый', 'розовый', 'жёлтый', 'голубой', 'тёмный'];
+// Рамка «Полароид»: поля — частки ширини фото; низ ширший — під підпис і дату
+const FRAME = { side: 0.05, bottom: 0.22, paper: '#fbf8f3', ink: '#2a1730', soft: '#8a7a90' };
+// Пензель розмиття — частка ширини кадру; розмите фото — зменшене до BLUR_PX і розтягнуте назад (номерів не прочитати)
+const BLUR_W = 0.075;
+const BLUR_PX = 56;
 const STICKERS = ['❤️', '😍', '🥰', '😘', '🤗', '😂', '🔥', '💯', '✨', '🌸', '🍓', '💋', '🫶', '😎', '🥺', '🙈', '⭐', '🎉', '☀️', '🌙', '🐾', '💌', '👑', '🦋'];
 
 const light = (hex) => {
@@ -46,6 +53,7 @@ function wrap(ctx, text, max) {
 
 // Підпис чи наклейка: розкладка рядків, розмір рамки (для влучання пальцем) і малювання в її власних координатах
 function layout(ctx, it) {
+  if (it.look === 'pet') { it.box = { w: it.size, h: it.size }; return null; }
   ctx.font = FONTS[it.look](it.size);
   const lines = it.look === 'emoji' ? [it.text] : wrap(ctx, it.look === 'meme' ? it.text.toUpperCase() : it.text, it.wrap);
   const lh = it.size * (it.look === 'hand' ? 1.05 : 1.15);
@@ -54,7 +62,29 @@ function layout(ctx, it) {
   it.box = { w: w + pad * 2, h: lines.length * lh + pad * 1.2 };
   return { lines, lh, w, pad };
 }
+// Улюбленець — кружечок з білою облямівкою і тінню
+function drawPet(ctx, it) {
+  const r = it.size / 2;
+  ctx.save();
+  ctx.translate(it.x, it.y);
+  ctx.rotate(it.rot);
+  ctx.scale(it.k, it.k);
+  ctx.shadowColor = 'rgba(0, 0, 0, .4)';
+  ctx.shadowBlur = r * 0.18;
+  ctx.shadowOffsetY = r * 0.05;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.92, 0, Math.PI * 2);
+  ctx.clip();
+  if (it.img?.naturalWidth) ctx.drawImage(it.img, -r * 0.92, -r * 0.92, r * 1.84, r * 1.84);
+  ctx.restore();
+}
 function drawItem(ctx, it) {
+  if (it.look === 'pet') { layout(ctx, it); drawPet(ctx, it); return; }
   const { lines, lh, w, pad } = layout(ctx, it);
   ctx.save();
   ctx.translate(it.x, it.y);
@@ -103,6 +133,34 @@ function drawStroke(ctx, s) {
   ctx.stroke();
 }
 
+// Сьогоднішня дата для рамки: «22 ноября 2026»
+const today = () => new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.?$/, '');
+
+// Низ «Полароида»: рукописний підпис (довгий — менше, далі з «…») і дата під ним
+function drawFoot(ctx, x0, y0, w, hh, text) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const cx = x0 + w / 2;
+  const max = w * 0.92;
+  if (text) {
+    let s = w * 0.075;
+    ctx.font = FONTS.hand(s);
+    while (ctx.measureText(text).width > max && s > w * 0.05) { s *= 0.94; ctx.font = FONTS.hand(s); }
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t).width > max) t = `${t.slice(0, -2).trimEnd()}…`;
+    ctx.fillStyle = FRAME.ink;
+    ctx.fillText(t, cx, y0 + hh * 0.42);
+    ctx.font = FONTS.hand(w * 0.045);
+    ctx.fillStyle = FRAME.soft;
+    ctx.fillText(today(), cx, y0 + hh * 0.78);
+  } else {
+    ctx.font = FONTS.hand(w * 0.06);
+    ctx.fillStyle = FRAME.soft;
+    ctx.fillText(today(), cx, y0 + hh * 0.5);
+  }
+}
+
 // blob — уже стиснуте фото (prepare); send(out, caption) — надіслати (кидає помилку — вікно лишається);
 // fail(e) — текст помилки; image() — зменшене фото для ШІ-підписів
 export async function photoEditor(blob, { send, fail, image, label = 'Отправить' }) {
@@ -121,14 +179,16 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let sel = null;
   let mode = 'move';
   let tmpCrop = null;
+  let frame = false;
   const rw = () => (turns % 2 ? base.height : base.width);
   const rh = () => (turns % 2 ? base.width : base.height);
   const view = () => (mode === 'crop' ? { x: 0, y: 0, w: rw(), h: rh() } : crop || { x: 0, y: 0, w: rw(), h: rh() });
-  const edited = () => turns || crop || strokes.length || items.length;
+  const edited = () => turns || crop || strokes.length || items.length || frame;
+  // Підпис чи колір — для тексту; смайл і улюбленець кольору не мають
+  const textual = (it) => it && it.look !== 'emoji' && it.look !== 'pet';
 
-  // Одна відмальовка і для екрана, і для файла: sc — пікселів на піксель фото
-  function render(ctx, sc, v, preview = false) {
-    ctx.setTransform(sc, 0, 0, sc, -v.x * sc, -v.y * sc);
+  // Фото з поворотом — у координатах повернутого фото
+  function drawBase(ctx) {
     ctx.save();
     const W = rw();
     const H = rh();
@@ -137,7 +197,61 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     if (turns === 3) { ctx.translate(0, H); ctx.rotate(-Math.PI / 2); }
     ctx.drawImage(base, 0, 0);
     ctx.restore();
-    strokes.forEach((s) => drawStroke(ctx, s));
+  }
+  // Розмите фото рахуємо раз на поворот: зменшили до BLUR_PX і трохи пом'якшили
+  let blurCache = null;
+  function blurred() {
+    if (blurCache?.turns === turns) return blurCache.c;
+    const k = BLUR_PX / Math.max(rw(), rh());
+    const small = document.createElement('canvas');
+    small.width = Math.max(1, Math.round(rw() * k));
+    small.height = Math.max(1, Math.round(rh() * k));
+    const sx = small.getContext('2d');
+    sx.scale(k, k);
+    drawBase(sx);
+    const soft = document.createElement('canvas');
+    soft.width = small.width * 4;
+    soft.height = small.height * 4;
+    const mx = soft.getContext('2d');
+    mx.imageSmoothingQuality = 'high';
+    if ('filter' in mx) mx.filter = 'blur(3px)';
+    mx.drawImage(small, 0, 0, soft.width, soft.height);
+    blurCache = { turns, c: soft };
+    return soft;
+  }
+  // Мазки розмиття — маска на окремому шарі, крізь неї проступає розмите фото
+  let layer = null;
+  function drawBlur(ctx, sc, v, ox, oy) {
+    const list = strokes.filter((s) => s.blur);
+    if (!list.length) return;
+    layer ||= document.createElement('canvas');
+    if (layer.width !== ctx.canvas.width) layer.width = ctx.canvas.width;
+    if (layer.height !== ctx.canvas.height) layer.height = ctx.canvas.height;
+    const lc = layer.getContext('2d');
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = 'source-over';
+    lc.clearRect(0, 0, layer.width, layer.height);
+    lc.setTransform(sc, 0, 0, sc, ox - v.x * sc, oy - v.y * sc);
+    list.forEach((s) => drawStroke(lc, s));
+    lc.globalCompositeOperation = 'source-in';
+    lc.imageSmoothingEnabled = true;
+    lc.imageSmoothingQuality = 'high';
+    lc.drawImage(blurred(), 0, 0, rw(), rh());
+    lc.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(layer, 0, 0);
+    ctx.restore();
+  }
+
+  // Одна відмальовка і для екрана, і для файла: sc — пікселів на піксель фото; ox, oy — зсув фото в полотні (рамка)
+  function render(ctx, sc, v, preview = false, ox = 0, oy = 0) {
+    ctx.setTransform(sc, 0, 0, sc, ox - v.x * sc, oy - v.y * sc);
+    drawBase(ctx);
+    const W = rw();
+    const H = rh();
+    drawBlur(ctx, sc, v, ox, oy);
+    strokes.forEach((s) => { if (!s.blur) drawStroke(ctx, s); });
     items.forEach((it) => drawItem(ctx, it));
     if (!preview) return;
     if (sel && mode === 'move') {
@@ -208,7 +322,11 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const canvas = h('canvas', { class: 'ph-canvas', 'aria-label': 'Фото: подпись и наклейки двигаются пальцем, двумя — размер и поворот' });
   const ctx = canvas.getContext('2d');
   const belowLine = h('p', { class: 'ph-below', hidden: true });
-  const stage = h('div', { class: 'ph-stage' }, canvas);
+  // «Полароид» на екрані — картка довкола полотна; у файлі те саме малює drawFoot
+  const footCap = h('p', { class: 'ph-card-cap' });
+  const footDate = h('p', { class: 'ph-card-date' }, today());
+  const card = h('div', { class: 'ph-card' }, canvas, h('div', { class: 'ph-card-foot', 'aria-hidden': 'true' }, footCap, footDate));
+  const stage = h('div', { class: 'ph-stage' }, card);
   let raf = 0;
   const paint = () => {
     raf = 0;
@@ -224,9 +342,17 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     if (!b.width || !b.height) return;
     const v = view();
     const a = v.w / v.h;
-    const cw = Math.min(b.width, b.height * a);
+    // У рамці фото менше: поля з боків і зверху, ширший низ
+    const fr = frame && mode !== 'crop';
+    const fs = fr ? FRAME.side : 0;
+    const fb = fr ? FRAME.bottom : 0;
+    const cw = Math.min(b.width / (1 + 2 * fs), b.height / (1 / a + fs + fb));
     const ch = cw / a;
     const dpr = Math.min(2, devicePixelRatio || 1);
+    card.classList.toggle('is-frame', fr);
+    card.style.setProperty('--fs', `${cw * fs}px`);
+    card.style.setProperty('--fb', `${cw * fb}px`);
+    card.style.setProperty('--cw', `${cw}px`);
     canvas.style.width = `${cw}px`;
     canvas.style.height = `${ch}px`;
     canvas.width = Math.max(1, Math.round(cw * dpr));
@@ -278,9 +404,10 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     if (e.target !== canvas) return;
     try { canvas.setPointerCapture(e.pointerId); } catch { /* синтетичний дотик */ }
     const p = at(e);
-    if (mode === 'draw') {
+    if (mode === 'draw' || mode === 'blur') {
       if (stroke) return;
-      stroke = { color: drawColor, width: view().w * 0.012, pts: [p.x, p.y], id: e.pointerId };
+      const blur = mode === 'blur';
+      stroke = { blur, color: blur ? '#000000' : drawColor, width: view().w * (blur ? BLUR_W : 0.012), pts: [p.x, p.y], id: e.pointerId };
       strokes.push(stroke);
       paintTools();
       redraw();
@@ -307,7 +434,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   });
   stage.addEventListener('pointermove', (e) => {
     const p = at(e);
-    if (mode === 'draw') {
+    if (mode === 'draw' || mode === 'blur') {
       if (!stroke || stroke.id !== e.pointerId) return;
       stroke.pts.push(p.x, p.y);
       redraw();
@@ -368,7 +495,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const syncCaption = () => {
     const text = caption.value.trim();
     belowLine.textContent = text;
-    belowLine.hidden = look !== 'below' || !text;
+    // У рамці «Под фото» пишеться в самій рамці
+    belowLine.hidden = look !== 'below' || !text || frame;
+    footCap.textContent = look === 'below' ? text : '';
     const onPhoto = look !== 'below' && text;
     if (!onPhoto) {
       if (capItem) { items.splice(items.indexOf(capItem), 1); if (sel === capItem) sel = null; capItem = null; }
@@ -398,7 +527,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const capColors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет подписи' },
     ...COLORS.map((c, i) => swatch(c, i, (x) => {
       color = x;
-      const target = sel && sel.look !== 'emoji' ? sel : capItem;
+      const target = textual(sel) ? sel : capItem;
       if (target) target.color = x;
       paintTools();
       redraw();
@@ -415,6 +544,12 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const tCrop = tool('✂️', 'Обрезать и повернуть', 'crop');
   const tDraw = tool('✏️', 'Рисовать', 'draw');
   const tStick = tool('😊', 'Наклейка', 'stick');
+  const tBlur = tool('💧', 'Размыть', 'blur');
+  // Рамка — не режим, а перемикач: фото лишається редагованим
+  const tFrame = h('button', {
+    type: 'button', class: 'ph-tool', 'aria-label': 'Рамка «Полароид»', 'aria-pressed': 'false',
+    onclick: () => { frame = !frame; syncCaption(); },
+  }, '🖼️');
   const trash = h('button', {
     type: 'button', class: 'ph-tool ph-trash', 'aria-label': 'Убрать выбранное', hidden: true,
     onclick: () => {
@@ -425,19 +560,42 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       redraw();
     },
   }, '🗑');
-  const undo = h('button', {
-    type: 'button', class: 'mk-chip ph-undo', 'aria-label': 'Отменить линию',
-    onclick: () => { strokes.pop(); paintTools(); redraw(); },
-  }, '↩');
+  // Відмінити останній мазок свого інструмента: лінії й розмиття — окремо
+  const undoLast = (blur) => {
+    for (let i = strokes.length - 1; i >= 0; i -= 1) if (!!strokes[i].blur === blur) { strokes.splice(i, 1); break; }
+    paintTools();
+    redraw();
+  };
+  const undo = h('button', { type: 'button', class: 'mk-chip ph-undo', 'aria-label': 'Отменить линию', onclick: () => undoLast(false) }, '↩');
+  const blurUndo = h('button', { type: 'button', class: 'mk-chip ph-undo', 'aria-label': 'Отменить размытие', onclick: () => undoLast(true) }, '↩');
   const drawColors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет карандаша' },
     ...COLORS.map((c, i) => swatch(c, i, (x) => { drawColor = x; paintTools(); })));
   const done = (label = 'Готово') => h('button', { type: 'button', class: 'mk-chip ph-done', onclick: () => finishMode(true) }, label);
   const drawPanel = h('div', { class: 'ph-panel', hidden: true }, drawColors, undo, done());
+  const blurPanel = h('div', { class: 'ph-panel', hidden: true }, h('span', { class: 'ph-hint' }, 'Закрась, что спрятать'), blurUndo, done());
   const cropPanel = h('div', { class: 'ph-panel', hidden: true },
     h('button', { type: 'button', class: 'mk-chip', onclick: () => { turn(); fit(); } }, '⟳ Повернуть'),
     h('button', { type: 'button', class: 'mk-chip', onclick: () => { tmpCrop = { x: 0, y: 0, w: rw(), h: rh() }; redraw(); } }, 'Всё фото'),
     done());
-  const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...STICKERS.map((s) => h('button', {
+  // Улюбленці першими: головна поза кружечком; фото без ключа (blob:) — полотно не «брудниться»
+  const petStickers = Object.keys(DATA.mascots || {}).map((key) => {
+    const src = petSrc(key);
+    if (!src) return null;
+    return h('button', {
+      type: 'button', class: 'ph-sticker ph-sticker-pet', 'aria-label': `Наклейка: ${petName(key)}`,
+      onclick: () => {
+        const v = view();
+        const img = new Image();
+        img.onload = redraw;
+        img.src = src;
+        const n = items.filter((x) => x.look === 'pet').length;
+        sel = { look: 'pet', key, img, size: v.w * 0.3, x: v.x + v.w * (0.3 + (n % 3) * 0.2), y: v.y + v.h * 0.35, k: 1, rot: 0 };
+        items.push(sel);
+        finishMode(true);
+      },
+    }, h('img', { src, alt: '', width: 40, height: 40, draggable: 'false' }));
+  }).filter(Boolean);
+  const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...petStickers, ...STICKERS.map((s) => h('button', {
     type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`,
     onclick: () => {
       const v = view();
@@ -468,16 +626,19 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   }
   function paintTools() {
     sheet.dataset.mode = mode;
-    for (const b of [tCrop, tDraw, tStick]) b.setAttribute('aria-pressed', String(b.dataset.m === mode));
+    for (const b of [tCrop, tDraw, tStick, tBlur]) b.setAttribute('aria-pressed', String(b.dataset.m === mode));
+    tFrame.setAttribute('aria-pressed', String(frame));
     drawPanel.hidden = mode !== 'draw';
+    blurPanel.hidden = mode !== 'blur';
     cropPanel.hidden = mode !== 'crop';
     stickPanel.hidden = mode !== 'stick';
-    bottom.hidden = mode === 'draw' || mode === 'crop';
+    bottom.hidden = mode === 'draw' || mode === 'crop' || mode === 'blur';
     trash.hidden = !sel || mode !== 'move';
-    undo.disabled = !strokes.length;
+    undo.disabled = !strokes.some((s) => !s.blur);
+    blurUndo.disabled = !strokes.some((s) => s.blur);
     lookChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === look)));
     capColors.hidden = look === 'below';
-    const cur = sel && sel.look !== 'emoji' ? sel.color : color;
+    const cur = textual(sel) ? sel.color : color;
     capColors.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cur)));
     drawColors.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === drawColor)));
   }
@@ -493,20 +654,37 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
         await fonts;
         const v = crop || { x: 0, y: 0, w: rw(), h: rh() };
         const k = Math.min(1, MAX_SIDE / Math.max(v.w, v.h));
+        const pw = Math.max(1, Math.round(v.w * k));
+        const ph = Math.max(1, Math.round(v.h * k));
+        const fs = frame ? Math.round(pw * FRAME.side) : 0;
+        const fb = frame ? Math.round(pw * FRAME.bottom) : 0;
         const c = document.createElement('canvas');
-        c.width = Math.max(1, Math.round(v.w * k));
-        c.height = Math.max(1, Math.round(v.h * k));
+        c.width = pw + fs * 2;
+        c.height = ph + fs + fb;
+        const cx = c.getContext('2d');
         const saved = mode;
         mode = 'move';
-        render(c.getContext('2d'), k, v);
+        if (frame) {
+          cx.fillStyle = FRAME.paper;
+          cx.fillRect(0, 0, c.width, c.height);
+          cx.save();
+          cx.beginPath();
+          cx.rect(fs, fs, pw, ph);
+          cx.clip();
+        }
+        render(cx, k, v, false, fs, fs);
+        if (frame) {
+          cx.restore();
+          drawFoot(cx, fs, fs + ph, pw, fb, look === 'below' ? caption.value.trim() : '');
+        }
         mode = saved;
         out = await toBlob(c, 'image/webp', 0.85);
         if (out?.type !== 'image/webp') out = await toBlob(c, 'image/jpeg', 0.88);
         if (out && out.size > MAX_BYTES) out = await toBlob(c, 'image/jpeg', 0.75);
         if (!out) throw new Error('encode');
       }
-      // Підпис на фото вже впечений — текстом іде лише «Под фото»
-      await send(out, look === 'below' ? caption.value.trim() : '');
+      // Підпис на фото чи в рамці вже впечений — текстом іде лише «Под фото» без рамки
+      await send(out, look === 'below' && !frame ? caption.value.trim() : '');
       close();
     } catch (e) {
       go.disabled = false;
@@ -531,9 +709,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     onclick: () => { if (mode !== 'move') finishMode(false); else close(); },
   }, '✕');
   const sheet = h('div', { class: 'sheet sheet-full sheet-photo', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новое фото' },
-    h('div', { class: 'ph-top' }, x, h('span', { class: 'ph-gap' }), trash, tCrop, tDraw, tStick),
+    h('div', { class: 'ph-top' }, x, h('span', { class: 'ph-gap' }), trash, tCrop, tDraw, tBlur, tStick, tFrame),
     stage,
-    drawPanel, cropPanel, stickPanel,
+    drawPanel, blurPanel, cropPanel, stickPanel,
     bottom);
   const ro = new ResizeObserver(() => fit());
   document.body.append(sheet);
