@@ -169,22 +169,29 @@ function trimmed(buf) {
   for (let c = 0; c < buf.numberOfChannels; c += 1) cut.copyToChannel(buf.getChannelData(c).subarray(s), c);
   return { buf: cut, norm: peak ? 1 / peak : 1 };
 }
-// k → null (вантажиться) | [{ f, buf, norm }]
+// k → null (вантажиться) | [{ f, buf, norm }]; loading — k → Promise, поки записи в дорозі
 const bank = new Map();
+const loading = new Map();
 function loadBank(k, again = false) {
   if (!SAMPLED[k] || bank.has(k) || !ctx) return;
   bank.set(k, null);
   const o = SAMPLED[k].oct;
-  Promise.all(ANCHORS.map(async ([n, octave, f]) => {
+  const p = Promise.all(ANCHORS.map(async ([n, octave, f]) => {
     const url = new URL(`../sounds/${k}/${n}${octave + o}.mp3`, import.meta.url).href;
     const decoded = await ctx.decodeAudioData(await sampleBytes(url));
     return { f: f * 2 ** o, ...trimmed(decoded) };
-  })).then((list) => bank.set(k, list), () => {
-    // Збій мережі — ще одна спроба за 2 с; далі — при наступному звуці (voiceOf)
+  })).then((list) => { bank.set(k, list); loading.delete(k); }, (e) => {
+    // Збій мережі — ще одна спроба за 2 с; далі — при наступному звуці
     bank.delete(k);
+    loading.delete(k);
     if (!again) setTimeout(() => loadBank(k, true), 2000);
+    throw e;
   });
+  p.catch(() => {});
+  loading.set(k, p);
 }
+// Скільки чекати записи інструмента для звуку, що вже попросили: довше — звук уже не до місця, пропускаємо
+const WAIT_SAMPLES_MS = 1500;
 export const samplesReady = (k) => !!bank.get(k);
 
 // Шуми — записи Kenney (CC0, sounds/fx): папір, картон, дерево, удари. Ім'я → null (вантажиться) | { buf, norm }
@@ -381,6 +388,17 @@ function play(name, delay, instrument) {
   try {
     if (!audio()) return;
     const k = known(instrument);
+    // Записи інструмента ще не доїхали (перший тап по ньому) — чекаємо їх, а не граємо запасним синтезатором:
+    // інакше з першого разу звучить «якийсь інший» інструмент
+    if (SAMPLED[k] && !bank.get(k) && SOUNDS[name].length > 1) {
+      loadBank(k);
+      const t0 = performance.now();
+      loading.get(k)?.then(() => {
+        const late = performance.now() - t0;
+        if (late < WAIT_SAMPLES_MS) play(name, Math.max(0, delay - late), instrument);
+      }, () => {});
+      return;
+    }
     SOUNDS[name](ctx.currentTime + 0.02 + delay / 1000, voiceOf(k), NO_SPARKLE.has(k) ? quiet : bell);
   } catch { /* без звуку — не біда */ }
 }
