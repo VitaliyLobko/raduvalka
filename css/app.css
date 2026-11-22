@@ -1163,6 +1163,9 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .instr-chip[aria-checked="true"] { background: var(--wax); border-color: var(--wax); color: var(--on-plum); }
 .instr-chip:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
 .instr-note { margin: 0; font-size: .8125rem; color: var(--ink-soft); }
+/* «Отладка» → «Все звуки»: події по дві в ряд */
+.sfx-row { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
+.debug-sub .instr-row:not(.sfx-row) { margin-bottom: 12px; }
 .about-card .text-size-row { margin-bottom: 8px; }
 .about-card .text-size-sample { margin: 0; background: color-mix(in srgb, currentColor 7%, transparent); }
 .about-card .push-panel { margin: 0; padding: 12px 0; grid-template-columns: 1fr 1fr; }

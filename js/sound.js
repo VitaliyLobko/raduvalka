@@ -270,6 +270,8 @@ function play(name, delay, instrument) {
 export function sfx(name, delay = 0, from = 'me') {
   play(name, delay, from === 'them' ? theirs : myInstrument());
 }
+// Будь-який звук заданим інструментом — для «Отладки», свій вибір не міняє
+export const playAs = (name, instrument) => play(name, 0, instrument);
 // Послухати інструмент у налаштуваннях: «твій хід» і пара
 export function preview(instrument) {
   play('turn', 0, instrument);

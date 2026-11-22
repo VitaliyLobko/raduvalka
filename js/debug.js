@@ -5,6 +5,7 @@ import { h, toast, aboutGroup, aboutRow } from './ui.js';
 import { previewCookie, allFortunes } from './cookie.js';
 import { CATS } from './plans.js';
 import { SAME_TOPICS } from './same.js';
+import { INSTRUMENTS, SOUND_NAMES, myInstrument, playAs, soundOn } from './sound.js';
 
 // Одна шторка за раз; підшторка замість «Отладки», після ✕ чи Escape — назад до неї (back)
 function sheet(label, cls, back, ...kids) {
@@ -54,6 +55,37 @@ function openSameQs() {
       Object.values(qs).map(([q, a, b]) => h('li', {}, q, h('br'), h('small', {}, `${a} · ${b}`))))));
 }
 
+// Пульт звуків: обрати інструмент і зіграти будь-яку подію. * — звук без інструмента (однаковий у всіх)
+const SFX_GROUPS = [
+  ['💌 Письма', [['letter', 'Пришло письмо'], ['sent', 'Отправлено'], ['open', 'Конверт открыт'], ['react', 'Реакция *'], ['love', 'Сердечки *']]],
+  ['🎲 Игры', [['turn', 'Твой ход'], ['place', 'Крестик'], ['drop', 'Фишка'], ['line', 'Рисочка'], ['flip', 'Карточка'],
+    ['pair', 'Пара'], ['miss', 'Мимо'], ['tick', 'Раз, два'], ['tock', 'Три!'], ['reveal', 'Руки открылись'],
+    ['win', 'Победа'], ['lose', 'Проигрыш'], ['draw', 'Ничья']]],
+  ['🚢 Морской бой', [['shot', 'Выстрел *'], ['splash', 'Мимо, всплеск'], ['hit', 'Попал *'], ['sunk', 'Потопил *'], ['note', 'Записка *']]],
+  ['🔔 Звоночек', [['bell', 'Зовут тебя *'], ['ring', 'Зовёшь сам *']]],
+];
+function openSounds() {
+  let inst = myInstrument();
+  const chips = h('div', { class: 'instr-row', role: 'radiogroup', 'aria-label': 'Инструмент' });
+  const paint = () => chips.replaceChildren(...Object.entries(INSTRUMENTS).map(([k, { name }]) => h('button', {
+    type: 'button', class: 'instr-chip', role: 'radio', 'aria-checked': String(k === inst),
+    onclick: () => { inst = k; paint(); playAs('pair', inst); },
+  }, name)));
+  paint();
+  const listed = new Set(SFX_GROUPS.flatMap(([, list]) => list.map(([k]) => k)));
+  const rest = SOUND_NAMES.filter((k) => !listed.has(k)).map((k) => [k, k]);
+  const groups = rest.length ? [...SFX_GROUPS, ['Прочее', rest]] : SFX_GROUPS;
+  sheet('Все звуки', 'debug-sub', openDebug,
+    h('h2', { class: 'title' }, 'Звуки'),
+    h('p', { class: 'hint' }, soundOn() ? 'Твой выбор в «Звуках» не меняется. * — без инструмента, у всех одинаково'
+      : 'Звуки выключены — включи в «О Радовалке» → «Звуки»'),
+    chips,
+    ...groups.flatMap(([title, list]) => [h('h3', { class: 'about-group-title' }, title),
+      h('div', { class: 'instr-row sfx-row' }, ...list.map(([k, label]) => h('button', {
+        type: 'button', class: 'instr-chip', onclick: () => playAs(k, inst),
+      }, label)))]));
+}
+
 // «Играть за двоих»: у грі зʼявляється кнопка «🎭 За неё» — її ходи йдуть її ключем (на цьому телефоні є обидва)
 const BOTH = 'radovalka:debug-both';
 const bothOn = () => { try { return localStorage.getItem(BOTH) === '1'; } catch { return false; } };
@@ -80,5 +112,6 @@ export function openDebug() {
       aboutRow('✨', 'Показать золотую', null, cookie(true)),
       aboutRow('📜', 'Все предсказания', null, sub(openFortunes))),
     aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),
-    aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs)), bothRow()));
+    aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs)), bothRow()),
+    aboutGroup('Звуки', aboutRow('🎻', 'Все звуки', 'Любой инструмент, любое событие', sub(openSounds))));
 }
