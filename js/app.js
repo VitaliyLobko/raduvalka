@@ -546,7 +546,7 @@ function noteUpdated() {
 
 // Свої файли, які завантажила ця сторінка: скрипти, стилі, шрифти
 // LAZY — модулі, що вантажаться лише за потреби (import()): кладемо в оболонку завжди, щоб версії не розійшлись
-const LAZY = ['./photoedit.js', './gifedit.js', './files.js', './festive.js', './debug.js', './emoji.js', './envattach.js'].map((p) => new URL(p, import.meta.url).href);
+const LAZY = ['./photoedit.js', './gifedit.js', './files.js', './festive.js', './debug.js', './emoji.js', './envattach.js', './picker.js'].map((p) => new URL(p, import.meta.url).href);
 const ownFiles = () => [...new Set([...performance.getEntriesByType('resource').map((e) => e.name.split('#')[0])
   .filter((u) => u.startsWith(location.origin) && /\.(js|css|woff2)(\?|$)/.test(u)), ...LAZY])];
 

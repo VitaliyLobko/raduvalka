@@ -2,7 +2,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save, postBlob, imageUrl } from './api.js';
 import { mascotImg, petName, petFor, petLine } from './icons.js';
-import { h, toast, cap, showPhoto, ribbon, dayMonth } from './ui.js';
+import { h, toast, cap, showPhoto, ribbon, dayMonth, dateField } from './ui.js';
 import { prepare, prepareError, toBase64 } from './memes.js';
 import { swipeable } from './feed.js';
 import { ask } from './ask.js';
@@ -384,7 +384,7 @@ function editWish(screen, w, sharedLink = '') {
   let hot = !!w?.hot;
   // «К дате»: свято одним дотиком (найближче), своя дата — календарем; ще дотик — без дати
   let due = w?.due || null;
-  const dueIn = h('input', { type: 'date', class: 'want-due-in', 'aria-label': 'К какой дате', hidden: true });
+  const dueIn = dateField(h('input', { type: 'date', class: 'want-due-in', 'aria-label': 'К какой дате', hidden: true }));
   const dueChips = h('div', { class: 'mk-chips mk-row want-due-row', role: 'radiogroup', 'aria-label': 'К дате' });
   // Свій день народження (хотілка — подарунок мені) і річниця — якщо дати вписані у «Вместе»
   const T = DATA.together || {};
@@ -417,9 +417,8 @@ function editWish(screen, w, sharedLink = '') {
         type: 'button', role: 'radio', class: 'mk-chip due-card', 'aria-checked': String(own),
         onclick: () => {
           if (own) { due = null; drawDue(); return; }
-          dueIn.hidden = false;
-          dueIn.focus();
-          dueIn.showPicker?.();
+          // Своя шторка календаря (та сама, що й тапом по полю)
+          dueIn.click();
         },
       }, ...card('📅', own ? 'Своя дата' : 'Дата', own ? when(due) : 'выбрать')),
       ...PRESETS.map(([md, emoji, name]) => h('button', {

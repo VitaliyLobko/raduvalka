@@ -21,6 +21,26 @@ export function toast(text) {
 
 export const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
+// Поле дати без системного календаря: readonly (Chrome не відкриває свій), тап — своя шторка (picker.js — лише тоді).
+// Значення лишається в самому input, тож його input/change-обробники працюють як раніше
+// today: false — без кнопки «Сегодня» (день народження сьогоднішнім не буває)
+export function dateField(input, title = input.getAttribute('aria-label') || 'Дата', { today = true } = {}) {
+  input.readOnly = true;
+  input.classList.add('is-picker');
+  const open = async (e) => {
+    e.preventDefault();
+    const { pickDate } = await import('./picker.js');
+    const v = await pickDate({ value: input.value, min: input.min, max: input.max, title, today });
+    if (v == null || v === input.value) return;
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  input.addEventListener('click', open);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+  return input;
+}
+
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Форматтери дат — один раз на весь застосунок: toLocale…String з параметрами щоразу будує новий, а це дорого на кожен рядок стрічки

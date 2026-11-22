@@ -182,8 +182,7 @@ const MAX_AHEAD = 365 * 24 * 3600 * 1000;
 // datetime-local хоче місцевий час без зони: 2026-11-21T14:00
 const local = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-// «Ко времени»: годинник телефона одразу (той самий тап — інакше браузер його не відкриє)
-// Годинник відкривається на найближче: удень — наступна ціла година сьогодні, увечері й уночі — 8:00 ранку
+// «Ко времени» відкривається на найближче: удень — наступна ціла година сьогодні, увечері й уночі — 8:00 ранку
 function firstTime() {
   const d = new Date();
   const h = d.getHours();
@@ -191,14 +190,30 @@ function firstTime() {
   d.setHours(h >= 20 || h < 7 ? 8 : h + 1, 0, 0, 0);
   return d;
 }
-function pickTime() {
+// Швидкі варіанти над календарем: через годину, сьогодні ввечері (поки ще не вечір), завтра зранку
+function quickTimes() {
+  const now = new Date();
+  const hour = new Date(Math.ceil((now.getTime() + 3600000) / 300000) * 300000);
+  const at = (days, hh) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hh, 0, 0, 0); return d.getTime(); };
+  return [
+    { label: 'Через час', at: hour.getTime() },
+    ...(now.getHours() < 19 ? [{ label: 'Вечером 20:00', at: at(0, 20) }] : []),
+    { label: 'Завтра 8:00', at: at(1, 8) },
+  ];
+}
+// «Ко времени»: своя шторка (дата сіткою, час барабанами); вибране йде через той самий обробник прихованого поля
+async function pickTime() {
   closePlus();
   const { clock } = ui;
-  const d = when === 'time' ? new Date(atTime) : null;
-  clock.min = local(new Date());
-  clock.max = local(new Date(Date.now() + MAX_AHEAD));
-  clock.value = local(d || firstTime());
-  try { clock.showPicker(); } catch { clock.focus(); clock.click(); }
+  const d = when === 'time' ? new Date(atTime) : firstTime();
+  const { pickDateTime } = await import('./picker.js');
+  const t = await pickDateTime({
+    value: d.getTime(), min: Date.now(), max: Date.now() + MAX_AHEAD, title: 'Ко времени', quick: quickTimes(),
+    past: 'уже прошло, уйдёт завтра в это время',
+  });
+  if (t == null) return;
+  clock.value = local(new Date(t));
+  clock.dispatchEvent(new Event('change'));
 }
 
 function grow() {

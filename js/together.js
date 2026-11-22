@@ -2,7 +2,7 @@
 // Не окремий розділ: значок у шапці, повна листівка — у шторці
 import { DATA } from './data.js';
 import { save, send, get } from './api.js';
-import { h, toast, dayMonthYear } from './ui.js';
+import { h, toast, dayMonthYear, dateField } from './ui.js';
 import { spaceCard, flyHeart, dragHeart } from './space.js';
 
 const DAY = 86400000;
@@ -90,7 +90,7 @@ export function renderTogether(screen) {
   };
 
   // Дату зустрічі вписує будь-хто з двох, щойно вона з'явиться
-  const meetInput = h('input', {
+  const meetInput = dateField(h('input', {
     type: 'date',
     value: T.meet || '',
     min: now.toLocaleDateString('sv'),
@@ -100,27 +100,28 @@ export function renderTogether(screen) {
       save('together', { meet: T.meet });
       renderTogether(screen);
     },
-  });
+  }));
 
   // Дні народження — для «🎂 Мой ДР» у хотілках; свій і другого вписує будь-хто
   const bday = (side, label) => {
     const key = side === 'vona' ? 'bdayVona' : 'bdayVin';
-    const input = h('input', {
+    const input = dateField(h('input', {
       type: 'date',
       value: T[key] || '',
+      max: now.toLocaleDateString('sv'),
       'aria-label': `День рождения: ${label}`,
       onchange: (e) => { T[key] = e.target.value || null; save('together', { [key]: T[key] }); },
-    });
+    }), label.replace('🎂 ', '').replace('ДР', 'день рождения'), { today: false });
     return h('label', { class: 'bday' }, h('span', {}, label),
       clearable(input, label, () => { T[key] = null; save('together', { [key]: null }); }));
   };
   const mine = side === 'vona' ? ['vona', 'vin'] : ['vin', 'vona'];
 
   // З якого дня врозь — від нього сердечко рахує шлях; змінити може будь-хто
-  const apartInput = h('input', {
+  const apartInput = dateField(h('input', {
     type: 'date', value: T.apartFrom || '', max: now.toLocaleDateString('sv'), 'aria-label': 'Врозь с',
     onchange: (e) => { T.apartFrom = e.target.value || null; save('together', { apartFrom: T.apartFrom }); renderTogether(screen); },
-  });
+  }), 'Врозь с какого дня');
   // Зустрілись і знову роз'їхались — одним тапом: врозь із сьогодні, стара дата зустрічі геть
   const apartAgain = trip?.together ? h('button', {
     type: 'button', class: 'btn apart-again',
