@@ -774,6 +774,9 @@ async function start() {
   // Старий воркер (або збережений до 0.1.74 boot без мережі) привітального окремо не віддає
   if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
   document.body.classList.remove('is-booting');
+  // Заставка тане, коли під нею вже готовий екран
+  const art = document.querySelector('.boot-art');
+  if (art) { art.classList.add('is-gone'); setTimeout(() => art.remove(), 500); }
   try { sessionStorage.removeItem('radovalka:boot-retry'); } catch { /* приватне вікно */ }
   prewarmWrite();
   applySide();
