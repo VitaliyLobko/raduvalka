@@ -1,4 +1,5 @@
-// Звуки Радовалки без файлів: синтез Web Audio. Усі ноти з однієї пентатоніки ре-мажор, тож будь-які два звуки
+// Звуки Радовалки: синтез Web Audio, а для живих інструментів — ще й записи (вмикаються в «Отладке»; поки не
+// завантажились чи нема мережі — грає синтез). Усі ноти з однієї пентатоніки ре-мажор, тож будь-які два звуки
 // поспіль звучать разом. Тихо, коротко, з легким відлунням шкатулки.
 // Мелодію грає інструмент: кожен обирає свій у «О Радовалке». Моє (відправила, сходила) — моїм інструментом,
 // те, що прийшло від другого (лист, його хід), — його. Шурхоти, стуки й сплески — однакові для всіх.
@@ -23,10 +24,13 @@ export const INSTRUMENTS = {
 const INSTR = 'radovalka:instrument';
 const known = (k) => (Object.hasOwn(INSTRUMENTS, k) ? k : 'kalimba');
 export function myInstrument() { try { return known(localStorage.getItem(INSTR)); } catch { return 'kalimba'; } }
-export function setMyInstrument(k) { try { localStorage.setItem(INSTR, known(k)); } catch { /* приватне вікно */ } }
+export function setMyInstrument(k) {
+  try { localStorage.setItem(INSTR, known(k)); } catch { /* приватне вікно */ }
+  if (samplesOn()) loadBank(known(k));
+}
 let theirs = 'kalimba';
 export const partnerInstrument = () => theirs;
-export function setPartnerInstrument(k) { theirs = known(k); }
+export function setPartnerInstrument(k) { theirs = known(k); if (samplesOn()) loadBank(theirs); }
 
 // Ноти: D4 … F7 (пентатоніка D E F# A B)
 const N = {
@@ -36,6 +40,7 @@ const N = {
 
 let ctx = null;
 let out = null;
+let dry = null;
 let noiseBuf = null;
 const touched = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
 function audio() {
@@ -62,11 +67,16 @@ function audio() {
   out.connect(echo);
   echo.connect(tone).connect(fb).connect(echo);
   tone.connect(wet).connect(comp);
+  // Сухий вихід без відлуння: 8-біт і контрабас
+  dry = ctx.createGain();
+  dry.gain.value = 0.55;
+  dry.connect(comp);
   comp.connect(ctx.destination);
   // Шум на секунду — один на всі шурхоти, сплески й подих флейти
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
+  if (samplesOn()) { loadBank(myInstrument()); loadBank(theirs); }
   return ctx;
 }
 // Перший дотик — будимо звук заздалегідь, щоб перший сигнал не запізнився
@@ -111,7 +121,7 @@ function vibrato(params, t, end, rate, depth, delay) {
   l.stop(end + 0.03);
 }
 // Шум через смугу, що їде від from до to: шурхіт, сплеск, рисочка олівцем, подих
-function noise(t, len, from, to, { v = 0.1, q = 1.2, type = 'bandpass', attack = 0.01 } = {}) {
+function noise(t, len, from, to, { v = 0.1, q = 1.2, type = 'bandpass', attack = 0.01, dest = out } = {}) {
   const s = ctx.createBufferSource();
   s.buffer = noiseBuf;
   const f = ctx.createBiquadFilter();
@@ -121,7 +131,7 @@ function noise(t, len, from, to, { v = 0.1, q = 1.2, type = 'bandpass', attack =
   f.frequency.exponentialRampToValueAtTime(to, t + len);
   const g = ctx.createGain();
   env(g, t, v, len, attack);
-  s.connect(f).connect(g).connect(out);
+  s.connect(f).connect(g).connect(dest);
   s.start(t, Math.random() * 0.5);
   s.stop(t + len + 0.03);
 }
@@ -330,19 +340,150 @@ function chip(f, t, v = 0.22, len = 0.9) {
   const g = ctx.createGain();
   for (let i = 0; i <= steps; i += 1) g.gain.setValueAtTime(peak * (1 - i / steps) ** 1.5, t + i / 30);
   g.gain.setValueAtTime(0, t + (steps + 1) / 30);
-  o.connect(g).connect(out);
+  o.connect(g).connect(dry);
   o.start(t);
   o.stop(t + (steps + 1) / 30 + 0.02);
 }
 const VOICES = { kalimba: pluck, harp, flute, violin, cello, bass, bells: chimes, chip };
 
+// Записи живих інструментів (FluidR3 GM, CC BY 3.0 — sounds/CREDITS.md) поруч із синтезом: перемикач у «Отладке».
+// По 4 опорні ноти (E, A, D, G♭ — між ними не більше 3 півтонів), решта — зсувом швидкості найближчої.
+// oct — регістр інструмента відносно мелодії; len — у скільки разів нота довша за синтезну, min/max — межі в с;
+// gain — вирівнювання гучності з рештою
+const SAMPLED = {
+  kalimba: { oct: 0, len: 1.2, min: 0.35, max: 1.4, gain: 1.1 },
+  harp: { oct: 0, len: 1.5, min: 0.7, max: 1.8, gain: 1.1 },
+  flute: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 1.1 },
+  violin: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 1.4 },
+  cello: { oct: -1, len: 0.9, min: 0.5, max: 1, gain: 1.7 },
+  bass: { oct: -3, len: 1, min: 0.4, max: 1.1, gain: 1.4, dry: true },
+  bells: { oct: 1, len: 1.6, min: 0.6, max: 2, gain: 0.8 },
+};
+const ANCHORS = [['E', 5, 659.25], ['A', 5, 880], ['D', 6, 1174.66], ['Gb', 6, 1479.98]];
+const SAMPLED_KEY = 'radovalka:sampled';
+export function samplesOn() { try { return localStorage.getItem(SAMPLED_KEY) === '1'; } catch { return false; } }
+export function setSamples(on) {
+  try { if (on) localStorage.setItem(SAMPLED_KEY, '1'); else localStorage.removeItem(SAMPLED_KEY); } catch { /* приватне вікно */ }
+  if (on && ctx) { loadBank(myInstrument()); loadBank(theirs); }
+}
+export const hasSamples = (k) => Object.hasOwn(SAMPLED, k);
+// Файли не змінюються (нова запис — нова назва), тож лежать у власному кеші: другий раз — без мережі
+const SND_CACHE = 'snd-radovalka';
+async function sampleBytes(url) {
+  const cache = self.caches ? await caches.open(SND_CACHE).catch(() => null) : null;
+  const hit = await cache?.match(url).catch(() => null);
+  if (hit) return hit.arrayBuffer();
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`sample ${r.status}`);
+  cache?.put(url, r.clone()).catch(() => {});
+  return r.arrayBuffer();
+}
+// MP3 починається з тиші кодувальника — зрізаємо до першого звуку, щоб нота не запізнювалась за анімацією
+function trimmed(buf) {
+  const d = buf.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < d.length; i += 1) peak = Math.max(peak, Math.abs(d[i]));
+  let s = 0;
+  while (s < d.length && Math.abs(d[s]) < peak * 0.02) s += 1;
+  const cut = ctx.createBuffer(buf.numberOfChannels, Math.max(1, d.length - s), buf.sampleRate);
+  for (let c = 0; c < buf.numberOfChannels; c += 1) cut.copyToChannel(buf.getChannelData(c).subarray(s), c);
+  return { buf: cut, norm: peak ? 1 / peak : 1 };
+}
+// k → null (вантажиться) | [{ f, buf, norm }]
+const bank = new Map();
+function loadBank(k) {
+  if (!SAMPLED[k] || bank.has(k) || !ctx) return;
+  bank.set(k, null);
+  const o = SAMPLED[k].oct;
+  Promise.all(ANCHORS.map(async ([n, octave, f]) => {
+    const url = new URL(`../sounds/${k}/${n}${octave + o}.mp3`, import.meta.url).href;
+    const decoded = await ctx.decodeAudioData(await sampleBytes(url));
+    return { f: f * 2 ** o, ...trimmed(decoded) };
+  })).then((list) => bank.set(k, list), () => bank.delete(k));
+}
+export const samplesReady = (k) => !!bank.get(k);
+function sampleVoice(k, list) {
+  const p = SAMPLED[k];
+  return (f, t, v = 0.22, len = 0.9) => {
+    const F = f * 2 ** p.oct;
+    const a = list.reduce((best, x) => (Math.abs(Math.log(F / x.f)) < Math.abs(Math.log(F / best.f)) ? x : best));
+    const L = Math.min(p.max, Math.max(p.min, len * p.len));
+    const rel = Math.min(0.25, L * 0.4);
+    const s = ctx.createBufferSource();
+    s.buffer = a.buf;
+    s.playbackRate.value = F / a.f;
+    const g = ctx.createGain();
+    const peak = v * p.gain * a.norm;
+    g.gain.setValueAtTime(peak, t);
+    g.gain.setValueAtTime(peak, t + L - rel);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + L);
+    s.connect(g).connect(p.dry ? dry : out);
+    s.start(t);
+    s.stop(t + L + 0.02);
+  };
+}
+// Голос інструмента: запис, якщо ввімкнено й уже завантажено, інакше — синтез (і запис тим часом вантажиться)
+function voiceOf(k) {
+  if (samplesOn() && SAMPLED[k]) {
+    const list = bank.get(k);
+    if (list) return sampleVoice(k, list);
+    loadBank(k);
+  }
+  return VOICES[k];
+}
+// Без скляних іскор зверху: низьким і 8-біту вони чужі
+const NO_SPARKLE = new Set(['cello', 'bass', 'chip']);
+const quiet = () => {};
+
+// 8-біт живе своєю мовою: замість паперу й дерева — шумовий канал, замість акордів — швидкі арпеджіо,
+// «монетка» з двох нот, ковзання висоти; усе сухе, без відлуння
+const blip = (f, t, len, v = 0.15) => chip(f, t, v, len / 0.55);
+const hiss = (t, len, v = 0.09) => noise(t, len, 7000, 3000, { v, q: 0.5, type: 'highpass', attack: 0.002, dest: dry });
+function slide(f0, f1, t, len, v = 0.12) {
+  const o = ctx.createOscillator();
+  o.type = 'square';
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + len);
+  const g = ctx.createGain();
+  const steps = Math.max(2, Math.round(len * 30));
+  for (let i = 0; i <= steps; i += 1) g.gain.setValueAtTime(v * (1 - (i / steps) * 0.7), t + (i * len) / steps);
+  g.gain.setValueAtTime(0, t + len);
+  o.connect(g).connect(dry);
+  o.start(t);
+  o.stop(t + len + 0.02);
+}
+const arp = (fs, t, step, len, v) => fs.forEach((f, i) => blip(f, t + i * step, len, v));
+const CHIP_SOUNDS = {
+  letter: (t) => { blip(N.B5, t, 0.07); blip(N.E6, t + 0.07, 0.4); },
+  sent: (t) => { slide(N.D5, N.D6, t, 0.12, 0.1); blip(N.A6, t + 0.12, 0.12, 0.1); },
+  turn: (t) => { blip(N.F6, t, 0.1); blip(N.D6, t + 0.13, 0.3); },
+  flip: (t) => { hiss(t, 0.04); blip(N.E6, t + 0.01, 0.05, 0.08); },
+  pair: (t) => { arp([N.D6, N.F6, N.A6, N.D7], t, 1 / 30, 0.06, 0.13); blip(N.D7, t + 0.14, 0.3, 0.12); },
+  miss: (t) => slide(N.B5, N.F5 * 0.8, t, 0.28, 0.11),
+  place: (t) => { hiss(t, 0.03, 0.07); blip(N.A5, t, 0.08, 0.12); },
+  drop: (t) => { slide(1400, 500, t, 0.17, 0.06); hiss(t + 0.17, 0.05, 0.1); blip(N.D5, t + 0.17, 0.08, 0.12); },
+  line: (t) => { hiss(t, 0.08, 0.06); blip(N.B5, t + 0.07, 0.06, 0.1); },
+  tick: (t) => blip(N.A5, t, 0.06, 0.12),
+  tock: (t) => blip(N.D6, t, 0.12, 0.14),
+  reveal: (t) => { hiss(t, 0.05); arp([N.D6, N.F6], t, 1 / 30, 0.05, 0.12); },
+  win: (t) => {
+    arp([N.D5, N.F5, N.A5, N.D6, N.F6, N.A6], t, 0.06, 0.07, 0.14);
+    // Довга нота-«фанфара» з тремтінням: перемикання D7/A6 щокадру
+    for (let i = 0; i < 12; i += 1) blip(i % 2 ? N.A6 : N.D7, t + 0.38 + i / 30, 1 / 30, 0.12 * (1 - i / 16));
+  },
+  lose: (t) => { arp([N.A5, N.F5, N.E5], t, 0.14, 0.1, 0.12); slide(N.D5, N.D4, t + 0.42, 0.45, 0.11); },
+  draw: (t) => arp([N.D6, N.A5, N.D6], t, 0.12, 0.08, 0.12),
+  splash: (t) => { noise(t, 0.25, 3000, 800, { v: 0.12, q: 0.6, type: 'lowpass', attack: 0.002, dest: dry }); blip(N.D6, t + 0.05, 0.05, 0.06); },
+  open: (t) => { hiss(t, 0.12, 0.05); blip(N.F6, t + 0.12, 0.2, 0.1); },
+};
+
 // Глухий удар з падінням висоти: дерев'яна фішка, падіння, вибух
 const thump = (t, f0, f1, len, v) => osc('sine', f0, t, v, len, { to: f1, attack: 0.002 });
 
-// I(f, t, v, len) — нота інструментом; bell — іскри-дзвіночки зверху, однакові для всіх
+// I(f, t, v, len) — нота інструментом; B — іскри-дзвіночки зверху (у низьких і 8-біту — тиша)
 const SOUNDS = {
   // Лист прийшов: три ноти вгору і дзвіночок
-  letter: (t, I) => { I(N.A5, t); I(N.D6, t + 0.1); I(N.F6, t + 0.2); bell(N.A6, t + 0.34, 0.07); },
+  letter: (t, I, B) => { I(N.A5, t); I(N.D6, t + 0.1); I(N.F6, t + 0.2); B(N.A6, t + 0.34, 0.07); },
   // Пішов: шурх угору й крапка
   sent: (t, I) => { noise(t, 0.24, 700, 3600, { v: 0.07, q: 0.9 }); I(N.D6, t + 0.16, 0.1, 0.5); },
   // Твій хід: дінь-дон
@@ -350,7 +491,7 @@ const SOUNDS = {
   // Карточка перевертається: клац картону
   flip: (t, I) => { noise(t, 0.07, 1800, 4200, { v: 0.12, q: 1.5, attack: 0.002 }); I(N.E6, t + 0.02, 0.05, 0.25); },
   // Пара: три ноти вгору й іскра
-  pair: (t, I) => { I(N.D6, t, 0.18); I(N.F6, t + 0.07, 0.18); I(N.A6, t + 0.14, 0.18); bell(N.D7, t + 0.24, 0.07); },
+  pair: (t, I, B) => { I(N.D6, t, 0.18); I(N.F6, t + 0.07, 0.18); I(N.A6, t + 0.14, 0.18); B(N.D7, t + 0.24, 0.07); },
   // Мимо: м'яке «ой» донизу
   miss: (t, I) => { I(N.B5, t, 0.13, 0.25); I(N.F5, t + 0.13, 0.13, 0.4); },
   // Хрестик/нулик: дерев'яний тук і нотка
@@ -365,10 +506,10 @@ const SOUNDS = {
   // Руки відкрились
   reveal: (t, I) => { noise(t, 0.09, 900, 2600, { v: 0.09 }); I(N.F6, t + 0.02, 0.14, 0.5); },
   // Перемога: арпеджіо, дзвіночок і зорепад іскор
-  win: (t, I) => {
+  win: (t, I, B) => {
     [N.D5, N.F5, N.A5, N.D6, N.F6, N.A6].forEach((f, i) => I(f, t + i * 0.075, 0.17, 1.1));
-    bell(N.D7, t + 0.5, 0.1, 2);
-    [N.E7, N.A6, N.F7, N.B6].forEach((f, i) => bell(f, t + 0.62 + i * 0.11, 0.035, 0.8));
+    B(N.D7, t + 0.5, 0.1, 2);
+    [N.E7, N.A6, N.F7, N.B6].forEach((f, i) => B(f, t + 0.62 + i * 0.11, 0.035, 0.8));
   },
   // Програш: лагідне «ну от» — чотири ноти донизу, тихо
   lose: (t, I) => [N.A5, N.F5, N.E5, N.D5].forEach((f, i) => I(f, t + i * 0.16, 0.12, 0.6)),
@@ -396,7 +537,10 @@ function play(name, delay, instrument) {
   if (!soundOn() || document.visibilityState !== 'visible' || !SOUNDS[name]) return;
   try {
     if (!audio()) return;
-    SOUNDS[name](ctx.currentTime + 0.02 + delay / 1000, VOICES[known(instrument)]);
+    const k = known(instrument);
+    const t = ctx.currentTime + 0.02 + delay / 1000;
+    const fn = (k === 'chip' && CHIP_SOUNDS[name]) || SOUNDS[name];
+    fn(t, voiceOf(k), NO_SPARKLE.has(k) ? quiet : bell);
   } catch { /* без звуку — не біда */ }
 }
 

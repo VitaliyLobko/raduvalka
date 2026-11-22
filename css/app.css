@@ -1188,6 +1188,7 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .about-link.is-out { color: #A8324C; }
 [data-side="vin"] .about-link.is-out { color: #FF8A9A; }
 .about-foot .about-logout { width: auto; justify-content: center; }
+.about-credit { margin: 6px 0 0; text-align: center; font-size: .75rem; color: var(--ink-soft); }
 /* Рядок повзунка: «А», доріжка з засічками під нею, «А», пікселі; букви й пікселі — на висоті повзунка, не засічок */
 .text-size-row { display: flex; align-items: flex-start; gap: 10px; }
 .text-size-track { flex: 1; min-width: 0; }

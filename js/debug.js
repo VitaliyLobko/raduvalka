@@ -5,7 +5,7 @@ import { h, toast, aboutGroup, aboutRow } from './ui.js';
 import { previewCookie, allFortunes } from './cookie.js';
 import { CATS } from './plans.js';
 import { SAME_TOPICS } from './same.js';
-import { INSTRUMENTS, SOUND_NAMES, myInstrument, playAs, soundOn } from './sound.js';
+import { INSTRUMENTS, SOUND_NAMES, myInstrument, playAs, soundOn, samplesOn, setSamples, hasSamples } from './sound.js';
 
 // Одна шторка за раз; підшторка замість «Отладки», після ✕ чи Escape — назад до неї (back)
 function sheet(label, cls, back, ...kids) {
@@ -66,10 +66,23 @@ const SFX_GROUPS = [
 ];
 function openSounds() {
   let inst = myInstrument();
+  // Звідки звук: синтез чи записи живих інструментів. Діє на весь цей телефон (у неї — поки синтез)
+  const src = h('div', { class: 'instr-row sfx-row sfx-src', role: 'radiogroup', 'aria-label': 'Источник звука' });
+  const srcNote = h('p', { class: 'hint' });
+  const paintSrc = () => {
+    src.replaceChildren(...[[false, 'Синтез'], [true, 'Запись']].map(([on, label]) => h('button', {
+      type: 'button', class: 'instr-chip', role: 'radio', 'aria-checked': String(samplesOn() === on),
+      onclick: () => { setSamples(on); paintSrc(); setTimeout(() => playAs('pair', inst), on ? 700 : 0); },
+    }, label)));
+    srcNote.textContent = samplesOn()
+      ? `Записи настоящих инструментов — у тебя на телефоне; у неё пока синтез. ${hasSamples(inst) ? '' : 'У 8-бит записи нет, он всегда синтез. '}Первый раз грузятся пару секунд`
+      : 'Синтез — как звучит сейчас у вас обоих';
+  };
+  paintSrc();
   const chips = h('div', { class: 'instr-row', role: 'radiogroup', 'aria-label': 'Инструмент' });
   const paint = () => chips.replaceChildren(...Object.entries(INSTRUMENTS).map(([k, { name }]) => h('button', {
     type: 'button', class: 'instr-chip', role: 'radio', 'aria-checked': String(k === inst),
-    onclick: () => { inst = k; paint(); playAs('pair', inst); },
+    onclick: () => { inst = k; paint(); paintSrc(); playAs('pair', inst); },
   }, name)));
   paint();
   const listed = new Set(SFX_GROUPS.flatMap(([, list]) => list.map(([k]) => k)));
@@ -79,6 +92,8 @@ function openSounds() {
     h('h2', { class: 'title' }, 'Звуки'),
     h('p', { class: 'hint' }, soundOn() ? 'Тап по инструменту — послушать его. Твой выбор в «Звуках» не меняется'
       : 'Звуки выключены — включи в «О Радовалке» → «Звуки»'),
+    src,
+    srcNote,
     chips,
     ...groups.flatMap(([title, list]) => [h('h3', { class: 'about-group-title' }, title),
       h('div', { class: 'instr-row sfx-row' }, ...list.map(([k, label]) => h('button', {

@@ -743,7 +743,9 @@ function openAbout(showNews) {
         aboutRow('🐾', 'Показать подсказки заново', 'Питомцы покажут, где что', () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
         news),
       h('div', { class: 'about-foot' },
-        h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне'))));
+        h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне')),
+      // Ліцензія записів інструментів (CC BY 3.0) вимагає назвати автора
+      h('p', { class: 'about-credit' }, 'Записи инструментов: FluidR3 GM, Frank Wen, лицензия CC BY 3.0')));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
   // Клік по «Радовалка» передає подію — розгортаємо лише на явне true
