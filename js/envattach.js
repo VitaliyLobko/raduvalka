@@ -311,10 +311,19 @@ const gone = () => ({ el: h('p', { class: 'ea-gone' }, attachLine({ gone: true }
 export async function renderAttach(note, opts = {}) {
   const m = note.media;
   if (!m || m.gone) return gone();
-  if (m.k !== 'multi') return renderOne(note.id, m, opts);
-  const parts = await Promise.all(m.items.map((x) => renderOne(note.id, x, opts)));
-  return { el: h('div', { class: 'ea-multi' }, ...parts.map((x) => x.el)), stop: () => parts.forEach((x) => x.stop()) };
+  const list = m.k === 'multi' ? m.items : [m];
+  const parts = await Promise.all(list.map((x) => renderOne(note.id, x, opts)));
+  const stop = () => parts.forEach((x) => x.stop());
+  // split — як у листі: картинки (фото, гифки) над текстом, звук (голос, пісні) під ним; el — картинки, sound — звук
+  if (opts.split) {
+    const pick = (snd) => parts.filter((x, i) => SOUND.includes(list[i].k) === snd).map((x) => x.el);
+    const pack = (els) => (!els.length ? null : els.length === 1 ? els[0] : h('div', { class: 'ea-multi' }, ...els));
+    return { el: pack(pick(false)), sound: pack(pick(true)), stop };
+  }
+  if (parts.length === 1) return parts[0];
+  return { el: h('div', { class: 'ea-multi' }, ...parts.map((x) => x.el)), stop };
 }
+const SOUND = ['voice', 'song', 'link'];
 async function renderOne(id, a, opts) {
   if (!a || a.gone) return gone();
   if (a.k === 'gif') {

@@ -4973,5 +4973,25 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 /* Наклейки-улюбленці: спершу «кого», поруч — його пози */
 .ph-pet-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ph-pet-row > .ph-pets { flex: 1; min-width: 0; }
-.ph-pet-pick { flex: none; max-width: 40%; height: 40px; padding: 0 28px 0 12px; border: 1.5px solid currentColor; border-radius: 999px; background: transparent; color: inherit; font: 700 .9375rem/1 inherit; }
-.ph-pet-pick option { color: #222; }
+/* «Кого»: мордочка з ▾, над нею — мордочки всіх */
+.ph-pet-wrap { position: relative; flex: none; }
+.ph-pet-pick { position: relative; display: grid; place-items: center; width: 52px; height: 52px; padding: 0; border: 2px solid currentColor; border-radius: 50%; background: none; color: inherit; cursor: pointer; }
+.ph-pet-pick img, .ph-pet-opt img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.ph-pet-caret { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--plum); color: var(--on-plum); font-size: .7rem; line-height: 1; }
+[data-side="vin"] .ph-pet-caret { background: var(--star); color: var(--night); }
+.ph-pet-menu { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; display: flex; gap: 8px; padding: 8px; border-radius: 999px; background: rgba(255, 255, 255, .85); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); }
+[data-side="vin"] .ph-pet-menu { background: rgba(6, 22, 32, .82); }
+.ph-pet-menu[hidden] { display: none; }
+.ph-pet-opt { width: 48px; height: 48px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: none; cursor: pointer; }
+.ph-pet-opt[aria-selected="true"] { border-color: var(--plum); }
+[data-side="vin"] .ph-pet-opt[aria-selected="true"] { border-color: var(--star); }
+* Редактор фото й гифки: фон — саме фото, розмите; фото — карткою з тінню; панелі — на «склі» */
+.sheet-photo { isolation: isolate; overflow: hidden; }
+.ph-backdrop { position: absolute; inset: -60px; z-index: -1; width: calc(100% + 120px); height: calc(100% + 120px); object-fit: cover; filter: blur(40px) saturate(1.25) brightness(1.08); opacity: .6; pointer-events: none; }
+[data-side="vin"] .ph-backdrop { filter: blur(40px) saturate(1.3) brightness(.5); opacity: .85; }
+.sheet-photo .ph-canvas { box-shadow: 0 22px 44px -16px rgba(0, 0, 0, .55); }
+.sheet-photo .ph-bottom, .sheet-photo .ph-panel:not([hidden]) { padding: 8px; border-radius: 20px; background: rgba(255, 255, 255, .42); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+[data-side="vin"] .sheet-photo .ph-bottom, [data-side="vin"] .sheet-photo .ph-panel:not([hidden]) { background: rgba(6, 22, 32, .38); }
+@media (prefers-reduced-transparency: reduce) { .ph-backdrop { display: none; } }
+.letter-att:empty, .ea-below:empty { display: none; }
+.ea-below { margin-top: 12px; }

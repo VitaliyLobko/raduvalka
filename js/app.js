@@ -194,22 +194,24 @@ function openLetter(l) {
   fillLetter();
 }
 
-// Вкладення святкового листа під текстом: вантажиться раз на шторку (перемальовування бере той самий вузол),
-// модуль вкладень — лише коли воно є
+// Вкладення святкового листа: картинки над текстом, голос і пісні — під ним (як у конверті). Вантажиться раз на шторку
+// (перемальовування бере ті самі вузли), модуль вкладень — лише коли воно є. Повертає [над, під]
 function letterAttach(l) {
-  if (!l.media) return null;
-  if (sheet.att) return sheet.att.el;
+  if (!l.media) return [null, null];
+  if (sheet.att) return [sheet.att.el, sheet.att.below];
   const el = h('div', { class: 'letter-att' });
-  sheet.att = { el, stop: () => {} };
+  const below = h('div', { class: 'letter-att' });
+  sheet.att = { el, below, stop: () => {} };
   const mine = sheet;
-  import('./envattach.js').then((ea) => ea.renderAttach(l)).then((m) => {
+  import('./envattach.js').then((ea) => ea.renderAttach(l, { split: true })).then((m) => {
     if (sheet !== mine) { m.stop(); return; }
     mine.att.stop = m.stop;
-    el.replaceChildren(m.el);
+    el.replaceChildren(...[m.el].filter(Boolean));
+    below.replaceChildren(...[m.sound].filter(Boolean));
   }).catch(() => {
     if (sheet === mine) el.replaceChildren(h('p', { class: 'ea-gone' }, '📎 Вложение не загрузилось — нет связи. Открой письмо ещё раз позже'));
   });
-  return el;
+  return [el, below];
 }
 
 function closeLetter() {
@@ -259,8 +261,7 @@ function fillLetter() {
   sheet.box.replaceChildren(...[
     ...head,
     h('article', { class: `letter${festive(l) ? ' is-special' : ''}` },
-      ...[l.text ? h('p', { class: 'letter-text' }, l.text) : null,
-        letterAttach(l),
+      ...[...(() => { const [top, under] = letterAttach(l); return [top, l.text ? h('p', { class: 'letter-text' }, l.text) : null, under]; })(),
         signLine(DATA.partnerSign, who().from)].filter(Boolean)),
     h('div', { class: 'actions' },
       h('button', {

@@ -148,6 +148,8 @@ function openCard(screen, env) {
   };
   // Вкладення (фото, гифка, голос, пісня) — над текстом; модуль вантажиться лише для такого листа
   const slot = note.media ? h('div', { class: 'ea-slot' }, h('p', { class: 'ea-wait' }, 'Достаю из конверта…')) : null;
+  // Картинки — над текстом (як листівка), голос і пісні — під ним: читаєш під музику
+  const below = note.media ? h('div', { class: 'ea-slot ea-below' }) : null;
   let stopMedia = null;
 
   let liked = false;
@@ -180,6 +182,7 @@ function openCard(screen, env) {
       h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
       slot,
       text ? h('p', { class: 'letter-text' }, text) : null,
+      below,
       signLine(DATA.partnerSign, me.from)),
     h('div', { class: 'actions' },
       ...[heart, read ? rereadBtn(false) : null,
@@ -195,10 +198,11 @@ function openCard(screen, env) {
   onClose = () => stopMedia?.();
   if (!slot) { commit(); return; }
   // Не завантажилось (нема звʼязку) — лист лишається в конверті непрочитаним
-  import('./envattach.js').then((ea) => ea.renderAttach(note)).then((m) => {
+  import('./envattach.js').then((ea) => ea.renderAttach(note, { split: true })).then((m) => {
     if (!reader.isConnected) { m.stop(); return; }
     stopMedia = m.stop;
-    slot.replaceChildren(m.el);
+    slot.replaceChildren(...[m.el].filter(Boolean));
+    below.replaceChildren(...[m.sound].filter(Boolean));
     commit();
   }).catch(() => {
     if (!reader.isConnected) return;
@@ -238,20 +242,24 @@ function readAgain(screen, env, note) {
   const close = () => { shut(); renderEnvelopes(screen); };
   const text = noteText(note);
   const slot = note.media ? h('div', { class: 'ea-slot' }, h('p', { class: 'ea-wait' }, 'Достаю из конверта…')) : null;
+  // Картинки — над текстом (як листівка), голос і пісні — під ним: читаєш під музику
+  const below = note.media ? h('div', { class: 'ea-slot ea-below' }) : null;
   reader = overlay(close,
     h('article', { class: 'letter' },
       h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
       slot,
       text ? h('p', { class: 'letter-text' }, text) : null,
+      below,
       signLine(DATA.partnerSign, me.from)),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn', onclick: () => { shut(); openReread(screen, env); } }, '← К списку'),
       h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));
   if (!slot) return;
-  import('./envattach.js').then((ea) => ea.renderAttach(note)).then((m) => {
+  import('./envattach.js').then((ea) => ea.renderAttach(note, { split: true })).then((m) => {
     if (!reader.isConnected) { m.stop(); return; }
     stop = m.stop;
-    slot.replaceChildren(m.el);
+    slot.replaceChildren(...[m.el].filter(Boolean));
+    below.replaceChildren(...[m.sound].filter(Boolean));
   }).catch(() => { if (reader.isConnected) slot.replaceChildren(h('p', { class: 'ea-wait' }, 'Вложение не загрузилось — нет связи')); });
 }
 

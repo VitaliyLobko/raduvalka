@@ -174,7 +174,12 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     sheet.remove();
   };
   const x = h('button', { type: 'button', class: 'sheet-close ph-close', 'aria-label': 'Закрыть', onclick: () => close() }, '✕');
+  // Фон — та сама гифка, сильно розмита (як у редакторі фото)
+  const back = media(gif.url, '');
+  back.classList.add('ph-backdrop');
+  back.setAttribute('aria-hidden', 'true');
   const sheet = h('div', { class: 'sheet sheet-full sheet-photo sheet-gif', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новая гифка' },
+    back,
     h('div', { class: 'ph-top' }, x, hUndo, hRedo, h('span', { class: 'ph-gap' })),
     stage,
     h('div', { class: 'ph-bottom' }, belowLine, style.el, helper.el, h('div', { class: 'ph-send-row' }, caption, go)));

@@ -816,20 +816,32 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       },
     }, h('img', { src, alt: '', width: 56, height: 56, draggable: 'false', loading: 'lazy' }));
   };
-  const petPick = pets.length > 1 ? h('select', { class: 'ph-pet-pick', 'aria-label': 'Чьи наклейки' },
-    ...pets.map((key) => h('option', { value: key, selected: key === petNow }, petName(key)))) : null;
+  // «Кого» — мордочкою (головна поза) з ▾; тап — мордочки всіх, вибрав — поруч його пози
+  const face = (key) => h('img', { src: petFileSrc(petFiles(key).find((f) => petFileSrc(f))), alt: '', width: 40, height: 40, draggable: 'false' });
+  const petMenu = h('div', { class: 'ph-pet-menu', role: 'listbox', 'aria-label': 'Чьи наклейки', hidden: true });
+  const petPick = pets.length > 1 ? h('button', {
+    type: 'button', class: 'ph-pet-pick', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
+    onclick: () => { petMenu.hidden = !petMenu.hidden; petPick.setAttribute('aria-expanded', String(!petMenu.hidden)); },
+  }) : null;
   const petPoses = h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' });
   const paintPoses = () => {
+    petPick?.replaceChildren(face(petNow), h('span', { class: 'ph-pet-caret', 'aria-hidden': 'true' }, '▾'));
+    petPick?.setAttribute('aria-label', `Наклейки: ${petName(petNow)}. Выбрать другого`);
+    petMenu.replaceChildren(...pets.map((key) => h('button', {
+      type: 'button', class: 'ph-pet-opt', role: 'option', 'aria-selected': String(key === petNow), 'aria-label': petName(key),
+      onclick: () => {
+        petNow = key;
+        try { localStorage.setItem(PET_KEY, petNow); } catch { /* приватне вікно */ }
+        petMenu.hidden = true;
+        petPick.setAttribute('aria-expanded', 'false');
+        paintPoses();
+      },
+    }, face(key))));
     petPoses.replaceChildren(...petFiles(petNow).map((f) => petBtn(petNow, f)).filter(Boolean));
     petPoses.scrollLeft = 0;
   };
-  petPick?.addEventListener('change', () => {
-    petNow = petPick.value;
-    try { localStorage.setItem(PET_KEY, petNow); } catch { /* приватне вікно */ }
-    paintPoses();
-  });
   if (pets.length) { paintPoses(); ribbon(petPoses); }
-  const petRow = pets.length ? h('div', { class: 'ph-pet-row' }, petPick, petPoses) : null;
+  const petRow = pets.length ? h('div', { class: 'ph-pet-row' }, petPick ? h('div', { class: 'ph-pet-wrap' }, petPick, petMenu) : null, petPoses) : null;
   const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...STICKERS.map((s) => h('button', {
     type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`,
     onclick: () => {
@@ -946,6 +958,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const close = () => {
     ro.disconnect();
     base.close?.();
+    URL.revokeObjectURL(backUrl);
     document.documentElement.classList.remove('is-covered');
     sheet.remove();
   };
@@ -954,7 +967,10 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     type: 'button', class: 'sheet-close ph-close', 'aria-label': 'Закрыть',
     onclick: () => { if (mode !== 'move') finishMode(false); else close(); },
   }, '✕');
+  // Фон — саме фото, сильно розмите: у кожного свій колір замість суцільної заливки
+  const backUrl = URL.createObjectURL(blob);
   const sheet = h('div', { class: 'sheet sheet-full sheet-photo', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новое фото' },
+    h('img', { class: 'ph-backdrop', src: backUrl, alt: '', 'aria-hidden': 'true' }),
     h('div', { class: 'ph-top' }, x, hUndo, hRedo, h('span', { class: 'ph-gap' }), tCrop, tDraw, tBlur, tStick, tFrame),
     stage,
     drawPanel, blurPanel, cropPanel, stickPanel,
