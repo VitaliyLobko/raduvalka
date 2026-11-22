@@ -1464,7 +1464,7 @@ function salute(x, y, colors, n, delay) {
 export function boardWin(board, svg, sex) {
   if (reduceMotion || !board?.isConnected) return;
   const { r, x, y } = boardMid(board);
-  board.querySelectorAll('.ttt-cell.is-me .gsym').forEach((p, k) => jolt(p, [
+  board.querySelectorAll(':is(.ttt-cell, .db-box).is-me .gsym').forEach((p, k) => jolt(p, [
     { transform: 'translateY(0)' }, { transform: 'translateY(-24%) scale(1.18)' }, { transform: 'translateY(0)' },
     { transform: 'translateY(-10%) scale(1.06)' }, { transform: 'translateY(0)' },
   ], 750, 250 + k * 70));
@@ -1494,7 +1494,7 @@ export function boardWin(board, svg, sex) {
 export function boardLose(board, svg, sex) {
   if (reduceMotion || !board?.isConnected) return;
   const { r, x, y } = boardMid(board);
-  board.querySelectorAll('.ttt-cell.is-me .gsym').forEach((p, k) => p.animate([
+  board.querySelectorAll(':is(.ttt-cell, .db-box).is-me .gsym').forEach((p, k) => p.animate([
     { transform: 'none', opacity: 1 },
     { transform: 'translateY(14%) rotate(16deg) scale(.88)', opacity: 0.45 },
   ], { duration: 900, delay: 300 + k * 90, easing: 'ease-in', fill: 'forwards' }));

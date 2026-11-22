@@ -31,6 +31,12 @@ export const GAME_ICONS = {
     <path class="gi-hull" d="M12 40h40l-6 9H18z"/><path class="gi-deck" d="M16 43h32"/>
     <path class="gi-mast" d="M32 40V12"/>${heart(32, 27, 2.6, 'gi-sail')}<path class="gi-flag" d="M32 12l7 2.5-7 2.5z"/>
     <path class="gi-star" d="M52 8l1.6 3.4 3.4 1.6-3.4 1.6L52 18l-1.6-3.4L47 13l3.4-1.6z"/>`),
+  // Точки 4×4: дві замкнуті клітинки — синя (його) і червона (її), між ними ще кілька рисочок
+  db: svg(`
+    <path class="gi-db-he" d="M10 10H24V24H10Z"/><path class="gi-db-she" d="M38 38H52V52H38Z"/>
+    <path class="gi-db-line" d="M24 24H38M38 10V24M10 38V52M52 10H38"/>
+    ${[10, 24, 38, 52].map((y) => [10, 24, 38, 52].map((x) => `<circle class="gi-dot" cx="${x}" cy="${y}" r="2.6"/>`).join('')).join('')}
+  `),
   // Два сердечка одне на одному й іскорка — «совпало»
   same: svg(`
     ${heart(25, 34, 3.4, 'gi-heart-a')}${heart(39, 36, 3.4, 'gi-heart-b')}

@@ -3924,6 +3924,36 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .gsym svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
 .gsym.is-he { color: var(--he); }
 .gsym.is-she { color: var(--she); }
+/* «Точки и квадраты»: сітка точка — рисочка — клітинка; рисочки-кнопки ширші за себе (зручно влучати пальцем) */
+.ttt-board.is-db { grid-template-columns: repeat(3, 12px 1fr) 12px; grid-template-rows: repeat(3, 12px 1fr) 12px; gap: 0; width: min(100%, 280px); aspect-ratio: 1; }
+.ttt-board.is-db.is-pick { width: min(100%, 230px); }
+.db-dot { place-self: center; width: 12px; height: 12px; border-radius: 50%; background: var(--plum); }
+[data-side="vin"] .db-dot { background: var(--cream); }
+.db-edge { position: relative; z-index: 1; display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.db-edge.is-h { height: 40px; margin: -14px 2px; }
+.db-edge.is-v { width: 40px; margin: 2px -14px; }
+.db-edge:disabled { cursor: default; }
+.db-edge i { display: block; border-radius: 3px; background: color-mix(in srgb, var(--lavender) 75%, transparent); transition: background .15s; }
+[data-side="vin"] .db-edge i { background: rgba(255, 255, 255, .2); }
+.db-edge.is-h i { width: 100%; height: 6px; }
+.db-edge.is-v i { width: 6px; height: 100%; }
+.db-edge:not(:disabled):active i { background: color-mix(in srgb, var(--plum) 45%, transparent); }
+[data-side="vin"] .db-edge:not(:disabled):active i { background: rgba(244, 230, 196, .45); }
+.db-edge.is-on.is-he i { background: var(--he); }
+.db-edge.is-on.is-she i { background: var(--she); }
+.db-edge.is-last i { box-shadow: 0 0 8px 1px currentColor; }
+.db-edge.is-last.is-he { color: var(--he); }
+.db-edge.is-last.is-she { color: var(--she); }
+.db-edge.is-new.is-h i { animation: db-line-h .3s ease-out; }
+.db-edge.is-new.is-v i { animation: db-line-v .3s ease-out; }
+@keyframes db-line-h { from { transform: scaleX(0); } }
+@keyframes db-line-v { from { transform: scaleY(0); } }
+.db-box { display: grid; place-items: center; margin: 4px; border-radius: 8px; }
+.db-box.is-he { background: color-mix(in srgb, var(--he) 16%, transparent); }
+.db-box.is-she { background: color-mix(in srgb, var(--she) 16%, transparent); }
+.db-box .gsym { width: 56%; height: 56%; }
+.db-count { margin: 0 4px; font-size: 1.25rem; }
+@media (prefers-reduced-motion: reduce) { .db-edge.is-new i { animation: none; } }
 .ttt-board.is-ttt .gsym { width: 62%; height: 62%; }
 /* Знак прорисовується пером: коло — від місця, де до нього кріпиться стрілка (♂) чи хрестик (♀), далі лінія й наконечник;
    до старту штрих прихований (opacity), щоб круглі кінчики не світилися крапками; наприкінці — короткий спалах своїм кольором */
@@ -4327,6 +4357,10 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .gi-he :is(circle, path) { stroke: var(--gi-he); }
 .gi-she :is(circle, path) { stroke: var(--gi-she); }
 .gi-strike { fill: none; stroke: var(--gi-gold); stroke-width: 3.2; opacity: .9; }
+.gi-dot { fill: var(--gi-ink); }
+.gi-db-line { fill: none; stroke: var(--gi-soft); stroke-width: 3; stroke-linecap: round; }
+.gi-db-he { fill: color-mix(in srgb, var(--gi-he) 45%, transparent); stroke: var(--gi-he); stroke-width: 3; stroke-linejoin: round; }
+.gi-db-she { fill: color-mix(in srgb, var(--gi-she) 45%, transparent); stroke: var(--gi-she); stroke-width: 3; stroke-linejoin: round; }
 .gi-board { fill: var(--gi-board); }
 .gi-hole { fill: color-mix(in srgb, var(--gi-paper) 85%, transparent); }
 .gi-blue { fill: var(--gi-he); }

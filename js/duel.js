@@ -30,6 +30,10 @@ const TIPS = {
     'Середина — главное место. Как диван в квартире.', 'Под чужую тройку не бросай: сверху станет четыре.',
     'Две угрозы сразу не закроешь. Сделай две!', 'Посмотри, нет ли у соперника трёх в ряд. Я тоже посмотрю.',
     'Иногда лучший ход — помешать. Мешать я умею лучше всех.', 'Строй снизу, фишкам нужна опора. Мне тоже.'],
+  db: ['Не закрывай третью сторону — подаришь клетку.', 'Две черты у клетки? Не трогай её, пусть другой мучается.',
+    'Длинную цепочку отдают последней. Так коты-гроссмейстеры делают.', 'Замкнёшь клетку — ходи ещё. Жадничать можно!',
+    'Черты по краю безопасные, пока их много.', 'Я бы нарисовал хвостик. Но тут только палочки.',
+    'Посчитай, сколько безопасных черт осталось. Я считаю до трёх.', 'Иногда выгодно отдать две клетки, чтобы забрать пять.'],
   bs: ['Стреляй в середину, там точно кто-то прячется.', 'Попал? Стреляй рядом — кораблики длинные.', 'Кораблики не касаются друг друга. Значит, вокруг потопленного пусто.',
     'Я бы спрятался в углу. Но я и так всегда в углу.', 'Буль! Ой, это я в миску.', 'Записки внутри! Топи скорее, интересно же.',
     'Стреляй крестиком: через клеточку. Так хитрые капитаны делают.', 'Мимо — не беда. Море большое, звёзд на всех хватит.',
@@ -77,11 +81,13 @@ const PRESETS = {
 };
 const POLL = 3000;
 
-const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '♂️♀️', name: 'Крестики-нолики' }, c4: { icon: '🔵🔴', name: 'Четыре в ряд' }, bs: { icon: '🚢', name: 'Морской бой' } };
+const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '♂️♀️', name: 'Крестики-нолики' }, c4: { icon: '🔵🔴', name: 'Четыре в ряд' }, bs: { icon: '🚢', name: 'Морской бой' }, db: { icon: '✏️', name: 'Точки и квадраты' } };
 // Ігри на полі: розмір, фішки, дієслово ходу; drop — фішка падає донизу стовпчика
 const GRIDS = {
   ttt: { kind: 'ttt', w: 3, h: 3, icon: '♂️', verb: 'ставь' },
   c4: { kind: 'c4', w: 7, h: 6, icon: '🔵', verb: 'бросай', drop: true },
+  // «Точки и квадраты»: w×h клітинок, хід — рисочка (номер ребра), замкнув клітинку — ходиш ще
+  db: { kind: 'db', w: 3, h: 3, icon: '✏️', verb: 'проводи черту', dots: true },
 };
 const gridOf = (g) => (Object.hasOwn(GRIDS, g?.game ?? '') ? GRIDS[g.game] : null);
 // Фішки — знаки ♂/♀ лінією: фішка належить стороні (він — синій ♂, вона — червона ♀), хто б не ходив першим
@@ -133,10 +139,12 @@ export function duelResult(g) {
   const p = PRESETS[g.preset];
   const won = g.done.won;
   // У хрестиках рахунок завжди 1:0 — не пишемо
-  const score = isBoard(g) ? '' : `, ${scoreOf(g)}`;
+  // У хрестиках і «Четыре в ряд» рахунок завжди 1:0 — не пишемо; у точках — клітинки
+  const plain = isBoard(g) && !gridOf(g).dots;
+  const score = plain ? '' : `, ${scoreOf(g)}`;
   const victory = `победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}`;
   if (g.preset === 'free') return `🏆 ${cap(victory)}${score}`;
-  if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)}${isBoard(g) ? '' : ` (${scoreOf(g)})`}`;
+  if (p) return `${p.icon} ${(p.doer === 'winner') === won ? p.me : p.them(who().partner)}${plain ? '' : ` (${scoreOf(g)})`}`;
   return `🏆 «${g.topic}»: ${victory}${score}`;
 }
 
@@ -150,7 +158,7 @@ export function duelCard(g, onOpen) {
     : isBs(g) && !g.ready ? `Ждём, когда ${who().partner} расставит флот` : `Ждём ${gen()} ход`;
   const go = hidden ? 'Посмотреть' : turn ? 'Сходить' : toWish ? '🎁 Загадать' : null;
   const n = (x) => h('b', {}, String(x));
-  const mini = () => h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...g.board].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : sym(sexOf(c, g.mark)))));
+  const mini = () => h('span', { class: `duel-card-board is-${kindOf(g)}`, 'aria-hidden': 'true' }, ...[...(gridOf(g)?.dots ? g.boxes || '' : g.board)].map((c, i) => h('i', { class: g.line?.includes(i) ? 'is-line' : '' }, c === '.' ? '' : sym(sexOf(c, g.mark)))));
   // Догране й ще не бачене — не «?», а розмите поле (чи рахунок) і «Чья победа? 👀»: видно, що всередині результат
   const mid = hidden
     ? h('span', { class: 'duel-card-secret' }, isBoard(g) ? mini() : h('span', { class: 'duel-card-score' }, n('?'), h('i', {}, ':'), n('?')), h('b', {}, 'Чья победа? 👀'))
@@ -499,6 +507,7 @@ function setup() {
     rps: 'До двух побед. Ходы откроются, когда сходите оба.',
     ttt: ['Ты — ', sym(mySex()), `, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`],
     c4: ['Ты — ', sym(mySex()), `, твой ход первый. Нужно четыре в ряд, можно и наискосок. Ничья — новая партия, начинает ${who().partner}.`],
+    db: ['Ты — ', sym(mySex()), ', твой ход первый. Проводите черты по очереди: замкнёшь клетку — она твоя, и ходишь ещё. У кого больше клеток, тот и победил.'],
     bs: `Поле 6×6, флот: 3, 2, 2 и 1 клетка. Попал — стреляешь ещё. Твой выстрел первый, а ${who().partner} расставит свой флот, когда примет вызов.`,
   };
   const hint = h('p', { class: 'hint duel-hint' }, ...[HINT[kind]].flat());
@@ -508,11 +517,11 @@ function setup() {
     if (kind === 'rps') { pick.replaceChildren(movesRow((k) => { mv = k; sync(); })); return; }
     const grid = GRIDS[kind];
     const pickGrid = grid.drop ? { ...grid, h: 1 } : grid;
-    const empty = '.'.repeat(pickGrid.w * pickGrid.h);
+    const empty = '.'.repeat(grid.dots ? dotsEdges(grid) : pickGrid.w * pickGrid.h);
     const bd = boardEl(pickGrid, 'Первый ход', ' is-pick');
     const put = (i) => {
       mv = String(i);
-      bd.replaceChildren(...cells(pickGrid, empty.split('').map((c, j) => (j === i ? 'x' : c)).join(''), { mine: 'x', play: true, onPick: put }));
+      bd.replaceChildren(...cells(pickGrid, empty.split('').map((c, j) => (j === i ? 'x' : c)).join(''), { mine: 'x', play: true, onPick: put, boxes: grid.dots ? '.'.repeat(grid.w * grid.h) : '' }));
       land(pickGrid, bd, i);
       sync();
     };
@@ -543,17 +552,88 @@ const fall = (el, row) => {
 };
 // Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — знак прорисовується лінією (CSS .is-draw)
 const land = (grid, board, i) => {
+  if (grid.dots) {
+    // Рисочка простягається від точки до точки, а в клітинках, які вона замкнула, знак прорисовується
+    pieceAt(grid, board, i)?.classList.add('is-new');
+    edgeBoxes(grid, i).forEach((b) => board.querySelector(`[data-b="${b}"] .gsym`)?.classList.add('is-draw'));
+    return;
+  }
   const piece = board.children[i]?.firstElementChild;
   if (grid.drop) fall(piece, Math.floor(i / grid.w)); else piece?.classList.add('is-draw');
 };
+// Елемент ходу на полі: клітинка, а в точках — рисочка
+const pieceAt = (grid, board, i) => (grid.dots ? board.querySelector(`[data-e="${i}"]`) : board.children[i]);
+// Точки: ребра — спершу горизонтальні (h+1 рядів по w), далі вертикальні (h рядів по w+1), як на сервері
+const dotsEdges = (grid) => (grid.h + 1) * grid.w + grid.h * (grid.w + 1);
+function boxEdges(grid, r, c) {
+  const v = (grid.h + 1) * grid.w + r * (grid.w + 1) + c;
+  return [r * grid.w + c, (r + 1) * grid.w + c, v, v + 1];
+}
+// Клітинки обабіч рисочки
+function edgeBoxes(grid, e) {
+  const H = (grid.h + 1) * grid.w;
+  const out = [];
+  if (e < H) {
+    const r = Math.floor(e / grid.w);
+    const c = e % grid.w;
+    if (r > 0) out.push((r - 1) * grid.w + c);
+    if (r < grid.h) out.push(r * grid.w + c);
+  } else {
+    const r = Math.floor((e - H) / (grid.w + 1));
+    const c = (e - H) % (grid.w + 1);
+    if (c > 0) out.push(r * grid.w + c - 1);
+    if (c < grid.w) out.push(r * grid.w + c);
+  }
+  return out;
+}
+// Мій хід у точках одразу на полі: рисочка й клітинки, які вона замкнула (вони мої)
+function dotsPut(grid, bd, boxes, e, mark) {
+  const b = [...bd];
+  b[e] = mark;
+  const x = [...boxes];
+  for (const i of edgeBoxes(grid, e)) if (x[i] === '.' && boxEdges(grid, Math.floor(i / grid.w), i % grid.w).every((k) => b[k] !== '.')) x[i] = mark;
+  return [b.join(''), x.join('')];
+}
+// Поле точок: сітка (2h+1)×(2w+1) — точки, рисочки-кнопки між ними і клітинки зі знаком того, хто замкнув
+function dotCells(grid, bd, { mine, boxes = '', play = false, onPick = null } = {}) {
+  const H = (grid.h + 1) * grid.w;
+  const out = [];
+  for (let R = 0; R <= 2 * grid.h; R += 1) {
+    for (let C = 0; C <= 2 * grid.w; C += 1) {
+      const r = Math.floor(R / 2);
+      const c = Math.floor(C / 2);
+      if (R % 2 === 0 && C % 2 === 0) { out.push(h('i', { class: 'db-dot', 'aria-hidden': 'true' })); continue; }
+      if (R % 2 === 1 && C % 2 === 1) {
+        const i = r * grid.w + c;
+        const o = boxes[i] || '.';
+        out.push(h('span', { class: `db-box${o === '.' ? '' : ` is-${o === mine ? 'me' : 'them'} is-${sexOf(o, mine)}`}`, 'data-b': String(i) }, o === '.' ? '' : sym(sexOf(o, mine), ' cell-piece')));
+        continue;
+      }
+      const flat = R % 2 === 0;
+      const e = flat ? r * grid.w + c : H + r * (grid.w + 1) + c;
+      const v = bd[e] || '.';
+      out.push(h('button', {
+        type: 'button',
+        class: `db-edge ${flat ? 'is-h' : 'is-v'}${v === '.' ? '' : ` is-on is-${sexOf(v, mine)}`}`,
+        'data-e': String(e),
+        'aria-label': `${flat ? 'Черта по горизонтали' : 'Черта по вертикали'} ${e + 1}${v === '.' ? '' : ', проведена'}`,
+        disabled: !play || v !== '.',
+        onclick: onPick ? () => onPick(e) : null,
+      }, h('i')));
+    }
+  }
+  return out;
+}
 // Куди ляже хід: клітинка або найнижча вільна у стовпчику (-1 — нікуди)
 function cellFor(grid, bd, move) {
+  if (grid.dots) return bd[move] === '.' ? move : -1;
   if (!grid.drop) return bd[move] === '.' ? move : -1;
   for (let r = grid.h - 1; r >= 0; r -= 1) if (bd[r * grid.w + move] === '.') return r * grid.w + move;
   return -1;
 }
 
-function cells(grid, bd, { mine, line = null, play = false, onPick = null } = {}) {
+function cells(grid, bd, { mine, line = null, play = false, onPick = null, boxes = '' } = {}) {
+  if (grid.dots) return dotCells(grid, bd, { mine, boxes, play, onPick });
   return [...bd].map((c, i) => {
     const col = i % grid.w;
     // Хрестики — вільна клітинка; «Четыре в ряд» — будь-яка клітинка неповного стовпчика
@@ -602,7 +682,9 @@ async function showBoard(g) {
   const seen = g.done && sawEnd(g) ? g.n : seenRounds(g);
   const mine = g.mark;
   const legend = h('p', { class: 'ttt-legend' },
-    h('span', { class: 'ttt-who' }, `${cap(who().partner)} `, sym(otherSex())), h('span', { class: 'ttt-vs' }, 'vs'), h('span', { class: 'ttt-who' }, 'Ты ', sym(mySex())));
+    h('span', { class: 'ttt-who' }, `${cap(who().partner)} `, sym(otherSex()), grid.dots ? h('b', { class: 'db-count' }, String(g.score.them)) : ''),
+    h('span', { class: 'ttt-vs' }, grid.dots ? ':' : 'vs'),
+    h('span', { class: 'ttt-who' }, grid.dots ? h('b', { class: 'db-count' }, String(g.score.me)) : '', 'Ты ', sym(mySex())));
   const board = boardEl(grid, 'Поле');
   const status = h('p', { class: 'duel-status' });
   const history = h('div', { class: 'duel-history', 'aria-label': 'Партии' });
@@ -615,10 +697,10 @@ async function showBoard(g) {
   const fresh = g.n > seen;
   open.busy = true;
   // Нічия, якої ще не бачив: спершу повне поле минулої партії, потім — нова
-  const drew = fresh && g.rounds.length > 0 && seen < grid.w * grid.h * g.rounds.length;
+  const drew = fresh && g.rounds.length > 0 && seen < (grid.dots ? dotsEdges(grid) : grid.w * grid.h) * g.rounds.length;
   if (drew) {
     const prev = g.rounds.at(-1);
-    board.replaceChildren(...cells(grid, prev.board, { mine }));
+    board.replaceChildren(...cells(grid, prev.board, { mine, boxes: prev.boxes || '' }));
     paintHistory(g.rounds.length - 1);
     status.textContent = 'Ничья!';
     if (!reduceMotion) boardDraw(board, symSvg('he'), symSvg('she'));
@@ -631,10 +713,10 @@ async function showBoard(g) {
   open.busy = false;
   paintHistory(g.rounds.length);
   const play = !g.done && g.turn === 'me';
-  board.replaceChildren(...cells(grid, g.board, { mine, play, onPick: (m) => boardMove(g, m, board) }));
+  board.replaceChildren(...cells(grid, g.board, { mine, play, boxes: g.boxes || '', onPick: (m) => boardMove(g, m, board) }));
   if (fresh && g.lastBy === 'them' && g.lastCell !== null) land(grid, board, g.lastCell);
   // Куди щойно сходив другий — тонке кільце (свіжий хід — ще й спалахує)
-  if (!g.done && g.lastBy === 'them' && g.lastCell !== null) board.children[g.lastCell]?.classList.add('is-last', ...(fresh ? ['is-last-new'] : []));
+  if (!g.done && g.lastBy === 'them' && g.lastCell !== null) pieceAt(grid, board, g.lastCell)?.classList.add('is-last', ...(fresh ? ['is-last-new'] : []));
   if (g.done) {
     if (fresh) await wait(grid.drop ? 700 : 450);
     if (!open) return;
@@ -649,7 +731,9 @@ async function showBoard(g) {
     if (fresh) { if (g.done.won) boardWin(board, symSvg(mySex()), mySex()); else boardLose(board, symSvg(otherSex()), otherSex()); }
     act.replaceChildren(...doneActs(g));
   } else {
-    status.replaceChildren(`${drew ? 'Новая партия. ' : ''}${play ? `Твой ход — ${grid.verb} ` : `Ждём ${gen()} ход…`}`, play ? sym(mySex()) : '');
+    // Точки: щойно замкнув клітинку — ходиш ще
+    const again = grid.dots && play && g.lastBy === 'me';
+    status.replaceChildren(`${drew ? 'Новая партия. ' : ''}${again ? 'Клетка твоя! Ходи ещё ' : play ? `Твой ход — ${grid.verb} ` : `Ждём ${gen()} ход…`}`, play ? sym(mySex()) : '');
     tip.replaceChildren(...[play ? petTip(grid.kind, g) : null].filter(Boolean));
     act.replaceChildren(...[h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру')].filter(Boolean));
   }
@@ -668,7 +752,8 @@ async function boardMove(g, m, board) {
   open.busy = true;
   const bd = [...g.board];
   bd[i] = g.mark;
-  board.replaceChildren(...cells(grid, bd.join(''), { mine: g.mark }));
+  const [edges, boxes] = grid.dots ? dotsPut(grid, g.board, g.boxes || '', i, g.mark) : [bd.join(''), ''];
+  board.replaceChildren(...cells(grid, edges, { mine: g.mark, boxes }));
   land(grid, board, i);
   let r;
   try { r = await dsend('duel/move', 'POST', { id: g.id, move: String(m) }); } catch (e) {
@@ -681,7 +766,7 @@ async function boardMove(g, m, board) {
       refresh();
       return;
     }
-    board.replaceChildren(...cells(grid, g.board, { mine: g.mark, play: true, onPick: (x) => boardMove(g, x, board) }));
+    board.replaceChildren(...cells(grid, g.board, { mine: g.mark, play: true, boxes: g.boxes || '', onPick: (x) => boardMove(g, x, board) }));
     toast('Ход не ушёл — нет связи');
     return;
   }
