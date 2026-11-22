@@ -3925,10 +3925,16 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .gsym.is-he { color: var(--he); }
 .gsym.is-she { color: var(--she); }
 .ttt-board.is-ttt .gsym { width: 62%; height: 62%; }
-.gsym.is-draw :is(circle, path) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gsym-draw .4s ease-out forwards; }
-.gsym.is-draw path { animation-delay: .3s; }
-.gsym.is-draw path + path { animation-delay: .45s; }
-@keyframes gsym-draw { to { stroke-dashoffset: 0; } }
+/* Знак прорисовується пером: коло — від місця, де до нього кріпиться стрілка (♂) чи хрестик (♀), далі лінія й наконечник;
+   до старту штрих прихований (opacity), щоб круглі кінчики не світилися крапками; наприкінці — короткий спалах своїм кольором */
+.gsym.is-draw :is(circle, path) { stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; animation: gsym-draw var(--d, .2s) var(--t, 0s) cubic-bezier(.6, 0, .35, 1) forwards; }
+.gsym.is-draw path:first-child { --d: .5s; --t: 0s; }
+.gsym.is-draw path + path { --d: .2s; --t: .46s; }
+.gsym.is-draw path + path + path { --d: .2s; --t: .62s; }
+.gsym.is-draw svg { animation: gsym-ink .45s .8s ease-out both; }
+@keyframes gsym-draw { 0% { opacity: 0; stroke-dashoffset: 1; } 1% { opacity: 1; } 100% { opacity: 1; stroke-dashoffset: 0; } }
+@keyframes gsym-ink { 0%, 100% { transform: none; filter: none; } 40% { transform: scale(1.12); filter: drop-shadow(0 0 5px currentColor); } }
+@media (prefers-reduced-motion: reduce) { .gsym.is-draw :is(circle, path), .gsym.is-draw svg { animation: none; opacity: 1; stroke-dashoffset: 0; } }
 /* «Четыре в ряд»: фішка — кольоровий диск з білим знаком */
 .is-c4 .gsym { width: 86%; height: 86%; border-radius: 50%; background: currentColor; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .18); }
 .is-c4 .gsym svg { width: 62%; height: 62%; stroke: #fff; stroke-width: 5; }
@@ -4481,6 +4487,9 @@ html.is-still .bs-spark { animation: none; }
 .bs-score .bs-found { gap: 3px; margin-top: 0; }
 .bs-score .bs-found-title { font-size: .75rem; }
 .bs-score .bs-env-btn { height: 26px; }
+.bs-score .bs-envs { gap: 4px; }
+.bs-env-btn.is-empty { box-sizing: border-box; background: none; border: 1.5px dashed color-mix(in srgb, var(--ink-soft) 40%, transparent); box-shadow: none; cursor: default; }
+[data-side="vin"] .bs-env-btn.is-empty { background: none; border-color: rgba(255, 255, 255, .22); box-shadow: none; }
 @media (max-width: 370px) { .bs-top { grid-template-columns: minmax(0, 130px) 1fr; } }
 /* Підпис над корабликами — їм уся ширина плашки */
 .bs-score-row { grid-template-columns: 1fr; gap: 1px; font-size: .8125rem; line-height: 1.1; }

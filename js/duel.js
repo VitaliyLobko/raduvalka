@@ -86,8 +86,8 @@ const GRIDS = {
 const gridOf = (g) => (Object.hasOwn(GRIDS, g?.game ?? '') ? GRIDS[g.game] : null);
 // Фішки — знаки ♂/♀ лінією: фішка належить стороні (він — синій ♂, вона — червона ♀), хто б не ходив першим
 const SYM = {
-  he: '<circle cx="16" cy="24" r="10" pathLength="1"/><path d="M23.5 16.5 34 6" pathLength="1"/><path d="M25 6h9v9" pathLength="1"/>',
-  she: '<circle cx="20" cy="15" r="10" pathLength="1"/><path d="M20 25v12" pathLength="1"/><path d="M14 31h12" pathLength="1"/>',
+  he: '<path d="M23.07 16.93A10 10 0 1 0 8.93 31.07A10 10 0 1 0 23.07 16.93" pathLength="1"/><path d="M23.5 16.5 34 6" pathLength="1"/><path d="M25 6h9v9" pathLength="1"/>',
+  she: '<path d="M20 25A10 10 0 1 1 20 5A10 10 0 1 1 20 25" pathLength="1"/><path d="M20 25v12" pathLength="1"/><path d="M14 31h12" pathLength="1"/>',
 };
 const mySex = () => (DATA.side === 'vona' ? 'she' : 'he');
 const otherSex = () => (mySex() === 'he' ? 'she' : 'he');
@@ -535,17 +535,16 @@ function setup() {
 // ── Ігри на полі: «❌⭕ Крестики-нолики» 3×3 і «🔴🟡 Четыре в ряд» 7×6 (тап по стовпчику — фішка падає донизу).
 // Одна партія; хто покликав — x і ходить першим; нічия — нова партія, починає інший
 const wait = (ms) => new Promise((done) => setTimeout(done, reduceMotion ? Math.min(ms, 300) : ms));
-const pop = (el) => { if (!reduceMotion && el) el.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.6 }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' }); };
 // Фішка падає з-над поля у свою клітинку (лише transform), наприкінці легенько підскакує
 const fall = (el, row) => {
   if (reduceMotion || !el) return;
   el.animate([{ transform: `translateY(${-(row + 1) * 112}%)` }, { transform: 'translateY(0)', offset: 0.75 }, { transform: 'translateY(-12%)', offset: 0.88 }, { transform: 'translateY(0)' }],
     { duration: 300 + row * 45, easing: 'ease-in' });
 };
-// Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — поява
+// Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — знак прорисовується лінією (CSS .is-draw)
 const land = (grid, board, i) => {
   const piece = board.children[i]?.firstElementChild;
-  if (grid.drop) fall(piece, Math.floor(i / grid.w)); else { piece?.classList.add('is-draw'); pop(piece); }
+  if (grid.drop) fall(piece, Math.floor(i / grid.w)); else piece?.classList.add('is-draw');
 };
 // Куди ляже хід: клітинка або найнижча вільна у стовпчику (-1 — нікуди)
 function cellFor(grid, bd, move) {
@@ -786,13 +785,15 @@ async function showBs(g) {
     h('p', { class: 'bs-score-row', 'aria-label': `${cap(who().partner)}: ${count.them} из 4` }, h('span', {}, who().partner), pips(sunkLen.them, me)),
     // Знайдені записки — тут же, поруч зі своїм полем: ні гру не зсувають, ні вниз не ховаються
     found);
-  // Записки — конвертами: знайдена 💌 відкривається тапом, ще схована — блідий ✉ (сервер каже лише скільки їх)
+  // Записки — 4 місця з самого початку (по одному на корабель): знайдена 💌 відкривається тапом, ще схована — блідий ✉
+  // (сервер каже лише скільки їх), решта — порожні місця; нічого не зсувається, коли записку знайдено
   const readNote = (t) => noteReveal(stage, t, them);
   const paintFound = () => {
-    const total = Math.max(g.notes || 0, notes.length);
-    found.replaceChildren(...(total ? [h('p', { class: 'bs-found-title' }, 'Записки'), h('p', { class: 'bs-envs' },
+    const total = Math.min(4, Math.max(g.notes || 0, notes.length));
+    found.replaceChildren(h('p', { class: 'bs-found-title' }, 'Записки'), h('p', { class: 'bs-envs' },
       ...notes.map((t, i) => h('button', { type: 'button', class: 'bs-env-btn', 'aria-label': `Прочитать записку ${i + 1}`, onclick: () => readNote(t) }, '💌')),
-      ...Array.from({ length: total - notes.length }, () => h('span', { class: 'bs-env-btn is-hidden', 'aria-label': 'Ещё не найдена' }, '✉️')))] : []));
+      ...Array.from({ length: total - notes.length }, () => h('span', { class: 'bs-env-btn is-hidden', 'aria-label': 'Ещё не найдена' }, '✉️')),
+      ...Array.from({ length: 4 - total }, () => h('span', { class: 'bs-env-btn is-empty', 'aria-hidden': 'true' }))));
   };
   // Один постріл на поле; anim — з польотом, рухом і паузою (новий), інакше — одразу (уже бачений)
   async function apply(s, anim) {
