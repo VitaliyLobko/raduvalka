@@ -266,7 +266,9 @@ function items() {
     list.push({ type: 'out', key: `l:${l.id}`, at: l.kind === 'env' ? l.created : (l.at || l.created), l, later: l.at > now });
   }
   for (const m of DATA.memes || []) list.push({ type: 'meme', key: `m:${m.id}`, at: m.created, m });
-  for (const n of cache?.news || []) list.push({ type: 'news', key: `n:${n.kind}:${n.id}`, at: n.at, n });
+  // Дограні ігри, змахнуті вліво, — лише в мене (localStorage)
+  const gone = goneGames();
+  for (const n of cache?.news || []) if (!gone.includes(`n:${n.kind}:${n.id}`)) list.push({ type: 'news', key: `n:${n.kind}:${n.id}`, at: n.at, n });
   // Привітальний завжди перший, навіть якщо другий написав раніше, ніж її вперше відкрили
   if (w) list[0].at = Math.min(w.at, ...list.slice(1).map((it) => it.at - 1));
   return list.sort((a, b) => b.at - a.at);
@@ -473,10 +475,10 @@ function newsRow(n) {
   const she = who().partner === 'она';
   if (n.kind === 'ok' || n.kind === 'ask' || n.kind === 'heart' || n.kind === 'captain' || n.kind === 'bell') return markRow(n, she);
   // «✊ Спор»: картка — тема, рахунок, чий хід чи підсумок; тап — сам спор
-  if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel({ game: duelKind(n.duel) })));
+  if (n.kind === 'duel') return gameRow(n, n.duel, duelCard(n.duel, () => openDuel({ game: duelKind(n.duel) })), 'duel/cancel');
   // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
-  if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame(n.same)));
-  if (n.kind === 'hot') return h('li', { class: 'feed-news feed-duel' }, hotCard(n.hot, () => openHot(n.hot)));
+  if (n.kind === 'same') return gameRow(n, n.same, sameCard(n.same, () => openSame(n.same)), 'same/cancel');
+  if (n.kind === 'hot') return gameRow(n, n.hot, hotCard(n.hot, () => openHot(n.hot)), 'hot/cancel');
   // «🎁 Желание» з гри «на желание»: висить, поки не відмітять «Исполнено ✓»
   if (n.kind === 'gwish') return h('li', { class: 'feed-news feed-duel', hidden: !n.wish }, n.wish ? gwishCard(n) : null);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
@@ -1147,9 +1149,37 @@ async function loadPic(target) {
   }
 }
 
+// Картка гри в чаті: змах уліво — «Завершить?». Та, що йде, скасовується в обох; дограна ховається лише в мене
+const goneKey = () => `radovalka:games-gone:${DATA.side}`;
+function goneGames() {
+  try { return JSON.parse(localStorage.getItem(goneKey()) || '[]'); } catch { return []; }
+}
+function hideGame(key) {
+  try { localStorage.setItem(goneKey(), JSON.stringify([key, ...goneGames().filter((k) => k !== key)].slice(0, 100))); } catch { /* приватне вікно */ }
+}
+function gameRow(n, g, card, cancelPath) {
+  const li = h('li', { class: `feed-news feed-duel feed-game${g.done ? ' is-done' : ''}` }, card);
+  const key = `n:${n.kind}:${n.id}`;
+  const confirm = () => (g.done
+    ? ask({ title: 'Убрать игру из чата?', text: `Только у тебя — у ${who().partner === 'она' ? 'неё' : 'него'} она останется`, yes: 'Убрать' })
+    : ask({ title: 'Завершить игру?', text: 'Она пропадёт из чата у вас обоих', yes: 'Завершить' }));
+  swipeable(li, card, {
+    confirm,
+    onLeft: async () => {
+      if (g.done) { hideGame(key); draw(); return; }
+      // Не вийшло — рядок уже згорнуто: викидаємо його з кешу рядків, щоб намалювався заново
+      try { await send(cancelPath, 'POST', { id: g.id }); } catch { toast('Не завершилось — нет связи'); rows.delete(key); draw(); return; }
+      toast('Игра завершена');
+      document.dispatchEvent(new CustomEvent('radovalka:marked'));
+    },
+  });
+  return li;
+}
+
 // Свайп пузиря: горизонтальний рух веде пузир, вертикальний — віддаємо прокрутці сторінки
 // fold — після вильоту згорнути рядок (хотілка замість цього стає рядком «Вернуть»)
-export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true, place = '', fold = true }) {
+// confirm — спершу спитати (пузир пружинить назад); «ні» — лишається на місці
+export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true, place = '', fold = true, confirm = null }) {
   let x0 = null;
   let y0 = 0;
   let dx = 0;
@@ -1199,10 +1229,16 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true,
     if (go && place) learn(place);
     if (go && go === onLeft) {
       // Відлітає з того місця, де відпустили, рядок згортається — і лише тоді зникає зі списку
-      const from = bubble.style.transform;
-      bubble.classList.remove('is-drag');
-      row.style.pointerEvents = 'none';
-      flyOut(bubble, -1, from).then(() => (fold ? collapse(row) : null)).then(() => onLeft());
+      const fly = (from) => {
+        bubble.classList.remove('is-drag');
+        row.style.pointerEvents = 'none';
+        flyOut(bubble, -1, from).then(() => (fold ? collapse(row) : null)).then(() => onLeft());
+      };
+      if (!confirm) { fly(bubble.style.transform); return; }
+      bubble.classList.add('is-spring');
+      setTimeout(() => bubble.classList.remove('is-spring'), 500);
+      reset();
+      confirm().then((ok) => { if (ok) fly(''); });
       return;
     }
     // Відповісти — пузир пружинить назад на місце

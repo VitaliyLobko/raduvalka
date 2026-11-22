@@ -2435,6 +2435,12 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .feed-row[data-swipe^="hide"]::before { content: '🙈 Спрятать'; right: 12px; }
 .feed-row[data-swipe^="reply"]::before { content: '↩ Ответить'; left: 12px; }
 .feed-row:is([data-swipe="hide"], [data-swipe="reply"])::before { opacity: 1; }
+/* Картка гри: змах уліво — завершити (дограну — прибрати лише в себе) */
+.feed-game { position: relative; }
+.feed-game::before { position: absolute; top: 50%; right: 12px; color: var(--ink-soft); font-size: .875rem; font-weight: 600; opacity: .5; transform: translateY(-50%); pointer-events: none; }
+.feed-game[data-swipe^="hide"]::before { content: '✖ Завершить'; }
+.feed-game.is-done[data-swipe^="hide"]::before { content: '🙈 Убрать'; }
+.feed-game[data-swipe="hide"]::before { opacity: 1; }
 .feed-hidden-toggle {
   display: block;
   min-height: 40px;
@@ -4401,6 +4407,14 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .gi-scissors :is(circle, path) { fill: none; stroke: var(--gi-she); stroke-width: 3; }
 .game-tile:active .game-icon { transform: scale(.94); }
 .game-icon svg { width: 48px; height: 48px; }
+/* Список «Игр» — усі ігри на один екран: менший значок, опис в один рядок */
+.games-sheet .game-tile { gap: 12px; padding: 7px 12px; }
+.games-sheet .game-tile + .game-tile { margin-top: 6px; }
+.games-sheet .game-icon { width: 46px; height: 46px; border-radius: 14px; }
+.games-sheet .game-icon svg { width: 38px; height: 38px; }
+.games-sheet .game-tile-text { min-width: 0; gap: 0; }
+.games-sheet .game-tile-text b { font-size: 1.3rem; }
+.games-sheet .game-tile-text > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .8125rem; }
 .duel-head .duel-as { border-style: dotted; cursor: default; }
 
 /* Куди вже стріляли — видно одразу: мимо — клітинка темніша з крапкою, попав — тепле підсвічування, навколо
