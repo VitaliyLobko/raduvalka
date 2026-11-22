@@ -4473,8 +4473,12 @@ html.is-still .bs-spark { animation: none; }
 .bs-pips i.is-l3, .bs-pips.is-vona i.is-l3.is-on, .bs-pips.is-vin i.is-l3.is-on { width: 54px; }
 .bs-pips { gap: 2px; }
 /* «Потоплено» — на рівні «Моё море», а не по центру висоти; вужчі поля плашки — кораблики крупніші */
-.bs-top { align-items: start; gap: 8px; }
-.bs-score { padding: 10px 8px; }
+/* Плашка рівно по висоті «Моё море» з полем: висоту рядка задає поле (contain: size), вміст ущільнено */
+.bs-top { align-items: stretch; gap: 8px; }
+.bs-score { contain: size; padding: 7px 8px; gap: 3px; align-content: space-between; }
+.bs-score .bs-found { gap: 3px; margin-top: 0; }
+.bs-score .bs-found-title { font-size: .75rem; }
+.bs-score .bs-env-btn { height: 26px; }
 @media (max-width: 370px) { .bs-top { grid-template-columns: minmax(0, 130px) 1fr; } }
 /* Підпис над корабликами — їм уся ширина плашки */
 .bs-score-row { grid-template-columns: 1fr; gap: 1px; font-size: .8125rem; line-height: 1.1; }
