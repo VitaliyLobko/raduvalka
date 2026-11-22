@@ -10,6 +10,7 @@ import { openGifs } from './maker.js';
 import { recentThread } from './feed.js';
 import { writeDecor } from './depth.js';
 import { openGames } from './games.js';
+import { newCid } from './outbox.js';
 
 const DRAFT = 'radovalka:draft';
 const MORNING_HOUR = 8;
@@ -102,6 +103,18 @@ export function openWrite(preset = {}) {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
+  // Вкладення листа в конверт (одне): фото, гифка, голос, пісня; лишається, навіть якщо перемкнули «Когда», — піде лише в конверт
+  let att = null;
+  let musicBtn = null;
+  const attBox = h('div', { class: 'write-att', hidden: true });
+  const lazyAttach = () => import('./envattach.js');
+  const paintAtt = async () => {
+    attBox.hidden = !att || where !== 'env';
+    if (!att) { attBox.replaceChildren(); return; }
+    const { attachChip } = await lazyAttach();
+    attBox.replaceChildren(attachChip(att, () => { att = null; paintAtt(); paintNote(); }));
+  };
+  const setAtt = (a) => { att = a; paintAtt(); paintNote(); };
   const festBtn = h('button', {
     type: 'button', class: 'mk-chip write-fest',
     onclick: () => { festive = !festive; paintNote(); },
@@ -114,8 +127,11 @@ export function openWrite(preset = {}) {
         ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} запечатанным конвертом.`
         : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
     if (where !== 'env' && festive) note.textContent += ' Праздничным: золотой конверт, принесут все вместе 🎉';
+    if (where !== 'env' && att) note.textContent += ' 📎 Вложение уйдёт только в конверт — сейчас письмо без него.';
     envRow.hidden = where !== 'env';
     festBtn.hidden = where === 'env';
+    if (musicBtn) musicBtn.hidden = where !== 'env';
+    attBox.hidden = !att || where !== 'env';
     festBtn.setAttribute('aria-pressed', String(festive));
   };
 
@@ -174,19 +190,30 @@ export function openWrite(preset = {}) {
   // input лишається в шторці, доки не обрано файл, — від'єднаний input change не надійний
   const picker = h('input', {
     type: 'file', accept: 'image/*', class: 'visually-hidden',
-    onchange: (e) => {
+    onchange: async (e) => {
       const [file] = e.target.files;
+      e.target.value = '';
       if (!file) return;
+      if (where === 'env') { (await lazyAttach()).pickPhoto(file, setAtt); return; }
       close(true);
       composeMeme(file, memeSent, re);
     },
   });
+  musicBtn = h('button', {
+    type: 'button', class: 'mk-chip write-music', hidden: where !== 'env',
+    onclick: async () => (await lazyAttach()).pickMusic(setAtt),
+  }, '🎵 Музыка');
   const tools = h('div', { class: 'write-tools' },
     h('label', { class: 'mk-chip' }, picker, '📷 Фото'),
     h('button', {
       type: 'button', class: 'mk-chip',
-      onclick: () => { close(true); openGifs((gif) => composeGif(gif, memeSent, re)); },
+      onclick: async () => {
+        if (where === 'env') { (await lazyAttach()).pickGif(setAtt); return; }
+        close(true);
+        openGifs((gif) => composeGif(gif, memeSent, re));
+      },
     }, '🎞 Гифка'),
+    musicBtn,
     reply ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openGames(); } }, '🎲 Игры'),
     helper);
 
@@ -212,12 +239,35 @@ export function openWrite(preset = {}) {
   };
   area.addEventListener('input', grow);
 
+  // Лист у конверт із байтами (фото, голос, пісня) — одним запитом, без черги; поступ — на кнопці
+  const sendAttached = async (text) => {
+    const ea = await lazyAttach();
+    const label = go.innerHTML;
+    try {
+      await ea.sendAttached({ kind: 'env', env: envId, text, mascot: pet, cid: newCid() }, att,
+        (p) => { go.textContent = `${Math.round(p * 100)}%`; });
+    } catch (e) {
+      go.innerHTML = label;
+      go.disabled = false;
+      toast(ea.attachError(e));
+      return;
+    }
+    if (!reply) draft.set('');
+    sentOk = true;
+    close();
+    document.dispatchEvent(new CustomEvent('radovalka:sent'));
+    toast(sentToast(pet));
+  };
+
   go.addEventListener('click', async () => {
     const text = area.value.trim();
-    if (!text) { area.focus(); return; }
+    const withAtt = where === 'env' && att;
+    if (!text && !withAtt) { area.focus(); return; }
     go.disabled = true;
+    if (withAtt && (await lazyAttach()).hasBytes(att)) { sendAttached(text); return; }
     try {
       const r = await deliver('letter', 'letters', {
+        ...(withAtt ? { media: (await lazyAttach()).mediaBody(att) } : {}),
         kind: festive && where !== 'env' ? 'date' : where,
         text,
         mascot: pet,
@@ -257,6 +307,7 @@ export function openWrite(preset = {}) {
       thread,
       split?.bar,
       tools,
+      attBox,
       area,
       h('div', { class: 'write-dock' }, ...[
         whereRow, envRow, festBtn, note,

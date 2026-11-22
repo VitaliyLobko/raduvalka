@@ -105,7 +105,7 @@ function drawStroke(ctx, s) {
 
 // blob — уже стиснуте фото (prepare); send(out, caption) — надіслати (кидає помилку — вікно лишається);
 // fail(e) — текст помилки; image() — зменшене фото для ШІ-підписів
-export async function photoEditor(blob, { send, fail, image }) {
+export async function photoEditor(blob, { send, fail, image, label = 'Отправить' }) {
   let base;
   try { base = await createImageBitmap(blob); } catch { toast('Эту картинку открыть не получилось'); return; }
 
@@ -483,7 +483,7 @@ export async function photoEditor(blob, { send, fail, image }) {
   }
 
   // ── Відправка ──
-  const go = h('button', { type: 'button', class: 'ph-send', 'aria-label': 'Отправить', html: ARROW });
+  const go = h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW });
   go.addEventListener('click', async () => {
     if (go.disabled) return;
     go.disabled = true;

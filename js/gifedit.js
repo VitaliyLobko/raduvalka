@@ -13,7 +13,7 @@ const LOOKS = [
 ];
 
 // gif — { url, title, w, h } з пошуку; send(caption, style) — надіслати (кидає помилку — вікно лишається)
-export function gifEditor(gif, { send, fail }) {
+export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   const cap = { look: 'below', color: 0, x: 0.5, y: 0.8, k: 1, r: 0 };
   const video = media(gif.url, 'Что отправляю', gif.url);
   const layer = freeCap({ ...cap, look: 'meme' }, '');
@@ -114,7 +114,7 @@ export function gifEditor(gif, { send, fail }) {
   const helper = captionHelper(caption, { about: gif.title || '', onPick: sync });
 
   // ── Відправка ──
-  const go = h('button', { type: 'button', class: 'ph-send', 'aria-label': 'Отправить', html: ARROW });
+  const go = h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW });
   go.addEventListener('click', async () => {
     if (go.disabled) return;
     go.disabled = true;

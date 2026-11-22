@@ -118,6 +118,10 @@ const MIGRATIONS = [
   'ALTER TABLE letters ADD COLUMN reaction TEXT',
   // Файл «як файл» (R2): JSON { n — назва (e1.), t — тип, s — розмір }
   'ALTER TABLE memes ADD COLUMN file TEXT',
+  // Вкладення листа в конверт (JSON): k — photo | voice | song (байти в R2 l-<id>: t — тип, s — розмір, d — секунди голосу,
+  // n — назва пісні e1., cap — підпис фото e1.), gif (gif — посилання GIPHY, cap, style), link (url — посилання на пісню, e1.);
+  // gone — коли байти стерто, щоб звільнити місце
+  'ALTER TABLE letters ADD COLUMN media TEXT',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -254,7 +258,7 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
   if (m === 'POST' && envEvent) return envelopeEvent(env.DB, side, envEvent[1], envEvent[2], notify);
-  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify);
+  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify, env.FILES);
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7), notify);
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6), notify);
@@ -575,16 +579,28 @@ async function memesRoute(req, db, side, rest, notify, files) {
 
 // Файл «як файл»: тіло — самі байти (телефон шифрує їх у RAD1), опис — у заголовку x-file-meta
 // (base64url JSON: n — назва, вже «e1.», t — тип, s — розмір до шифрування, quote/on — відповідь)
+// Лічильник доби окремим записом — видалення файлу його не зменшує, тож межу не обійти «завантажив — стер».
+// len — заявлений розмір (content-length) для перевірки ще до читання тіла; take(b) — записати справжній
+async function fileQuota(db, side, len) {
+  const key = `files-day:${side}`;
+  const now = Date.now();
+  const q0 = await getDoc(db, key);
+  const q = q0 && now - q0.from < DAY_MS ? q0 : { from: now, n: 0, b: 0 };
+  const fits = (b) => q.n < FILES_PER_DAY && q.b + (b || 0) <= FILES_BYTES_PER_DAY;
+  if (!fits(len)) throw fail(429, 'files-day');
+  return {
+    take: async (b) => {
+      if (!fits(b)) throw fail(429, 'files-day');
+      await putDoc(db, key, { from: q.from, n: q.n + 1, b: q.b + b });
+    },
+  };
+}
+
 async function postFile(req, env, side, notify) {
   if (!env.FILES) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
   if (len > MAX_FILE) throw fail(413, 'size');
-  // Лічильник доби окремим записом — видалення файлу його не зменшує, тож межу не обійти «завантажив — стер»
-  const quotaKey = `files-day:${side}`;
-  const now = Date.now();
-  const q0 = await getDoc(env.DB, quotaKey);
-  const quota = q0 && now - q0.from < DAY_MS ? q0 : { from: now, n: 0, b: 0 };
-  if (quota.n >= FILES_PER_DAY || quota.b + (len || 0) > FILES_BYTES_PER_DAY) throw fail(429, 'files-day');
+  const quota = await fileQuota(env.DB, side, len);
   let meta;
   try {
     meta = JSON.parse(atob(String(req.headers.get('x-file-meta') || '').replace(/-/g, '+').replace(/_/g, '/')));
@@ -604,8 +620,7 @@ async function postFile(req, env, side, notify) {
     id, src: side, dst: other(side), img: '', url: null, caption: null, style: null,
     quote: quoteOf(meta || {}), created: Date.now(), reaction: null, file: JSON.stringify(file),
   };
-  if (quota.b + buf.byteLength > FILES_BYTES_PER_DAY) throw fail(429, 'files-day');
-  await putDoc(env.DB, quotaKey, { from: quota.from, n: quota.n + 1, b: quota.b + buf.byteLength });
+  await quota.take(buf.byteLength);
   await env.FILES.put(`f-${id}`, buf);
   await env.DB.prepare(
     'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -988,24 +1003,66 @@ async function envelopeEvent(db, side, id, what, notify) {
 async function myEnvelopes(db, side) {
   const list = (await getDoc(db, `envelopes:${side}`)) || [];
   const { results } = await db.prepare(
-    "SELECT id, env, text, liked FROM letters WHERE dst = ? AND kind = 'env' ORDER BY created",
+    "SELECT id, env, text, liked, media FROM letters WHERE dst = ? AND kind = 'env' ORDER BY created",
   ).bind(side).all();
   return list.map((e) => ({
     ...e,
-    notes: [...(e.notes || []), ...results.filter((r) => r.env === e.id).map((r) => ({ id: r.id, text: r.text, liked: !!r.liked }))],
+    notes: [...(e.notes || []), ...results.filter((r) => r.env === e.id)
+      .map((r) => ({ id: r.id, text: r.text, liked: !!r.liked, media: mediaOf(r) }))],
   }));
 }
 
-async function lettersRoute(req, db, side, rest, notify) {
+// Вкладення листа: обʼєктом (не рядком JSON) — openDeep на телефоні дістане зашифроване всередині
+function mediaOf(r) {
+  if (!r.media) return null;
+  try { return JSON.parse(r.media); } catch { return null; }
+}
+const MEDIA_BYTES = ['photo', 'voice', 'song'];
+const MEDIA_TYPES = { photo: /^image\/(webp|jpeg|png|gif)$/, voice: /^audio\/[\w.+-]{1,40}$/, song: /^audio\/[\w.+-]{1,40}$/ };
+const VOICE_MAX_S = 75;
+// Без байтів — гифка GIPHY чи посилання на пісню (зашифроване — перевіряє телефон, до шифрування й коли відкриває)
+function linkMedia(m) {
+  if (!m || typeof m !== 'object') return null;
+  if (m.k === 'gif') {
+    const gif = String(m.gif || '');
+    if (!GIF_URL.test(gif)) throw fail(400, 'gif');
+    const cap = clip(m.cap, 300) || null;
+    return { k: 'gif', gif, cap, style: cap && MEME_FREE.test(String(m.style ?? '')) ? m.style : null };
+  }
+  if (m.k === 'link') {
+    const raw = String(m.url || '').trim();
+    const url = SEALED.test(raw) ? clip(raw, 500) : /^https?:\/\/\S+$/i.test(raw) ? raw.slice(0, 500) : '';
+    if (!url) throw fail(400, 'link');
+    return { k: 'link', url };
+  }
+  throw fail(400, 'media');
+}
+// Із байтами: опис від телефона → лише відомі поля; тип — без параметрів (audio/webm;codecs=opus → audio/webm)
+function fileMedia(m, size) {
+  const k = String(m?.k || '');
+  const t = String(m?.t || '').split(';')[0].trim().toLowerCase();
+  if (!MEDIA_BYTES.includes(k) || !MEDIA_TYPES[k].test(t)) throw fail(415, 'type');
+  const out = { k, t, s: size };
+  if (k === 'voice') out.d = Math.max(1, Math.min(VOICE_MAX_S, Math.round(Number(m.d)) || 1));
+  if (k === 'song') out.n = clip(m.n, 1200) || null;
+  if (k === 'photo') out.cap = clip(m.cap, 300) || null;
+  return out;
+}
+
+async function lettersRoute(req, db, side, rest, notify, files) {
   const m = req.method;
+
+  // Лист у конверт із фото, голосом чи піснею — одним запитом, щоб байти в R2 не лишились без листа:
+  // тіло — 4 байти довжини JSON (big-endian) ‖ JSON листа { env, text, mascot, cid, media { k, t, d, n, cap } } ‖ байти (RAD1)
+  if (m === 'POST' && rest === 'attach') return attachLetter(req, db, side, files);
 
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
     const { results } = await db.prepare(
-      "SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, stocked FROM letters WHERE src = ? AND kind != 'stock' "
+      "SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, stocked, media FROM letters WHERE src = ? AND kind != 'stock' "
         + 'ORDER BY created DESC LIMIT 60',
     ).bind(side).all();
-    return json(results.map((r) => ({ ...r, opened: !!r.opened, liked: !!r.liked })));
+    return json(results.map((r) => ({ ...r, opened: !!r.opened, liked: !!r.liked, media: mediaOf(r) })));
   }
 
   // Мій запас — лише відправнику, від найстарішого (його видадуть першим)
@@ -1032,7 +1089,9 @@ async function lettersRoute(req, db, side, rest, notify) {
     const b = await readJson(req);
     const kind = String(b.kind || '');
     const text = clip(b.text, MAX_LETTER);
-    if (!LETTER_KINDS.includes(kind) || !text) throw fail(400, 'letter');
+    // Вкладення (гифка, посилання) — лише в лист у конверт; з ним текст може бути порожнім
+    const media = kind === 'env' ? linkMedia(b.media) : null;
+    if (!LETTER_KINDS.includes(kind) || (!text && !media)) throw fail(400, 'letter');
     const now = Date.now();
     let at = now;
     // Час «на ранок» рахує телефон (його часовий пояс); сервер лише не пускає в минуле й далеко вперед
@@ -1055,7 +1114,7 @@ async function lettersRoute(req, db, side, rest, notify) {
         if (dup.src !== side) throw fail(409, 'cid');
         return json({
           id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, quote: dup.quote || null, at: dup.at, created: dup.created,
-          opened: !!dup.opened, liked: !!dup.liked, reply: dup.reply, again: true,
+          opened: !!dup.opened, liked: !!dup.liked, reply: dup.reply, media: mediaOf(dup), again: true,
         });
       }
     }
@@ -1067,17 +1126,30 @@ async function lettersRoute(req, db, side, rest, notify) {
     const later = (kind === 'morning' || (kind === 'date' && !soon)) && notify.on;
     const quote = quoteOf(b);
     await db.prepare(
-      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(id, side, other(side), kind, envId, mascot, text, quote, at, now, later ? null : 0, stocked).run();
+      'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, side, other(side), kind, envId, mascot, text, quote, at, now, later ? null : 0, stocked, media ? JSON.stringify(media) : null).run();
     if (kind === 'now' && quote) notify.send(other(side), replyNote(side, quoteOn(b)));
     else if (kind === 'now') notify.send(other(side), letterNote(kind, mascots[mascot]));
     else if (soon) notify.send(other(side), letterNote(kind, mascots[mascot]));
-    return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null }, 201);
+    return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null, media }, 201);
   }
 
-  const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(rest).first();
+  const [lid, sub] = rest.split('/');
+  const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(lid).first();
   // Лист у запасі для отримувача ще не існує
   if (!r || (r.src !== side && r.dst !== side) || (r.kind === 'stock' && r.dst === side)) throw fail(404, 'not found');
+
+  // Байти вкладення з R2 (зашифровані RAD1 — розшифровує телефон)
+  if (m === 'GET' && sub === 'file') {
+    const md = mediaOf(r);
+    if (!md || !MEDIA_BYTES.includes(md.k) || md.gone || !files) throw fail(404, 'not found');
+    const obj = await files.get(`l-${r.id}`);
+    if (!obj) throw fail(404, 'not found');
+    return new Response(obj.body, {
+      headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, max-age=31536000, immutable' },
+    });
+  }
+  if (sub) throw fail(404, 'not found');
 
   // Отримувач: відкрив, ❤️, відповідь
   if (m === 'PUT') {
@@ -1115,10 +1187,50 @@ async function lettersRoute(req, db, side, rest, notify) {
     if (r.src !== side) throw fail(403, 'forbidden');
     if (r.opened) throw fail(409, 'opened');
     await db.prepare('DELETE FROM letters WHERE id = ?').bind(r.id).run();
+    if (files && MEDIA_BYTES.includes(mediaOf(r)?.k)) await files.delete(`l-${r.id}`);
     return json({ ok: true });
   }
 
   throw fail(405, 'method');
+}
+
+async function attachLetter(req, db, side, files) {
+  if (!files) throw fail(503, 'files');
+  const len = Number(req.headers.get('content-length'));
+  if (len > MAX_FILE + MAX_JSON) throw fail(413, 'size');
+  const quota = await fileQuota(db, side, len);
+  const buf = new Uint8Array(await req.arrayBuffer());
+  const head = buf.byteLength >= 4 ? new DataView(buf.buffer, buf.byteOffset, 4).getUint32(0) : 0;
+  if (!head || head > MAX_JSON || 4 + head >= buf.byteLength) throw fail(400, 'body');
+  let b;
+  try { b = JSON.parse(new TextDecoder().decode(buf.subarray(4, 4 + head))); } catch { throw fail(400, 'body'); }
+  const bytes = buf.subarray(4 + head);
+  if (bytes.byteLength > MAX_FILE) throw fail(413, 'size');
+  const media = fileMedia(b.media, bytes.byteLength);
+  const envId = String(b.env || '');
+  const theirs = (await getDoc(db, `envelopes:${other(side)}`)) || [];
+  if (!theirs.some((e) => e.id === envId)) throw fail(400, 'env');
+  const cid = typeof b.cid === 'string' && CID.test(b.cid) ? b.cid : null;
+  if (cid) {
+    const dup = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(cid).first();
+    if (dup) {
+      if (dup.src !== side) throw fail(409, 'cid');
+      return json({ id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, created: dup.created, opened: !!dup.opened, liked: !!dup.liked, media: mediaOf(dup), again: true });
+    }
+  }
+  const mascots = (await getDoc(db, 'mascots')) || {};
+  const mascot = mascots[b.mascot] ? String(b.mascot) : null;
+  const text = clip(b.text, MAX_LETTER);
+  const id = cid || crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  const now = Date.now();
+  await quota.take(bytes.byteLength);
+  // Спершу байти, потім рядок: обірвалось між ними — лишиться файл без листа, але лише в цьому рідкісному разі
+  // й під тим самим id (повтор із тим самим cid його перезапише)
+  await files.put(`l-${id}`, bytes);
+  await db.prepare(
+    'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).bind(id, side, other(side), 'env', envId, mascot, text, null, now, now, 0, null, JSON.stringify(media)).run();
+  return json({ id, kind: 'env', env: envId, text, quote: null, at: now, created: now, opened: false, liked: false, reply: null, media }, 201);
 }
 
 async function listMemes(db, side, limit = 300) {
@@ -1173,7 +1285,7 @@ async function feedPage(db, side, url) {
     db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, at AS t FROM letters '
       + "WHERE dst = ? AND at <= ? AND at < ? AND kind IN ('now', 'morning', 'date') "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
-    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, reaction, stocked, ${sentAt} AS t `
+    db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, reaction, stocked, media, ${sentAt} AS t `
       + `FROM letters WHERE src = ? AND kind != 'stock' AND ${sentAt} < ? ORDER BY t DESC LIMIT ?`).bind(side, before, take).all(),
     db.prepare('SELECT *, created AS t FROM memes WHERE (src = ? OR dst = ?) AND created < ? ORDER BY created DESC LIMIT ?')
       .bind(side, side, before, take).all(),
@@ -1235,7 +1347,7 @@ async function feedPage(db, side, url) {
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
       opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
     })),
-    sent: of('out').map(({ t, ...r }) => ({ ...r, opened: !!r.opened, liked: !!r.liked })),
+    sent: of('out').map(({ t, ...r }) => ({ ...r, opened: !!r.opened, liked: !!r.liked, media: mediaOf(r) })),
     memes: of('meme').map((r) => view(r, side)),
     news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
       : r.same ? { kind: 'same', id: r.id, same: r.same, at: r.t }
@@ -3490,27 +3602,41 @@ async function photoCleanup(env, now = Date.now()) {
   return gone;
 }
 
-// Файли в R2 понад FILES_LIMIT: стираємо найстаріші, сам рядок лишається з позначкою gone
+// Файли в R2 понад FILES_LIMIT: стираємо найстаріші, сам рядок лишається з позначкою gone.
+// Рахуємо все в R2 — і файли переписки (f-), і вкладення листів у конверт (l-). Стираємо спершу файли переписки,
+// коли їх уже нема — вкладення відкритих листів; вкладення ще не відкритого листа не стираємо ніколи
+const LETTER_FILES = "FROM letters WHERE media IS NOT NULL AND json_extract(media, '$.k') IN ('photo', 'voice', 'song') "
+  + "AND json_extract(media, '$.gone') IS NULL";
 async function fileCleanup(env, now = Date.now()) {
   const db = env.DB;
   if (!env.FILES) return 0;
   const live = "FROM memes WHERE file IS NOT NULL AND gone IS NULL";
   let over = (await db.prepare(`SELECT IFNULL(SUM(json_extract(file, '$.s')), 0) AS n ${live}`).first('n'))
+    + (await db.prepare(`SELECT IFNULL(SUM(json_extract(media, '$.s')), 0) AS n ${LETTER_FILES}`).first('n'))
     - (Number(env.FILES_LIMIT_BYTES) || FILES_LIMIT);
   let gone = 0;
-  while (over > 0) {
-    const { results } = await db.prepare(`SELECT id, json_extract(file, '$.s') AS n ${live} ORDER BY created ASC LIMIT 50`).all();
-    if (!results.length) break;
-    const pick = [];
-    for (const r of results) {
-      if (over <= 0) break;
-      pick.push(r);
-      over -= r.n;
+  const sweep = async (list, drop) => {
+    while (over > 0) {
+      const { results } = await list();
+      if (!results.length) return;
+      const pick = [];
+      for (const r of results) {
+        if (over <= 0) break;
+        pick.push(r);
+        over -= r.n;
+      }
+      await drop(pick);
+      gone += pick.length;
     }
+  };
+  await sweep(() => db.prepare(`SELECT id, json_extract(file, '$.s') AS n ${live} ORDER BY created ASC LIMIT 50`).all(), async (pick) => {
     await env.FILES.delete(pick.map((r) => `f-${r.id}`));
     await db.batch(pick.map((r) => db.prepare('UPDATE memes SET gone = ? WHERE id = ?').bind(now, r.id)));
-    gone += pick.length;
-  }
+  });
+  await sweep(() => db.prepare(`SELECT id, json_extract(media, '$.s') AS n ${LETTER_FILES} AND opened IS NOT NULL ORDER BY created ASC LIMIT 50`).all(), async (pick) => {
+    await env.FILES.delete(pick.map((r) => `l-${r.id}`));
+    await db.batch(pick.map((r) => db.prepare("UPDATE letters SET media = json_set(media, '$.gone', ?) WHERE id = ?").bind(now, r.id)));
+  });
   if (gone) console.log('fileCleanup', { gone });
   return gone;
 }

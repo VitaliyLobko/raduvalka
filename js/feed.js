@@ -912,6 +912,8 @@ function openHere(l, env) {
   setTimeout(done, 420);
 }
 
+// Вкладення мого листа в конверт — одним словом під текстом
+const SENT_ATT = { photo: '📷 с фото', gif: '🎞 с гифкой', voice: '🎤 с голосом', song: '🎵 с песней', link: '🔗 со ссылкой на песню' };
 function outBubble(l, later) {
   const me = who();
   const e = (DATA.partnerEnvelopes || []).find((x) => x.id === l.env);
@@ -943,6 +945,7 @@ function outBubble(l, later) {
   bubble.append(...[
     quoteLine(l.quote, l.created || l.at),
     l.text ? h('p', { class: textClass(l.text), onclick: () => bubble.classList.toggle('is-open') }, l.text) : null,
+    l.media ? h('p', { class: 'sent-att' }, l.media.gone ? '📎 вложение удалено' : (SENT_ATT[l.media.k] || '📎 вложение')) : null,
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
       h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply, newMark(isNew)) : null,

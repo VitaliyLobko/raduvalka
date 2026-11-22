@@ -90,7 +90,8 @@ function openCard(screen, env) {
   const me = who();
   const n = left(env);
   let reader;
-  const close = () => { reader.cleanup(); reader.remove(); renderEnvelopes(screen); };
+  let onClose = null;
+  const close = () => { onClose?.(); reader.cleanup(); reader.remove(); renderEnvelopes(screen); };
 
   if (!n) {
     // Другому летить push «конверт порожній»; «узнает» — лише якщо йому справді є куди його надіслати
@@ -107,9 +108,21 @@ function openCard(screen, env) {
   // Записка із заготовки — рядок; дописана в застосунку — { id, text }, і відправник побачить, що її відкрили
   const note = env.notes[read];
   const text = typeof note === 'string' ? note : note.text;
-  seen()[env.id] = read + 1;
-  save('mine', { seen: seen() });
-  if (note.id) save(`letters/${note.id}`, { opened: true });
+  // Прочитано — лише коли лист справді показали: з вкладенням — після того, як воно завантажилось
+  const commit = () => {
+    seen()[env.id] = read + 1;
+    save('mine', { seen: seen() });
+    if (note.id) save(`letters/${note.id}`, { opened: true });
+    // Конверт-сигнал: другому push «відкрила»; тост — лише коли йому справді є куди його надіслати
+    if (env.signal) {
+      send(`envelopes/${env.id}/opened`, 'POST')
+        .then((r) => { if (r?.reaches) toast(`${cap(me.partner)} узнает, что ты ${me.youOpened} этот конверт 💜`); })
+        .catch(() => {});
+    }
+  };
+  // Вкладення (фото, гифка, голос, пісня) — над текстом; модуль вантажиться лише для такого листа
+  const slot = note.media ? h('div', { class: 'ea-slot' }, h('p', { class: 'ea-wait' }, 'Достаю из конверта…')) : null;
+  let stopMedia = null;
 
   let liked = false;
   const heart = h('button', {
@@ -139,7 +152,8 @@ function openCard(screen, env) {
     courier(env),
     h('article', { class: 'letter' },
       h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
-      h('p', { class: 'letter-text' }, text),
+      slot,
+      text ? h('p', { class: 'letter-text' }, text) : null,
       signLine(DATA.partnerSign, me.from)),
     h('div', { class: 'actions' },
       heart,
@@ -152,12 +166,19 @@ function openCard(screen, env) {
     setTimeout(() => { big.remove(); inner.classList.remove('is-sealed'); reader.querySelector('.btn-primary')?.focus(); }, 1150);
   }
 
-  // Конверт-сигнал: другому push «відкрила»; тост — лише коли йому справді є куди його надіслати
-  if (env.signal) {
-    send(`envelopes/${env.id}/opened`, 'POST')
-      .then((r) => { if (r?.reaches) toast(`${cap(me.partner)} узнает, что ты ${me.youOpened} этот конверт 💜`); })
-      .catch(() => {});
-  }
+  onClose = () => stopMedia?.();
+  if (!slot) { commit(); return; }
+  // Не завантажилось (нема звʼязку) — лист лишається в конверті непрочитаним
+  import('./envattach.js').then((ea) => ea.renderAttach(note)).then((m) => {
+    if (!reader.isConnected) { m.stop(); return; }
+    stopMedia = m.stop;
+    slot.replaceChildren(m.el);
+    commit();
+  }).catch(() => {
+    if (!reader.isConnected) return;
+    toast('Вложение не загрузилось — нет связи. Письмо осталось в конверте');
+    close();
+  });
 }
 
 // Закривається тапом будь-де поза самим листом, реплікою, улюбленцем і кнопками, а також Esc
