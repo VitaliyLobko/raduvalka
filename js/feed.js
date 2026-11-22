@@ -45,6 +45,8 @@ let fromTop = 0;
 // newest — ключ найновішого рядка: змінився, поки гортали вище, — кнопка «↓ Новое»
 let stuck = true;
 let newest = null;
+// Ключі вже показаних рядків — щоб «прийшло» звучало на будь-який новий рядок від другого, а не лише коли він став найновішим
+const heard = new Set();
 let jump = null;
 // Кругла «↓» справа внизу: прокрутили вгору далі за пів екрана — до найновішого одним тапом
 let down = null;
@@ -326,6 +328,9 @@ function draw(force = false, older = false) {
   const top = shown[0];
   const arrived = !older && newest && top && top.key !== newest ? top : null;
   if (top) newest = top.key;
+  // Найновішим міг лишитись мій лист «Ко времени», що ще в дорозі, — тоді чужий новий лист приходив беззвучно
+  const fromThem = !older && heard.size > 0 && shown.some((it) => !heard.has(it.key) && (it.type === 'in' || (it.type === 'meme' && !it.m.mine)));
+  shown.forEach((it) => heard.add(it.key));
   const mineNew = arrived && (arrived.type === 'out' || (arrived.type === 'meme' && arrived.m.mine));
 
   // Останні limit рядків у хронологічному порядку; старіше — кнопкою «Показать раньше» згори.
@@ -381,7 +386,7 @@ function draw(force = false, older = false) {
   else if (arrived && !wasStuck) jump.hidden = false;
   paintDown();
   // Прийшло від другого — шкатулка. «Пішло» грає сама відправка (тут своє могло й не стати найновішим)
-  if (arrived && !mineNew) sfx('letter', 0, 'them');
+  if (fromThem) sfx('letter', 0, 'them');
   // Новий лист від другого — курʼєр підбігає до нього
   if (arrived && !mineNew && arrived.type === 'in') {
     const pet = arrived.l.mascot || petFor('push');
