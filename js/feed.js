@@ -379,7 +379,7 @@ export function clearChat(on) {
   save('mine', { chatCleared: DATA.mine.chatCleared });
   draw();
   fresh();
-  if (on) toast('Чат очищен. Вернуть — долгим нажатием на «Письма»');
+  if (on) toast('Чат очищен. Вернуть — через ⋯ рядом с «Письма»');
 }
 
 // Заголовок «Письма»: довге натискання (чи правий клік) — «Очистить чат» або «Вернуть историю»
@@ -390,7 +390,12 @@ export function chatTitle() {
   t.addEventListener('pointerdown', () => { stop(); timer = setTimeout(() => chatMenu(t), 500); });
   for (const e of ['pointerup', 'pointercancel', 'pointerleave']) t.addEventListener(e, stop);
   t.addEventListener('contextmenu', (e) => { e.preventDefault(); stop(); chatMenu(t); });
-  return t;
+  // Довге натискання ніхто не знаходить — видима кнопка «⋯» поруч відкриває те саме меню
+  const more = h('button', {
+    type: 'button', class: 'chat-more', 'aria-label': 'Меню чата', 'aria-haspopup': 'menu',
+    onclick: () => chatMenu(more),
+  }, '⋯');
+  return h('div', { class: 'chat-head' }, t, more);
 }
 function chatMenu(t) {
   document.querySelector('.react-layer')?.remove();
@@ -406,7 +411,8 @@ function chatMenu(t) {
   const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, menu);
   document.body.append(layer);
   const r = t.getBoundingClientRect();
-  menu.style.left = `${Math.max(8, r.left)}px`;
+  // Меню не вилазить за правий край, коли його відкрито з «⋯»
+  menu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8))}px`;
   menu.style.top = `${r.bottom + 6}px`;
 }
 
