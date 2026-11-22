@@ -756,7 +756,7 @@ async function showBs(g) {
   const tip = h('div', { class: 'bs-tip' });
   open.body.replaceChildren(
     h('div', { class: 'duel-arena bs-arena' },
-      h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), score),
+      h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), h('div', { class: 'bs-side' }, h('p', { class: 'bs-label' }, 'Потоплено'), score)),
       status,
       tip,
       h('p', { class: 'bs-label is-big' }, WORLD[them].their), stage),
@@ -781,7 +781,7 @@ async function showBs(g) {
       return h('i', { class: `is-l${len}${k >= 0 ? ' is-on' : ''}`, html: miniShip(world, len) });
     }));
   };
-  const paintScore = () => score.replaceChildren(h('p', { class: 'bs-score-title' }, 'Потоплено'),
+  const paintScore = () => score.replaceChildren(
     h('p', { class: 'bs-score-row', 'aria-label': `Ты потопил(а) ${count.me} из 4` }, h('span', {}, 'ты'), pips(sunkLen.me, them)),
     h('p', { class: 'bs-score-row', 'aria-label': `${cap(who().partner)}: ${count.them} из 4` }, h('span', {}, who().partner), pips(sunkLen.them, me)),
     // Знайдені записки — тут же, поруч зі своїм полем: ні гру не зсувають, ні вниз не ховаються

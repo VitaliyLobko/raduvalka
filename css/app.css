@@ -4476,6 +4476,8 @@ html.is-still .bs-spark { animation: none; }
 /* Плашка рівно по висоті «Моё море» з полем: висоту рядка задає поле (contain: size), вміст ущільнено */
 .bs-top { align-items: stretch; gap: 8px; }
 .bs-score { contain: size; padding: 7px 8px; gap: 3px; align-content: space-between; }
+/* «Потоплено» — підписом над плашкою, як «Моё море» над полем; плашка — рівно по полю */
+.bs-side { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
 .bs-score .bs-found { gap: 3px; margin-top: 0; }
 .bs-score .bs-found-title { font-size: .75rem; }
 .bs-score .bs-env-btn { height: 26px; }
