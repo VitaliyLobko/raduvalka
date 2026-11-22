@@ -293,6 +293,9 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'GET' && path === 'envelopes/theirs') return json(await theirTemplates(env.DB, side));
   const tplDel = path.match(/^envelopes\/([\w-]{1,40})\/tpl\/(\d{1,3})$/);
   if (m === 'DELETE' && tplDel) return tplRemove(env.DB, side, env.FILES, tplDel[1], Number(tplDel[2]));
+  const noteAt = path.match(/^envelopes\/([\w-]{1,40})\/note\/(\d{1,3})$/);
+  if (m === 'PUT' && noteAt) return noteEdit(req, env.DB, side, noteAt[1], Number(noteAt[2]));
+  if (m === 'DELETE' && noteAt) return noteDrop(env.DB, side, env.FILES, noteAt[1], Number(noteAt[2]));
   const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
   if (m === 'POST' && envEvent) return envelopeEvent(env.DB, side, envEvent[1], envEvent[2], notify);
   if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify, env.FILES, env.FILES_HARD_BYTES);
@@ -1121,6 +1124,40 @@ async function tplRemove(db, side, files, envId, i) {
   await db.batch([
     db.prepare('UPDATE docs SET v = ?, updated = ? WHERE k = ?').bind(JSON.stringify(list), Date.now(), key),
     db.prepare("DELETE FROM letters WHERE id = ? AND kind = 'tpl'").bind(n.letter),
+  ]);
+  if (r && files && MEDIA_BYTES.includes(mediaOf(r)?.k)) await files.delete(`l-${r.id}`);
+  return json({ ok: true });
+}
+
+// Заготовлена записка в її конверті, яку ще не прочитали (з вкладенням чи без)
+async function noteTarget(db, side, envId, i) {
+  const key = `envelopes:${other(side)}`;
+  const list = (await getDoc(db, key)) || [];
+  const e = list.find((x) => x.id === envId);
+  if (!Number.isInteger(i) || i < 0 || e?.notes?.[i] == null) throw fail(404, 'not found');
+  const seen = ((await getDoc(db, `mine:${other(side)}`)) || {}).seen || {};
+  if (i < (seen[envId] || 0)) throw fail(409, 'opened');
+  return { key, list, e };
+}
+// Новий текст записки; вкладення й місце в конверті лишаються
+async function noteEdit(req, db, side, envId, i) {
+  const text = clip((await readJson(req)).text, MAX_LETTER);
+  if (!text) throw fail(400, 'text');
+  const t = await noteTarget(db, side, envId, i);
+  const n = t.e.notes[i];
+  t.e.notes[i] = typeof n === 'string' ? text : { ...n, text };
+  await db.prepare('UPDATE docs SET v = ?, updated = ? WHERE k = ?').bind(JSON.stringify(t.list), Date.now(), t.key).run();
+  return json({ ok: true });
+}
+// Прибрати записку зовсім. Лише непрочитану: усе після неї теж не прочитане, тож «прочитано» (позиція) не збивається
+async function noteDrop(db, side, files, envId, i) {
+  const t = await noteTarget(db, side, envId, i);
+  const [n] = t.e.notes.splice(i, 1);
+  const r = typeof n === 'string' ? null
+    : await db.prepare("SELECT id, media FROM letters WHERE id = ? AND kind = 'tpl' AND src = ?").bind(n.letter, side).first();
+  await db.batch([
+    db.prepare('UPDATE docs SET v = ?, updated = ? WHERE k = ?').bind(JSON.stringify(t.list), Date.now(), t.key),
+    ...(r ? [db.prepare("DELETE FROM letters WHERE id = ? AND kind = 'tpl'").bind(r.id)] : []),
   ]);
   if (r && files && MEDIA_BYTES.includes(mediaOf(r)?.k)) await files.delete(`l-${r.id}`);
   return json({ ok: true });

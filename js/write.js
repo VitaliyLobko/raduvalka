@@ -172,7 +172,7 @@ export function openWrite(preset = {}) {
   const paintTpl = () => {
     const n = counts?.[envId] || 0;
     tplBtn.hidden = where !== 'env' || !n;
-    tplBtn.textContent = `📎 Уже в конверте: ${n} · добавить вложение`;
+    tplBtn.textContent = `📎 Уже в конверте: ${n} · поправить, приложить`;
   };
   if (where === 'env') {
     import('./api.js').then(({ send }) => send('envelopes/theirs', 'GET'))

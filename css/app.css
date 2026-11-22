@@ -4843,3 +4843,10 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .tpl-has { color: var(--wax); font-weight: 600; }
 [data-side="vin"] .tpl-has { color: var(--star); }
 .tpl-add, .tpl-x { flex: none; min-width: 44px; min-height: 40px; justify-content: center; font-size: 1.1rem; }
+.tpl-field {
+  width: 100%; min-height: 96px; max-height: 40dvh; padding: 10px 12px; resize: vertical; box-sizing: border-box;
+  border: 1.5px solid color-mix(in srgb, var(--wax) 45%, transparent); border-radius: 10px;
+  background: var(--paper); color: inherit; font: 400 .9375rem/1.4 var(--ui);
+}
+[data-side="vin"] .tpl-field { border-color: color-mix(in srgb, var(--star) 45%, transparent); background: transparent; }
+.tpl-edit-btns { display: flex; justify-content: flex-end; gap: 8px; }
