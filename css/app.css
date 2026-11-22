@@ -4997,3 +4997,43 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .ea-below { margin-top: 12px; }
 .ph-pet-emoji { display: grid; place-items: center; width: 100%; height: 100%; font-size: 1.6rem; line-height: 1; }
 
+
+/* «＋»: не суцільний фон, а свій світ. У неї — рожево-лавандові хмарки й розсип сердечок; у нього — нічне небо:
+   зорі, золоте сяйво в куті, тонкий місяць. Плитки — напівпрозоре скло поверх */
+.cbar-plus {
+  overflow: hidden; isolation: isolate;
+  background:
+    radial-gradient(55% 70% at 0% 0%, rgba(255, 157, 192, .38), transparent 70%),
+    radial-gradient(50% 80% at 100% 100%, rgba(190, 160, 255, .34), transparent 72%),
+    radial-gradient(40% 50% at 70% 10%, rgba(255, 214, 230, .5), transparent 70%),
+    var(--paper);
+}
+.cbar-plus::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='120' viewBox='0 0 160 120'%3E%3Cg fill='%23ff9dc0'%3E%3Cpath d='M20 18c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z' opacity='.55'/%3E%3Cpath d='M118 64c-1.5-2.2-5-1.5-5 1.5 0 2.2 3 4.4 5 5.8 2-1.4 5-3.6 5-5.8 0-3-3.5-3.7-5-1.5z' opacity='.45'/%3E%3Cpath d='M72 100c-1-1.6-3.6-1-3.6 1 0 1.6 2.2 3.2 3.6 4.2 1.4-1 3.6-2.6 3.6-4.2 0-2-2.6-2.6-3.6-1z' opacity='.4'/%3E%3C/g%3E%3Cg fill='%23c5aaff'%3E%3Ccircle cx='140' cy='14' r='2'/%3E%3Ccircle cx='52' cy='52' r='1.5'/%3E%3Ccircle cx='10' cy='92' r='1.8'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 160px 120px;
+}
+.cbar-tile {
+  background: rgba(255, 255, 255, .55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7), 0 4px 12px -8px rgba(74, 37, 69, .45);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  transition: transform .12s ease-out;
+}
+.cbar-tile.is-special { background: rgba(255, 236, 245, .7); box-shadow: inset 0 0 0 1px rgba(255, 157, 192, .55), 0 4px 12px -8px rgba(74, 37, 69, .45); }
+.cbar-tile:active { transform: scale(.95); }
+
+[data-side="vin"] .cbar-plus {
+  background:
+    radial-gradient(45% 60% at 100% 0%, rgba(237, 185, 73, .2), transparent 70%),
+    radial-gradient(60% 80% at 0% 100%, rgba(84, 66, 140, .35), transparent 72%),
+    linear-gradient(170deg, #17506a, #0b2a39);
+}
+[data-side="vin"] .cbar-plus::before {
+  opacity: .9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='130' viewBox='0 0 180 130'%3E%3Cg fill='%23fff3d6'%3E%3Ccircle cx='14' cy='20' r='1.1' opacity='.8'/%3E%3Ccircle cx='60' cy='8' r='.8' opacity='.6'/%3E%3Ccircle cx='96' cy='34' r='1.3' opacity='.9'/%3E%3Ccircle cx='150' cy='18' r='.9' opacity='.7'/%3E%3Ccircle cx='170' cy='70' r='1.2' opacity='.8'/%3E%3Ccircle cx='38' cy='76' r='.9' opacity='.6'/%3E%3Ccircle cx='122' cy='96' r='1' opacity='.7'/%3E%3Ccircle cx='72' cy='118' r='1.2' opacity='.8'/%3E%3Ccircle cx='6' cy='112' r='.8' opacity='.5'/%3E%3C/g%3E%3Cpath d='M96 34 L150 18 L170 70' stroke='%23edb949' stroke-width='.6' fill='none' opacity='.35' stroke-dasharray='2 3'/%3E%3Cpath d='M128 56l1.6 3.4 3.4 1.6-3.4 1.6-1.6 3.4-1.6-3.4-3.4-1.6 3.4-1.6z' fill='%23edb949' opacity='.7'/%3E%3C/svg%3E");
+  background-size: 180px 130px;
+}
+[data-side="vin"] .cbar-tile {
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(237, 185, 73, .18), 0 6px 14px -10px rgba(0, 0, 0, .7);
+}
+[data-side="vin"] .cbar-tile.is-special { background: rgba(237, 185, 73, .12); box-shadow: inset 0 0 0 1px rgba(237, 185, 73, .4), 0 6px 14px -10px rgba(0, 0, 0, .7); }
+@media (prefers-reduced-transparency: reduce) { .cbar-tile { -webkit-backdrop-filter: none; backdrop-filter: none; } }
