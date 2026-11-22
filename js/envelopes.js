@@ -8,6 +8,8 @@ import { h, toast, cap, waxSeal, reduceMotion, signLine, ENV_POCKET, SAGITTARIUS
 const seen = () => (DATA.mine.seen ||= {});
 
 const left = (env) => Math.max(0, env.notes.length - (seen()[env.id] || 0));
+const readCount = (env) => Math.min(env.notes.length, seen()[env.id] || 0);
+const noteText = (note) => (typeof note === 'string' ? note : note.text || '');
 // Нове — непрочитана записка, яку дописали в застосунку ({ id, text }); заготовки (рядки) новими не рахуємо
 const fresh = (env) => env.notes.slice(seen()[env.id] || 0).some((n) => typeof n !== 'string');
 
@@ -74,7 +76,12 @@ export function renderEnvelopes(screen) {
     h('span', { class: 'env-label' }, env.label),
     h('span', { class: 'env-meta' }, n ? `${n} ${plural(n)}` : 'пусто'),
     env.signal && DATA.partnerPush ? h('span', { class: 'env-signal' }, `${cap(who().partner)} узнает, когда откроешь`) : null);
-    return card;
+    // Прочитані — окремим чипом під конвертом: перечитати, не розпечатуючи нового
+    const done = readCount(env);
+    return h('div', { class: 'env-slot' }, card, done ? h('button', {
+      type: 'button', class: 'mk-chip env-reread', 'aria-label': `Перечитать прочитанные: ${done}`,
+      onclick: () => { if (!opening) { opening = true; openReread(screen, env); } },
+    }, `📖 ${done}`) : null);
   });
 
   // На полиці — улюбленець-утішник (роль push), як у «Хотелках»
@@ -102,14 +109,19 @@ function openCard(screen, env) {
   let reader;
   let onClose = null;
   const close = () => { onClose?.(); reader.cleanup(); reader.remove(); renderEnvelopes(screen); };
+  // «📖 Перечитать» — з порожнього конверта й з-під щойно відкритого листа: до списку прочитаних
+  const rereadBtn = (count = true) => (readCount(env) ? h('button', {
+    type: 'button', class: 'btn env-reread-btn',
+    onclick: () => { onClose?.(); reader.cleanup(); reader.remove(); openReread(screen, env); },
+  }, count ? `📖 Перечитать (${readCount(env)})` : '📖 Перечитать') : null);
 
   if (!n) {
     // Другому летить push «конверт порожній»; «узнает» — лише якщо йому справді є куди його надіслати
-    const text = h('p', { class: 'letter-text' }, 'Записок пока нет ✍️');
+    const text = h('p', { class: 'letter-text' }, readCount(env) ? 'Новых записок пока нет ✍️' : 'Записок пока нет ✍️');
     reader = overlay(close,
       courier(env, 'Тут пока пусто.', 'envEmpty'),
       h('div', { class: 'letter letter-empty' }, text),
-      h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Хорошо')));
+      h('div', { class: 'actions' }, ...[rereadBtn(), h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Хорошо')].filter(Boolean)));
     send(`envelopes/${env.id}/empty`, 'POST').then((r) => { if (r?.reaches) text.textContent = me.partnerKnows; }).catch(() => {});
     return;
   }
@@ -141,7 +153,7 @@ function openCard(screen, env) {
     'aria-pressed': 'false',
     onclick: () => {
       liked = !liked;
-      if (note.id) save(`letters/${note.id}`, { liked });
+      if (note.id) { save(`letters/${note.id}`, { liked }); note.liked = liked; }
       heart.setAttribute('aria-pressed', String(liked));
       heart.replaceChildren(h('span', { class: 'heart', 'aria-hidden': 'true' }, liked ? '❤️' : '🤍'), liked ? 'Нравится' : 'Сердечко');
       // Сердечко бачить лише записка, дописана в застосунку; заготовка його нікуди не передає
@@ -166,8 +178,8 @@ function openCard(screen, env) {
       text ? h('p', { class: 'letter-text' }, text) : null,
       signLine(DATA.partnerSign, me.from)),
     h('div', { class: 'actions' },
-      heart,
-      h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));
+      ...[heart, read ? rereadBtn(false) : null,
+        h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')].filter(Boolean)));
 
   if (big) {
     const inner = reader.querySelector('.reader-inner');
@@ -189,6 +201,54 @@ function openCard(screen, env) {
     toast('Вложение не загрузилось — нет связи. Письмо осталось в конверте');
     close();
   });
+}
+
+// «📖 Перечитать»: уже відкриті листи цього конверта, свіжіші зверху; тап — лист цілком (без позначок «прочитано»)
+function openReread(screen, env) {
+  const done = env.notes.slice(0, readCount(env)).map((note, i) => ({ note, i })).reverse();
+  let reader;
+  const close = () => { reader.cleanup(); reader.remove(); renderEnvelopes(screen); };
+  const preview = (note) => {
+    const t = noteText(note).replace(/\s+/g, ' ').trim();
+    const pic = note.media ? `${MEDIA_ICON[note.media.k] || '📎'} ` : '';
+    return pic + (t.length > 90 ? `${t.slice(0, 90)}…` : t || 'вложение');
+  };
+  reader = overlay(close,
+    h('article', { class: 'letter env-reread-list' },
+      h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
+      h('h3', { class: 'env-reread-title' }, `Прочитанные · ${done.length}`),
+      h('div', { class: 'env-reread-items' }, ...done.map(({ note }) => h('button', {
+        type: 'button', class: 'env-reread-item',
+        onclick: () => { reader.cleanup(); reader.remove(); readAgain(screen, env, note); },
+      }, h('span', { class: 'env-reread-text' }, preview(note)), note.liked ? h('span', { 'aria-label': 'с сердечком' }, '❤️') : null)))),
+    h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));
+}
+
+const MEDIA_ICON = { photo: '📷', gif: '🎞', voice: '🎤', song: '🎵', link: '🎵' };
+
+function readAgain(screen, env, note) {
+  const me = who();
+  let reader;
+  let stop = null;
+  const shut = () => { stop?.(); reader.cleanup(); reader.remove(); };
+  const close = () => { shut(); renderEnvelopes(screen); };
+  const text = noteText(note);
+  const slot = note.media ? h('div', { class: 'ea-slot' }, h('p', { class: 'ea-wait' }, 'Достаю из конверта…')) : null;
+  reader = overlay(close,
+    h('article', { class: 'letter' },
+      h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
+      slot,
+      text ? h('p', { class: 'letter-text' }, text) : null,
+      signLine(DATA.partnerSign, me.from)),
+    h('div', { class: 'actions' },
+      h('button', { type: 'button', class: 'btn', onclick: () => { shut(); openReread(screen, env); } }, '← К списку'),
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')));
+  if (!slot) return;
+  import('./envattach.js').then((ea) => ea.renderAttach(note)).then((m) => {
+    if (!reader.isConnected) { m.stop(); return; }
+    stop = m.stop;
+    slot.replaceChildren(m.el);
+  }).catch(() => { if (reader.isConnected) slot.replaceChildren(h('p', { class: 'ea-wait' }, 'Вложение не загрузилось — нет связи')); });
 }
 
 // Закривається тапом будь-де поза самим листом, реплікою, улюбленцем і кнопками, а також Esc
