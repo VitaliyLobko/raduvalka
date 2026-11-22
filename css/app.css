@@ -1001,12 +1001,6 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 /* Поки тягнемо дані — без шапки й вкладок */
 .is-booting .top,
 .is-booting .tabs { visibility: hidden; }
-/* Заставка запуску — малюнок іконки на весь екран; зникає, щойно застосунок готовий. Замок, PIN і «не загрузилась» — поверх неї */
-.boot-art { position: fixed; inset: 0; z-index: 60; background: #0B2F40; pointer-events: none; }
-.boot-art svg { display: block; width: 100%; height: 100%; }
-.boot-art.is-gone { opacity: 0; transition: opacity .45s ease-out; }
-body:has(.pin-lock, .lock-form, .lock-error, .boot-stuck) .boot-art { display: none; }
-@media (prefers-reduced-motion: reduce) { .boot-art.is-gone { transition: none; } }
 
 /* Замок: поле для посилання з ключем */
 .lock-form { display: grid; gap: 10px; justify-items: center; }
