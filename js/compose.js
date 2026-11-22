@@ -6,7 +6,7 @@ import { DATA } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, ARROW, hhmm, dayWord as dayName } from './ui.js';
-import { composeMeme, composeGif, composeSticker } from './memes.js';
+import { composeMeme, composeGif, sendSticker } from './memes.js';
 import { openGifs } from './maker.js';
 import { openGames } from './games.js';
 import { openWrite, draft, nextMorning, QUEUED, sentToast } from './write.js';
@@ -357,7 +357,6 @@ function openPlus() {
       fileTile(camera, '📷', 'Камера'),
       DATA.files ? fileTile(filePicker, '📎', 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
-      tile('🐾', 'Наклейка', () => { closePlus(); composeSticker(sent, re); }),
       reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),
@@ -401,9 +400,12 @@ async function openEmoji() {
   if (document.activeElement === ui.area) ui.area.blur();
   const { emojiPanel, lastGrapheme } = await import('./emoji.js');
   if (emo || !ui) return;
-  const panel = h('div', { class: 'cbar-plus cbar-emoji', role: 'dialog', 'aria-label': 'Смайлы' },
+  const { re, sent } = memeReply();
+  const panel = h('div', { class: 'cbar-plus cbar-emoji', role: 'dialog', 'aria-label': 'Смайлы и наклейки' },
     h('button', { type: 'button', class: 'sheet-close visually-hidden', 'aria-label': 'Закрыть', onclick: () => closeEmoji() }),
     ...emojiPanel({
+      // Наклейка-улюбленець: тап по позі — одразу в чат, клавіатура закривається
+      onSticker: (key, i) => { closeEmoji(); sendSticker(key, i, sent, re); },
       onPick: (e) => { const [s, t] = spot(); putText(s, t, e); },
       onErase: () => {
         const [s, t] = spot();

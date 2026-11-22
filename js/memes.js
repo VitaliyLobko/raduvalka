@@ -108,13 +108,16 @@ export function stickParse(code) {
     return { key, i: +i, x: +sx / 1000, y: +sy / 1000, k: +k / 1000, r: +r, fx: f === '1' };
   });
 }
-// Фото пози — якщо такого улюбленця чи пози вже нема, наклейку пропускаємо
-export const stickSrc = (s) => { const f = petFiles(s.key)[s.i]; return f ? petFileSrc(f) : null; };
+// Файл пози (нема такого улюбленця чи пози — наклейку пропускаємо); фото, що ще докачується, підставиться саме (data-pet)
+export const stickFile = (s) => petFiles(s.key)[s.i] || null;
+export const stickImg = (s, attrs = {}) => {
+  const f = stickFile(s);
+  return f ? h('img', { src: petFileSrc(f) || null, 'data-pet': f, alt: '', draggable: 'false', ...attrs }) : null;
+};
 export function paintSticks(layer, list, sel = -1) {
   layer.replaceChildren(...list.map((s, n) => {
-    const src = stickSrc(s);
-    if (!src) return null;
-    const img = h('img', { src, alt: '', draggable: 'false', 'data-n': String(n), class: n === sel ? 'is-sel' : null });
+    const img = stickImg(s, { 'data-n': String(n), class: n === sel ? 'is-sel' : null });
+    if (!img) return null;
     img.style.cssText = `left:${s.x * 100}%;top:${s.y * 100}%;width:${s.k * 100}%;transform:translate(-50%, -50%) rotate(${s.r}deg)${s.fx ? ' scaleX(-1)' : ''}`;
     return img;
   }).filter(Boolean));
@@ -276,28 +279,15 @@ export async function composeMeme(file, done, re = null) {
   });
 }
 
-// Наклейка-улюбленець окремим повідомленням: шторка з вибором (stickpick.js), тап по позі — одразу надіслано
-export async function composeSticker(done, re = null) {
-  const { stickerRow } = await import('./stickpick.js');
-  const close = () => { el.remove(); backdrop.remove(); };
-  const { el: row } = stickerRow({
-    onPet: async (key, i) => {
-      close();
-      try {
-        const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re });
-        DATA.memes = [meme, ...(DATA.memes || [])];
-        const p = pet();
-        toast(`${petName(p) || 'Почтальон'} ${isShe(p) ? 'понесла' : 'понёс'} наклейку ➶`);
-        done?.();
-      } catch (e) { toast(sendError(e)); }
-    },
-  });
-  if (!row) { toast('Пока нет фото питомцев для наклеек'); return; }
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const el = h('div', { class: 'sheet sticker-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Наклейка' },
-    h('div', { class: 'write-head' }, h('h2', {}, '🐾 Наклейка'), h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
-    h('p', { class: 'hint' }, 'Тап — и наклейка улетит в чат'), row);
-  document.body.append(backdrop, el);
+// Наклейка-улюбленець окремим повідомленням (вибір — у клавіатурі 😊): лише код пози, фото є на обох телефонах
+export async function sendSticker(key, i, done, re = null) {
+  try {
+    const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re });
+    DATA.memes = [meme, ...(DATA.memes || [])];
+    const p = pet();
+    toast(`${petName(p) || 'Почтальон'} ${isShe(p) ? 'понесла' : 'понёс'} наклейку ➶`);
+    done?.();
+  } catch (e) { toast(sendError(e)); }
 }
 
 // GIF із пошуку: на сервер іде лише посилання GIPHY; підпис — шаром поверх (редактор gifedit.js)

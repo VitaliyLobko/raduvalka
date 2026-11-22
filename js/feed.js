@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
-import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, gifOver, stickParse, stickSrc } from './memes.js';
+import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, gifOver, stickParse, stickImg } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
@@ -993,7 +993,7 @@ function memeBubble(m) {
   // Старе фото стерли, щоб у базі лишалось місце: підпис і відповіді лишаються, картинки нема
   const sticker = isSticker(m) ? stickParse(m.stick)[0] : null;
   const pic = sticker ? h('div', { class: 'meme-sticker', role: 'img', 'aria-label': `Наклейка: ${petName(sticker.key) || 'питомец'}` },
-    stickSrc(sticker) ? h('img', { src: stickSrc(sticker), alt: '', draggable: 'false', style: sticker.fx ? 'transform: scaleX(-1)' : null }) : h('span', {}, '🐾'))
+    stickImg(sticker, { style: sticker.fx ? 'transform: scaleX(-1)' : null }) || h('span', {}, '🐾'))
     : m.file ? fileCard(m) : m.gone && !m.url
     ? h('p', { class: 'meme-gone' }, '🖼 Фото удалено, чтобы освободить место')
     : h('button', {

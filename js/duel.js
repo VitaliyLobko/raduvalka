@@ -54,18 +54,29 @@ const TIPS = {
 // Порада: на першому моєму ході в грі — завжди, далі — на кожному другому; та сама фраза двічі поспіль не йде
 const TIP_CHANCE = 0.5;
 const tipGames = new Set();
+// Рішення на хід (гра:хід → улюбленець і фраза чи null): поле перемальовується, поки думаєш, — порада не стрибає й не зникає
+const tipTurns = new Map();
 let lastTip = '';
 // Випадковий улюбленець із порадою під полем
 function petTip(kind, g) {
   const pets = Object.keys(DATA.mascots || {});
-  const first = !tipGames.has(g.id);
-  tipGames.add(g.id);
-  if (!pets.length || (!first && Math.random() >= TIP_CHANCE)) return null;
-  const key = pets[Math.floor(Math.random() * pets.length)];
-  const list = [...TIPS[kind], ...TIPS.any];
-  const pool = list.filter((t) => t !== lastTip);
-  lastTip = pool[Math.floor(Math.random() * pool.length)];
-  const line = petLine(key, 'gametip', lastTip);
+  if (!pets.length) return null;
+  const turn = `${g.id}:${g.n ?? g.rounds?.length ?? 0}`;
+  if (!tipTurns.has(turn)) {
+    const first = !tipGames.has(g.id);
+    tipGames.add(g.id);
+    let pick = null;
+    if (first || Math.random() < TIP_CHANCE) {
+      const pool = [...TIPS[kind], ...TIPS.any].filter((t) => t !== lastTip);
+      lastTip = pool[Math.floor(Math.random() * pool.length)];
+      pick = { key: pets[Math.floor(Math.random() * pets.length)], text: lastTip };
+    }
+    tipTurns.set(turn, pick);
+  }
+  const pick = tipTurns.get(turn);
+  if (!pick) return null;
+  const { key } = pick;
+  const line = petLine(key, 'gametip', pick.text);
   return h('div', { class: 'pet-tip', role: 'note' },
     h('span', { class: 'pet-tip-face', 'aria-hidden': 'true', html: mascotImg(key) }),
     h('p', {}, h('b', {}, petName(key)), ' ', line));
