@@ -4198,7 +4198,8 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   border: 2px solid rgba(42, 23, 48, .2); background: var(--c); cursor: pointer;
 }
 .ph-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--wax); }
-.ph-panel-stick { justify-content: stretch; }
+.ph-panel-stick { flex-direction: column; align-items: stretch; justify-content: stretch; gap: 4px; }
+.ph-panel-stick .ph-stickers { flex: none; }
 .ph-stickers { flex: 1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
 .ph-stickers::-webkit-scrollbar { display: none; }
 .ph-sticker { flex: none; width: 46px; height: 46px; padding: 0; border: 0; background: none; font-size: 1.85rem; line-height: 1; cursor: pointer; }
@@ -4873,3 +4874,24 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 }
 [data-side="vin"] .tpl-field { border-color: color-mix(in srgb, var(--star) 45%, transparent); background: transparent; }
 .tpl-edit-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.pl-sheet { display: flex; flex-direction: column; gap: 10px; max-height: 88dvh; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+.pl-all { align-self: start; }
+.pl-all[hidden] { display: none; }
+.pl-list { display: grid; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pl-empty { margin: 8px 0; color: var(--ink-soft); font-size: .9375rem; line-height: 1.4; }
+.pl-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px;
+  padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--lavender) 20%, var(--paper));
+}
+[data-side="vin"] .pl-row { background: color-mix(in srgb, var(--star) 10%, transparent); }
+.pl-icon { font-size: 1.3rem; }
+.pl-main { display: grid; gap: 2px; min-width: 0; }
+.pl-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .9375rem; }
+.pl-meta { color: var(--ink-soft); font-size: .8125rem; }
+.pl-slot[hidden] { display: none; }
+.pl-play { display: inline-flex; align-items: center; min-width: 44px; min-height: 40px; justify-content: center; text-decoration: none; }
+.pl-player { grid-column: 1 / -1; }
+.pl-player:empty { display: none; }
+.pl-wait { color: var(--ink-soft); font-size: .8125rem; }
+.postcard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.postcard-songs { flex: none; min-height: 36px; font-size: .875rem; }

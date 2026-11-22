@@ -69,6 +69,15 @@ export function petSrc(key, pose = 'main') {
   return m ? PETS[fileOf(m, pose)] || '' : '';
 }
 
+// blob-URL фото за імʼям файлу пози (наклейки в редакторі фото); ще не докачане — порожньо
+export const petFileSrc = (file) => PETS[file] || '';
+
+// Усі файли поз улюбленця без повторів, головна першою
+export const petFiles = (key) => {
+  const m = DATA.mascots[key];
+  return m ? [...new Set([m.poses.main, ...Object.values(m.poses)].filter(Boolean))] : [];
+};
+
 // data-pet — щоб фото, яке докачалось пізніше, вставилось у вже намальовані картки
 export function mascotImg(key, pose = 'main') {
   const m = DATA.mascots[key];

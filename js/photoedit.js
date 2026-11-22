@@ -4,7 +4,7 @@
 import { h, toast, ARROW, ribbon, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
 import { DATA } from './data.js';
-import { petSrc, petName } from './icons.js';
+import { petName, petFiles, petFileSrc } from './icons.js';
 
 const MAX_SIDE = 1280;
 const MAX_BYTES = 1.25 * 1024 * 1024;
@@ -577,9 +577,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     h('button', { type: 'button', class: 'mk-chip', onclick: () => { turn(); fit(); } }, '⟳ Повернуть'),
     h('button', { type: 'button', class: 'mk-chip', onclick: () => { tmpCrop = { x: 0, y: 0, w: rw(), h: rh() }; redraw(); } }, 'Всё фото'),
     done());
-  // Улюбленці першими: головна поза кружечком; фото без ключа (blob:) — полотно не «брудниться»
-  const petStickers = Object.keys(DATA.mascots || {}).map((key) => {
-    const src = petSrc(key);
+  // Улюбленці — окремою стрічкою над смайлами: усі пози кожного, головна першою; фото без ключа (blob:) — полотно не «брудниться»
+  const petStickers = Object.keys(DATA.mascots || {}).flatMap((key) => petFiles(key).map((file) => {
+    const src = petFileSrc(file);
     if (!src) return null;
     return h('button', {
       type: 'button', class: 'ph-sticker ph-sticker-pet', 'aria-label': `Наклейка: ${petName(key)}`,
@@ -593,9 +593,11 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
         items.push(sel);
         finishMode(true);
       },
-    }, h('img', { src, alt: '', width: 40, height: 40, draggable: 'false' }));
-  }).filter(Boolean);
-  const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...petStickers, ...STICKERS.map((s) => h('button', {
+    }, h('img', { src, alt: '', width: 40, height: 40, draggable: 'false', loading: 'lazy' }));
+  })).filter(Boolean);
+  const petRow = petStickers.length ? h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' }, ...petStickers) : null;
+  if (petRow) ribbon(petRow);
+  const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...STICKERS.map((s) => h('button', {
     type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`,
     onclick: () => {
       const v = view();
@@ -606,7 +608,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     },
   }, s)));
   ribbon(stickRow);
-  const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, stickRow);
+  const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, petRow, stickRow);
 
   function setMode(m) {
     if (mode === 'crop' && m !== 'crop') tmpCrop = null;

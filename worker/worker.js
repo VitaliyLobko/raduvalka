@@ -1216,6 +1216,19 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
     return json(results.map((r) => ({ ...r, opened: !!r.opened, liked: !!r.liked, media: mediaOf(r) })));
   }
 
+  // «Наш плейлист»: пісні в листах обох. Свої — усі, отримані — лише вже відкриті (сюрприз у конверті не розкриваємо)
+  if (m === 'GET' && rest === 'songs') {
+    const { results } = await db.prepare(
+      "SELECT id, src, kind, at, created, opened, liked, media FROM letters WHERE media IS NOT NULL "
+        + "AND json_extract(media, '$.k') IN ('song', 'link') AND kind IN ('now', 'morning', 'date', 'env', 'tpl') "
+        + 'AND (src = ? OR (dst = ? AND opened IS NOT NULL)) ORDER BY created DESC LIMIT 200',
+    ).bind(side, side).all();
+    return json(results.map((r) => ({
+      id: r.id, mine: r.src === side, kind: r.kind, at: r.kind === 'date' ? r.at : r.created,
+      opened: !!r.opened, liked: !!r.liked, media: mediaOf(r),
+    })));
+  }
+
   // Мій запас — лише відправнику, від найстарішого (його видадуть першим)
   if (m === 'GET' && rest === 'stock') {
     const { results } = await db.prepare(

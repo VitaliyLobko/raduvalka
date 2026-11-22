@@ -199,7 +199,8 @@ function recorder(body, done, back) {
 }
 
 // ── Програвач: ▶/⏸, смуга перемотки, час. d — тривалість, якщо файл її не каже (запис із телефона) ──
-export function player(blob, title, d = 0) {
+// onEnd — дограла до кінця (плейлист вмикає наступну)
+export function player(blob, title, d = 0, { onEnd } = {}) {
   const url = URL.createObjectURL(blob);
   const audio = new Audio();
   audio.preload = 'metadata';
@@ -217,13 +218,17 @@ export function player(blob, title, d = 0) {
   btn.addEventListener('click', () => { if (audio.paused) audio.play().catch(() => toast('Не играет — попробуй ещё раз')); else audio.pause(); });
   audio.addEventListener('play', () => { btn.textContent = '⏸'; btn.setAttribute('aria-label', 'Пауза'); });
   audio.addEventListener('pause', () => { btn.textContent = '▶'; btn.setAttribute('aria-label', 'Слушать'); });
-  audio.addEventListener('ended', () => { audio.currentTime = 0; paint(); });
+  audio.addEventListener('ended', () => { audio.currentTime = 0; paint(); onEnd?.(); });
   audio.addEventListener('timeupdate', paint);
   audio.addEventListener('loadedmetadata', paint);
   seek.addEventListener('input', () => { const all = total(); if (all) audio.currentTime = (seek.value / 1000) * all; paint(); });
   const el = h('div', { class: 'ea-player' }, btn,
     h('div', { class: 'ea-player-main' }, h('b', { class: 'ea-player-title' }, title), seek, time));
-  return { el, stop: () => { audio.pause(); audio.removeAttribute('src'); audio.load(); URL.revokeObjectURL(url); } };
+  return {
+    el,
+    play: () => audio.play().catch(() => toast('Не играет — попробуй ещё раз')),
+    stop: () => { audio.pause(); audio.removeAttribute('src'); audio.load(); URL.revokeObjectURL(url); },
+  };
 }
 
 // ── Рядок у «Написать»: що прикріплено, ✕ — прибрати ──
@@ -292,7 +297,7 @@ async function bytesOf(id, t) {
   const plain = await openBlob(await res.blob());
   return new Blob([plain], { type: t || 'application/octet-stream' });
 }
-export async function renderAttach(note) {
+export async function renderAttach(note, opts = {}) {
   const a = note.media;
   const gone = () => ({ el: h('p', { class: 'ea-gone' }, attachLine({ gone: true })), stop: () => {} });
   if (!a || a.gone) return gone();
@@ -323,6 +328,5 @@ export async function renderAttach(note) {
       stop: () => URL.revokeObjectURL(url),
     };
   }
-  const p = player(blob, a.k === 'voice' ? '🎤 Голосовое письмо' : `🎵 ${a.n || 'Песня для тебя'}`, a.d || 0);
-  return p;
+  return player(blob, a.k === 'voice' ? '🎤 Голосовое письмо' : `🎵 ${a.n || 'Песня для тебя'}`, a.d || 0, opts);
 }
