@@ -8,6 +8,19 @@ import { hasSecret, seal } from './seal.js';
 import { sosAlarm } from './sound.js';
 
 const REC_MAX = 30;
+// Місце, поки відкрита шторка: не частіше ніж раз на 30 с, лише якщо зсунулись на 25 м, і не довше 30 хв (GPS їсть батарею)
+const PLACE_EVERY = 30_000;
+const PLACE_MOVE = 25;
+const PLACE_FOR = 30 * 60_000;
+// Відстань між двома точками в метрах (гаверсинус)
+function metres(a, b) {
+  const R = 6371000;
+  const rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLon = rad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 const ago = (ms) => {
   const min = Math.round((Date.now() - ms) / 60000);
   return min < 1 ? 'только что' : min < 60 ? `${min} мин назад` : `в ${hhmm(ms)}`;
@@ -107,7 +120,8 @@ export async function openSos() {
   let stream = null;
   let timer = null;
   const stopMic = () => { clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); stream = null; };
-  const close = () => { if (rec?.state === 'recording') rec.stop(); stopMic(); sheet.remove(); backdrop.remove(); loadSos(); };
+  let stopPlace = () => {};
+  const close = () => { if (rec?.state === 'recording') rec.stop(); stopMic(); stopPlace(); sheet.remove(); backdrop.remove(); loadSos(); };
   closeBtn.addEventListener('click', close);
 
   // 1. Сигнал — одразу, нічого не чекаючи
@@ -142,22 +156,45 @@ export async function openSos() {
     }
   });
 
-  // 2. Місце — коли знайдеться
+  // 2. Місце — щойно знайдеться, далі стежимо, поки шторка відкрита (до PLACE_FOR): нове — не частіше
+  // раза на PLACE_EVERY і лише якщо зсунулись на PLACE_MOVE м чи точність покращилась удвічі
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const { latitude: lat, longitude: lon, accuracy } = pos.coords;
-      if (!(await signal)) { linePlace.textContent = '📍 Место есть, но без связи не ушло'; return; }
+    let last = null; // що вже пішло: { lat, lon, acc, t }
+    let pending = null;
+    let sending = false;
+    let later = 0;
+    const push = async () => {
+      if (sending || !pending || !sheet.isConnected) return;
+      const p = pending;
+      pending = null;
+      sending = true;
       try {
+        if (!(await signal)) { linePlace.textContent = '📍 Место есть, но без связи не ушло'; return; }
         // Із секретом — одним зашифрованим рядком: сервер не знає, де ти
-        await send(`sos/${id}`, 'PUT', hasSecret() ? { loc: await seal(JSON.stringify({ lat, lon, acc: Math.round(accuracy) })) } : { lat, lon, acc: accuracy });
-        linePlace.textContent = `📍 Место ушло ✓ (точность ±${Math.round(accuracy)} м)`;
+        await send(`sos/${id}`, 'PUT', hasSecret() ? { loc: await seal(JSON.stringify({ lat: p.lat, lon: p.lon, acc: p.acc })) } : { lat: p.lat, lon: p.lon, acc: p.acc });
+        const first = !last;
+        last = { ...p, t: Date.now() };
+        linePlace.classList.remove('is-bad');
+        linePlace.textContent = first ? `📍 Место ушло ✓ (±${p.acc} м), обновляется, пока окно открыто`
+          : `📍 Место обновлено в ${hhmm(last.t)} ✓ (±${p.acc} м)`;
       } catch {
-        linePlace.textContent = '📍 Место не ушло — нет связи';
-      }
-    }, () => {
-      linePlace.textContent = '📍 Место не получилось: нет разрешения или GPS';
-      linePlace.classList.add('is-bad');
+        if (!last) linePlace.textContent = '📍 Место не ушло — нет связи';
+      } finally { sending = false; }
+    };
+    const watch = navigator.geolocation.watchPosition((pos) => {
+      const p = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+      if (last && !(metres(last, p) >= PLACE_MOVE || p.acc * 2 <= last.acc)) return;
+      pending = p;
+      const wait = last ? last.t + PLACE_EVERY - Date.now() : 0;
+      clearTimeout(later);
+      if (wait > 0) later = setTimeout(push, wait); else push();
+    }, (e) => {
+      if (last) return;
+      linePlace.textContent = e.code === 1 ? '📍 Место не получилось: нет разрешения или GPS' : '📍 Ищу место… (GPS пока молчит)';
+      if (e.code === 1) linePlace.classList.add('is-bad');
     }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+    stopPlace = () => { navigator.geolocation.clearWatch(watch); clearTimeout(later); clearTimeout(placeEnd); };
+    const placeEnd = setTimeout(() => stopPlace(), PLACE_FOR);
   } else {
     linePlace.textContent = '📍 Телефон не даёт место';
   }
@@ -261,6 +298,8 @@ function theirCard(raw) {
       }, 'Понятно'));
   }
   if (!s.seen) alarmOn(s.id);
+  // Точність і коли місце оновилось — щоб було видно, наскільки точка свіжа
+  const mapMeta = [s.acc ? `±${s.acc} м` : '', s.locAt ? `${hhmm(s.locAt)}` : ''].filter(Boolean).join(', ');
   const seenBtn = s.seen ? h('p', { class: 'sos-meta' }, `Ты отметил${me.youOpened === 'открыла' ? 'а' : ''}, что видишь ✓`)
     : h('button', {
       type: 'button', class: 'btn btn-primary sos-seen',
@@ -276,7 +315,7 @@ function theirCard(raw) {
     h('p', { class: 'sos-title' }, '🚨 Нужна помощь'),
     h('p', { class: 'sos-meta' }, `${pressed(me.partner)} ${ago(s.at)}`),
     s.lat != null
-      ? h('a', { class: 'btn sos-map', href: mapUrl(s), target: '_blank', rel: 'noopener' }, `📍 На карте${s.acc ? ` (±${s.acc} м)` : ''}`)
+      ? h('a', { class: 'btn sos-map', href: mapUrl(s), target: '_blank', rel: 'noopener' }, `📍 На карте${mapMeta ? ` (${mapMeta})` : ''}`)
       : h('p', { class: 'sos-meta' }, '📍 Места пока нет'),
     s.audio ? voiceBtn(s) : h('p', { class: 'sos-meta' }, '🎙 Голосового пока нет'),
     seenBtn);

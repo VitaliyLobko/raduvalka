@@ -3524,8 +3524,8 @@ async function sosWipe(db, side) {
 // Що віддаємо телефону: свіже (до доби), без даних голосу — лише чи він є
 function sosView(s, now = Date.now()) {
   if (!s || now - s.at > SOS_MAX_AGE) return null;
-  const { id, at, created, lat, lon, acc, loc, audio, audioType, seen, ok } = s;
-  return { id, at, created, lat: lat ?? null, lon: lon ?? null, acc: acc ?? null, loc: loc || null, audio: !!audio, audioType: audioType || null, seen: seen || null, ok: ok || null };
+  const { id, at, created, lat, lon, acc, loc, locAt, audio, audioType, seen, ok } = s;
+  return { id, at, created, lat: lat ?? null, lon: lon ?? null, acc: acc ?? null, loc: loc || null, locAt: locAt || null, audio: !!audio, audioType: audioType || null, seen: seen || null, ok: ok || null };
 }
 
 async function sosRoute(req, db, side, path, notify) {
@@ -3569,7 +3569,11 @@ async function sosRoute(req, db, side, path, notify) {
   if (m === 'POST' && act === 'seen') {
     const s = await getDoc(db, theirKey);
     if (!s || s.id !== id) throw fail(404, 'not found');
-    if (!s.seen) await putDoc(db, theirKey, { ...s, seen: now });
+    // Патчем, не переписуючи документ: місце в цей момент могло оновитись
+    if (!s.seen) {
+      await db.prepare("UPDATE docs SET v = json_patch(v, ?), updated = ? WHERE k = ? AND json_extract(v, '$.id') = ?")
+        .bind(JSON.stringify({ seen: now }), now, theirKey, id).run();
+    }
     return json({ ok: true });
   }
   const s = await getDoc(db, key);
@@ -3596,16 +3600,20 @@ async function sosRoute(req, db, side, path, notify) {
       notify.send(other(side), sosVoiceNote(side));
       return json({ ok: true });
     }
+    // Місце оновлюється, поки відкрита шторка (до раза на 30 с): дописуємо патчем у той самий сигнал,
+    // не переписуючи документ, — інакше одночасне «Вижу» другого могло б загубитись. locAt — коли оновили
+    const patchLoc = (fields) => db.prepare("UPDATE docs SET v = json_patch(v, ?), updated = ? WHERE k = ? AND json_extract(v, '$.id') = ? AND json_extract(v, '$.ok') IS NULL")
+      .bind(JSON.stringify({ ...fields, locAt: now }), now, key, s.id).run();
     // Зашифроване місце (loc: «e1.…») — сервер не знає координат, лише зберігає
     if (typeof b.loc === 'string' && SEALED.test(b.loc)) {
-      await putDoc(db, key, { ...s, loc: clip(b.loc, 2000) });
+      await patchLoc({ loc: clip(b.loc, 2000) });
       return json({ ok: true });
     }
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw fail(400, 'coords');
     const acc = Number.isFinite(Number(b.acc)) ? Math.round(Number(b.acc)) : null;
-    await putDoc(db, key, { ...s, lat: Math.round(lat * 1e6) / 1e6, lon: Math.round(lon * 1e6) / 1e6, acc });
+    await patchLoc({ lat: Math.round(lat * 1e6) / 1e6, lon: Math.round(lon * 1e6) / 1e6, acc });
     return json({ ok: true });
   }
   throw fail(404, 'not found');
