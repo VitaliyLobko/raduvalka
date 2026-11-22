@@ -4468,10 +4468,14 @@ html.is-still .bs-spark { animation: none; }
 .bs-score .bs-found-title { font-size: .8125rem; }
 .bs-score .bs-found-note { padding: 6px 10px 6px 30px; font-size: 1.2rem; line-height: 1.2; }
 .bs-score .bs-found-note::before { left: 8px; top: 8px; font-size: .9rem; }
-.bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 30px; height: 15px; }
-.bs-pips i.is-l1, .bs-pips.is-vona i.is-l1.is-on, .bs-pips.is-vin i.is-l1.is-on { width: 15px; }
-.bs-pips i.is-l3, .bs-pips.is-vona i.is-l3.is-on, .bs-pips.is-vin i.is-l3.is-on { width: 45px; }
-.bs-pips { gap: 3px; }
+.bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 36px; height: 18px; }
+.bs-pips i.is-l1, .bs-pips.is-vona i.is-l1.is-on, .bs-pips.is-vin i.is-l1.is-on { width: 18px; }
+.bs-pips i.is-l3, .bs-pips.is-vona i.is-l3.is-on, .bs-pips.is-vin i.is-l3.is-on { width: 54px; }
+.bs-pips { gap: 2px; }
+/* «Потоплено» — на рівні «Моё море», а не по центру висоти; вужчі поля плашки — кораблики крупніші */
+.bs-top { align-items: start; gap: 8px; }
+.bs-score { padding: 10px 8px; }
+@media (max-width: 370px) { .bs-top { grid-template-columns: minmax(0, 130px) 1fr; } }
 /* Підпис над корабликами — їм уся ширина плашки */
 .bs-score-row { grid-template-columns: 1fr; gap: 1px; font-size: .8125rem; line-height: 1.1; }
 /* Мордочка улюбленця з порадою — крупніше */
