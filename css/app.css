@@ -3078,8 +3078,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 }
 .cbar-plus-label { margin: 0 0 8px 4px; font-size: .8125rem; color: var(--ink-soft); }
 .cbar-plus-label + .cbar-tiles + .cbar-plus-label { margin-top: 12px; }
-.cbar-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.cbar-tiles.is-wide { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.cbar-tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .cbar-tile {
   display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; padding: 8px 0;
   border: 0; border-radius: 16px; background: color-mix(in srgb, var(--lavender) 22%, var(--paper)); color: var(--plum);

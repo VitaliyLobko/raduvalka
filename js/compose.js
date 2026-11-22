@@ -18,6 +18,7 @@ const CARET = '<svg class="cbar-caret" viewBox="0 0 24 24" aria-hidden="true" fi
 const SMILE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/></svg>';
 const KEYS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8" stroke-width="2.2"/></svg>';
 const MAX_H = 132;
+const FILE_ACCEPT = 'application/*,text/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.rtf,.txt,.csv,.zip,.rar,.7z';
 
 let ui = null;
 // 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at.
@@ -224,7 +225,7 @@ function paint() {
   ui.emoBtn.setAttribute('aria-label', emo ? 'Клавиатура' : 'Смайлы');
   ui.emoBtn.setAttribute('aria-expanded', String(!!emo));
   plusBtn.innerHTML = plus ? CROSS : PLUS;
-  plusBtn.setAttribute('aria-label', plus ? 'Закрыть' : 'Ещё: фото, гифка, спор, конверт');
+  plusBtn.setAttribute('aria-label', plus ? 'Закрыть' : 'Ещё: галерея, камера, файл, гифка, игры, письмо ко времени');
   plusBtn.setAttribute('aria-expanded', String(!!plus));
   // Порожньо — 🎤 (де браузер уміє голос); є текст або йде запис — ➤ чи та сама 🎤, поки слухає
   const listening = act.classList.contains('is-listening');
@@ -317,26 +318,25 @@ function openPlus() {
   closeEmoji();
   ui.area.blur();
   const { re, sent } = memeReply();
-  const picker = h('input', {
-    type: 'file', accept: 'image/*', class: 'visually-hidden',
+  // Фото — у редактор (підпис, мем); відео й документ — як файл до 25 МБ (files.js вантажиться лише тепер)
+  const asFile = async (file) => { const { sendFile } = await import('./files.js'); sendFile(file, sent, re); };
+  const input = (attrs, take) => h('input', {
+    type: 'file', class: 'visually-hidden', ...attrs,
     onchange: (e) => {
       const [file] = e.target.files;
+      e.target.value = '';
       if (!file) return;
       closePlus();
-      composeMeme(file, sent, re);
+      take(file);
     },
   });
-  // Будь-який файл до 25 МБ — як файл, не картинкою; модуль files.js вантажиться лише тепер
-  const filePicker = h('input', {
-    type: 'file', class: 'visually-hidden',
-    onchange: async (e) => {
-      const [file] = e.target.files;
-      if (!file) return;
-      closePlus();
-      const { sendFile } = await import('./files.js');
-      sendFile(file, sent, re);
-    },
-  });
+  // «Галерея» — системний вибір фото й відео (камери там на новому Android нема — для неї своя плитка)
+  const gallery = input({ accept: DATA.files ? 'image/*,video/*' : 'image/*' },
+    (file) => (file.type.startsWith('video/') ? asFile(file) : composeMeme(file, sent, re)));
+  const camera = input({ accept: 'image/*', capture: 'environment' }, (file) => composeMeme(file, sent, re));
+  // Без картинок і відео в accept Android одразу відкриває файли, а не «Камера / Видеокамера»
+  const filePicker = input({ accept: FILE_ACCEPT }, asFile);
+  const fileTile = (el, icon, label) => h('label', { class: 'cbar-tile' }, el, h('span', { 'aria-hidden': 'true' }, icon), label);
   const tile = (icon, label, onclick, cls = '') => h('button', { type: 'button', class: `cbar-tile${cls}`, onclick },
     h('span', { 'aria-hidden': 'true' }, icon), label);
   const envs = DATA.partnerEnvelopes || [];
@@ -344,13 +344,14 @@ function openPlus() {
     h('button', { type: 'button', class: 'sheet-close visually-hidden', 'aria-label': 'Закрыть', onclick: () => closePlus() }),
     h('p', { class: 'cbar-plus-label' }, 'Прикрепить'),
     h('div', { class: 'cbar-tiles' }, ...[
-      h('label', { class: 'cbar-tile' }, picker, h('span', { 'aria-hidden': 'true' }, '📷'), 'Фото'),
-      DATA.files ? h('label', { class: 'cbar-tile' }, filePicker, h('span', { 'aria-hidden': 'true' }, '📎'), 'Файл') : null,
+      fileTile(gallery, '🖼️', 'Галерея'),
+      fileTile(camera, '📷', 'Камера'),
+      DATA.files ? fileTile(filePicker, '📎', 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
       reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),
-    h('div', { class: 'cbar-tiles is-wide' }, ...[
+    h('div', { class: 'cbar-tiles' }, ...[
       tile('🕐', 'Ко времени', () => pickTime(), ' is-special'),
       envs.length ? tile('✉️', 'В конверт', () => big({ where: 'env' }), ' is-special') : null,
       reply ? null : tile('🎉', 'Праздничное', () => big({ festive: true }), ' is-special'),
