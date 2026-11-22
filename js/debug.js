@@ -5,7 +5,7 @@ import { h, toast, aboutGroup, aboutRow } from './ui.js';
 import { previewCookie, allFortunes } from './cookie.js';
 import { CATS } from './plans.js';
 import { SAME_TOPICS } from './same.js';
-import { INSTRUMENTS, SOUND_NAMES, myInstrument, playAs, soundOn } from './sound.js';
+import { INSTRUMENTS, SOUND_NAMES, myInstrument, playAs, soundOn, soundParts } from './sound.js';
 
 // Одна шторка за раз; підшторка замість «Отладки», після ✕ чи Escape — назад до неї (back)
 function sheet(label, cls, back, ...kids) {
@@ -61,6 +61,8 @@ const SFX_GROUPS = [
   ['🎲 Игры', [['turn', 'Твой ход'], ['place', 'Крестик'], ['drop', 'Фишка'], ['line', 'Рисочка'], ['flip', 'Карточка'],
     ['pair', 'Пара'], ['miss', 'Мимо'], ['tick', 'Раз, два'], ['tock', 'Три!'], ['reveal', 'Руки открылись'],
     ['win', 'Победа'], ['lose', 'Проигрыш'], ['draw', 'Ничья'], ['splash', 'Морской бой: мимо']]],
+  ['🥠 Печеньки и планы', [['cookieIn', 'Печенька пришла'], ['cookie', 'Разломить'], ['goldIn', 'Золотая пришла'],
+    ['gold', 'Разломить золотую'], ['spin', 'Барабан'], ['pick', 'Барабан встал'], ['match', 'Совпали планы']]],
   ['🔇 Без инструмента, у всех одинаково', [['react', 'Реакция'], ['love', 'Сердечки'], ['shot', 'Выстрел'], ['hit', 'Попал'],
     ['sunk', 'Потопил'], ['note', 'Записка в кораблике'], ['bell', 'Звоночек: зовут'], ['ring', 'Звоночек: зовёшь']]],
 ];
@@ -80,10 +82,13 @@ function openSounds() {
     h('p', { class: 'hint' }, soundOn() ? 'Тап по инструменту — послушать его (первый раз запись грузится пару секунд). Твой выбор в «Звуках» не меняется'
       : 'Звуки выключены — включи в «О Радовалке» → «Звуки»'),
     chips,
+    h('p', { class: 'hint' }, '🎤 — запись шума, 🎵 — нота инструмента, который выбран выше. Без значков — простой синтез'),
     ...groups.flatMap(([title, list]) => [h('h3', { class: 'about-group-title' }, title),
-      h('div', { class: 'instr-row sfx-row' }, ...list.map(([k, label]) => h('button', {
-        type: 'button', class: 'instr-chip', onclick: () => playAs(k, inst),
-      }, label)))]));
+      h('div', { class: 'instr-row sfx-row' }, ...list.map(([k, label]) => {
+        const { inst: i, rec } = soundParts(k);
+        return h('button', { type: 'button', class: 'instr-chip', onclick: () => playAs(k, inst) },
+          label, rec || i ? h('span', { class: 'sfx-marks', 'aria-hidden': 'true' }, `${rec ? '🎤' : ''}${i ? '🎵' : ''}`) : null);
+      }))]));
 }
 
 // «Играть за двоих»: у грі зʼявляється кнопка «🎭 За неё» — її ходи йдуть її ключем (на цьому телефоні є обидва)

@@ -6,6 +6,7 @@ import { send } from './api.js';
 import { h, toast, reduceMotion } from './ui.js';
 import { petFor } from './icons.js';
 import { burst } from './fx.js';
+import { sfx } from './sound.js';
 
 // Класика печеньок — короткі добрі передбачення (свої тексти, у стилі справжніх)
 const FORTUNES = [
@@ -233,6 +234,7 @@ function show(day, gold, preset = null, preview = false) {
     if (layer.classList.contains('is-open')) return;
     layer.classList.add('is-open');
     navigator.vibrate?.(gold ? [30, 60, 30] : 30);
+    sfx(gold ? 'gold' : 'cookie');
     // Золота — спалах, хвилі й іскри
     if (gold) {
       goldBurst(layer, cookie);
@@ -242,4 +244,5 @@ function show(day, gold, preset = null, preview = false) {
   });
   document.body.append(layer);
   cookie.focus();
+  sfx(gold ? 'goldIn' : 'cookieIn', 150);
 }

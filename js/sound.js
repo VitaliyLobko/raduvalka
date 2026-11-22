@@ -189,7 +189,7 @@ export const samplesReady = (k) => !!bank.get(k);
 
 // Шуми — записи Kenney (CC0, sounds/fx): папір, картон, дерево, удари. Ім'я → null (вантажиться) | { buf, norm }
 const FX = ['envelope-open', 'envelope-send', 'card-flip', 'wood-knock', 'chip-clack', 'pen-line', 'punch', 'metal-crash',
-  'bloop', 'paper-rustle', 'cloth'];
+  'bloop', 'paper-rustle', 'cloth', 'reel-tick', 'cookie-crack', 'paper-slip'];
 const fx = new Map();
 function loadFx() {
   for (const n of FX) {
@@ -249,6 +249,20 @@ const quiet = () => {};
 // Глухий удар з падінням висоти: дерев'яна фішка, падіння, вибух
 const thump = (t, f0, f1, len, v) => osc('sine', f0, t, v, len, { to: f1, attack: 0.002 });
 
+// Барабан: моменти, коли рядок проїхав, — та сама крива, що в анімації plans.js: cubic-bezier(.12, .78, .18, 1).
+// Частіше ніж раз на 45 мс вухо клаці не розрізняє — такі злипаються в один
+let spinRows = 35;
+let spinMs = 3200;
+function spinTicks(t, tick) {
+  const bz = (a, b, s) => 3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3;
+  let last = -1;
+  for (let k = 1, s = 0; k <= spinRows; k += 1) {
+    while (s < 1 && bz(0.78, 1, s) < k / spinRows) s += 0.002;
+    const ms = bz(0.12, 0.18, s) * spinMs;
+    if (ms - last >= 45) { tick(t + ms / 1000); last = ms; }
+  }
+}
+
 // I(f, t, v, len) — нота інструментом; B — іскри-дзвіночки зверху (у низьких — тиша).
 // Фрази мають ритм і наголос: легкі підходи, довга нота-приземлення
 const SOUNDS = {
@@ -281,13 +295,15 @@ const SOUNDS = {
   tock: (t, I) => I(N.D6, t, 0.14, 0.4),
   // Руки відкрились: шурх і дві ноти разом
   reveal: (t, I) => { rec('cloth', t, 0.3) || noise(t, 0.09, 900, 2600, { v: 0.09 }); I(N.F6, t + 0.02, 0.13, 0.5); I(N.A6, t + 0.05, 0.1, 0.5); },
-  // Перемога: фанфара — тріоль угору, довга нота, «та-там» і великий фінал з акордом, потім зорепад іскор
+  // Перемога: своя фанфара — розбіг угору, урочиста довга ре, «гойдалка» сі-ля-сі, підйом
+  // і велика фінальна фа♯ акордом, потім зорепад іскор
   win: (t, I, B) => {
-    I(N.D5, t, 0.13, 0.3); I(N.F5, t + 0.09, 0.14, 0.3); I(N.A5, t + 0.18, 0.15, 0.3);
-    I(N.D6, t + 0.3, 0.19, 0.8);
-    I(N.A5, t + 0.62, 0.13, 0.25); I(N.D6, t + 0.72, 0.15, 0.25);
-    I(N.F6, t + 0.84, 0.2, 1.6); I(N.A5, t + 0.84, 0.1, 1.4); I(N.D5, t + 0.85, 0.1, 1.4);
-    [N.E7, N.A6, N.F7, N.B6].forEach((f, i) => B(f, t + 1.0 + i * 0.11, 0.035, 0.8));
+    I(N.D5, t, 0.12, 0.25); I(N.F5, t + 0.08, 0.13, 0.25); I(N.A5, t + 0.16, 0.14, 0.25);
+    I(N.D6, t + 0.26, 0.19, 0.7); I(N.A5, t + 0.26, 0.08, 0.6);
+    I(N.B5, t + 0.62, 0.12, 0.22); I(N.A5, t + 0.72, 0.11, 0.22); I(N.B5, t + 0.82, 0.13, 0.22);
+    I(N.D6, t + 0.94, 0.14, 0.22); I(N.E6, t + 1.04, 0.16, 0.22);
+    I(N.F6, t + 1.16, 0.21, 1.8); I(N.D6, t + 1.16, 0.1, 1.6); I(N.A5, t + 1.17, 0.09, 1.6); I(N.D5, t + 1.18, 0.09, 1.6);
+    [N.E7, N.A6, N.F7, N.B6, N.D7].forEach((f, i) => B(f, t + 1.34 + i * 0.1, 0.035, 0.8));
   },
   // Програш: «ну, нічого» — донизу, зависає й лагідно сідає на тоніку: втішно, не сумно
   lose: (t, I) => { I(N.A5, t, 0.12, 0.3); I(N.F5, t + 0.18, 0.12, 0.3); I(N.E5, t + 0.36, 0.12, 0.6); I(N.D5, t + 0.66, 0.13, 1.1); },
@@ -308,8 +324,32 @@ const SOUNDS = {
   // Дзвіночок: три удари (вхідний) — і один тихий, коли кличеш сам
   bell: (t) => [0, 0.32, 0.64].forEach((d) => { osc('sine', 1320, t + d, 0.28, 1.4, { attack: 0.01 }); osc('sine', 2640, t + d, 0.1, 0.8); osc('sine', 3960, t + d, 0.05, 0.5); }),
   ring: (t) => { osc('sine', 1320, t, 0.14, 1.1, { attack: 0.01 }); osc('sine', 2640, t, 0.05, 0.6); },
+  // Печенька з'явилась: тихе «дзинь-дзинь»; золота — мерехтіння з чотирьох іскор угору
+  cookieIn: (t) => { bell(N.A6, t, 0.06, 1); bell(N.D7, t + 0.13, 0.05, 1.2); },
+  goldIn: (t) => [N.D7, N.F7, N.A6, N.E7].forEach((f, i) => bell(f, t + i * 0.1, 0.05, 1.3)),
+  // Розломили: хрусь, папірець вислизає — і «та-дам» інструментом
+  cookie: (t, I) => { rec('cookie-crack', t, 0.5) || noise(t, 0.08, 2600, 1200, { v: 0.2, q: 0.8, attack: 0.002 }); rec('paper-slip', t + 0.16, 0.18); I(N.A5, t + 0.3, 0.12, 0.3); I(N.D6, t + 0.42, 0.16, 1); },
+  // Золота: хрусь, папірець і арпеджіо вгору з довгою вершиною, зорепад іскор
+  gold: (t, I, B) => { rec('cookie-crack', t, 0.55) || noise(t, 0.08, 2600, 1200, { v: 0.2, q: 0.8, attack: 0.002 }); rec('paper-slip', t + 0.16, 0.18);
+    I(N.D6, t + 0.3, 0.13, 0.3); I(N.F6, t + 0.38, 0.14, 0.3); I(N.A6, t + 0.46, 0.15, 0.35); I(N.D7, t + 0.56, 0.19, 1.4);
+    [N.F7, N.A6, N.E7, N.D7, N.B6].forEach((f, i) => B(f, t + 0.7 + i * 0.09, 0.04, 0.9));
+  },
+  // Барабан «Планов»: клац на кожен проїханий рядок, з уповільненням
+  spin: (t) => spinTicks(t, (at) => rec('reel-tick', at, 0.16) || osc('square', 1800, at, 0.02, 0.012, { attack: 0.001 })),
+  // Барабан став: «та-дам» і іскра
+  pick: (t, I, B) => { I(N.A5, t, 0.13, 0.3); I(N.D6, t + 0.11, 0.18, 1.2); B(N.A6, t + 0.24, 0.05); },
+  // Збіг планів: обидва хочуть — розкотистий акорд угору, довга вершина й іскри-сердечка
+  match: (t, I, B) => {
+    I(N.D6, t, 0.12, 0.3); I(N.F6, t + 0.08, 0.13, 0.3); I(N.A6, t + 0.16, 0.15, 0.4);
+    I(N.D7, t + 0.28, 0.19, 1.5); I(N.A6, t + 0.28, 0.1, 1.3); I(N.F6, t + 0.29, 0.08, 1.3);
+    [N.A6, N.D7, N.F7].forEach((f, i) => B(f, t + 0.5 + i * 0.12, 0.045, 1));
+  },
 };
 export const SOUND_NAMES = Object.keys(SOUNDS);
+// З чого звук (для пульта «Отладки»): inst — є ноти інструмента (функція бере I), rec — є запис-шум
+const RECORDED = new Set(['sent', 'flip', 'place', 'drop', 'line', 'reveal', 'hit', 'sunk', 'note', 'react', 'open',
+  'spin', 'cookie', 'gold']);
+export const soundParts = (n) => ({ inst: SOUNDS[n].length > 1, rec: RECORDED.has(n) });
 
 function play(name, delay, instrument) {
   if (!soundOn() || document.visibilityState !== 'visible' || !SOUNDS[name]) return;
@@ -330,6 +370,14 @@ let swapped = false;
 export function swapInstruments(on) { swapped = !!on; }
 // Будь-який звук заданим інструментом — для «Отладки», свій вибір не міняє
 export const playAs = (name, instrument) => play(name, 0, instrument);
+// Оберт барабана «Планов»: rows рядків за ms (у «Отладці» — стандартні 35 рядків за 3,2 с)
+export function sfxSpin(rows, ms) {
+  spinRows = rows;
+  spinMs = ms;
+  sfx('spin');
+  spinRows = 35;
+  spinMs = 3200;
+}
 // Послухати інструмент у налаштуваннях: «твій хід» і пара
 export function preview(instrument) {
   play('turn', 0, instrument);

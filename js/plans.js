@@ -6,6 +6,7 @@ import { mascotImg, petName, petFor, petLine, petTail } from './icons.js';
 import { h, toast, cap, reduceMotion, ribbon } from './ui.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { burst } from './fx.js';
+import { sfx, sfxSpin } from './sound.js';
 import { flashConstellation } from './depth.js';
 import { swipeable } from './feed.js';
 import { chipLabel, chipFestive } from './together.js';
@@ -362,6 +363,7 @@ async function vote(screen, idea, v, card) {
 function celebrate(idea) {
   // Збіг — і ваше сузірʼя на фоні спалахує
   flashConstellation();
+  sfx('match');
   const pet = petFor('box');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
@@ -619,7 +621,7 @@ function wheelView(screen, me, pet) {
     if (i < 0) return;
     spinning = true;
     try { await reel.spin(i); } finally { spinning = false; }
-    if (reel.el.isConnected) showPick(result, slots[i], data.spin);
+    if (reel.el.isConnected) { sfx('pick'); showPick(result, slots[i], data.spin); }
   };
   // Барабан і кнопка під ним (замість маточини колеса)
   const wheel = (hub) => h('div', { class: 'plan-reel-box' }, reel.el, hub);
@@ -785,6 +787,8 @@ function makeReel(slots) {
       void strip.offsetHeight;
       if (reduceMotion) { at(n + i); return; }
       requestAnimationFrame(() => at((REEL_REPS - 2) * n + i, SPIN_MS));
+      // Клац на кожен проїханий рядок, у такт з анімацією
+      sfxSpin((REEL_REPS - 2) * n + i - (i % n), SPIN_MS);
       await wait(SPIN_MS + 60);
     },
   };

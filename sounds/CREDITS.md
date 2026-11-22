@@ -35,5 +35,8 @@
 | bloop.ogg | Interface Sounds | drop_001.ogg |
 | paper-rustle.ogg | RPG Audio | bookFlip3.ogg |
 | cloth.ogg | RPG Audio | cloth1.ogg |
+| cookie-crack.ogg | RPG Audio | chop.ogg |
+| paper-slip.ogg | Casino Audio | cards-pack-take-out-1.ogg |
+| reel-tick.ogg | Interface Sounds | tick_001.ogg |
 
 Файлы не изменены (только переименованы); в приложении срезается тишина в начале.
