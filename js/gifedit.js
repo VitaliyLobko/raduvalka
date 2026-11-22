@@ -5,7 +5,7 @@ import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
 import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS } from './memes.js';
 import { sampleColor } from './colorpick.js';
-import { capStyle } from './capstyle.js';
+import { capStyle, histButtons } from './capstyle.js';
 
 // gif — { url, title, w, h } з пошуку; send(caption, style) — надіслати (кидає помилку — вікно лишається)
 export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
@@ -81,7 +81,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     }
     redraw();
   });
-  const up = (e) => { if (ptrs.delete(e.pointerId)) gesture(); };
+  const up = (e) => { if (ptrs.delete(e.pointerId)) gesture(); if (!ptrs.size) commit(); };
   stage.addEventListener('pointerup', up);
   stage.addEventListener('pointercancel', up);
 
@@ -121,6 +121,33 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     requestAnimationFrame(fit);
   }
   caption.addEventListener('input', sync);
+
+  // ── Історія ↶ ↷: знімок підпису (вид, шрифт, колір, місце, розмір, поворот) після кожної завершеної дії
+  const past = [];
+  const future = [];
+  let now = JSON.stringify(cap);
+  function commit() {
+    const k = JSON.stringify(cap);
+    if (k === now) return;
+    past.push(now);
+    if (past.length > 60) past.shift();
+    future.length = 0;
+    now = k;
+    paintHistory();
+  }
+  const step = (from, to) => {
+    if (!from.length) return;
+    to.push(now);
+    now = from.pop();
+    Object.assign(cap, JSON.parse(now));
+    sync();
+    paintHistory();
+  };
+  const [hUndo, hRedo] = histButtons(() => step(past, future), () => step(future, past));
+  function paintHistory() {
+    hUndo.disabled = !past.length;
+    hRedo.disabled = !future.length;
+  }
   caption.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
   const helper = captionHelper(caption, { about: gif.title || '', onPick: sync });
 
@@ -146,10 +173,12 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   };
   const x = h('button', { type: 'button', class: 'sheet-close ph-close', 'aria-label': 'Закрыть', onclick: () => close() }, '✕');
   const sheet = h('div', { class: 'sheet sheet-full sheet-photo sheet-gif', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новая гифка' },
-    h('div', { class: 'ph-top' }, x, h('span', { class: 'ph-gap' })),
+    h('div', { class: 'ph-top' }, x, hUndo, hRedo, h('span', { class: 'ph-gap' })),
     stage,
     h('div', { class: 'ph-bottom' }, belowLine, style.el, helper.el, h('div', { class: 'ph-send-row' }, caption, go)));
   const ro = new ResizeObserver(() => fit());
+  sheet.addEventListener('click', (e) => { if (!e.target.closest('.ph-hist')) commit(); });
+  sheet.addEventListener('change', commit);
   document.body.append(sheet);
   ro.observe(stage);
   sync();

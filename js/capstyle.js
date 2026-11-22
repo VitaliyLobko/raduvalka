@@ -3,7 +3,14 @@ import { h, ribbon } from './ui.js';
 import { CAP_COLORS, CAP_COLOR_NAMES, CAP_FONTS } from './memes.js';
 import { ownColor } from './colorpick.js';
 
-export const CAP_LOOKS = ['meme', 'hand', 'plate', 'bubble', 'tape', 'neon'];
+// ↶ ↷ для обох редакторів
+const svg = (d) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+export const histButtons = (onUndo, onRedo) => [
+  h('button', { type: 'button', class: 'ph-tool ph-hist', 'aria-label': 'Отменить', disabled: true, html: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'), onclick: onUndo }),
+  h('button', { type: 'button', class: 'ph-tool ph-hist', 'aria-label': 'Повторить', disabled: true, html: svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'), onclick: onRedo }),
+];
+
+export const CAP_LOOKS =['meme', 'hand', 'plate', 'bubble', 'tape', 'neon'];
 const LOOK_NAMES = { meme: 'Мем', hand: 'Рукой', plate: 'Плашка', bubble: 'Облачко', tape: 'Скотч', neon: 'Неон' };
 
 // belowLabel — назва «під картинкою»; onLook(v), onFont(v — '' це шрифт виду), onColor(i — номер кружка, або hex), onPipette()

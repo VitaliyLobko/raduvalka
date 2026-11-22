@@ -4209,9 +4209,12 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-tool[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); }
 [data-side="vin"] .ph-tool[aria-pressed="true"] { background: var(--star); border-color: var(--star); }
 .ph-tool[hidden] { display: none; }
+.ph-hist { color: var(--ink); }
+.ph-hist:disabled { opacity: .35; cursor: default; }
 @media (max-width: 380px) {
-  .sheet-photo .ph-top { gap: 4px; }
-  .ph-tool { width: 40px; height: 40px; font-size: 1.15rem; }
+  .sheet-photo .ph-top { gap: 3px; }
+  .ph-tool { width: 38px; height: 38px; font-size: 1.1rem; }
+  .ph-hist { width: 36px; height: 36px; }
 }
 .ph-tool:focus-visible, .ph-send:focus-visible, .ph-swatch:focus-visible, .ph-sticker:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
 .ph-stage { position: relative; flex: 1 1 auto; min-height: 120px; display: grid; place-items: center; overflow: hidden; touch-action: none; }

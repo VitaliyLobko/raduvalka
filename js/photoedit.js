@@ -6,7 +6,7 @@ import { captionHelper } from './maker.js';
 import { DATA } from './data.js';
 import { petName, petFiles, petFileSrc } from './icons.js';
 import { ownColor, sampleColor } from './colorpick.js';
-import { capStyle } from './capstyle.js';
+import { capStyle, histButtons } from './capstyle.js';
 import { capFont, capFontCss, CAP_SIZE } from './memes.js';
 
 const MAX_SIDE = 1280;
@@ -612,6 +612,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     if (stroke?.id === e.pointerId) stroke = null;
     cropDrag = null;
     if (ptrs.delete(e.pointerId)) gesture();
+    if (!ptrs.size) commit();
   };
   stage.addEventListener('pointerup', up);
   stage.addEventListener('pointercancel', up);
@@ -695,8 +696,58 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     type: 'button', class: 'ph-tool', 'aria-label': 'Рамка «Полароид»', 'aria-pressed': 'false',
     onclick: () => { frame = !frame; syncCaption(); },
   }, '🖼️');
+  // ── Історія ↶ ↷: знімок — після кожної завершеної дії (палець відпущено, кнопку натиснуто).
+  // Текст підпису не входить — його правлять клавіатурою; при відкаті береться поточний
+  const snap = () => ({
+    items: items.map((it) => ({ ...it, box: null, cap: it === capItem, ...(it === capItem ? { text: '' } : {}) })),
+    strokes: strokes.map((s) => ({ ...s, pts: s.pts.slice() })),
+    crop: crop && { ...crop }, turns, flipX, flipY, frame, look, color, font,
+  });
+  const snapKey = (s) => JSON.stringify(s, (k, v) => (k === 'img' ? undefined : v));
+  const past = [];
+  const future = [];
+  let now = null;
+  let nowKey = '';
+  function commit() {
+    if (!now) return;
+    const s = snap();
+    const k = snapKey(s);
+    if (k === nowKey) return;
+    past.push(now);
+    if (past.length > 60) past.shift();
+    future.length = 0;
+    now = s;
+    nowKey = k;
+    paintHistory();
+  }
+  function restore(s) {
+    items.splice(0, items.length, ...s.items.map((it) => ({ ...it })));
+    capItem = items.find((it) => it.cap) || null;
+    strokes.splice(0, strokes.length, ...s.strokes.map((x) => ({ ...x, pts: x.pts.slice() })));
+    ({ turns, flipX, flipY, frame, look, color, font } = s);
+    crop = s.crop && { ...s.crop };
+    if (mode === 'crop') tmpCrop = crop ? { ...crop } : { x: 0, y: 0, w: rw(), h: rh() };
+    sel = null;
+    stroke = null;
+    syncCaption();
+    loadFont();
+    redraw();
+  }
+  const step = (from, to) => {
+    if (!from.length) return;
+    to.push(now);
+    now = from.pop();
+    nowKey = snapKey(now);
+    restore(now);
+    paintHistory();
+  };
+  const [hUndo, hRedo] = histButtons(() => step(past, future), () => step(future, past));
+  function paintHistory() {
+    hUndo.disabled = !past.length;
+    hRedo.disabled = !future.length;
+  }
   const trash = h('button', {
-    type: 'button', class: 'ph-tool ph-trash', 'aria-label': 'Убрать выбранное', hidden: true,
+    type: 'button', class: 'mk-chip ph-icon ph-trash', 'aria-label': 'Убрать выбранное',
     onclick: () => {
       if (!sel) return;
       if (sel === capItem) { caption.value = ''; syncCaption(); } else items.splice(items.indexOf(sel), 1);
@@ -739,7 +790,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const downBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-label': 'Ниже остальных', onclick: () => restack(-1) }, '⬇ Ниже');
   const mirX = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по горизонтали', onclick: () => mirror('fx') }, '⇆');
   const mirY = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по вертикали', onclick: () => mirror('fy') }, '⇅');
-  const selPanel = h('div', { class: 'ph-sel', hidden: true }, downBtn, upBtn, mirX, mirY);
+  const selPanel = h('div', { class: 'ph-sel', hidden: true }, trash, downBtn, upBtn, mirX, mirY);
   stage.append(selPanel);
   // Улюбленці — окремою стрічкою над смайлами: усі пози кожного, головна першою; фото без ключа (blob:) — полотно не «брудниться»
   const petStickers = Object.keys(DATA.mascots || {}).flatMap((key) => petFiles(key).map((file) => {
@@ -800,8 +851,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     cropPanel.hidden = mode !== 'crop';
     stickPanel.hidden = mode !== 'stick';
     bottom.hidden = mode === 'draw' || mode === 'crop' || mode === 'blur';
-    trash.hidden = !sel || mode !== 'move';
-    selPanel.hidden = !sel || mode !== 'move' || items.length < 2 && !mirrorable(sel);
+    selPanel.hidden = !sel || mode !== 'move';
     const idx = items.indexOf(sel);
     upBtn.hidden = items.length < 2;
     downBtn.hidden = items.length < 2;
@@ -885,15 +935,20 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     onclick: () => { if (mode !== 'move') finishMode(false); else close(); },
   }, '✕');
   const sheet = h('div', { class: 'sheet sheet-full sheet-photo', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новое фото' },
-    h('div', { class: 'ph-top' }, x, h('span', { class: 'ph-gap' }), trash, tCrop, tDraw, tBlur, tStick, tFrame),
+    h('div', { class: 'ph-top' }, x, hUndo, hRedo, h('span', { class: 'ph-gap' }), tCrop, tDraw, tBlur, tStick, tFrame),
     stage,
     drawPanel, blurPanel, cropPanel, stickPanel,
     bottom);
+  // Після будь-якої кнопки чи вибору в палітрі — знімок, якщо щось змінилось (обробники кнопок уже відпрацювали)
+  sheet.addEventListener('click', (e) => { if (!e.target.closest('.ph-hist')) commit(); });
+  sheet.addEventListener('change', commit);
   const ro = new ResizeObserver(() => fit());
   document.body.append(sheet);
   ro.observe(stage);
   paintTools();
   fit();
+  now = snap();
+  nowKey = snapKey(now);
   if (!reduceMotion) sheet.animate([{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
   setTimeout(() => { if (sheet.isConnected) document.documentElement.classList.add('is-covered'); }, 220);
 }
