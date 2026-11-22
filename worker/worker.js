@@ -230,6 +230,8 @@ async function route(req, env, ctx, info = {}) {
       partnerPush: await hasPush(env.DB, other(side)),
       // Сховище файлів підключене — телефон показує «📎 Файл»
       files: !!env.FILES,
+      // Набір питань «🔥 Совпадёт?» є в секретах — телефон показує плитку
+      hot: !!hotBank(env),
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
       partnerSign: (await getDoc(env.DB, 'signs'))?.[other(side)] || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
@@ -307,6 +309,7 @@ async function route(req, env, ctx, info = {}) {
   }
   if (path === 'duel' || path.startsWith('duel/')) return duelRoute(req, env.DB, side, path.slice(4), notify);
   if (path === 'same' || path.startsWith('same/')) return sameRoute(req, env.DB, side, path.slice(4), notify);
+  if (path === 'hot' || path.startsWith('hot/')) return hotRoute(req, env, side, path.slice(3), notify);
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
@@ -1201,6 +1204,13 @@ async function feedPage(db, side, url) {
     const t = Math.max(same.at, ...Object.values(ans).map((a) => a.at));
     if (t < before) wheel.push({ id: `m${same.id}`, same: sameView(same, ans, side), t });
   }
+  // «🔥 Совпадёт?» для двох: у стрічці лише стан, без текстів питань
+  const hot = await getDoc(db, 'hot');
+  if (hot?.id) {
+    const ans = await hotAnswers(db, hot.id);
+    const t = Math.max(hot.at, ...Object.values(ans).map((a) => a.at));
+    if (t < before) wheel.push({ id: `x${hot.id}`, hot: hotView(hot, ans, side), t });
+  }
   const spin = await getDoc(db, 'plan-spin');
   if (spin?.at && spin.at < before) {
     const idea = await db.prepare('SELECT title FROM ideas WHERE id = ?').bind(spin.id).first();
@@ -1227,6 +1237,9 @@ async function feedPage(db, side, url) {
     memes: of('meme').map((r) => view(r, side)),
     news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
       : r.same ? { kind: 'same', id: r.id, same: r.same, at: r.t }
+      : r.hot ? { kind: 'hot', id: r.id, hot: r.hot, at: r.t }
+      // Дограна — лише збіги (mood рядка далі не йде: гілка нижче віддала б його сирим)
+      : r.kind === 'hot' ? { kind: 'hot', id: r.id, hot: hotView({ ...JSON.parse(r.mood), at: r.t }, null, side), at: r.t }
       : r.kind === 'same' ? { kind: 'same', id: r.id, same: sameMarkView(r, side), at: r.t }
       : r.kind === 'duel' ? { kind: 'duel', id: r.id, duel: withGwish(duelMarkView({ ...r, at: r.t }, side), wishes, side), at: r.t }
       : r.kind === 'gwish' ? { kind: 'gwish', id: r.id, game: JSON.parse(r.mood).game, wish: gwishView(wishes.get(JSON.parse(r.mood).game), side), at: r.t }
@@ -3097,6 +3110,130 @@ async function sameRoute(req, db, side, rest, notify) {
   throw fail(404, 'not found');
 }
 
+// ── «🔥 Совпадёт?» для двох: 10 питань одного рівня, відповіді «нет / может / да». Другому не видно нічого,
+// крім збігів: обидва «да» — 2, «да» + «может» — 1, решта — 0. Тексти питань — у секретах воркера (HOT_SOFT,
+// HOT_HOT, HOT_FIRE — JSON { ключ: текст }), у публічному репозиторії лише ключі. doc hot — гра,
+// docs hot:<side> — відповіді; кінець — рядок marks kind hot лише зі збігами, відповіді стираються
+const HOT_LEVELS = { soft: 'HOT_SOFT', hot: 'HOT_HOT', fire: 'HOT_FIRE' };
+const HOT_N = 10;
+let hotCache = null;
+function hotBank(env) {
+  if (!hotCache) {
+    try {
+      const out = {};
+      for (const [lvl, name] of Object.entries(HOT_LEVELS)) out[lvl] = env[name] ? JSON.parse(env[name]) : null;
+      hotCache = Object.values(out).every((x) => x && Object.keys(x).length >= HOT_N) ? out : false;
+    } catch { hotCache = false; }
+  }
+  return hotCache || null;
+}
+const hotMatch = (a, b) => (a === 2 && b === 2 ? 2 : Math.min(a, b) === 1 && Math.max(a, b) === 2 ? 1 : 0);
+function hotAns(a) {
+  if (!Array.isArray(a) || a.length !== HOT_N || !a.every((x) => x === 0 || x === 1 || x === 2)) throw fail(400, 'hot');
+  return a;
+}
+async function hotAnswers(db, id) {
+  const out = {};
+  for (const sd of SIDES) {
+    // eslint-disable-next-line no-await-in-loop
+    const a = await getDoc(db, `hot:${sd}`);
+    if (a?.id === id) out[sd] = a;
+  }
+  return out;
+}
+// Що бачить сторона: свої відповіді, поки гра йде; чужих — ніколи, лише збіги після обох.
+// bank — додати тексти питань (шторка гри); у стрічці їх нема
+function hotView(g, ans, side, bank = null) {
+  const me = ans?.[side]?.ans || null;
+  const match = g.match || null;
+  const done = !!match;
+  return {
+    id: g.id,
+    mine: g.by === side,
+    at: g.at,
+    level: g.level,
+    n: g.qs.length,
+    ...(bank ? { qs: g.qs.map((k) => bank[g.level]?.[k] || '') } : {}),
+    me: done ? null : me,
+    theirDone: done || !!ans?.[other(side)],
+    done,
+    match,
+    hits: done ? match.filter((x) => x > 0).length : null,
+  };
+}
+async function lastHot(db, side, bank = null) {
+  const row = await db.prepare("SELECT mood, at FROM marks WHERE kind = 'hot' ORDER BY at DESC LIMIT 1").first();
+  return row ? hotView({ ...JSON.parse(row.mood), at: row.at }, null, side, bank) : null;
+}
+async function dropHot(db, id) {
+  await db.prepare("DELETE FROM docs WHERE k IN ('hot', 'hot:vona', 'hot:vin') AND v LIKE ?").bind(`%"id":"${id}"%`).run();
+}
+// 10 випадкових ключів рівня
+function hotDeal(bank, level) {
+  const keys = Object.keys(bank[level]);
+  for (let i = keys.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+  }
+  return keys.slice(0, HOT_N);
+}
+
+async function hotRoute(req, env, side, rest, notify) {
+  const db = env.DB;
+  const bank = hotBank(env);
+  if (!bank) throw fail(503, 'hot');
+  const m = req.method;
+  const now = Date.now();
+  if (m === 'GET' && !rest) {
+    const g = await getDoc(db, 'hot');
+    return json({ hot: g?.id ? hotView(g, await hotAnswers(db, g.id), side, bank) : null, last: await lastHot(db, side, bank) });
+  }
+  // Роздача питань для виклику: ключі й тексти, гра ще не почалась
+  if (m === 'GET' && rest === '/deal') {
+    const level = new URL(req.url).searchParams.get('level');
+    if (!HOT_LEVELS[level]) throw fail(400, 'hot');
+    const keys = hotDeal(bank, level);
+    return json({ level, keys, qs: keys.map((k) => bank[level][k]) });
+  }
+  const b = m === 'POST' ? await readJson(req) : {};
+  const reaches = await hasPush(db, other(side));
+  if (m === 'POST' && !rest) {
+    const level = String(b.level || '');
+    if (!HOT_LEVELS[level] || !Array.isArray(b.qs) || b.qs.length !== HOT_N
+      || new Set(b.qs).size !== HOT_N || !b.qs.every((k) => typeof k === 'string' && Object.hasOwn(bank[level], k))) throw fail(400, 'hot');
+    const ans = hotAns(b.ans);
+    const prev = await getDoc(db, 'hot');
+    if (prev?.id && now - prev.at < SAME_STALE) throw fail(409, 'busy');
+    if (prev?.id) await dropHot(db, prev.id);
+    const g = { id: newId(), by: side, level, qs: b.qs, at: now };
+    await putDoc(db, 'hot', g);
+    await putDoc(db, `hot:${side}`, { id: g.id, ans, at: now });
+    if (reaches) notify.send(other(side), hotNote(side, 'start'));
+    return json({ hot: hotView(g, await hotAnswers(db, g.id), side, bank), reaches }, 201);
+  }
+  const g = await getDoc(db, 'hot');
+  if (m === 'POST' && rest === '/answer') {
+    if (!g?.id || g.id !== String(b.id || '')) throw fail(409, 'gone');
+    const ans = hotAns(b.ans);
+    if (!(await hotAnswers(db, g.id))[side]) await putDoc(db, `hot:${side}`, { id: g.id, ans, at: now });
+    const all = await hotAnswers(db, g.id);
+    if (!all.vona || !all.vin) return json({ hot: hotView(g, all, side, bank), reaches });
+    // Обидва відповіли: лишаємо тільки збіги, самі відповіді стираємо
+    const match = all.vona.ans.map((x, i) => hotMatch(x, all.vin.ans[i]));
+    const end = { id: g.id, by: g.by, level: g.level, qs: g.qs, match };
+    await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+      .bind(`hot-${g.id}`, g.by, 'hot', JSON.stringify(end), now).run();
+    await dropHot(db, g.id);
+    if (reaches) notify.send(other(side), hotNote(side, 'done'));
+    return json({ hot: hotView({ ...end, at: now }, null, side, bank), reaches });
+  }
+  if (m === 'POST' && rest === '/cancel') {
+    if (g?.id && g.id === b.id) await dropHot(db, g.id);
+    return json({ ok: true });
+  }
+  throw fail(404, 'not found');
+}
+
 async function checkinSeen(req, db, side) {
   const b = await readJson(req);
   const k = `checkin:${other(side)}`;
@@ -3392,6 +3529,12 @@ function sameNote(from, what) {
   const base = { tag: 'same', go: 'same', title: '💞 Совпадёт?' };
   if (what === 'start') return { ...base, body: sender(from, 'Он ответил на вопросы — теперь ты. Совпадёт?', 'Она ответила на вопросы — теперь ты. Совпадёт?') };
   return { ...base, body: 'Ответы открылись — посмотри, сколько совпало' };
+}
+// «🔥 Совпадёт?» для двох: скромно — ні рівня, ні питань у сповіщенні
+function hotNote(from, what) {
+  const base = { tag: 'hot', go: 'hot', title: '🔥 Только для вас двоих' };
+  if (what === 'start') return { ...base, body: sender(from, 'Он ответил на вопросы — теперь ты', 'Она ответила на вопросы — теперь ты') };
+  return { ...base, body: 'Ответы открылись — посмотри, где совпало' };
 }
 
 function captainNote(from, quote) {

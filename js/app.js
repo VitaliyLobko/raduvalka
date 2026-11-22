@@ -22,6 +22,7 @@ import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
 import { openDuel } from './duel.js';
 import { openSame } from './same.js';
+import { openHot } from './hot.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
@@ -398,6 +399,7 @@ function goTo(go) {
   if (go === 'duel' || go.startsWith('duel:')) { if (tab !== 'letter') selectTab('letter'); openDuel({ game: go.slice(5) || 'rps' }); return true; }
   // «💞 Совпадёт?» — так само
   if (go === 'same') { if (tab !== 'letter') selectTab('letter'); openSame(); return true; }
+  if (go === 'hot') { if (tab !== 'letter') selectTab('letter'); openHot(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
   if (tab !== go) selectTab(go);

@@ -4013,8 +4013,9 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 [data-side="vin"] .game-tile-text .game-tile-live { background: rgba(255, 255, 255, .12); color: var(--ink); }
 [data-side="vin"] .game-tile-text .game-tile-live.is-me { background: var(--star); color: var(--night); }
 /* «💞 Совпадёт?» */
-.same-dots { display: flex; justify-content: center; gap: 6px; margin: 4px 0; }
-.same-dots i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--lavender) 35%, transparent); font-style: normal; font-size: .875rem; color: var(--ink-soft); }
+/* 10 кружків стискаються до ширини картки, а не виштовхують її за край */
+.same-dots { display: flex; justify-content: center; gap: 4px; margin: 4px 0; min-width: 0; }
+.same-dots i { display: grid; place-items: center; flex: 0 1 28px; min-width: 0; aspect-ratio: 1; border-radius: 50%; background: color-mix(in srgb, var(--lavender) 35%, transparent); font-style: normal; font-size: .875rem; color: var(--ink-soft); }
 .same-dots i.is-hit { background: #FFE9A8; }
 [data-side="vin"] .same-dots i { background: rgba(255, 255, 255, .08); }
 [data-side="vin"] .same-dots i.is-hit { background: rgba(237, 185, 73, .45); }
@@ -4061,6 +4062,15 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .same-pager .mk-chip[aria-selected="true"] { background: var(--plum); border-color: var(--plum); color: #fff; }
 [data-side="vin"] .same-pager .mk-chip[aria-selected="true"] { background: var(--star); border-color: var(--star); color: var(--night); }
 .same-mark { margin-left: auto; font-size: 1rem; }
+/* «🔥 Совпадёт?» для двох: три відповіді в ряд, рівні — плитками, у підсумку лише збіги */
+.hot-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hot-opt { min-height: 64px; padding: 6px; font-size: 1rem; }
+.hot-opt[data-v="2"] { border-color: var(--wax); }
+.hot-levels { display: grid; gap: 10px; }
+.hot-rows .same-row { grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+.hot-row.is-1 { background: color-mix(in srgb, var(--lavender) 30%, transparent); color: var(--ink); }
+[data-side="vin"] .hot-row.is-1 { background: rgba(255, 255, 255, .08); color: var(--ink); }
+.hot-tag { font-size: .75rem; font-weight: 600; white-space: nowrap; }
 .duel-act { display: grid; gap: 8px; }
 .duel-act:empty { display: none; }
 .duel-cancel { display: block; margin: 0 auto; padding: 10px; border: 0; background: none; color: var(--ink-soft); text-decoration: underline; font: inherit; }
@@ -4380,6 +4390,9 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .gi-spark { fill: none; stroke: var(--gi-gold); stroke-width: 2; }
 .gi-heart-a { fill: var(--gi-she); }
 .gi-heart-b { fill: var(--gi-gold); opacity: .9; }
+.gi-flame { fill: var(--gi-she); }
+.gi-flame-in { fill: var(--gi-gold); }
+.gi-flame-heart { fill: #fff; }
 .gi-paper { fill: var(--gi-paper); stroke: var(--gi-soft); stroke-width: 2; }
 .gi-fold { fill: none; stroke: var(--gi-soft); stroke-width: 2; }
 .gi-lines { fill: none; stroke: var(--gi-soft); stroke-width: 2; }

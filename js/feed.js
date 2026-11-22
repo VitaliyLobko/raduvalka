@@ -13,6 +13,7 @@ import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
 import { duelCard, duelSig, openDuel, gwishCard, duelKind } from './duel.js';
 import { sameCard, sameSig, openSame } from './same.js';
+import { hotCard, hotSig, openHot } from './hot.js';
 import { loveConstellation } from './depth.js';
 
 const SWIPE = 70;
@@ -445,7 +446,7 @@ function isFresh(it) {
 }
 function rowFor(it) {
   // Рядок спору залежить і від того, чи я вже бачив розкриття (localStorage), — текст рядка теж у підписі
-  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : it.n?.kind === 'same' ? sameSig(it.n.same) : null;
+  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : it.n?.kind === 'same' ? sameSig(it.n.same) : it.n?.kind === 'hot' ? hotSig(it.n.hot) : null;
   const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
@@ -475,6 +476,7 @@ function newsRow(n) {
   if (n.kind === 'duel') return h('li', { class: 'feed-news feed-duel' }, duelCard(n.duel, () => openDuel({ game: duelKind(n.duel) })));
   // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
   if (n.kind === 'same') return h('li', { class: 'feed-news feed-duel' }, sameCard(n.same, () => openSame(n.same)));
+  if (n.kind === 'hot') return h('li', { class: 'feed-news feed-duel' }, hotCard(n.hot, () => openHot(n.hot)));
   // «🎁 Желание» з гри «на желание»: висить, поки не відмітять «Исполнено ✓»
   if (n.kind === 'gwish') return h('li', { class: 'feed-news feed-duel', hidden: !n.wish }, n.wish ? gwishCard(n) : null);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
