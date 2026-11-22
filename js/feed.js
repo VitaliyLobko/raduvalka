@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
-import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, freeCap, gifFrame } from './memes.js';
+import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, gifOver } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
@@ -979,10 +979,10 @@ function fileCard(m) {
 // Картинка мемчика з підписом поверх: новий (стиль, місце, колір) — шаром у рамці кадру, старий — зверху чи знизу
 function memeMedia(m, label, src) {
   const el = media(m.url, label, src);
-  const free = m.caption && freeStyle(m.style);
-  if (free) return { el, view: [gifFrame(el, freeCap(free, m.caption))] };
-  const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
-  return { el, view: [el, over] };
+  // Новий підпис і наклейки — шаром у рамці кадру; старий підпис (зверху чи знизу) — як був
+  const frame = gifOver(el, m.caption, m.style, m.stick);
+  const over = m.caption && m.style && !freeStyle(m.style) ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
+  return { el, view: [frame || el, over] };
 }
 
 function memeBubble(m) {

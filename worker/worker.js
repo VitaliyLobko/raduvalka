@@ -127,6 +127,8 @@ const MIGRATIONS = [
   // n — назва пісні e1., cap — підпис фото e1.), gif (gif — посилання GIPHY, cap, style), link (url — посилання на пісню, e1.);
   // gone — коли байти стерто, щоб звільнити місце
   'ALTER TABLE letters ADD COLUMN media TEXT',
+  // Наклейки-улюбленці поверх гифки (код STICK)
+  'ALTER TABLE memes ADD COLUMN stick TEXT',
   // Індекси. Безкоштовний D1 рахує прочитані рядки (5 млн на добу), а без індексу кожен запит читає всю таблицю:
   // cron щохвилини, стрічка, конверти — з роками переписки це впирається в ліміт. Під кожен частий запит — свій
   // push «На утро» / «Ко времени» (cron щохвилини)
@@ -153,6 +155,11 @@ const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 // Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований);
 // колір — номер готового (0–4) або свій hex без «#»; шрифт — необовʼязковий хвіст
 const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}(?:\.(?:lobster|marck|bubbles|comfortaa|russo|playfair|press))?$/;
+
+// Наклейки-улюбленці поверх гифки: 'ключ.поза.x.y.розмір.поворот.дзеркало' через «~», до 8 (x, y, розмір — тисячні кадру).
+// Фото улюбленців однакові на обох телефонах, тож досить ключа й номера пози
+const STICK = /^[a-z0-9_-]{1,24}\.\d{1,2}\.\d{1,4}\.\d{1,4}\.\d{1,4}\.-?\d{1,3}\.[01](?:~[a-z0-9_-]{1,24}\.\d{1,2}\.\d{1,4}\.\d{1,4}\.\d{1,4}\.-?\d{1,3}\.[01]){0,7}$/;
+const stickOf = (v) => (STICK.test(String(v ?? '')) ? String(v) : null);
 
 let schemaReady = false;
 // Підпис схеми: змінились CREATE чи міграції — інший підпис, і схема прокрутиться ще раз
@@ -533,16 +540,18 @@ async function memesRoute(req, db, side, rest, notify, files) {
       quote: quoteOf(body),
       created: Date.now(),
       reaction: null,
+      stick: null,
     };
     const insertMeme = () => db.prepare(
-      'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.quote, meme.created, null);
+      'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, stick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.quote, meme.created, null, meme.stick);
 
     // GIF із GIPHY — лише посилання, файл не зберігаємо
     if (body.gif) {
       const gifUrl = String(body.gif.url || '');
       if (!GIF_URL.test(gifUrl)) throw fail(400, 'gif');
       meme.url = gifUrl;
+      meme.stick = stickOf(body.stick);
       await insertMeme().run();
       notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(body), 'gif') : memeNote(side, true));
       return json(view(meme, side), 201);
@@ -1221,7 +1230,7 @@ function linkMedia(m) {
     const gif = String(m.gif || '');
     if (!GIF_URL.test(gif)) throw fail(400, 'gif');
     const cap = clip(m.cap, 300) || null;
-    return { k: 'gif', gif, cap, style: cap && MEME_FREE.test(String(m.style ?? '')) ? m.style : null };
+    return { k: 'gif', gif, cap, style: cap && MEME_FREE.test(String(m.style ?? '')) ? m.style : null, stick: stickOf(m.stick) };
   }
   if (m.k === 'link') {
     const raw = String(m.url || '').trim();
@@ -1631,7 +1640,7 @@ function view(r, side) {
   return {
     id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, quote: r.quote || null,
     created: r.created, reaction: r.reaction,
-    reply: r.reply || null, replied: r.replied || null, gone: r.gone || null,
+    reply: r.reply || null, replied: r.replied || null, gone: r.gone || null, stick: r.stick || null,
     ...(r.file ? { file: JSON.parse(r.file) } : {}),
   };
 }

@@ -2,7 +2,7 @@
 import { DATA } from './data.js';
 import { get, send } from './api.js';
 import { openBlob } from './seal.js';
-import { petName, petFor } from './icons.js';
+import { petName, petFor, petFiles, petFileSrc } from './icons.js';
 import { h, toast } from './ui.js';
 import { rememberGif } from './maker.js';
 
@@ -95,6 +95,41 @@ export function paintFree(el, c, text) {
   return el;
 }
 export const freeCap = (c, text) => paintFree(h('span', { 'aria-hidden': 'true' }), c, text);
+// ── Наклейки-улюбленці поверх гифки: той самий шар у редакторі, стрічці, листі й на весь екран.
+// Код (сервер перевіряє той самий вигляд): 'ключ.поза.x.y.розмір.поворот.дзеркало' через «~»; x, y, розмір — тисячні кадру
+export const MAX_STICK = 8;
+const STICK_ONE = /^[a-z0-9_-]{1,24}\.\d{1,2}\.\d{1,4}\.\d{1,4}\.\d{1,4}\.-?\d{1,3}\.[01]$/;
+export const stickCode = (list) => (list.length ? list.slice(0, MAX_STICK).map((s) => [s.key, s.i,
+  Math.round(clamp(s.x, 0, 1) * 1000), Math.round(clamp(s.y, 0, 1) * 1000), Math.round(clamp(s.k, 0.05, 1.5) * 1000),
+  Math.round(((((s.r % 360) + 540) % 360) - 180)), s.fx ? 1 : 0].join('.')).join('~') : null);
+export function stickParse(code) {
+  return String(code || '').split('~').filter((x) => STICK_ONE.test(x)).slice(0, MAX_STICK).map((x) => {
+    const [key, i, sx, sy, k, r, f] = x.split('.');
+    return { key, i: +i, x: +sx / 1000, y: +sy / 1000, k: +k / 1000, r: +r, fx: f === '1' };
+  });
+}
+// Фото пози — якщо такого улюбленця чи пози вже нема, наклейку пропускаємо
+export const stickSrc = (s) => { const f = petFiles(s.key)[s.i]; return f ? petFileSrc(f) : null; };
+export function paintSticks(layer, list, sel = -1) {
+  layer.replaceChildren(...list.map((s, n) => {
+    const src = stickSrc(s);
+    if (!src) return null;
+    const img = h('img', { src, alt: '', draggable: 'false', 'data-n': String(n), class: n === sel ? 'is-sel' : null });
+    img.style.cssText = `left:${s.x * 100}%;top:${s.y * 100}%;width:${s.k * 100}%;transform:translate(-50%, -50%) rotate(${s.r}deg)${s.fx ? ' scaleX(-1)' : ''}`;
+    return img;
+  }).filter(Boolean));
+  return layer;
+}
+export const stickLayer = (list) => paintSticks(h('span', { class: 'gif-sticks', 'aria-hidden': 'true' }), list);
+// Гифка з підписом поверх і/або наклейками — рамкою точно по кадру; нема ні того, ні того — null (показати як є)
+export function gifOver(el, caption, style, stick) {
+  const free = caption && freeStyle(style);
+  const list = stickParse(stick);
+  if (!free && !list.length) return null;
+  const frame = gifFrame(el, free ? freeCap(free, caption) : null);
+  if (list.length) frame.insertBefore(stickLayer(list), frame.children[1] || null);
+  return frame;
+}
 // Рамка точно по кадру гифки (пропорції — з відео), щоб місце підпису в частках кадру всюди збігалось
 export function gifFrame(el, cap = null, ar = 0) {
   const frame = h('span', { class: 'gif-frame' }, el, cap);
@@ -246,8 +281,8 @@ export async function composeGif(gif, done, re = null) {
   const { gifEditor } = await import('./gifedit.js');
   gifEditor(gif, {
     fail: sendError,
-    send: async (caption, style) => {
-      const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style, ...re });
+    send: async (caption, style, stick) => {
+      const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style, stick, ...re });
       rememberGif(gif);
       DATA.memes = [meme, ...(DATA.memes || [])];
       const key = pet();

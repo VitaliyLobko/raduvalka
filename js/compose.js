@@ -21,6 +21,15 @@ const MAX_H = 132;
 const FILE_ACCEPT = 'application/*,text/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.rtf,.txt,.csv,.zip,.rar,.7z';
 
 let ui = null;
+// Android: системне «Назад» ховає клавіатуру, а поле лишається у фокусі (blur не приходить) — вкладки знизу так і
+// лишались схованими. Вікно знову на повну висоту (interactive-widget=resizes-content) — клавіатури нема, знімаємо фокус
+let tallest = innerHeight;
+let shrunk = false;
+addEventListener('resize', () => {
+  if (!document.body.classList.contains('is-typing')) { tallest = innerHeight; shrunk = false; return; }
+  if (innerHeight < tallest * 0.8) shrunk = true;
+  else if (shrunk && innerHeight > tallest * 0.9) { shrunk = false; ui?.area?.blur(); }
+});
 // 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at.
 // Святковий лист — лише з плитки «🎉 Праздничное» у ＋, у великому вікні
 let when = 'now';

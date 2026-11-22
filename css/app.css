@@ -5037,3 +5037,8 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 }
 [data-side="vin"] .cbar-tile.is-special { background: rgba(237, 185, 73, .12); box-shadow: inset 0 0 0 1px rgba(237, 185, 73, .4), 0 6px 14px -10px rgba(0, 0, 0, .7); }
 @media (prefers-reduced-transparency: reduce) { .cbar-tile { -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* Наклейки-улюбленці поверх гифки: круглі фото в білій рамці, як на фото; у редакторі — тягнуться пальцем */
+.gif-sticks { position: absolute; inset: 0; pointer-events: none; }
+.gif-sticks img { position: absolute; aspect-ratio: 1; height: auto; border-radius: 50%; border: max(2px, .5cqw) solid #fff; object-fit: cover; box-shadow: 0 2px 8px rgba(0, 0, 0, .4); box-sizing: border-box; }
+.gif-sticks.is-edit img { pointer-events: auto; cursor: grab; touch-action: none; }
+.gif-sticks img.is-sel { outline: 2px dashed var(--wax, #e0a93a); outline-offset: 3px; }

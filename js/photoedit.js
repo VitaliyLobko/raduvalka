@@ -1,10 +1,9 @@
 // Фото перед відправкою: підпис і наклейки (смайли й улюбленці) тягнуться пальцем (двома — розмір і поворот), малювання,
 // розмиття пальцем, рамка «Полароид», обрізка й поворот. Усе впікається в саму картинку — сервер і стрічка про це не знають.
 // Без правок іде той самий файл, що й раніше; «Под фото» — звичайний підпис текстом під картинкою, як завжди
-import { h, toast, ARROW, ribbon, reduceMotion } from './ui.js';
+import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
-import { DATA } from './data.js';
-import { petName, petFiles, petFileSrc } from './icons.js';
+import { stickerRow } from './stickpick.js';
 import { ownColor, sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 import { capFont, capFontCss, CAP_SIZE } from './memes.js';
@@ -793,69 +792,27 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const mirY = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по вертикали', onclick: () => mirror('fy') }, '⇅');
   const selPanel = h('div', { class: 'ph-sel', hidden: true }, trash, downBtn, upBtn, mirX, mirY);
   stage.append(selPanel);
-  // Наклейки одним рядком: зліва «що» — мордочка улюбленця чи 😊 (тап — вибір із трьох улюбленців і смайликів),
-  // праворуч — пози обраного чи смайлики. Фото без ключа (blob:) — полотно не «брудниться». Обране памʼятаємо
-  const PET_KEY = 'radovalka:sticker-pet';
-  const EMOJI = 'emoji';
-  const pets = Object.keys(DATA.mascots || {}).filter((key) => petFiles(key).some((f) => petFileSrc(f)));
-  const kinds = [...pets, EMOJI];
-  let petNow = (() => { try { return localStorage.getItem(PET_KEY); } catch { return null; } })();
-  if (!kinds.includes(petNow)) petNow = kinds[0];
-  const kindName = (key) => (key === EMOJI ? 'смайлики' : petName(key));
-  const petBtn = (key, file) => {
-    const src = petFileSrc(file);
-    if (!src) return null;
-    return h('button', {
-      type: 'button', class: 'ph-sticker ph-sticker-pet', 'aria-label': `Наклейка: ${petName(key)}`,
-      onclick: () => {
-        const v = view();
-        const img = new Image();
-        img.onload = redraw;
-        img.src = src;
-        const n = items.filter((x) => x.look === 'pet').length;
-        sel = { look: 'pet', key, img, size: v.w * 0.3, x: v.x + v.w * (0.3 + (n % 3) * 0.2), y: v.y + v.h * 0.35, k: 1, rot: 0 };
-        items.push(sel);
-        finishMode(true);
-      },
-    }, h('img', { src, alt: '', width: 56, height: 56, draggable: 'false', loading: 'lazy' }));
-  };
-  const emojiBtn = (s) => h('button', {
-    type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`,
-    onclick: () => {
+  // Наклейки одним рядком (stickpick.js): улюбленці чи смайлики. Фото без ключа (blob:) — полотно не «брудниться»
+  const { el: petRow } = stickerRow({
+    onPet: (key, i, src) => {
+      const v = view();
+      const img = new Image();
+      img.onload = redraw;
+      img.src = src;
+      const n = items.filter((x) => x.look === 'pet').length;
+      sel = { look: 'pet', key, img, size: v.w * 0.3, x: v.x + v.w * (0.3 + (n % 3) * 0.2), y: v.y + v.h * 0.35, k: 1, rot: 0 };
+      items.push(sel);
+      finishMode(true);
+    },
+    emojis: STICKERS,
+    onEmoji: (s) => {
       const v = view();
       const n = items.filter((x) => x.look === 'emoji').length;
       sel = { text: s, look: 'emoji', size: v.w * SIZE.emoji, x: v.x + v.w * (0.5 + ((n % 3) - 1) * 0.12), y: v.y + v.h * (0.42 + (n % 2) * 0.08), k: 1, rot: 0, color: '#000', wrap: v.w };
       items.push(sel);
       finishMode(true);
     },
-  }, s);
-  const face = (key) => (key === EMOJI ? h('span', { class: 'ph-pet-emoji' }, '😊')
-    : h('img', { src: petFileSrc(petFiles(key).find((f) => petFileSrc(f))), alt: '', width: 40, height: 40, draggable: 'false' }));
-  const petMenu = h('div', { class: 'ph-pet-menu', role: 'listbox', 'aria-label': 'Какие наклейки', hidden: true });
-  const petPick = h('button', {
-    type: 'button', class: 'ph-pet-pick', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
-    onclick: () => { petMenu.hidden = !petMenu.hidden; petPick.setAttribute('aria-expanded', String(!petMenu.hidden)); },
   });
-  const petPoses = h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' });
-  const paintPoses = () => {
-    petPick.replaceChildren(face(petNow), h('span', { class: 'ph-pet-caret', 'aria-hidden': 'true' }, '▾'));
-    petPick.setAttribute('aria-label', `Наклейки: ${kindName(petNow)}. Выбрать другие`);
-    petMenu.replaceChildren(...kinds.map((key) => h('button', {
-      type: 'button', class: 'ph-pet-opt', role: 'option', 'aria-selected': String(key === petNow), 'aria-label': kindName(key),
-      onclick: () => {
-        petNow = key;
-        try { localStorage.setItem(PET_KEY, petNow); } catch { /* приватне вікно */ }
-        petMenu.hidden = true;
-        petPick.setAttribute('aria-expanded', 'false');
-        paintPoses();
-      },
-    }, face(key))));
-    petPoses.replaceChildren(...(petNow === EMOJI ? STICKERS.map(emojiBtn) : petFiles(petNow).map((f) => petBtn(petNow, f)).filter(Boolean)));
-    petPoses.scrollLeft = 0;
-  };
-  paintPoses();
-  ribbon(petPoses);
-  const petRow = h('div', { class: 'ph-pet-row' }, h('div', { class: 'ph-pet-wrap' }, petPick, petMenu), petPoses);
   const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, petRow);
 
   function setMode(m) {

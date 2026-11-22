@@ -3,7 +3,7 @@
 import { API, getKey } from './api.js';
 import { sealBody, sealFile, openBlob, openDeep } from './seal.js';
 import { h, toast } from './ui.js';
-import { media, gifFrame, freeCap, freeStyle, prepare, prepareError, sendError } from './memes.js';
+import { media, gifFrame, gifOver, freeStyle, prepare, prepareError, sendError } from './memes.js';
 import { openGifs } from './maker.js';
 
 const VOICE_MAX = 60;
@@ -70,7 +70,7 @@ export async function pickPhoto(file, onAtt) {
 export function pickGif(onAtt) {
   openGifs(async (gif) => {
     const { gifEditor } = await import('./gifedit.js');
-    gifEditor(gif, { label: LABEL, fail: sendError, send: async (cap, style) => onAtt({ k: 'gif', gif, cap: cap || null, style }) });
+    gifEditor(gif, { label: LABEL, fail: sendError, send: async (cap, style, stick) => onAtt({ k: 'gif', gif, cap: cap || null, style, stick }) });
   });
 }
 
@@ -254,7 +254,7 @@ export function attachChip(a, onRemove) {
 
 // Опис для сервера: лише те, що він зберігає (підпис, назва й посилання шифрує sealBody)
 export function mediaBody(a) {
-  if (a.k === 'gif') return { k: 'gif', gif: a.gif.url, cap: a.cap || null, style: a.style || null };
+  if (a.k === 'gif') return { k: 'gif', gif: a.gif.url, cap: a.cap || null, style: a.style || null, stick: a.stick || null };
   if (a.k === 'link') return { k: 'link', url: a.url };
   return { k: a.k, t: a.t, ...(a.d ? { d: a.d } : {}), ...(a.n ? { n: a.n } : {}), ...(a.cap ? { cap: a.cap } : {}) };
 }
@@ -330,7 +330,7 @@ async function renderOne(id, a, opts) {
     const el = media(a.gif, 'Гифка в письме', a.gif);
     const free = a.cap && freeStyle(a.style);
     return {
-      el: h('div', { class: 'ea-gif' }, free ? gifFrame(el, freeCap(free, a.cap)) : gifFrame(el), !free && a.cap ? h('p', { class: 'ea-cap' }, a.cap) : null),
+      el: h('div', { class: 'ea-gif' }, gifOver(el, a.cap, a.style, a.stick) || gifFrame(el), !free && a.cap ? h('p', { class: 'ea-cap' }, a.cap) : null),
       stop: () => {},
     };
   }
