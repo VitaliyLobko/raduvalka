@@ -2,6 +2,7 @@
 // Над ним, поки пишеш, — хто понесе, коли (зараз / на утро) і «✨ Помочь»; над ними — цитата, якщо це відповідь.
 // «＋» — фото, гифка, спор і особливі листи (у конверт, до дати, велике вікно). Рядок один на весь запуск:
 // вкладка перемальовується, а набране, цитата й фокус лишаються
+import { sfx } from './sound.js';
 import { DATA } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
@@ -278,6 +279,7 @@ async function sendText() {
     paint();
     if (r.queued) { toast(QUEUED); return; }
     document.dispatchEvent(new CustomEvent('radovalka:sent'));
+    sfx('sent');
     toast(sentToast(p));
   } catch {
     toast('Не отправилось. Текст сохранён — попробуй ещё раз.');

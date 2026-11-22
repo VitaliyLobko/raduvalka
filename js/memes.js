@@ -1,4 +1,5 @@
 // Мемчики: фото й GIF одне одному (показ — у стрічці «Письма», feed.js). Картинку стискає і кодує телефон, не сервер
+import { sfx } from './sound.js';
 import { DATA } from './data.js';
 import { get, send } from './api.js';
 import { openBlob } from './seal.js';
@@ -272,6 +273,7 @@ export async function composeMeme(file, done, re = null) {
       const meme = await send('memes', 'POST', { type: out.type, data: await toBase64(out), caption, style: null, ...re });
       urls.set(meme.id, URL.createObjectURL(out));
       DATA.memes = [meme, ...(DATA.memes || [])];
+      sfx('sent');
       const key = pet();
       toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} фото ➶`);
       done?.();
@@ -284,6 +286,7 @@ export async function sendSticker(key, i, done, re = null) {
   try {
     const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re });
     DATA.memes = [meme, ...(DATA.memes || [])];
+    sfx('sent');
     const p = pet();
     toast(`${petName(p) || 'Почтальон'} ${isShe(p) ? 'понесла' : 'понёс'} наклейку ➶`);
     done?.();
@@ -299,6 +302,7 @@ export async function composeGif(gif, done, re = null) {
       const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style, stick, ...re });
       rememberGif(gif);
       DATA.memes = [meme, ...(DATA.memes || [])];
+      sfx('sent');
       const key = pet();
       toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} гифку ➶`);
       done?.();

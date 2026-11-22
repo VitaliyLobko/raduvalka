@@ -380,8 +380,8 @@ function draw(force = false, older = false) {
   if (mineNew) requestAnimationFrame(toEnd);
   else if (arrived && !wasStuck) jump.hidden = false;
   paintDown();
-  // Прийшло від другого — шкатулка, пішло моє — шурх
-  if (arrived) sfx(mineNew ? 'sent' : 'letter', 0, mineNew ? 'me' : 'them');
+  // Прийшло від другого — шкатулка. «Пішло» грає сама відправка (тут своє могло й не стати найновішим)
+  if (arrived && !mineNew) sfx('letter', 0, 'them');
   // Новий лист від другого — курʼєр підбігає до нього
   if (arrived && !mineNew && arrived.type === 'in') {
     const pet = arrived.l.mascot || petFor('push');
@@ -825,6 +825,7 @@ function inBubble(l) {
       body.setAttribute('aria-expanded', String(open));
       // Відкрив тут — прочитано; лише за тапом, не за показом
       if (open && !l.opened) {
+        sfx('open');
         l.opened = true;
         bubble.classList.remove('is-new');
         bubble.querySelector('.inbox-new')?.remove();
@@ -898,6 +899,8 @@ function envBubble(l) {
 // Звичайний лист розкривається прямо в чаті: печатка злітає — і на місці конверта сам лист, цілим
 function openHere(l, env) {
   const key = `l:${l.id}`;
+  // Шурхіт паперу — разом із тим, як злітає печатка
+  sfx('open', 120);
   const done = () => {
     const cur = liveLetter(l);
     cur.opened = true;

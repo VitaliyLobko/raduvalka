@@ -1,5 +1,6 @@
 // Велике вікно «Написать»: лист зараз, на ранок, до свого часу чи у її/його конверт. Звичайний лист пишуть у рядку під
 // чатом (compose.js), сюди — з його «＋» («В конверт», «🎉 Праздничное»), ⤢ у довгому рядку і «✨ Помочь»
+import { sfx } from './sound.js';
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
@@ -298,6 +299,7 @@ export function openWrite(preset = {}) {
     sentOk = true;
     close();
     document.dispatchEvent(new CustomEvent('radovalka:sent'));
+    sfx('sent');
     toast(sentToast(pet));
   };
 
@@ -330,6 +332,7 @@ export function openWrite(preset = {}) {
         return;
       }
       document.dispatchEvent(new CustomEvent('radovalka:sent'));
+      sfx('sent');
       toast(sentToast(pet));
     } catch {
       go.disabled = false;
