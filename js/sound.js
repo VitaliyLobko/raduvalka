@@ -144,28 +144,63 @@ function harp(f, t, v = 0.22, len = 0.9) {
   osc('sine', f * 2, t, v * 0.16, L * 0.45, { attack: 0.003 });
   osc('sine', f * 3, t, v * 0.05, L * 0.2, { attack: 0.003 });
 }
-// Флейта: подих на вступі, чистий тон, що розгойдується вібрато, і тихий другий обертон
+// Флейта. Тон — сильна основна й слабкі 2-й та 3-й обертони (без металу); навколо ноти весь час шумить струмінь
+// повітря, забарвлений самою нотою. Вступ — «чифф»: язик робить «ту», на мить проскакує октава вище.
+// Вібрато — диханням: хитається переважно гучність, висота ледь-ледь. Видих скінчився — нота обривається швидко
+let fluteWave = null;
 function flute(f, t, v = 0.22, len = 0.9) {
   const a = 0.05;
-  const hold = Math.min(len * 0.35, 0.3);
-  const end = t + a + hold + 0.24;
+  const hold = Math.min(len * 0.42, 0.36);
+  const rel = 0.13;
+  const end = t + a + hold + rel;
+  const peak = v * 0.46;
+  // Одна обвідна видиху — на тон і на повітря
+  const breathEnv = (g, k) => {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak * k, t + a);
+    g.gain.linearRampToValueAtTime(peak * k * 0.88, t + a + hold);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+  };
   const g = ctx.createGain();
-  swell(g, t, v * 0.6, a, hold, 0.24);
-  g.connect(out);
+  breathEnv(g, 1);
+  // Вібрато диханням: гучність ±12 %, розгойдується не одразу
+  const trem = ctx.createGain();
+  trem.gain.value = 1;
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 4.9;
+  const depth = ctx.createGain();
+  depth.gain.setValueAtTime(0, t);
+  depth.gain.setValueAtTime(0, t + a + 0.08);
+  depth.gain.linearRampToValueAtTime(0.12, t + a + 0.3);
+  lfo.connect(depth).connect(trem.gain);
+  lfo.start(t);
+  lfo.stop(end + 0.03);
+  g.connect(trem).connect(out);
+  fluteWave ||= ctx.createPeriodicWave(new Float32Array([0, 0, 0, 0, 0]), new Float32Array([0, 1, 0.28, 0.09, 0.03]));
   const o = ctx.createOscillator();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(f * 0.995, t);
-  o.frequency.exponentialRampToValueAtTime(f, t + 0.04);
-  const o2 = ctx.createOscillator();
-  o2.type = 'sine';
-  o2.frequency.setValueAtTime(f * 2, t);
-  const g2 = ctx.createGain();
-  g2.gain.value = 0.1;
+  o.setPeriodicWave(fluteWave);
+  o.frequency.setValueAtTime(f, t);
   o.connect(g);
-  o2.connect(g2).connect(g);
-  vibrato([o.frequency, o2.frequency], t, end, 5.2, f * 0.007, 0.1);
-  [o, o2].forEach((x) => { x.start(t); x.stop(end + 0.03); });
-  noise(t, a + 0.12, f * 1.1, f * 1.6, { v: v * 0.35, q: 1.4, attack: 0.02 });
+  vibrato([o.frequency], t, end, 4.9, f * 0.0025, a + 0.08);
+  o.start(t);
+  o.stop(end + 0.03);
+  // Повітря: шум у вузькій смузі навколо ноти, всю ноту, і ширший тихий подих зверху
+  [[f, 7, 0.16], [Math.min(f * 3, 7000), 0.9, 0.05]].forEach(([fc, q, k]) => {
+    const s = ctx.createBufferSource();
+    s.buffer = noiseBuf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = fc;
+    bp.Q.value = q;
+    const ng = ctx.createGain();
+    breathEnv(ng, k);
+    s.connect(bp).connect(ng).connect(trem);
+    s.start(t, Math.random() * 0.5);
+    s.stop(end + 0.03);
+  });
+  // «Чифф»: коротке «ту» — сплеск шуму й октава вище, що тут же гасне
+  noise(t, 0.045, Math.min(f * 2.5, 7000), Math.min(f * 2, 6000), { v: v * 0.22, q: 2, attack: 0.003 });
+  osc('sine', f * 2, t, v * 0.12, 0.05, { attack: 0.005 });
 }
 // Смичок. Струна під смичком дає «пилку» (рух Гельмгольца), а голос інструменту робить дерев'яний корпус:
 // кілька резонансів підсилюють свої смуги, верх зрізаний — без «електронного» дзижчання.
