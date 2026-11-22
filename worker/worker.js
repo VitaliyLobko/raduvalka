@@ -1233,7 +1233,6 @@ async function attachLetter(req, db, side, files, hard) {
   if (!files) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
   if (len > MAX_FILE + MAX_JSON) throw fail(413, 'size');
-  const quota = await fileQuota(db, side, len, hard);
   const buf = new Uint8Array(await req.arrayBuffer());
   const head = buf.byteLength >= 4 ? new DataView(buf.buffer, buf.byteOffset, 4).getUint32(0) : 0;
   if (!head || head > MAX_JSON || 4 + head >= buf.byteLength) throw fail(400, 'body');
@@ -1253,6 +1252,8 @@ async function attachLetter(req, db, side, files, hard) {
       return json({ id: dup.id, kind: dup.kind, env: dup.env, text: dup.text, created: dup.created, opened: !!dup.opened, liked: !!dup.liked, media: mediaOf(dup), again: true });
     }
   }
+  // Квота доби й межа сховища — уже знаючи, що це не повтор
+  const quota = await fileQuota(db, side, bytes.byteLength, hard);
   const mascots = (await getDoc(db, 'mascots')) || {};
   const mascot = mascots[b.mascot] ? String(b.mascot) : null;
   const text = clip(b.text, MAX_LETTER);

@@ -244,7 +244,9 @@ export function openWrite(preset = {}) {
     const ea = await lazyAttach();
     const label = go.innerHTML;
     try {
-      await ea.sendAttached({ kind: 'env', env: envId, text, mascot: pet, cid: newCid() }, att,
+      // id — один на вкладення: повтор після обірваної відповіді сервер упізнає й не покладе листа вдруге
+      att.cid ||= newCid();
+      await ea.sendAttached({ kind: 'env', env: envId, text, mascot: pet, cid: att.cid }, att,
         (p) => { go.textContent = `${Math.round(p * 100)}%`; });
     } catch (e) {
       go.innerHTML = label;
