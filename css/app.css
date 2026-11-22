@@ -4277,6 +4277,19 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-looks { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
 .ph-looks::-webkit-scrollbar { display: none; }
 .ph-looks .mk-chip { flex: none; min-height: 36px; padding: 0 12px; font-size: .875rem; white-space: nowrap; }
+/* Підпис: вкладки «Вид · Шрифт · Цвет», під ними — один рядок вибраної */
+.ph-capstyle { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ph-capstyle[hidden], .ph-pane[hidden], .ph-tab[hidden] { display: none; }
+.ph-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.ph-tab {
+  flex: 1 1 0; min-height: 32px; padding: 0 10px; border: 0; border-radius: 999px; background: none;
+  color: var(--ink-soft); font: 600 .8125rem/1 inherit; cursor: pointer;
+}
+.ph-tab[aria-selected="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, .18); }
+.ph-tab:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; }
+.ph-pane { min-height: 40px; display: flex; flex-direction: column; justify-content: center; }
+.ph-cap-colors { display: flex; justify-content: center; }
+.ph-fonts .mk-chip { font-size: .95rem; }
 /* ✨ підписи й настрій — по рядку, без підписів-заголовків: фото лишається якомога більшим */
 .sheet-photo .cap-assist .mk-label { display: none; }
 .sheet-photo .cap-assist .mk-row { margin: 0; }

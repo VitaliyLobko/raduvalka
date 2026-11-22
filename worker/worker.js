@@ -151,8 +151,8 @@ const MIGRATIONS = [
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 // Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований);
-// колір — номер готового (0–4) або свій hex без «#»
-const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}$/;
+// колір — номер готового (0–4) або свій hex без «#»; шрифт — необовʼязковий хвіст
+const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}(?:\.(?:lobster|marck|bubbles|comfortaa|russo|playfair|press))?$/;
 
 let schemaReady = false;
 // Підпис схеми: змінились CREATE чи міграції — інший підпис, і схема прокрутиться ще раз

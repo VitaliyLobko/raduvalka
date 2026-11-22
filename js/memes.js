@@ -46,17 +46,37 @@ const capLum = (hex) => {
   return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 };
 export const capLight = (hex) => capLum(hex) > 0.6;
-// Колір — номер готового кружка (0–4) або свій: шість hex-цифр без «#»
-const FREE = /^(meme|hand|plate|bubble|tape|neon)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})$/;
+// Шрифти підпису поверх виду (без шрифту — свій шрифт виду). k — у скільки разів шрифт ширший за Rubik
+// (розмір ділимо на нього, щоб підпис займав те ж місце); lh — міжрядковий; caps — чи читається великими (мем)
+export const CAP_FONTS = [
+  { v: 'lobster', label: 'Открытка', family: 'Lobster', weight: 400, k: 0.95, lh: 1.15, caps: false },
+  { v: 'marck', label: 'Почерк', family: 'Marck Script', weight: 400, k: 0.8, lh: 1.1, caps: false },
+  { v: 'bubbles', label: 'Пузыри', family: 'Rubik Bubbles', weight: 400, k: 1.05, lh: 1.15, caps: true },
+  { v: 'comfortaa', label: 'Мягкий', family: 'Comfortaa', weight: 700, k: 1.05, lh: 1.2, caps: true },
+  { v: 'russo', label: 'Мощный', family: 'Russo One', weight: 400, k: 1.05, lh: 1.15, caps: true },
+  { v: 'playfair', label: 'Журнал', family: 'Playfair Display', weight: 700, k: 1, lh: 1.15, caps: true },
+  { v: 'press', label: 'Пиксели', family: 'Press Start 2P', weight: 400, k: 1.7, lh: 1.45, caps: true },
+];
+export const capFont = (v) => CAP_FONTS.find((f) => f.v === v) || null;
+// Розмір підпису з окремим шрифтом — частка ширини кадру для Rubik (рукописні види задумані під вужчий Caveat)
+export const CAP_SIZE = { meme: 0.075, plate: 0.06, bubble: 0.06, hand: 0.07, tape: 0.063, neon: 0.077 };
+// Назви сімейств — у лапках: «Press Start 2P» без них ламає весь рядок шрифту
+export const capFontCss = (f, size) => `${f.weight} ${size} '${f.family}', system-ui, sans-serif`;
+// Колір — номер готового кружка (0–4) або свій: шість hex-цифр без «#»; шрифт — необовʼязковий хвіст
+const FREE = /^(meme|hand|plate|bubble|tape|neon)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})(?:\.([a-z]{3,9}))?$/;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // Види з фоном під текстом — на світлому фоні текст темно-сливовий
 const FILLED = new Set(['plate', 'bubble', 'tape']);
 export function freeStyle(code) {
   const m = FREE.exec(code || '');
-  return m ? { look: m[1], color: m[2].length === 6 ? `#${m[2]}` : +m[2], x: clamp(+m[3] / 1000, 0, 1), y: clamp(+m[4] / 1000, 0, 1), k: clamp(+m[5] / 100, 0.25, 8), r: +m[6] } : null;
+  return m ? {
+    look: m[1], color: m[2].length === 6 ? `#${m[2]}` : +m[2], x: clamp(+m[3] / 1000, 0, 1), y: clamp(+m[4] / 1000, 0, 1),
+    k: clamp(+m[5] / 100, 0.25, 8), r: +m[6], font: capFont(m[7])?.v || '',
+  } : null;
 }
+// Без шрифту — старі шість частин: такий код читають і застосунки до появи шрифтів
 export const freeCode = (c) => [c.look, typeof c.color === 'string' ? c.color.slice(1) : c.color, Math.round(clamp(c.x, 0, 1) * 1000), Math.round(clamp(c.y, 0, 1) * 1000),
-  Math.round(clamp(c.k, 0.25, 8) * 100), Math.round(((((c.r % 360) + 540) % 360) - 180))].join('.');
+  Math.round(clamp(c.k, 0.25, 8) * 100), Math.round(((((c.r % 360) + 540) % 360) - 180)), ...(capFont(c.font) ? [c.font] : [])].join('.');
 export function paintFree(el, c, text) {
   const color = (typeof c.color === 'string' && /^#[0-9a-f]{6}$/.test(c.color) ? c.color : CAP_COLORS[c.color]) || CAP_COLORS[0];
   el.className = `meme-free is-${c.look}`;
@@ -66,6 +86,12 @@ export function paintFree(el, c, text) {
   const dark = capLum(color) < 0.22;
   el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${ink};`
     + `--glow:${dark ? '#fff' : color};--core:${dark ? color : '#fff'}`;
+  // Свій шрифт — поверх шрифту виду (inline сильніший за клас); прописи в мемі не перетворюємо на великі
+  const f = capFont(c.font);
+  if (f) {
+    el.style.font = capFontCss(f, `${(CAP_SIZE[c.look] * 100) / f.k}cqw/${f.lh}`);
+    if (!f.caps) el.style.textTransform = 'none';
+  }
   return el;
 }
 export const freeCap = (c, text) => paintFree(h('span', { 'aria-hidden': 'true' }), c, text);

@@ -1,24 +1,15 @@
-// Гифка перед відправкою: підпис як у фото — «Под гифкой», «Мем», «Рукой», «Плашка», «Облачко», «Скотч», «Неон», 5 кольорів, свій (🎨 і піпетка); пальцем тягнеться,
+// Гифка перед відправкою: підпис як у фото — вид, шрифт і колір (вкладки capStyle); пальцем тягнеться,
 // двома — розмір і поворот. Гифку не перемальовуємо (canvas зʼїв би анімацію): підпис — шар поверх, на сервер іде
 // його текст (шифрується, як завжди) і код місця в style
-import { h, toast, ARROW, ribbon, reduceMotion } from './ui.js';
+import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
-import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, CAP_COLOR_NAMES } from './memes.js';
-import { ownColor, sampleColor } from './colorpick.js';
-
-const LOOKS = [
-  { v: 'below', label: 'Под гифкой' },
-  { v: 'meme', label: 'Мем' },
-  { v: 'hand', label: 'Рукой' },
-  { v: 'plate', label: 'Плашка' },
-  { v: 'bubble', label: 'Облачко' },
-  { v: 'tape', label: 'Скотч' },
-  { v: 'neon', label: 'Неон' },
-];
+import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS } from './memes.js';
+import { sampleColor } from './colorpick.js';
+import { capStyle } from './capstyle.js';
 
 // gif — { url, title, w, h } з пошуку; send(caption, style) — надіслати (кидає помилку — вікно лишається)
 export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
-  const cap = { look: 'below', color: 0, x: 0.5, y: 0.8, k: 1, r: 0 };
+  const cap = { look: 'below', color: 0, font: '', x: 0.5, y: 0.8, k: 1, r: 0 };
   // crossOrigin — щоб піпетка могла прочитати кадр (Giphy віддає дозвіл); ставимо до src, інакше не діє
   const video = media(gif.url, 'Что отправляю');
   video.crossOrigin = 'anonymous';
@@ -99,13 +90,11 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     type: 'text', class: 'ph-caption', 'data-voice': true, maxlength: '300', enterkeyhint: 'send',
     placeholder: 'Подпись (можно без)', 'aria-label': 'Подпись',
   });
-  const lookChips = LOOKS.map(({ v, label }) => h('button', {
-    type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
-    onclick: () => { cap.look = v; sync(); },
-  }, label));
-  const own = ownColor({
-    label: 'Цвет подписи',
-    onPick: (x) => { cap.color = x; sync(); },
+  const style = capStyle({
+    belowLabel: 'Под гифкой',
+    onLook: (v) => { cap.look = v; sync(); },
+    onFont: (v) => { cap.font = v; sync(); },
+    onColor: (c) => { cap.color = c; sync(); },
     onPipette: () => { armed = !armed; if (armed) toast('Коснись гифки — возьму оттуда цвет'); sync(); },
   });
   // Піпетка: поточний кадр у полотно розміром з рамку, колір під пальцем
@@ -121,20 +110,12 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     if (hex) cap.color = hex; else toast('Из этой гифки цвет не взять — выбери в 🎨');
     sync();
   }
-  const colors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет подписи' },
-    ...CAP_COLORS.map((c, i) => h('button', {
-      type: 'button', class: 'ph-swatch', role: 'radio', style: `--c:${c}`, 'data-v': String(i), 'aria-label': CAP_COLOR_NAMES[i],
-      onclick: () => { cap.color = i; sync(); },
-    })), own.el);
-  const looksRow = h('div', { class: 'mk-chips mk-row ph-looks', role: 'radiogroup', 'aria-label': 'Где и как подпись', hidden: true }, ...lookChips, colors);
-  ribbon(looksRow);
   function sync() {
-    looksRow.hidden = !caption.value.trim();
-    lookChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cap.look)));
-    colors.hidden = cap.look === 'below';
-    colors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === String(cap.color))));
     const custom = typeof cap.color === 'string';
-    own.paint(custom ? cap.color : CAP_COLORS[cap.color], !custom, armed);
+    style.paint({
+      text: caption.value.trim(), look: cap.look, font: cap.font,
+      color: custom ? cap.color : CAP_COLORS[cap.color], preset: custom ? -1 : cap.color, armed,
+    });
     stage.classList.toggle('is-pipette', armed);
     redraw();
     requestAnimationFrame(fit);
@@ -167,7 +148,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   const sheet = h('div', { class: 'sheet sheet-full sheet-photo sheet-gif', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Новая гифка' },
     h('div', { class: 'ph-top' }, x, h('span', { class: 'ph-gap' })),
     stage,
-    h('div', { class: 'ph-bottom' }, belowLine, looksRow, helper.el, h('div', { class: 'ph-send-row' }, caption, go)));
+    h('div', { class: 'ph-bottom' }, belowLine, style.el, helper.el, h('div', { class: 'ph-send-row' }, caption, go)));
   const ro = new ResizeObserver(() => fit());
   document.body.append(sheet);
   ro.observe(stage);

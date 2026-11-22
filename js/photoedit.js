@@ -6,20 +6,13 @@ import { captionHelper } from './maker.js';
 import { DATA } from './data.js';
 import { petName, petFiles, petFileSrc } from './icons.js';
 import { ownColor, sampleColor } from './colorpick.js';
+import { capStyle } from './capstyle.js';
+import { capFont, capFontCss, CAP_SIZE } from './memes.js';
 
 const MAX_SIDE = 1280;
 const MAX_BYTES = 1.25 * 1024 * 1024;
-const LOOKS = [
-  { v: 'below', label: 'Под фото' },
-  { v: 'meme', label: 'Мем' },
-  { v: 'hand', label: 'Рукой' },
-  { v: 'plate', label: 'Плашка' },
-  { v: 'bubble', label: 'Облачко' },
-  { v: 'tape', label: 'Скотч' },
-  { v: 'neon', label: 'Неон' },
-];
-// Розмір шрифту — частка ширини кадру
-const SIZE = { meme: 0.075, hand: 0.1, plate: 0.06, bubble: 0.06, tape: 0.09, neon: 0.11, emoji: 0.17 };
+// Розмір шрифту — частка ширини кадру (для шрифту виду; свій шрифт — CAP_SIZE / f.k)
+const SIZE ={ meme: 0.075, hand: 0.1, plate: 0.06, bubble: 0.06, tape: 0.09, neon: 0.11, emoji: 0.17 };
 const FONTS = {
   meme: (s) => `700 ${s}px Rubik, system-ui, sans-serif`,
   hand: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
@@ -71,9 +64,12 @@ function wrap(ctx, text, max) {
 // Підпис чи наклейка: розкладка рядків, розмір рамки (для влучання пальцем) і малювання в її власних координатах
 function layout(ctx, it) {
   if (it.look === 'pet') { it.box = { w: it.size, h: it.size }; return null; }
-  ctx.font = FONTS[it.look](it.size);
-  const lines = it.look === 'emoji' ? [it.text] : wrap(ctx, it.look === 'meme' ? it.text.toUpperCase() : it.text, it.wrap);
-  const lh = it.size * (SCRIPT.has(it.look) ? 1.05 : 1.15);
+  const f = it.look !== 'emoji' && capFont(it.font);
+  ctx.font = f ? capFontCss(f, `${it.size}px`) : FONTS[it.look](it.size);
+  // Мем — великими, але прописи великими не читаються
+  const caps = it.look === 'meme' && (!f || f.caps);
+  const lines = it.look === 'emoji' ? [it.text] : wrap(ctx, caps ? it.text.toUpperCase() : it.text, it.wrap);
+  const lh = it.size * (f ? f.lh : SCRIPT.has(it.look) ? 1.05 : 1.15);
   const w = Math.max(...lines.map((l) => ctx.measureText(l).width), it.size * 0.6);
   const pad = it.size * (PAD[it.look] || 0);
   it.box = { w: w + pad * 2, h: lines.length * lh + pad * 1.2 };
@@ -272,6 +268,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let capItem = null;
   let look = 'below';
   let color = COLORS[0];
+  let font = '';
   let drawColor = COLORS[1];
   let pipette = null;
   let sel = null;
@@ -640,23 +637,27 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
         capItem = { x: v.x + v.w / 2, y: v.y + v.h * 0.8, k: 1, rot: 0, color, wrap: v.w * 0.86 };
         items.push(capItem);
       }
-      Object.assign(capItem, { text, look, size: v.w * SIZE[look] });
+      const f = capFont(font);
+      Object.assign(capItem, { text, look, font, size: v.w * (f ? CAP_SIZE[look] / f.k : SIZE[look]) });
       capItem.box = null;
     }
-    looksRow.hidden = !text;
     paintTools();
     requestAnimationFrame(fit);
   };
-  caption.addEventListener('input', syncCaption);
+  // Свій шрифт canvas сам не довантажить — малював би запасним; вантажимо саме ті літери, що в підписі
+  const loadFont = () => {
+    const f = capFont(font);
+    if (!f || !document.fonts) return Promise.resolve();
+    return document.fonts.load(capFontCss(f, '40px'), caption.value.trim() || 'Аа')
+      .then(() => { if (capItem) capItem.box = null; redraw(); })
+      .catch(() => {});
+  };
+  caption.addEventListener('input', () => { syncCaption(); loadFont(); });
   caption.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
 
   const swatch = (c, i, pick) => h('button', {
     type: 'button', class: 'ph-swatch', role: 'radio', style: `--c:${c}`, 'data-v': c, 'aria-label': COLOR_NAMES[i], onclick: () => pick(c),
   });
-  const lookChips = LOOKS.map(({ v, label }) => h('button', {
-    type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
-    onclick: () => { look = v; syncCaption(); },
-  }, label));
   const setCapColor = (x) => {
     color = x;
     const target = textual(sel) ? sel : capItem;
@@ -671,11 +672,13 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     if (pipette) toast('Коснись фото — возьму оттуда цвет');
     paintTools();
   };
-  const capOwn = ownColor({ label: 'Цвет подписи', onPick: setCapColor, onPipette: () => armPipette('cap') });
-  const capColors = h('span', { class: 'ph-swatches', role: 'radiogroup', 'aria-label': 'Цвет подписи' },
-    ...COLORS.map((c, i) => swatch(c, i, setCapColor)), capOwn.el);
-  const looksRow = h('div', { class: 'mk-chips mk-row ph-looks', role: 'radiogroup', 'aria-label': 'Где и как подпись', hidden: true }, ...lookChips, capColors);
-  ribbon(looksRow);
+  const style = capStyle({
+    belowLabel: 'Под фото',
+    onLook: (v) => { look = v; syncCaption(); },
+    onFont: (v) => { font = v; syncCaption(); loadFont(); },
+    onColor: (c) => setCapColor(typeof c === 'number' ? COLORS[c] : c),
+    onPipette: () => armPipette('cap'),
+  });
   const helper = captionHelper(caption, { image, onPick: syncCaption });
 
   // ── Інструменти зверху і їх панелі ──
@@ -808,12 +811,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     mirY.hidden = !mirrorable(sel);
     undo.disabled = !strokes.some((s) => !s.blur);
     blurUndo.disabled = !strokes.some((s) => s.blur);
-    lookChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === look)));
-    capColors.hidden = look === 'below';
     const cur = textual(sel) ? sel.color : color;
-    capColors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cur)));
+    style.paint({ text: caption.value.trim(), look, font, color: cur, preset: COLORS.indexOf(cur), armed: pipette === 'cap' });
     drawColors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === drawColor)));
-    capOwn.paint(cur, COLORS.includes(cur), pipette === 'cap');
     drawOwn.paint(drawColor, COLORS.includes(drawColor), pipette === 'draw');
     stage.classList.toggle('is-pipette', !!pipette);
   }
@@ -827,6 +827,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       let out = blob;
       if (edited()) {
         await fonts;
+        await loadFont();
         const v = crop || { x: 0, y: 0, w: rw(), h: rh() };
         const k = Math.min(1, MAX_SIDE / Math.max(v.w, v.h));
         const pw = Math.max(1, Math.round(v.w * k));
@@ -869,7 +870,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
 
   const bottom = h('div', { class: 'ph-bottom' },
     belowLine,
-    looksRow,
+    style.el,
     helper.el,
     h('div', { class: 'ph-send-row' }, caption, go));
   const close = () => {
