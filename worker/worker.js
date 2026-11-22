@@ -2539,7 +2539,8 @@ function duelView(game, st, side) {
 // Хто покликав — x і ходить першим, далі по черзі. Нічия — нова партія, першим ходить інший; виграв партію — виграв гру.
 // Ходи — ті самі рядки duel_moves: round — порядковий номер ходу, move — клітинка чи стовпчик. k — скільки поспіль треба
 // «Точки и квадраты» (dots): w×h клітинок, хід — рисочка між точками (номер ребра), board — ребра
-const GRIDS = { ttt: { w: 3, h: 3, k: 3 }, c4: { w: 7, h: 6, k: 4, drop: true }, db: { w: 3, h: 3, dots: true } };
+// «🐾 Найди пару» (memo): 4×4 карточки з фото поз улюбленців, 8 пар; хід — відкрити карточку (дві за хід)
+const GRIDS = { ttt: { w: 3, h: 3, k: 3 }, c4: { w: 7, h: 6, k: 4, drop: true }, db: { w: 3, h: 3, dots: true }, mm: { w: 4, h: 4, memo: true } };
 const gridOf = (game) => (Object.hasOwn(GRIDS, game?.game ?? '') ? GRIDS[game.game] : null);
 // Ребра: спершу горизонтальні (h+1 рядів по w), далі вертикальні (h рядів по w+1)
 const dotsEdges = (grid) => (grid.h + 1) * grid.w + grid.h * (grid.w + 1);
@@ -2571,8 +2572,9 @@ function lineThrough(grid, bd, c) {
   return null;
 }
 
-function boardState(grid, by, moves) {
+function boardState(grid, by, moves, game = null) {
   if (grid.dots) return dotsState(grid, by, moves);
+  if (grid.memo) return memoState(grid, game, moves);
   const seq = [...moves].sort((x, y) => x.round - y.round);
   const mark = (x) => (x === by ? 'x' : 'o');
   const rounds = [];
@@ -2662,6 +2664,81 @@ function dotsState(grid, by, moves) {
   return { rounds, board: bd.join(''), boxes: boxes.join(''), turn, winner: null, line: null, lastCell, lastBy, n, last, next, wins: wins() };
 }
 
+// ── «🐾 Найди пару»: розкладка — 8 файлів поз ×2, перемішані від seed гри й номера партії (у кожної партії своя).
+// Сервер знає розкладку; телефону — лише відкриті карточки: знайдені пари, щойно відкрита й пара минулого ходу
+const MEMO_PAIRS = 8;
+function memoLayout(game, round) {
+  const cards = [...game.files, ...game.files];
+  let x = (game.seed + round * 7919) >>> 0;
+  const rnd = () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 4294967296; };
+  for (let i = cards.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rnd() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+// Відкрив дві: однакові — пара твоя і ходиш ще, різні — обидві видно до наступного ходу, черга іншого.
+// Усі пари знайдено — у кого більше, той і виграв; порівну — нова партія з новою розкладкою, починає інший
+function memoState(grid, game, moves) {
+  const seq = [...moves].sort((x, y) => x.round - y.round);
+  const by = game.by;
+  const mark = (x) => (x === by ? 'x' : 'o');
+  const N = grid.w * grid.h;
+  const rounds = [];
+  let first = by;
+  let turn = by;
+  let layout = memoLayout(game, 0);
+  let bd = '.'.repeat(N).split('');
+  let open = [];
+  let flash = null;
+  let last = 0;
+  let lastCell = null;
+  let lastBy = null;
+  let n = 0;
+  const wins = () => ({ vona: bd.filter((c) => c === mark('vona')).length / 2, vin: bd.filter((c) => c === mark('vin')).length / 2 });
+  const faces = (all = false) => bd.map((c, i) => (all || c !== '.' || open.includes(i) || (!open.length && flash?.cells.includes(i)) ? layout[i] : null));
+  for (const mv of seq) {
+    const c = /^\d{1,2}$/.test(String(mv.move)) ? Number(mv.move) : -1;
+    if (mv.side !== turn || c < 0 || c >= N || bd[c] !== '.' || open.includes(c)) continue;
+    open.push(c);
+    last = Math.max(last, mv.at);
+    lastCell = c;
+    lastBy = mv.side;
+    n += 1;
+    if (open.length < 2) continue;
+    const [a, b] = open;
+    const hit = layout[a] === layout[b];
+    flash = { cells: [a, b], by: mv.side, hit };
+    if (hit) { bd[a] = mark(mv.side); bd[b] = mark(mv.side); } else turn = other(turn);
+    open = [];
+    if (bd.includes('.')) continue;
+    const w = wins();
+    if (w.vona !== w.vin) {
+      const winner = w.vona > w.vin ? 'vona' : 'vin';
+      return { rounds, board: bd.join(''), faces: faces(true), open, flash, turn: null, winner, line: null, lastCell, lastBy, n, last, next: 0, wins: w };
+    }
+    rounds.push({ board: bd.join(''), first });
+    first = other(first);
+    turn = first;
+    layout = memoLayout(game, rounds.length);
+    bd = '.'.repeat(N).split('');
+    flash = null;
+    lastCell = null;
+  }
+  const next = seq.length ? Math.max(...seq.map((m) => m.round)) + 1 : 0;
+  return { rounds, board: bd.join(''), faces: faces(), open, flash, turn, winner: null, line: null, lastCell, lastBy, n, last, next, wins: wins() };
+}
+// Файли поз для пар: усі пози всіх улюбленців без новорічних двійників
+async function memoFiles(db) {
+  const mascots = (await getDoc(db, 'mascots')) || {};
+  const files = [...new Set(Object.values(mascots).flatMap((m) => Object.entries(m.poses || {}).filter(([p]) => !p.startsWith('ny-')).map(([, file]) => file)))];
+  for (let i = files.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [files[i], files[j]] = [files[j], files[i]];
+  }
+  return files.length >= MEMO_PAIRS ? files.slice(0, MEMO_PAIRS) : null;
+}
+
 function boardView(game, st, side) {
   const o = other(side);
   const rel = (x) => (x ? (x === side ? 'me' : 'them') : null);
@@ -2686,6 +2763,8 @@ function boardView(game, st, side) {
     lastBy: rel(st.lastBy),
     line: st.line,
     n: st.n,
+    // Найди пару: що видно (файл пози чи null), щойно відкрита, пара минулого ходу
+    ...(st.faces ? { faces: st.faces, open: st.open, flash: st.flash ? { cells: st.flash.cells, by: rel(st.flash.by), hit: st.flash.hit } : null } : {}),
   };
 }
 
@@ -2797,7 +2876,7 @@ async function bsMove(db, game, side, move, now, reaches, notify) {
   return json({ duel: bsView(game, st, side), reaches });
 }
 
-const gameState = (game, moves) => (isBs(game) ? bsState(game, moves) : gridOf(game) ? boardState(gridOf(game), game.by, moves) : duelState(moves));
+const gameState = (game, moves) => (isBs(game) ? bsState(game, moves) : gridOf(game) ? boardState(gridOf(game), game.by, moves, game) : duelState(moves));
 const gameView = (game, st, side) => (isBs(game) ? bsView(game, st, side) : gridOf(game) ? boardView(game, st, side) : duelView(game, st, side));
 
 async function duelMoves(db, id) {
@@ -2806,10 +2885,10 @@ async function duelMoves(db, id) {
 
 // Чинні ігри — по одній кожного виду: doc duel — КНБ, duel-ttt і duel-c4 — на полі, duel-bs — морський бій.
 // Гра на полі, що до 0.4.2 лежала в duel (тоді гра була одна на всі види), переїжджає до свого ключа
-const DUEL_KEYS = { rps: 'duel', ttt: 'duel-ttt', c4: 'duel-c4', bs: 'duel-bs', db: 'duel-db' };
+const DUEL_KEYS = { rps: 'duel', ttt: 'duel-ttt', c4: 'duel-c4', bs: 'duel-bs', db: 'duel-db', mm: 'duel-mm' };
 const duelKind = (game) => (gridOf(game) || isBs(game) ? game.game : 'rps');
 async function activeDuels(db) {
-  const rows = (await db.prepare("SELECT k, v FROM docs WHERE k IN ('duel', 'duel-ttt', 'duel-c4', 'duel-bs', 'duel-db')").all()).results;
+  const rows = (await db.prepare("SELECT k, v FROM docs WHERE k IN ('duel', 'duel-ttt', 'duel-c4', 'duel-bs', 'duel-db', 'duel-mm')").all()).results;
   const byKey = Object.fromEntries(rows.map((r) => [r.k, JSON.parse(r.v)]));
   const old = byKey.duel;
   if (old?.id && gridOf(old)) {
@@ -2828,7 +2907,7 @@ const dropDuelDoc = (db, game) => db.prepare('DELETE FROM docs WHERE k = ? AND v
 async function finishDuel(db, game, st, moves) {
   const base = { id: game.id, topic: game.topic, preset: game.preset, by: game.by };
   const mood = JSON.stringify(gridOf(game) || isBs(game)
-    ? { ...base, game: game.game, ...(isBs(game) ? { fleets: game.fleets } : {}), rounds: [], seq: [...moves].sort((a, b) => a.round - b.round).map((m) => [m.side, m.move, m.round, m.at]) }
+    ? { ...base, game: game.game, ...(isBs(game) ? { fleets: game.fleets } : {}), ...(game.files ? { files: game.files, seed: game.seed } : {}), rounds: [], seq: [...moves].sort((a, b) => a.round - b.round).map((m) => [m.side, m.move, m.round, m.at]) }
     : { ...base, rounds: st.rounds });
   await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
     .bind(`duel-${game.id}`, st.winner, 'duel', mood, st.last).run();
@@ -2840,7 +2919,7 @@ async function finishDuel(db, game, st, moves) {
 function duelMarkView(row, side) {
   const g = JSON.parse(row.mood);
   if (isBs(g)) return bsView({ ...g, at: row.at }, bsState(g, g.seq.map(([s2, move, round, at]) => ({ side: s2, move, round, at }))), side);
-  if (gridOf(g)) return boardView({ ...g, at: row.at }, boardState(gridOf(g), g.by, g.seq.map(([s2, move, round, at]) => ({ side: s2, move, round, at }))), side);
+  if (gridOf(g)) return boardView({ ...g, at: row.at }, boardState(gridOf(g), g.by, g.seq.map(([s2, move, round, at]) => ({ side: s2, move, round, at })), g), side);
   const wins = { vona: 0, vin: 0 };
   for (const r of g.rounds) if (r.win) wins[r.win] += 1;
   return duelView({ ...g, at: row.at }, { rounds: g.rounds, wins, winner: row.side, open: null }, side);
@@ -2890,18 +2969,22 @@ async function duelRoute(req, db, side, rest, notify) {
     const grid = gridOf(b);
     // Морський бій: замість першого ходу — своя розстановка (крива — 400)
     const fleet = isBs(b) ? bsFleet(b.fleet) : null;
-    if (!topic || !(fleet || (grid ? cellFor(grid, emptyBoard(grid), b.move) >= 0 : DUEL_MOVES.includes(b.move)))) throw fail(400, 'duel');
+    if (!topic || !(fleet || grid?.memo || (grid ? cellFor(grid, emptyBoard(grid), b.move) >= 0 : DUEL_MOVES.includes(b.move)))) throw fail(400, 'duel');
+    const files = grid?.memo ? await memoFiles(db) : null;
+    if (grid?.memo && !files) throw fail(503, 'memo');
     const kind = fleet ? 'bs' : grid ? b.game : 'rps';
     const games = await activeDuels(db);
     // Одна гра кожного виду: поки ця не догра́на (і не забута на добу) — нову того ж виду не починаємо
     if (games[kind] && now - games[kind].at < DUEL_STALE) throw fail(409, 'busy');
-    const game = { id: newId(), by: side, topic, preset, at: now, ...(grid ? { game: b.game } : {}), ...(fleet ? { game: 'bs', fleets: { [side]: fleet } } : {}) };
+    const game = { id: newId(), by: side, topic, preset, at: now, ...(grid ? { game: b.game } : {}), ...(fleet ? { game: 'bs', fleets: { [side]: fleet } } : {}),
+      ...(files ? { files, seed: Math.floor(Math.random() * 2 ** 31) } : {}) };
     await putDoc(db, DUEL_KEYS[kind], game);
     // Ходи дограних чи забутих ігор більше не потрібні; ходи інших ігор, що йдуть, лишаються
     const keep = [game.id, ...Object.entries(games).filter(([k]) => k !== kind).map(([, g]) => g.id)];
     await db.prepare(`DELETE FROM duel_moves WHERE duel NOT IN (${keep.map(() => '?').join(', ')})`).bind(...keep).run();
-    if (!fleet) await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
-    if (reaches) notify.send(other(side), duelNote(side, fleet ? 'bs-start' : grid ? 'board-start' : 'start', game));
+    if (!fleet && !files) await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, 0, ?, ?, ?)').bind(game.id, side, String(b.move), now).run();
+    // Найди пару: другому напишемо, коли до нього дійде черга
+    if (reaches && !files) notify.send(other(side), duelNote(side, fleet ? 'bs-start' : grid ? 'board-start' : 'start', game));
     return json({ duel: gameView(game, gameState(game, await duelMoves(db, game.id)), side), reaches }, 201);
   }
   const game = Object.values(await activeDuels(db)).find((g) => g.id === String(b.id || '')) || null;
@@ -2977,13 +3060,13 @@ async function duelRoute(req, db, side, rest, notify) {
 async function boardMove(db, game, side, move, now, reaches, notify) {
   if (!/^\d{1,2}$/.test(String(move ?? ''))) throw fail(400, 'duel');
   const grid = gridOf(game);
-  const before = boardState(grid, game.by, await duelMoves(db, game.id));
+  const before = boardState(grid, game.by, await duelMoves(db, game.id), game);
   if (before.turn !== side) throw fail(409, 'turn');
-  if (cellFor(grid, before.board, move) < 0) throw fail(400, 'taken');
+  if (cellFor(grid, before.board, move) < 0 || before.open?.includes(Number(move))) throw fail(400, 'taken');
   await db.prepare('INSERT OR IGNORE INTO duel_moves (duel, round, side, move, at) VALUES (?, ?, ?, ?, ?)')
     .bind(game.id, before.next, side, String(move), now).run();
   const moves = await duelMoves(db, game.id);
-  const st = boardState(grid, game.by, moves);
+  const st = boardState(grid, game.by, moves, game);
   if (st.winner) await finishDuel(db, game, st, moves);
   // Точки: замкнув клітинку й ходить ще — другому поки нічого не пишемо
   if (reaches && st.n > before.n && (st.winner || st.turn !== side)) {
@@ -3489,7 +3572,7 @@ function askNote(from, token, origin) {
 // «🫡 Да, капитан!»: на що саме погодились — у тексті; тап — у чат
 // «✊ Спор»: виклик, «твой ход» після розіграного раунду, кінець. Хто переміг — не пишемо: хай побачить розкриття
 const cap1 = (x) => x[0].toUpperCase() + x.slice(1);
-const BOARD_TITLE = { ttt: ['♂️♀️', 'Крестики-нолики'], c4: ['🔵🔴', 'Четыре в ряд'], bs: ['🚢', 'Морской бой'], db: ['✏️', 'Точки и квадраты'] };
+const BOARD_TITLE = { ttt: ['♂️♀️', 'Крестики-нолики'], c4: ['🔵🔴', 'Четыре в ряд'], bs: ['🚢', 'Морской бой'], db: ['✏️', 'Точки и квадраты'], mm: ['🐾', 'Найди пару'] };
 function duelNote(from, what, game, score) {
   const kind = duelKind(game);
   const base = kind === 'rps' ? { tag: 'duel', go: 'duel' } : { tag: `duel-${kind}`, go: `duel:${kind}` };

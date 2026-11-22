@@ -37,6 +37,13 @@ export const GAME_ICONS = {
     <path class="gi-db-line" d="M24 24H38M38 10V24M10 38V52M52 10H38"/>
     ${[10, 24, 38, 52].map((y) => [10, 24, 38, 52].map((x) => `<circle class="gi-dot" cx="${x}" cy="${y}" r="2.6"/>`).join('')).join('')}
   `),
+  // Чотири карточки: дві відкриті з лапкою (пара), дві сорочкою
+  mm: svg(`
+    <rect class="gi-card" x="8" y="8" width="21" height="21" rx="4"/><rect class="gi-card-up" x="35" y="8" width="21" height="21" rx="4"/>
+    <rect class="gi-card-up" x="8" y="35" width="21" height="21" rx="4"/><rect class="gi-card" x="35" y="35" width="21" height="21" rx="4"/>
+    <g class="gi-paw"><ellipse cx="45.5" cy="21" rx="4.3" ry="3.6"/><circle cx="40.6" cy="15.6" r="1.9"/><circle cx="44" cy="12.6" r="1.9"/><circle cx="47.4" cy="12.6" r="1.9"/><circle cx="50.6" cy="15.6" r="1.9"/></g>
+    <g class="gi-paw"><ellipse cx="18.5" cy="48" rx="4.3" ry="3.6"/><circle cx="13.6" cy="42.6" r="1.9"/><circle cx="17" cy="39.6" r="1.9"/><circle cx="20.4" cy="39.6" r="1.9"/><circle cx="23.6" cy="42.6" r="1.9"/></g>
+    <path class="gi-card-dot" d="M18.5 18.5h.01M45.5 45.5h.01"/>`),
   // Два сердечка одне на одному й іскорка — «совпало»
   same: svg(`
     ${heart(25, 34, 3.4, 'gi-heart-a')}${heart(39, 36, 3.4, 'gi-heart-b')}

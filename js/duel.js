@@ -4,7 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
-import { mascotImg, petName, petLine } from './icons.js';
+import { mascotImg, petName, petLine, petFileImg } from './icons.js';
 import { placer, seaEl, shipEl, miniShip, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
 // Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
@@ -34,6 +34,10 @@ const TIPS = {
     'Длинную цепочку отдают последней. Так коты-гроссмейстеры делают.', 'Замкнёшь клетку — ходи ещё. Жадничать можно!',
     'Черты по краю безопасные, пока их много.', 'Я бы нарисовал хвостик. Но тут только палочки.',
     'Посчитай, сколько безопасных черт осталось. Я считаю до трёх.', 'Иногда выгодно отдать две клетки, чтобы забрать пять.'],
+  mm: ['Запоминай, где кто сидит. Я вот запомнил, где миска.', 'Сначала открой новую карточку, а вторую — ту, что уже видели.',
+    'Это я! И вон там тоже я. Найди нас обоих.', 'Не спеши: посмотри на поле, прежде чем тыкать.',
+    'Угловые карточки забываются чаще всего. Проверено.', 'Нашёл пару — ходи ещё. Жадничать можно!',
+    'Я на всех фото красивый, но пары разные.', 'Если не помнишь, открывай с краю и запоминай.'],
   bs: ['Стреляй в середину, там точно кто-то прячется.', 'Попал? Стреляй рядом — кораблики длинные.', 'Кораблики не касаются друг друга. Значит, вокруг потопленного пусто.',
     'Я бы спрятался в углу. Но я и так всегда в углу.', 'Буль! Ой, это я в миску.', 'Записки внутри! Топи скорее, интересно же.',
     'Стреляй крестиком: через клеточку. Так хитрые капитаны делают.', 'Мимо — не беда. Море большое, звёзд на всех хватит.',
@@ -81,13 +85,15 @@ const PRESETS = {
 };
 const POLL = 3000;
 
-const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '♂️♀️', name: 'Крестики-нолики' }, c4: { icon: '🔵🔴', name: 'Четыре в ряд' }, bs: { icon: '🚢', name: 'Морской бой' }, db: { icon: '✏️', name: 'Точки и квадраты' } };
+const GAMES = { rps: { icon: '✊', name: 'Камень-ножницы' }, ttt: { icon: '♂️♀️', name: 'Крестики-нолики' }, c4: { icon: '🔵🔴', name: 'Четыре в ряд' }, bs: { icon: '🚢', name: 'Морской бой' }, db: { icon: '✏️', name: 'Точки и квадраты' }, mm: { icon: '🐾', name: 'Найди пару' } };
 // Ігри на полі: розмір, фішки, дієслово ходу; drop — фішка падає донизу стовпчика
 const GRIDS = {
   ttt: { kind: 'ttt', w: 3, h: 3, icon: '♂️', verb: 'ставь' },
   c4: { kind: 'c4', w: 7, h: 6, icon: '🔵', verb: 'бросай', drop: true },
   // «Точки и квадраты»: w×h клітинок, хід — рисочка (номер ребра), замкнув клітинку — ходиш ще
   db: { kind: 'db', w: 3, h: 3, icon: '✏️', verb: 'проводи черту', dots: true },
+  // «Найди пару»: 4×4 карточки з фото улюбленців, за хід — дві; пара твоя — ходиш ще
+  mm: { kind: 'mm', w: 4, h: 4, icon: '🐾', verb: 'открывай карточки', memo: true },
 };
 const gridOf = (g) => (Object.hasOwn(GRIDS, g?.game ?? '') ? GRIDS[g.game] : null);
 // Фішки — знаки ♂/♀ лінією: фішка належить стороні (він — синій ♂, вона — червона ♀), хто б не ходив першим
@@ -140,7 +146,7 @@ export function duelResult(g) {
   const won = g.done.won;
   // У хрестиках рахунок завжди 1:0 — не пишемо
   // У хрестиках і «Четыре в ряд» рахунок завжди 1:0 — не пишемо; у точках — клітинки
-  const plain = isBoard(g) && !gridOf(g).dots;
+  const plain = isBoard(g) && !gridOf(g).dots && !gridOf(g).memo;
   const score = plain ? '' : `, ${scoreOf(g)}`;
   const victory = `победа за ${won ? 'тобой' : who().partner === 'она' ? 'ней' : 'ним'}`;
   if (g.preset === 'free') return `🏆 ${cap(victory)}${score}`;
@@ -470,7 +476,7 @@ function setup() {
   const own = h('input', { type: 'text', class: 'duel-own', maxlength: '60', placeholder: 'Или своя ставка…', 'aria-label': 'Своя ставка' });
   const go = h('button', { type: 'button', class: 'btn btn-primary duel-go', disabled: true }, 'Позвать играть');
   const topic = () => (preset ? PRESETS[preset].label : own.value.replace(/\s+/g, ' ').trim());
-  const sync = () => { go.disabled = !topic() || (!mv && !fleet); };
+  const sync = () => { go.disabled = !topic() || (!mv && !fleet && kind !== 'mm'); };
   const fleet = kind === 'bs' ? placer(DATA.side) : null;
   const chips = h('div', { class: 'duel-topics', role: 'radiogroup', 'aria-label': 'На что играем' },
     ...Object.entries(PRESETS).map(([k, p]) => h('button', {
@@ -508,6 +514,7 @@ function setup() {
     ttt: ['Ты — ', sym(mySex()), `, твой ход первый. Ничья — новая партия, начинает ${who().partner}.`],
     c4: ['Ты — ', sym(mySex()), `, твой ход первый. Нужно четыре в ряд, можно и наискосок. Ничья — новая партия, начинает ${who().partner}.`],
     db: ['Ты — ', sym(mySex()), ', твой ход первый. Проводите черты по очереди: замкнёшь клетку — она твоя, и ходишь ещё. У кого больше клеток, тот и победил.'],
+    mm: `16 карточек с нашими питомцами, 8 пар. За ход открываешь две: совпали — пара твоя, и ходишь ещё. Начинаешь ты, а ${who().partner} увидит открытые тобой карточки.`,
     bs: `Поле 6×6, флот: 3, 2, 2 и 1 клетка. Попал — стреляешь ещё. Твой выстрел первый, а ${who().partner} расставит свой флот, когда примет вызов.`,
   };
   const hint = h('p', { class: 'hint duel-hint' }, ...[HINT[kind]].flat());
@@ -532,6 +539,7 @@ function setup() {
     sync();
     return [block('На что играем', chips, own), block(`Расставь ${WORLD[DATA.side].ships}`, fleet.board, fleet.tools), block('Записки', ...fleet.notes), hint, go];
   }
+  if (kind === 'mm') { sync(); return [block('На что играем', chips, own), hint, go]; }
   paintPick();
   return [
     block('На что играем', chips, own),
@@ -679,6 +687,7 @@ const boardEl = (grid, label, cls = '') => h('div', { class: `ttt-board is-${gri
 async function showBoard(g) {
   const { body } = open;
   const grid = gridOf(g);
+  if (grid.memo) { showMemo(g); return; }
   const seen = g.done && sawEnd(g) ? g.n : seenRounds(g);
   const mine = g.mark;
   const legend = h('p', { class: 'ttt-legend' },
@@ -741,6 +750,116 @@ async function showBoard(g) {
     markSeen(g);
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
   }
+}
+
+// ── «🐾 Найди пару»: карточки сорочкою вгору (лапка), тап — перевертається; лице дає сервер.
+// Пара минулого ходу, якої я ще не бачив, показується ~2 с і перевертається назад — запам'ятати
+const PAW = '<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="26" rx="8.5" ry="7.2"/><circle cx="10.5" cy="16" r="3.8"/><circle cx="16.5" cy="9.8" r="3.8"/><circle cx="23.5" cy="9.8" r="3.8"/><circle cx="29.5" cy="16" r="3.8"/></svg>';
+function memoCards(g, up, { play = false, onPick = null } = {}) {
+  return [...g.board].map((c, i) => {
+    const face = g.faces?.[i] || null;
+    const found = c !== '.';
+    const who2 = found ? ` is-found is-${c === g.mark ? 'me' : 'them'} is-${sexOf(c, g.mark)}` : '';
+    return h('button', {
+      type: 'button',
+      class: `mm-card${up.has(i) && face ? ' is-up' : ''}${who2}`,
+      'data-i': String(i),
+      'aria-label': found ? `Карточка ${i + 1}: пара ${c === g.mark ? 'твоя' : gen()}` : `Карточка ${i + 1}${up.has(i) && face ? ', открыта' : ''}`,
+      disabled: !play || found || !!g.open?.includes(i),
+      onclick: onPick ? () => onPick(i) : null,
+    }, h('span', { class: 'mm-in' },
+      h('span', { class: 'mm-back', html: PAW }),
+      h('span', { class: 'mm-face', html: face ? petFileImg(face) : '' })),
+    found ? sym(sexOf(c, g.mark), ' mm-badge') : null);
+  });
+}
+
+async function showMemo(g) {
+  const { body } = open;
+  const grid = gridOf(g);
+  const seen = g.done && sawEnd(g) ? g.n : seenRounds(g);
+  const fresh = g.n > seen;
+  const legend = h('p', { class: 'ttt-legend' },
+    h('span', { class: 'ttt-who' }, `${cap(who().partner)} `, sym(otherSex()), h('b', { class: 'db-count' }, String(g.score.them))),
+    h('span', { class: 'ttt-vs' }, ':'),
+    h('span', { class: 'ttt-who' }, h('b', { class: 'db-count' }, String(g.score.me)), 'Ты ', sym(mySex())));
+  const board = boardEl(grid, 'Карточки');
+  const status = h('p', { class: 'duel-status' });
+  const tip = h('div', { class: 'bs-tip' });
+  const act = h('div', { class: 'duel-act' });
+  const history = h('div', { class: 'duel-history', 'aria-label': 'Партии' }, ...g.rounds.map((r, i) => h('span', { class: 'duel-past', title: `Партия ${i + 1}` },
+    h('small', {}, `Партия ${i + 1}`), 'ничья')));
+  body.replaceChildren(h('div', { class: 'duel-arena' }, legend, board, status, tip), history, act);
+  const play = !g.done && g.turn === 'me';
+  const flash = g.flash && !g.open?.length && !g.done ? g.flash : null;
+  // Що відкрито зараз; чужу невгадану пару, яку я вже бачив, не показуємо знову
+  const up = new Set(g.faces.map((f, i) => (f ? i : -1)).filter((i) => i >= 0));
+  if (flash && !flash.hit && !fresh) flash.cells.forEach((i) => up.delete(i));
+  // Те, що вже лежало відкритим на екрані, лишається відкритим без анімації, нове — перевертається
+  const before = open.memo?.id === g.id ? open.memo.up : new Set();
+  const pick = (i) => memoMove(g, i, board);
+  board.replaceChildren(...memoCards(g, new Set([...up].filter((i) => before.has(i))), { play, onPick: pick }));
+  open.memo = { id: g.id, up };
+  requestAnimationFrame(() => up.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-up')));
+  const newRound = g.rounds.length > 0 && !g.n && fresh;
+  if (g.done) {
+    status.textContent = duelResult(g);
+    status.classList.add('is-final');
+    if (fresh) {
+      await wait(500);
+      if (!open) return;
+      if (g.done.won) boardWin(board, symSvg(mySex()), mySex()); else boardLose(board, symSvg(otherSex()), otherSex());
+    }
+    act.replaceChildren(...doneActs(g));
+  } else {
+    const mine = flash?.by === 'me';
+    const text = g.open?.length === 1 && play ? 'Открой вторую карточку'
+      : flash?.hit && mine && fresh ? 'Пара твоя! Открывай ещё'
+        : flash && !flash.hit && mine && fresh ? `Не совпало. Теперь ход ${gen()}`
+          : flash && !flash.hit && !mine && fresh && play ? 'Мимо! Запоминай — и твой ход'
+            : play ? `Твой ход — ${grid.verb}` : `Ждём ${gen()} ход…`;
+    status.replaceChildren(`${newRound ? 'Ничья — новая раскладка. ' : ''}${text} `, play ? sym(mySex()) : '');
+    tip.replaceChildren(...[play && !g.open?.length ? petTip(grid.kind, g) : null].filter(Boolean));
+    act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
+  }
+  if (flash?.hit && fresh) flash.cells.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-pair'));
+  if (fresh || (g.done && !sawEnd(g))) {
+    markSeen(g);
+    document.dispatchEvent(new CustomEvent('radovalka:marked'));
+  }
+  // Невгадана пара: подивились — і назад сорочкою (поки тримаємо, тапати не можна)
+  if (flash && !flash.hit && fresh) {
+    open.busy = true;
+    await wait(1900);
+    if (!open || open.memo?.id !== g.id) return;
+    flash.cells.forEach((i) => { board.querySelector(`[data-i="${i}"]`)?.classList.remove('is-up'); open.memo.up.delete(i); });
+    open.busy = false;
+  }
+}
+
+async function memoMove(g, i, board) {
+  if (!open || open.busy) return;
+  open.busy = true;
+  board.querySelector(`[data-i="${i}"]`)?.classList.add('is-lift');
+  let r;
+  try { r = await dsend('duel/move', 'POST', { id: g.id, move: String(i) }); } catch (e) {
+    if (!open) return;
+    open.busy = false;
+    if (e.status === 409 || e.status === 400) {
+      if (e.code === 'gone') toast('Эта игра уже закончилась или отменена');
+      open.state = '';
+      refresh();
+      return;
+    }
+    board.querySelector(`[data-i="${i}"]`)?.classList.remove('is-lift');
+    toast('Ход не ушёл — нет связи');
+    return;
+  }
+  if (!open) return;
+  open.busy = false;
+  document.dispatchEvent(new CustomEvent('radovalka:marked'));
+  open.state = '';
+  show(r.duel, false);
 }
 
 // Хід на полі: фішка одразу на місці (і падає), сервер підтверджує; поле застаріло — перечитуємо

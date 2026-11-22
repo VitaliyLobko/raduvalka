@@ -77,6 +77,12 @@ export function mascotImg(key, pose = 'main') {
   return `<img src="${PETS[file] || ''}" data-pet="${file}" alt="${m.name}" width="160" height="160" style="--tilt:${m.tilt}deg" decoding="async">`;
 }
 
+// Фото пози за імʼям файлу (карточки «Найди пару»); докачане пізніше вставиться само (data-pet)
+export function petFileImg(file) {
+  const f = String(file).replace(/["<>&]/g, '');
+  return `<img src="${PETS[f] || ''}" data-pet="${f}" alt="" width="160" height="160" decoding="async" draggable="false">`;
+}
+
 const allFiles = () => [...new Set(Object.values(DATA.mascots).flatMap((m) => Object.values(m.poses)))];
 
 async function loadOne(f) {
