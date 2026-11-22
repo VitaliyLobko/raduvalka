@@ -167,36 +167,68 @@ function flute(f, t, v = 0.22, len = 0.9) {
   [o, o2].forEach((x) => { x.start(t); x.stop(end + 0.03); });
   noise(t, a + 0.12, f * 1.1, f * 1.6, { v: v * 0.35, q: 1.4, attack: 0.02 });
 }
-// Смичок: дві злегка розстроєні пилки через фільтр, що розкривається, під'їзд до ноти знизу, вібрато
-// і шерех волосу на вступі. Скрипка — яскрава й співуча, віолончель — на октаву нижче, тепла й повільна
-function bowed(f, t, v, len, { attack, cut, rate, depth, gain }) {
-  const hold = Math.min(len * 0.4, 0.36);
-  const rel = 0.3;
-  const end = t + attack + hold + rel;
+// Смичок. Струна під смичком дає «пилку» (рух Гельмгольца), а голос інструменту робить дерев'яний корпус:
+// кілька резонансів підсилюють свої смуги, верх зрізаний — без «електронного» дзижчання.
+// Три голоси з ледь різним строєм і вібрато (у живого виконавця воно ніколи не рівне), фільтр «розкривається»
+// разом із натиском смичка, нота нарощується плавно; поверх — тихий шерех каніфолі всю ноту і «закус» на вступі
+function bowed(f, t, v, len, o) {
+  const hold = Math.min(len * 0.45, 0.4);
+  const end = t + o.attack + hold + o.rel;
+  const peak = v * o.gain;
   const g = ctx.createGain();
-  swell(g, t, v * gain, attack, hold, rel);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + o.attack);
+  g.gain.linearRampToValueAtTime(peak * 0.82, t + o.attack + hold * 0.5);
+  g.gain.setValueAtTime(peak * 0.82, t + o.attack + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, end);
+  // Корпус: зріз верху → резонанси → полиця, що прибирає різкість
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.Q.value = 0.7;
-  lp.frequency.setValueAtTime(f * cut * 0.5, t);
-  lp.frequency.linearRampToValueAtTime(f * cut, t + attack + 0.06);
-  lp.connect(g).connect(out);
-  const saws = [-6, 6].map((cents) => {
+  lp.Q.value = 0.5;
+  const cut = Math.min(f * o.cut, o.max);
+  lp.frequency.setValueAtTime(Math.min(f * 1.6, cut), t);
+  lp.frequency.exponentialRampToValueAtTime(cut, t + o.attack + 0.05);
+  let tail = lp;
+  for (const [freq, db, q] of o.body) {
+    const pk = ctx.createBiquadFilter();
+    pk.type = 'peaking';
+    pk.frequency.value = freq;
+    pk.gain.value = db;
+    pk.Q.value = q;
+    tail.connect(pk);
+    tail = pk;
+  }
+  const shelf = ctx.createBiquadFilter();
+  shelf.type = 'highshelf';
+  shelf.frequency.value = o.shelf;
+  shelf.gain.value = -9;
+  tail.connect(shelf).connect(g).connect(out);
+  [[-7, 0.97], [0, 1], [7, 1.04]].forEach(([cents, k], i) => {
     const s = ctx.createOscillator();
     s.type = 'sawtooth';
     s.detune.value = cents;
-    s.frequency.setValueAtTime(f * 0.98, t);
-    s.frequency.exponentialRampToValueAtTime(f, t + 0.07);
-    s.connect(lp);
+    // Під'їзд до ноти: ледь знизу, як палець ставиться на струну
+    s.frequency.setValueAtTime(f * 0.988, t);
+    s.frequency.exponentialRampToValueAtTime(f, t + o.attack * 0.8);
+    const sg = ctx.createGain();
+    sg.gain.value = i === 1 ? 0.5 : 0.35;
+    s.connect(sg).connect(lp);
+    vibrato([s.frequency], t, end, o.rate * k, f * o.depth, o.attack + 0.06);
     s.start(t);
     s.stop(end + 0.03);
-    return s;
   });
-  vibrato(saws.map((s) => s.frequency), t, end, rate, f * depth, 0.12);
-  noise(t, attack + 0.1, f * 2, f * 3, { v: v * 0.18, q: 2, attack: 0.02 });
+  // Каніфоль: тихий шерех у смузі над нотою всю ноту, і короткий «закус» волосу на самому вступі
+  noise(t, end - t, f * 2.2, f * 1.8, { v: v * 0.035, q: 1.2, attack: o.attack });
+  noise(t, 0.05, Math.min(f * 4, 6000), Math.min(f * 3, 4500), { v: v * 0.1, q: 2.5, attack: 0.004 });
 }
-const violin = (f, t, v = 0.22, len = 0.9) => bowed(f, t, v, len, { attack: 0.06, cut: 4, rate: 5.8, depth: 0.008, gain: 0.42 });
-const cello = (f, t, v = 0.22, len = 0.9) => bowed(f / 2, t, v, len, { attack: 0.09, cut: 3.2, rate: 5, depth: 0.007, gain: 0.5 });
+// Скрипка: співуча, яскравий «спів» корпусу біля 2,8 кГц, швидше вібрато
+const VIOLIN = { attack: 0.075, rel: 0.32, cut: 5, max: 6500, shelf: 5200, rate: 5.8, depth: 0.0065, gain: 0.58,
+  body: [[290, 4, 1.8], [550, 3, 1.4], [2800, 5, 1.1]] };
+// Віолончель: на октаву нижче, повільний смичок, тепла — резонанси нижче, верх темніший, вібрато ширше й повільніше
+const CELLO = { attack: 0.11, rel: 0.42, cut: 4, max: 3800, shelf: 2600, rate: 5, depth: 0.008, gain: 0.62,
+  body: [[220, 4, 1.4], [420, 4, 1.4], [1300, 3, 1]] };
+const violin = (f, t, v = 0.22, len = 0.9) => bowed(f, t, v, len, VIOLIN);
+const cello = (f, t, v = 0.22, len = 0.9) => bowed(f / 2, t, v, len, CELLO);
 // Колокольчики: уся мелодія — скляними дзвіночками
 const chimes = (f, t, v = 0.22, len = 0.9) => bell(f, t, v * 0.6, len * 1.3 + 0.3);
 const VOICES = { kalimba: pluck, harp, flute, violin, cello, bells: chimes };
