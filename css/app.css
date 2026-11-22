@@ -4461,18 +4461,19 @@ html.is-still .bs-spark { animation: none; }
 /* «Потоплено» корабликами: потоплені — кольорові, решта — бліді сірі */
 .bs-pips { gap: 3px; }
 .bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 20px; height: 20px; border: 0; border-radius: 0; background: none; }
-.bs-pips i { opacity: .3; filter: grayscale(1); }
+.bs-pips i { opacity: .45; filter: grayscale(1); }
 .bs-pips i.is-on { opacity: 1; filter: none; }
 .bs-pips i svg { display: block; width: 100%; height: 100%; }
 /* Записки в «Потоплено» — крупніше, читаються з першого погляду */
 .bs-score .bs-found-title { font-size: .8125rem; }
 .bs-score .bs-found-note { padding: 6px 10px 6px 30px; font-size: 1.2rem; line-height: 1.2; }
 .bs-score .bs-found-note::before { left: 8px; top: 8px; font-size: .9rem; }
-.bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 22px; height: 11px; }
-.bs-pips i.is-l1, .bs-pips.is-vona i.is-l1.is-on, .bs-pips.is-vin i.is-l1.is-on { width: 11px; }
-.bs-pips i.is-l3, .bs-pips.is-vona i.is-l3.is-on, .bs-pips.is-vin i.is-l3.is-on { width: 33px; }
-.bs-pips { gap: 2px; }
-.bs-score-row { grid-template-columns: 2.4em auto; }
+.bs-pips i, .bs-pips.is-vona i.is-on, .bs-pips.is-vin i.is-on { width: 30px; height: 15px; }
+.bs-pips i.is-l1, .bs-pips.is-vona i.is-l1.is-on, .bs-pips.is-vin i.is-l1.is-on { width: 15px; }
+.bs-pips i.is-l3, .bs-pips.is-vona i.is-l3.is-on, .bs-pips.is-vin i.is-l3.is-on { width: 45px; }
+.bs-pips { gap: 3px; }
+/* Підпис над корабликами — їм уся ширина плашки */
+.bs-score-row { grid-template-columns: 1fr; gap: 1px; font-size: .8125rem; line-height: 1.1; }
 /* Мордочка улюбленця з порадою — крупніше */
 .pet-tip { gap: 12px; padding: 6px 14px 6px 6px; border-radius: 20px; }
 .pet-tip-face { width: 56px; height: 56px; }
