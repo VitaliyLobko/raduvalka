@@ -10,8 +10,8 @@ const seen = () => (DATA.mine.seen ||= {});
 const left = (env) => Math.max(0, env.notes.length - (seen()[env.id] || 0));
 const readCount = (env) => Math.min(env.notes.length, seen()[env.id] || 0);
 const noteText = (note) => (typeof note === 'string' ? note : note.text || '');
-// Нове — непрочитана записка, яку дописали в застосунку ({ id, text }); заготовки (рядки) новими не рахуємо
-const fresh = (env) => env.notes.slice(seen()[env.id] || 0).some((n) => typeof n !== 'string');
+// Нове — непрочитана записка, яку дописали в застосунку ({ id, text }); заготовки (рядки й заготовки з вкладенням, tpl) — ні
+const fresh = (env) => env.notes.slice(seen()[env.id] || 0).some((n) => typeof n !== 'string' && !n.tpl);
 
 // Сургучна крапка на марці «Конверты», поки в якомусь конверті лежить нова записка
 export function markEnvelopes() {

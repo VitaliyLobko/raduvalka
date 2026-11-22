@@ -4826,3 +4826,20 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .env-reread-item:active { background: color-mix(in srgb, var(--lavender) 34%, var(--paper)); }
 .env-reread-text { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 [data-side="vin"] .env-reread-item { background: color-mix(in srgb, var(--star) 10%, transparent); }
+/* «Уже в конверте» — його записки в її конверті: докласти фото, гифку, пісню до ще не відкритої */
+.write-tpl { justify-self: start; margin-top: 6px; padding: 8px 0; border: 0; background: none; color: var(--wax); font: 600 .875rem/1.3 var(--ui); text-align: left; cursor: pointer; }
+.write-tpl[hidden] { display: none; }
+[data-side="vin"] .write-tpl { color: var(--star); }
+.tpl-sheet { display: flex; flex-direction: column; max-height: 88dvh; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+.tpl-hint { margin: 0 0 10px; font-size: .8125rem; color: var(--ink-soft); }
+.tpl-list { display: grid; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.tpl-row { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--lavender) 20%, var(--paper)); }
+[data-side="vin"] .tpl-row { background: color-mix(in srgb, var(--star) 10%, transparent); }
+.tpl-row.is-read { opacity: .55; }
+.tpl-row.is-busy .tpl-tools > :not(.tpl-state) { pointer-events: none; opacity: .4; }
+.tpl-text { margin: 0; font-size: .9375rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tpl-tools { display: flex; align-items: center; gap: 6px; }
+.tpl-state { flex: 1; font-size: .8125rem; color: var(--ink-soft); }
+.tpl-has { color: var(--wax); font-weight: 600; }
+[data-side="vin"] .tpl-has { color: var(--star); }
+.tpl-add, .tpl-x { flex: none; min-width: 44px; min-height: 40px; justify-content: center; font-size: 1.1rem; }

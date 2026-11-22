@@ -160,7 +160,27 @@ export function openWrite(preset = {}) {
     whereRow.querySelector('[data-v="time"]').textContent = timeLabel();
     paintNote();
   });
-  envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
+  // «Уже в конверте: N» — його записки в цьому конверті (докласти фото чи пісню); скільки — питаємо раз, коли вікно «В конверт»
+  let counts = null;
+  const tplBtn = h('button', {
+    type: 'button', class: 'write-tpl', hidden: true,
+    onclick: async () => {
+      const e = envs.find((x) => x.id === envId);
+      if (e) (await import('./envtpl.js')).openTemplates(e, () => { counts = null; });
+    },
+  });
+  const paintTpl = () => {
+    const n = counts?.[envId] || 0;
+    tplBtn.hidden = where !== 'env' || !n;
+    tplBtn.textContent = `📎 Уже в конверте: ${n} · добавить вложение`;
+  };
+  if (where === 'env') {
+    import('./api.js').then(({ send }) => send('envelopes/theirs', 'GET'))
+      .then((l) => { counts = Object.fromEntries(l.map((e) => [e.id, e.notes.length])); paintTpl(); })
+      .catch(() => { /* без звʼязку — без цього рядка */ });
+  }
+  envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; paintTpl(); }));
+  envRow.append(tplBtn);
   [whereRow, envRow.firstChild].forEach((row) => { row.classList.add('write-when'); ribbon(row); });
   paintNote();
 
