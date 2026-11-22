@@ -357,7 +357,7 @@ async function show(g, fresh) {
   }, h('small', {}, String(i + 1)), `${GLYPH[r.them]} ${GLYPH[r.me]}`, h('small', {}, r.win === 'me' ? 'твой' : r.win ? gen() : 'ничья'))));
   const act = h('div', { class: 'duel-act' });
   // Арена: рахунок, руки одна проти одної, що сталося; під нею — розіграні раунди
-  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), h('div', { class: 'duel-arena' }, scoreEl, stage, status), history, act);
+  body.replaceChildren(h('div', { class: 'duel-arena' }, scoreEl, stage, status), history, act);
 
   // Новий розіграний раунд — розкриваємо останній, рахунок до нього — без нього
   const fresh1 = g.rounds.length > seen;
@@ -611,7 +611,7 @@ async function showBoard(g) {
   const tip = h('div', { class: 'bs-tip' });
   const paintHistory = (k) => history.replaceChildren(...g.rounds.slice(0, k).map((r, i) => h('span', { class: 'duel-past', title: `Партия ${i + 1}` },
     h('small', {}, `Партия ${i + 1}`), 'ничья')));
-  body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`), h('div', { class: 'duel-arena' }, legend, board, status, tip), history, act);
+  body.replaceChildren(h('div', { class: 'duel-arena' }, legend, board, status, tip), history, act);
 
   const fresh = g.n > seen;
   open.busy = true;
@@ -725,7 +725,7 @@ function bsAccept(g) {
     open.state = '';
     show(r.duel, false);
   });
-  open.body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`),
+  open.body.replaceChildren(
     h('p', { class: 'hint duel-hint' }, `${cap(who().partner)} ${theyDid('позвал', 'позвала')} в морской бой и уже ${theyDid('расставил', 'расставила')} флот. Расставь свой — первый выстрел за ${theyDid('ним', 'ней')}.`),
     section(`Расставь ${WORLD[DATA.side].ships}`, fleet.board, fleet.tools), section('Записки', ...fleet.notes), go,
     h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
@@ -754,7 +754,7 @@ async function showBs(g) {
   const act = h('div', { class: 'duel-act' });
   // Порада улюбленця — одразу під «Твой ход», над полем другого (унизу її не було видно)
   const tip = h('div', { class: 'bs-tip' });
-  open.body.replaceChildren(h('p', { class: 'duel-topic' }, `${icon(g)} ${g.topic}`),
+  open.body.replaceChildren(
     h('div', { class: 'duel-arena bs-arena' },
       h('div', { class: 'bs-top' }, h('div', { class: 'bs-mine' }, h('p', { class: 'bs-label' }, WORLD[me].mine), mine), score),
       status,
