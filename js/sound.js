@@ -16,6 +16,7 @@ export const INSTRUMENTS = {
   flute: { name: 'Флейта', on: 'на флейте' },
   violin: { name: 'Скрипка', on: 'на скрипке' },
   cello: { name: 'Виолончель', on: 'на виолончели' },
+  bass: { name: 'Контрабас', on: 'на контрабасе' },
   bells: { name: 'Колокольчики', on: 'на колокольчиках' },
   chip: { name: '8-бит', on: 'в стиле 8-бит' },
 };
@@ -125,11 +126,16 @@ function noise(t, len, from, to, { v = 0.1, q = 1.2, type = 'bandpass', attack =
   s.stop(t + len + 0.03);
 }
 
-// Калімба: основний тон, «язичок» (обертон ×4.2, коротко) і клац на початку — металева, дзвінка
+// Калімба: дерев'яна й коротка — м'який удар великого пальця, відгук коробки, металевий язичок лише на
+// самому вступі (обертон ×5.9 язичка-консолі), далі теплий основний тон швидко тане
 function pluck(f, t, v = 0.22, len = 0.9) {
-  osc('sine', f, t, v, len);
-  osc('sine', f * 4.2, t, v * 0.22, 0.09);
-  osc('triangle', f * 2, t, v * 0.12, len * 0.35);
+  const L = len * 0.7;
+  osc('sine', f, t, v * 0.9, L, { attack: 0.002 });
+  osc('triangle', f, t, v * 0.3, L * 0.45, { attack: 0.002 });
+  osc('sine', f * 5.9, t, v * 0.1, 0.045, { attack: 0.001 });
+  // Коробка відгукується: глухий «тук» донизу і короткий шерех пальця
+  osc('sine', 240, t, v * 0.35, 0.07, { to: 120, attack: 0.002 });
+  noise(t, 0.025, 1400, 700, { v: v * 0.18, q: 0.9, attack: 0.001 });
 }
 // Скляний дзвіночок: негармонічні обертони, довгий хвіст
 function bell(f, t, v = 0.12, len = 1.6) {
@@ -265,8 +271,44 @@ const CELLO = { attack: 0.11, rel: 0.42, cut: 4, max: 3800, shelf: 2600, rate: 5
   body: [[220, 4, 1.4], [420, 4, 1.4], [1300, 3, 1]] };
 const violin = (f, t, v = 0.22, len = 0.9) => bowed(f, t, v, len, VIOLIN);
 const cello = (f, t, v = 0.22, len = 0.9) => bowed(f / 2, t, v, len, CELLO);
-// Колокольчики: уся мелодія — скляними дзвіночками
-const chimes = (f, t, v = 0.22, len = 0.9) => bell(f, t, v * 0.6, len * 1.3 + 0.3);
+// Колокольчики: справжні дзвони — обертони дзвона (гул ×0.5, мала терція ×1.2, квінта ×1.5, «номінал» ×2),
+// за терцією вухо й упізнає дзвін. Кожен обертон — двома ледь розстроєними тонами: дзвін «тремтить», довго гуде
+const BELL_PARTIALS = [[0.5, 0.35, 1.6], [1, 1, 1.2], [1.2, 0.4, 0.8], [1.5, 0.25, 0.6], [2, 0.3, 0.5], [3, 0.1, 0.25]];
+function chimes(f, t, v = 0.22, len = 0.9) {
+  const L = len * 1.4 + 0.6;
+  for (const [k, amp, life] of BELL_PARTIALS) {
+    osc('sine', f * k, t, v * 0.32 * amp, L * life, { attack: 0.001 });
+    osc('sine', f * k + 2.5, t, v * 0.22 * amp, L * life * 0.9, { attack: 0.001 });
+  }
+  // Удар язичка: короткий яскравий дзень
+  noise(t, 0.02, Math.min(f * 4, 8000), Math.min(f * 3, 7000), { v: v * 0.12, q: 3, attack: 0.001 });
+}
+// Контрабас: джазовий щипок на дві октави нижче. Телефон низу майже не грає, тож сильні 2-й і 3-й обертони —
+// за ними вухо саме «добудовує» низ. Удар пальця, фільтр, що швидко закривається (гуде й тане), ледь униз висотою
+function bass(f, t, v = 0.22, len = 0.9) {
+  const F = f / 4;
+  const L = Math.min(len * 0.9, 0.8) + 0.25;
+  const g = ctx.createGain();
+  env(g, t, v * 0.9, L, 0.004);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = 1.2;
+  lp.frequency.setValueAtTime(Math.min(F * 9, 3000), t);
+  lp.frequency.exponentialRampToValueAtTime(F * 3, t + 0.25);
+  lp.connect(g).connect(out);
+  const s = ctx.createOscillator();
+  s.type = 'sawtooth';
+  s.frequency.setValueAtTime(F * 1.01, t);
+  s.frequency.exponentialRampToValueAtTime(F, t + 0.08);
+  s.connect(lp);
+  s.start(t);
+  s.stop(t + L + 0.03);
+  osc('sine', F, t, v * 0.5, L, { attack: 0.004 });
+  osc('sine', F * 2, t, v * 0.3, L * 0.6, { attack: 0.004 });
+  // Палець по струні: глухий удар і шерех
+  osc('sine', 150, t, v * 0.4, 0.06, { to: 70, attack: 0.002 });
+  noise(t, 0.035, 900, 400, { v: v * 0.2, q: 0.8, attack: 0.001 });
+}
 // 8-біт: звук старих приставок. Вузький прямокутний імпульс (25 %, як канал NES), перший кадр — октавою вище
 // («піу»), гучність спадає сходинками по 1/30 с, без вібрато
 let chipWave = null;
@@ -292,7 +334,7 @@ function chip(f, t, v = 0.22, len = 0.9) {
   o.start(t);
   o.stop(t + (steps + 1) / 30 + 0.02);
 }
-const VOICES = { kalimba: pluck, harp, flute, violin, cello, bells: chimes, chip };
+const VOICES = { kalimba: pluck, harp, flute, violin, cello, bass, bells: chimes, chip };
 
 // Глухий удар з падінням висоти: дерев'яна фішка, падіння, вибух
 const thump = (t, f0, f1, len, v) => osc('sine', f0, t, v, len, { to: f1, attack: 0.002 });
