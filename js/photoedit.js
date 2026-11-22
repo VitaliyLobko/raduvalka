@@ -68,7 +68,7 @@ function drawPet(ctx, it) {
   ctx.save();
   ctx.translate(it.x, it.y);
   ctx.rotate(it.rot);
-  ctx.scale(it.k, it.k);
+  ctx.scale(it.k * (it.fx || 1), it.k * (it.fy || 1));
   ctx.shadowColor = 'rgba(0, 0, 0, .4)';
   ctx.shadowBlur = r * 0.18;
   ctx.shadowOffsetY = r * 0.05;
@@ -89,7 +89,7 @@ function drawItem(ctx, it) {
   ctx.save();
   ctx.translate(it.x, it.y);
   ctx.rotate(it.rot);
-  ctx.scale(it.k, it.k);
+  ctx.scale(it.k * (it.fx || 1), it.k * (it.fy || 1));
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const y0 = -(lines.length * lh) / 2 + lh / 2;
@@ -180,18 +180,24 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let mode = 'move';
   let tmpCrop = null;
   let frame = false;
+  // Віддзеркалення фото — у координатах уже повернутого фото, поверх повороту
+  let flipX = false;
+  let flipY = false;
   const rw = () => (turns % 2 ? base.height : base.width);
   const rh = () => (turns % 2 ? base.width : base.height);
   const view = () => (mode === 'crop' ? { x: 0, y: 0, w: rw(), h: rh() } : crop || { x: 0, y: 0, w: rw(), h: rh() });
-  const edited = () => turns || crop || strokes.length || items.length || frame;
+  const edited = () => turns || flipX || flipY || crop || strokes.length || items.length || frame;
   // Підпис чи колір — для тексту; смайл і улюбленець кольору не мають
   const textual = (it) => it && it.look !== 'emoji' && it.look !== 'pet';
+  const sticker = (it) => it && (it.look === 'emoji' || it.look === 'pet');
 
-  // Фото з поворотом — у координатах повернутого фото
+  // Фото з поворотом і віддзеркаленням — у координатах повернутого фото
   function drawBase(ctx) {
     ctx.save();
     const W = rw();
     const H = rh();
+    if (flipX) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+    if (flipY) { ctx.translate(0, H); ctx.scale(1, -1); }
     if (turns === 1) { ctx.translate(W, 0); ctx.rotate(Math.PI / 2); }
     if (turns === 2) { ctx.translate(W, H); ctx.rotate(Math.PI); }
     if (turns === 3) { ctx.translate(0, H); ctx.rotate(-Math.PI / 2); }
@@ -201,7 +207,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // Розмите фото рахуємо раз на поворот: зменшили до BLUR_PX і трохи пом'якшили
   let blurCache = null;
   function blurred() {
-    if (blurCache?.turns === turns) return blurCache.c;
+    const key = `${turns}${+flipX}${+flipY}`;
+    if (blurCache?.key === key) return blurCache.c;
     const k = BLUR_PX / Math.max(rw(), rh());
     const small = document.createElement('canvas');
     small.width = Math.max(1, Math.round(rw() * k));
@@ -216,7 +223,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     mx.imageSmoothingQuality = 'high';
     if ('filter' in mx) mx.filter = 'blur(3px)';
     mx.drawImage(small, 0, 0, soft.width, soft.height);
-    blurCache = { turns, c: soft };
+    blurCache = { key, c: soft };
     return soft;
   }
   // Мазки розмиття — маска на окремому шарі, крізь неї проступає розмите фото
@@ -316,6 +323,22 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     crop = r(crop);
     tmpCrop = r(tmpCrop);
     turns = (turns + 1) % 4;
+    // Поворот після дзеркала = дзеркало по іншій осі після повороту
+    [flipX, flipY] = [flipY, flipX];
+  }
+  // Віддзеркалити фото: наклейки, лінії й кадр переїжджають дзеркально, самі наклейки не перевертаються (текст читається)
+  function flip(horizontal) {
+    const W = rw();
+    const H = rh();
+    for (const it of items) {
+      if (horizontal) it.x = W - it.x; else it.y = H - it.y;
+      it.rot = -it.rot;
+    }
+    for (const s of strokes) for (let i = horizontal ? 0 : 1; i < s.pts.length; i += 2) s.pts[i] = (horizontal ? W : H) - s.pts[i];
+    const m = (c) => (!c ? null : horizontal ? { ...c, x: W - (c.x + c.w) } : { ...c, y: H - (c.y + c.h) });
+    crop = m(crop);
+    tmpCrop = m(tmpCrop);
+    if (horizontal) flipX = !flipX; else flipY = !flipY;
   }
 
   // ── Екран ──
@@ -425,8 +448,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     ptrs.set(e.pointerId, p);
     if (ptrs.size === 1) {
       sel = hit(p);
-      // Узяли — нагору, над іншими
-      if (sel) { items.splice(items.indexOf(sel), 1); items.push(sel); }
+      // Шар не міняємо від дотику — лише кнопками «Выше» / «Ниже»
       paintTools();
     }
     gesture();
@@ -574,9 +596,27 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const drawPanel = h('div', { class: 'ph-panel', hidden: true }, drawColors, undo, done());
   const blurPanel = h('div', { class: 'ph-panel', hidden: true }, h('span', { class: 'ph-hint' }, 'Закрась, что спрятать'), blurUndo, done());
   const cropPanel = h('div', { class: 'ph-panel', hidden: true },
-    h('button', { type: 'button', class: 'mk-chip', onclick: () => { turn(); fit(); } }, '⟳ Повернуть'),
+    h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Повернуть', onclick: () => { turn(); fit(); } }, '⟳'),
+    h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить по горизонтали', onclick: () => { flip(true); redraw(); } }, '⇆'),
+    h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить по вертикали', onclick: () => { flip(false); redraw(); } }, '⇅'),
     h('button', { type: 'button', class: 'mk-chip', onclick: () => { tmpCrop = { x: 0, y: 0, w: rw(), h: rh() }; redraw(); } }, 'Всё фото'),
     done());
+  // Вибране: шар вище/нижче; наклейку ще й віддзеркалити. Панель висить над фото — сцена не стрибає
+  const restack = (d) => {
+    const i = items.indexOf(sel);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    [items[i], items[j]] = [items[j], items[i]];
+    paintTools();
+    redraw();
+  };
+  const mirror = (axis) => { if (!sticker(sel)) return; sel[axis] = -(sel[axis] || 1); redraw(); };
+  const upBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-label': 'Выше остальных', onclick: () => restack(1) }, '⬆ Выше');
+  const downBtn = h('button', { type: 'button', class: 'mk-chip', 'aria-label': 'Ниже остальных', onclick: () => restack(-1) }, '⬇ Ниже');
+  const mirX = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по горизонтали', onclick: () => mirror('fx') }, '⇆');
+  const mirY = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по вертикали', onclick: () => mirror('fy') }, '⇅');
+  const selPanel = h('div', { class: 'ph-sel', hidden: true }, downBtn, upBtn, mirX, mirY);
+  stage.append(selPanel);
   // Улюбленці — окремою стрічкою над смайлами: усі пози кожного, головна першою; фото без ключа (blob:) — полотно не «брудниться»
   const petStickers = Object.keys(DATA.mascots || {}).flatMap((key) => petFiles(key).map((file) => {
     const src = petFileSrc(file);
@@ -636,6 +676,14 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     stickPanel.hidden = mode !== 'stick';
     bottom.hidden = mode === 'draw' || mode === 'crop' || mode === 'blur';
     trash.hidden = !sel || mode !== 'move';
+    selPanel.hidden = !sel || mode !== 'move' || items.length < 2 && !sticker(sel);
+    const idx = items.indexOf(sel);
+    upBtn.hidden = items.length < 2;
+    downBtn.hidden = items.length < 2;
+    upBtn.disabled = idx === items.length - 1;
+    downBtn.disabled = idx <= 0;
+    mirX.hidden = !sticker(sel);
+    mirY.hidden = !sticker(sel);
     undo.disabled = !strokes.some((s) => !s.blur);
     blurUndo.disabled = !strokes.some((s) => s.blur);
     lookChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === look)));
