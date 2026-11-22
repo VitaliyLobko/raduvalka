@@ -593,7 +593,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
         items.push(sel);
         finishMode(true);
       },
-    }, h('img', { src, alt: '', width: 40, height: 40, draggable: 'false', loading: 'lazy' }));
+    }, h('img', { src, alt: '', width: 56, height: 56, draggable: 'false', loading: 'lazy' }));
   })).filter(Boolean);
   const petRow = petStickers.length ? h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' }, ...petStickers) : null;
   if (petRow) ribbon(petRow);

@@ -4214,9 +4214,9 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-panel-stick .ph-stickers { flex: none; }
 .ph-stickers { flex: 1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
 .ph-stickers::-webkit-scrollbar { display: none; }
-.ph-sticker { flex: none; width: 46px; height: 46px; padding: 0; border: 0; background: none; font-size: 1.85rem; line-height: 1; cursor: pointer; }
-.ph-sticker-pet { display: grid; place-items: center; }
-.ph-sticker-pet img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); object-fit: cover; }
+.ph-sticker { flex: none; width: 54px; height: 54px; padding: 0; border: 0; background: none; font-size: 2.3rem; line-height: 1; cursor: pointer; }
+.ph-sticker-pet { display: grid; place-items: center; width: 62px; height: 62px; }
+.ph-sticker-pet img { width: 56px; height: 56px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); object-fit: cover; }
 .ph-hint { flex: 1 1 auto; min-width: 0; font-size: .8125rem; color: var(--ink-soft); text-align: center; }
 .ph-card { position: relative; display: block; }
 .ph-card.is-frame {
