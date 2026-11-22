@@ -193,6 +193,7 @@ export default {
       const d = new Date(at);
       const local = event.cron !== EVERY_MINUTE;
       if (!local && d.getUTCMinutes() >= 10) return;
+      await openedAttachCleanup(env, at);
       await photoCleanup(env);
       await fileCleanup(env);
       if (local || d.getUTCHours() === 3) await orphanFiles(env, at);
@@ -3675,6 +3676,20 @@ async function fileCleanup(env, now = Date.now()) {
   });
   if (gone) console.log('fileCleanup', { gone });
   return gone;
+}
+
+// Лист у конверті читається один раз — вкладення відкритого листа більше ніде не показується.
+// Через ATTACH_KEEP_MS після відкриття байти стираємо (рядок лишається з позначкою gone)
+const ATTACH_KEEP_MS = 30 * DAY_MS;
+async function openedAttachCleanup(env, now = Date.now()) {
+  if (!env.FILES) return 0;
+  const db = env.DB;
+  const { results } = await db.prepare(`SELECT id ${LETTER_FILES} AND opened IS NOT NULL AND opened < ? LIMIT 200`).bind(now - ATTACH_KEEP_MS).all();
+  if (!results.length) return 0;
+  await env.FILES.delete(results.map((r) => `l-${r.id}`));
+  await db.batch(results.map((r) => db.prepare("UPDATE letters SET media = json_set(media, '$.gone', ?) WHERE id = ?").bind(now, r.id)));
+  console.log('openedAttachCleanup', { gone: results.length });
+  return results.length;
 }
 
 // Файли в R2 без свого рядка (скинули базу, обірвалось між «поклали файл» і «записали лист») — не рахуються
