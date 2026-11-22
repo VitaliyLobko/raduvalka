@@ -45,6 +45,8 @@ let fromTop = 0;
 let stuck = true;
 let newest = null;
 let jump = null;
+// Кругла «↓» справа внизу: прокрутили вгору далі за пів екрана — до найновішого одним тапом
+let down = null;
 let reactJump = null;
 const sizes = new ResizeObserver(() => { if (stuck && box?.isConnected) box.scrollTop = box.scrollHeight; });
 // З app.js: open(l) — шторка листа; welcome() — привітальний лист-заготовка (або null); like/reply — для нього
@@ -186,14 +188,16 @@ export function letterFeed(o) {
   foot = h('div', { class: 'feed-foot' });
   box = h('div', { class: 'feed-box' }, head, list, foot);
   jump = h('button', { type: 'button', class: 'feed-jump', hidden: true, onclick: toEnd }, '↓ Новое');
+  down = h('button', { type: 'button', class: 'feed-down', hidden: true, 'aria-label': 'К последнему сообщению', onclick: toEnd }, '↓');
   reactJump = h('button', { type: 'button', class: 'feed-jump feed-react-jump', hidden: true, onclick: toReaction });
   // Гортання рукою: дійшла донизу — знову прилипли і «Новое» вже не треба
   box.addEventListener('scroll', () => {
     stuck = gap(box) < 40;
     if (stuck) jump.hidden = true;
+    paintDown();
     if (reactWait.size) paintReactJump();
   }, { passive: true });
-  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box, jump, reactJump);
+  const section = h('section', { class: 'feed', 'aria-label': 'Переписка' }, box, jump, down, reactJump);
   // Секцію ще не вставлено в сторінку — малюємо в неї примусово
   if (cache) draw(true);
   else foot.append(h('p', { class: 'mk-wait' }, 'Загружаю…'));
@@ -217,11 +221,28 @@ const memeOn = (m) => (m.url ? 'gif' : m.file ? 'file' : 'photo');
 const fileIcon = (t = '') => (/^image\//.test(t) ? '🖼' : /^video\//.test(t) ? '🎬' : /^audio\//.test(t) ? '🎵'
   : /pdf$/.test(t) ? '📕' : /zip|rar|7z|tar|gzip/.test(t) ? '🗜' : /sheet|excel|csv/.test(t) ? '📊' : /word|document|text/.test(t) ? '📄' : '📎');
 
+// «↓» — коли до низу далі за пів екрана і не висить «↓ Новое» (воно й так веде донизу)
+function paintDown() {
+  if (!down) return;
+  if (going && gap(box) < 40) going = false;
+  down.hidden = going || !box || gap(box) < box.clientHeight / 2 || !jump.hidden;
+}
+// Їдемо донизу після тапу — «↓» по дорозі не блимає
+let going = false;
+
 // До найновішого — плавно (без анімацій — одразу)
 function toEnd() {
   stuck = true;
   jump.hidden = true;
+  down.hidden = true;
+  going = true;
+  setTimeout(() => { going = false; }, 2000);
+  // Далеко — перескакуємо ближче миттю, останні два екрани їдемо плавно
+  const near = box.scrollHeight - box.clientHeight * 3;
+  if (!reduceMotion && box.scrollTop < near) box.scrollTop = near;
   box.scrollTo({ top: box.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
+  // Фото внизу ще довантажились і підросли — дотягнути до самого низу
+  setTimeout(() => { if (stuck) box.scrollTo({ top: box.scrollHeight }); }, 900);
 }
 
 // Реакція другого на моє повідомлення за краєм екрана: плашка вгорі «😍 на твоё сообщение ↑», тап — туди,
@@ -355,6 +376,7 @@ function draw(force = false, older = false) {
   stuck = wasStuck || !!mineNew;
   if (mineNew) requestAnimationFrame(toEnd);
   else if (arrived && !wasStuck) jump.hidden = false;
+  paintDown();
   // Новий лист від другого — курʼєр підбігає до нього
   if (arrived && !mineNew && arrived.type === 'in') {
     const pet = arrived.l.mascot || petFor('push');

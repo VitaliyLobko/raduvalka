@@ -2870,6 +2870,16 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
   box-shadow: 0 8px 20px -8px rgba(42, 23, 48, .7); animation: jump-in .25s ease-out;
 }
 .feed-jump[hidden] { display: none; }
+/* «↓» — до останнього повідомлення, коли прокрутили вгору */
+.feed-down {
+  position: absolute; right: 8px; bottom: 10px; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px;
+  border: 0; border-radius: 50%; background: var(--plum); color: #fff; font: 700 1.25rem/1 var(--ui); cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(42, 23, 48, .7); animation: down-in .2s ease-out;
+}
+.feed-down[hidden] { display: none; }
+.feed-down:focus-visible { outline: 3px solid var(--powder); outline-offset: 2px; }
+[data-side="vin"] .feed-down { background: #E8B84A; color: #1b2b33; }
+@keyframes down-in { from { opacity: 0; transform: translateY(8px); } }
 /* Смуга прокрутки на ноутбуці — тонка й у кольорі теми, без сірих стрілок Windows */
 .screen.is-chat .feed-box, .write-thread { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--plum) 30%, transparent) transparent; }
 [data-side="vin"] .screen.is-chat .feed-box { scrollbar-color: rgba(232, 184, 74, .35) transparent; }
