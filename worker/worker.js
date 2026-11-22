@@ -1016,7 +1016,7 @@ async function dayLetter(db, side) {
     "SELECT * FROM letters WHERE dst = ? AND kind IN ('now', 'morning', 'date') AND at <= ? ORDER BY at DESC, created DESC LIMIT 1",
   ).bind(side, now).first();
   if (!r) return getDoc(db, `letter:${side}`);
-  return { id: r.id, at: r.at, text: r.text, mascot: r.mascot, opened: !!r.opened, liked: !!r.liked, reply: r.reply, special: !!special };
+  return { id: r.id, at: r.at, text: r.text, mascot: r.mascot, opened: !!r.opened, liked: !!r.liked, reply: r.reply, special: !!special, media: mediaOf(r) };
 }
 
 // Конверти: записки із заготовки, а за ними — дописані в застосунку (лише додаються в кінець,
@@ -1097,7 +1097,7 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
 
   // Лист у конверт із фото, голосом чи піснею — одним запитом, щоб байти в R2 не лишились без листа:
   // тіло — 4 байти довжини JSON (big-endian) ‖ JSON листа { env, text, mascot, cid, media { k, t, d, n, cap } } ‖ байти (RAD1)
-  if (m === 'POST' && rest === 'attach') return attachLetter(req, db, side, files, hard);
+  if (m === 'POST' && rest === 'attach') return attachLetter(req, db, side, files, hard, notify);
 
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
@@ -1119,12 +1119,12 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
   // «Мне»: усі отримані листи з застосунку, чий час настав
   if (m === 'GET' && rest === 'inbox') {
     const { results } = await db.prepare(
-      "SELECT id, kind, text, quote, at, mascot, opened, liked, reply FROM letters WHERE dst = ? AND at <= ? "
+      "SELECT id, kind, text, quote, at, mascot, opened, liked, reply, media FROM letters WHERE dst = ? AND at <= ? "
         + "AND kind IN ('now', 'morning', 'date') ORDER BY at DESC LIMIT 60",
     ).bind(side, Date.now()).all();
     return json(results.map((r) => ({
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
-      opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
+      opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null, media: mediaOf(r),
     })));
   }
 
@@ -1132,8 +1132,8 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
     const b = await readJson(req);
     const kind = String(b.kind || '');
     const text = clip(b.text, MAX_LETTER);
-    // Вкладення (гифка, посилання) — лише в лист у конверт; з ним текст може бути порожнім
-    const media = kind === 'env' ? linkMedia(b.media) : null;
+    // Вкладення (гифка, посилання) — лише в лист у конверт і святковий; з ним текст може бути порожнім
+    const media = kind === 'env' || kind === 'date' ? linkMedia(b.media) : null;
     if (!LETTER_KINDS.includes(kind) || (!text && !media)) throw fail(400, 'letter');
     const now = Date.now();
     let at = now;
@@ -1237,7 +1237,7 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
   throw fail(405, 'method');
 }
 
-async function attachLetter(req, db, side, files, hard) {
+async function attachLetter(req, db, side, files, hard, notify) {
   if (!files) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
   if (len > MAX_FILE + MAX_JSON) throw fail(413, 'size');
@@ -1249,9 +1249,13 @@ async function attachLetter(req, db, side, files, hard) {
   const bytes = buf.subarray(4 + head);
   if (bytes.byteLength > MAX_FILE) throw fail(413, 'size');
   const media = fileMedia(b.media, bytes.byteLength);
-  const envId = String(b.env || '');
-  const theirs = (await getDoc(db, `envelopes:${other(side)}`)) || [];
-  if (!theirs.some((e) => e.id === envId)) throw fail(400, 'env');
+  // Святковий (kind 'date') — без конверта, на свій час, як звичайний святковий; інакше — у конверт
+  const festive = b.kind === 'date';
+  const envId = festive ? null : String(b.env || '');
+  if (!festive) {
+    const theirs = (await getDoc(db, `envelopes:${other(side)}`)) || [];
+    if (!theirs.some((e) => e.id === envId)) throw fail(400, 'env');
+  }
   const cid = typeof b.cid === 'string' && CID.test(b.cid) ? b.cid : null;
   if (cid) {
     const dup = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(cid).first();
@@ -1267,14 +1271,20 @@ async function attachLetter(req, db, side, files, hard) {
   const text = clip(b.text, MAX_LETTER);
   const id = cid || crypto.randomUUID().replace(/-/g, '').slice(0, 16);
   const now = Date.now();
+  const kind = festive ? 'date' : 'env';
+  const at = festive ? Math.max(now, Math.min(now + MAX_DATE_AHEAD, Number(b.at) || now)) : now;
+  // Як у POST: святковий «зараз» — push одразу, на свій час — cron; у конверт — без push
+  const soon = festive && at <= now + 60000;
+  const later = festive && !soon && notify.on;
   await quota.take(bytes.byteLength);
   // Спершу байти, потім рядок: обірвалось між ними — лишиться файл без листа, але лише в цьому рідкісному разі
   // й під тим самим id (повтор із тим самим cid його перезапише)
   await files.put(`l-${id}`, bytes);
   await db.prepare(
     'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  ).bind(id, side, other(side), 'env', envId, mascot, text, null, now, now, 0, null, JSON.stringify(media)).run();
-  return json({ id, kind: 'env', env: envId, text, quote: null, at: now, created: now, opened: false, liked: false, reply: null, media }, 201);
+  ).bind(id, side, other(side), kind, envId, mascot, text, null, at, now, later ? null : 0, null, JSON.stringify(media)).run();
+  if (soon) notify.send(other(side), letterNote(kind, mascots[mascot]));
+  return json({ id, kind, env: envId, text, quote: null, at, created: now, opened: false, liked: false, reply: null, media }, 201);
 }
 
 async function listMemes(db, side, limit = 300) {
@@ -1326,7 +1336,7 @@ async function feedPage(db, side, url) {
   const take = n + 1;
   const sentAt = "CASE WHEN kind = 'env' THEN created ELSE at END";
   const [inbox, sent, memes, news, marks, gifted, aiIdeas] = await Promise.all([
-    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, at AS t FROM letters '
+    db.prepare('SELECT id, kind, text, quote, at, mascot, opened, liked, reply, reaction, media, at AS t FROM letters '
       + "WHERE dst = ? AND at <= ? AND at < ? AND kind IN ('now', 'morning', 'date') "
       + 'ORDER BY at DESC LIMIT ?').bind(side, Date.now(), before, take).all(),
     db.prepare(`SELECT id, kind, env, text, quote, at, created, opened, liked, reply, replied, reaction, stocked, media, ${sentAt} AS t `
@@ -1389,7 +1399,7 @@ async function feedPage(db, side, url) {
   return {
     inbox: of('in').map((r) => ({
       id: r.id, kind: r.kind, text: r.text, quote: r.quote || null, at: r.at, mascot: r.mascot,
-      opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null,
+      opened: !!r.opened, liked: !!r.liked, reply: r.reply, reaction: r.reaction || null, media: mediaOf(r),
     })),
     sent: of('out').map(({ t, ...r }) => ({ ...r, opened: !!r.opened, liked: !!r.liked, media: mediaOf(r) })),
     memes: of('meme').map((r) => view(r, side)),

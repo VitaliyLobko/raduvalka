@@ -194,8 +194,27 @@ function openLetter(l) {
   fillLetter();
 }
 
+// Вкладення святкового листа під текстом: вантажиться раз на шторку (перемальовування бере той самий вузол),
+// модуль вкладень — лише коли воно є
+function letterAttach(l) {
+  if (!l.media) return null;
+  if (sheet.att) return sheet.att.el;
+  const el = h('div', { class: 'letter-att' });
+  sheet.att = { el, stop: () => {} };
+  const mine = sheet;
+  import('./envattach.js').then((ea) => ea.renderAttach(l)).then((m) => {
+    if (sheet !== mine) { m.stop(); return; }
+    mine.att.stop = m.stop;
+    el.replaceChildren(m.el);
+  }).catch(() => {
+    if (sheet === mine) el.replaceChildren(h('p', { class: 'ea-gone' }, '📎 Вложение не загрузилось — нет связи. Открой письмо ещё раз позже'));
+  });
+  return el;
+}
+
 function closeLetter() {
   if (!sheet) return;
+  sheet.att?.stop();
   sheet.backdrop.remove();
   sheet.el.remove();
   sheet = null;
@@ -240,8 +259,9 @@ function fillLetter() {
   sheet.box.replaceChildren(...[
     ...head,
     h('article', { class: `letter${festive(l) ? ' is-special' : ''}` },
-      h('p', { class: 'letter-text' }, l.text),
-      signLine(DATA.partnerSign, who().from)),
+      ...[l.text ? h('p', { class: 'letter-text' }, l.text) : null,
+        letterAttach(l),
+        signLine(DATA.partnerSign, who().from)].filter(Boolean)),
     h('div', { class: 'actions' },
       h('button', {
         type: 'button',

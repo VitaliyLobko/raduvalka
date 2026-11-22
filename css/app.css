@@ -4720,3 +4720,10 @@ html.is-still .bs-spark { animation: none; }
 .ea-song-link:active { transform: scale(.98); }
 .feed-bubble > .sent-att { margin: 6px 14px 0; font: 600 .85rem/1.3 var(--ui); opacity: .85; }
 .feed-bubble > .sent-att:first-child { margin-top: 12px; }
+.feed-att-open {
+  display: block; padding: 4px 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.feed-att-open:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; border-radius: 6px; }
+.letter-att { margin-top: 14px; }
+.letter-att:empty { min-height: 120px; border-radius: 12px; background: color-mix(in srgb, currentColor 6%, transparent); }

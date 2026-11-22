@@ -860,7 +860,10 @@ function inBubble(l) {
     },
   }, l.liked ? '❤️' : '🤍');
   // append, на відміну від h(), друкує null як текст — порожні відсіюємо
-  bubble.append(...[body,
+  // Вкладення святкового листа — у шторці листа під текстом; тут лише рядок, що відкриває шторку
+  const att = l.media ? (l.media.gone ? h('p', { class: 'sent-att' }, '📎 вложение удалено')
+    : h('button', { type: 'button', class: 'sent-att feed-att-open', onclick: () => ops.open?.(l) }, `${SENT_ATT[l.media.k] || '📎 вложение'} · открыть`)) : null;
+  bubble.append(...[body, att,
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
     h('div', { class: 'feed-acts' }, like, replyBtn(it))].filter(Boolean));
   return bubble;
