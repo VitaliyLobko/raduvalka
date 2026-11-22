@@ -268,8 +268,11 @@ function play(name, delay, instrument) {
 // sfx('pair') — зіграти; delay — у мс (щоб звук ліг на анімацію); from — 'them', коли це прийшло від другого
 // (звучить його інструментом). Без дотику, у фоні чи вимкнено — тиша
 export function sfx(name, delay = 0, from = 'me') {
-  play(name, delay, from === 'them' ? theirs : myInstrument());
+  play(name, delay, (from === 'them') !== swapped ? theirs : myInstrument());
 }
+// «Играть за двоих» (Отладка): поки граю за неї, «моє» — її ходи, тож інструменти міняються місцями
+let swapped = false;
+export function swapInstruments(on) { swapped = !!on; }
 // Будь-який звук заданим інструментом — для «Отладки», свій вибір не міняє
 export const playAs = (name, instrument) => play(name, 0, instrument);
 // Послухати інструмент у налаштуваннях: «твій хід» і пара

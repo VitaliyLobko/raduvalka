@@ -4,7 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
-import { sfx } from './sound.js';
+import { sfx, swapInstruments } from './sound.js';
 import { mascotImg, petName, petLine, petFileImg } from './icons.js';
 import { placer, seaEl, shipEl, miniShip, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
@@ -284,6 +284,7 @@ const waitingOther = (g) => !!g && !g.done && (g.myMove != null || (g.game === '
 function playAs(on) {
   if (on && !actAs) { actAs = { key: getAltKey(), real: DATA.side }; DATA.side = DATA.side === 'vin' ? 'vona' : 'vin'; }
   if (!on && actAs) { DATA.side = actAs.real; actAs = null; }
+  swapInstruments(!!actAs);
 }
 
 export async function openDuel({ game = 'rps' } = {}) {
