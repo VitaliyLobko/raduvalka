@@ -5,6 +5,7 @@ import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst } from './fx.js';
+import { sfx } from './sound.js';
 import { gameSheet } from './games.js';
 
 const N = 10;
@@ -167,6 +168,7 @@ function result(g) {
       [...open.body.querySelectorAll('.hot-row')].forEach((li, i) => li.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: 300 + i * 120, easing: 'ease-out', fill: 'backwards' }));
     }
     if (g.hits >= 3) burst(big, '🔥', g.hits * 3);
+    sfx(g.hits ? 'win' : 'lose', 250);
     markSeen(g);
     // Картка в чаті ще «ждём ответы» — перечитати стрічку
     document.dispatchEvent(new CustomEvent('radovalka:marked'));

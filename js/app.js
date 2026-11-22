@@ -20,6 +20,7 @@ import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
+import { sfx, soundOn, setSound } from './sound.js';
 import { openDuel } from './duel.js';
 import { openSame } from './same.js';
 import { openHot } from './hot.js';
@@ -631,6 +632,21 @@ document.addEventListener('visibilitychange', () => {
 const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
 
 // Перемикач «Движение фона»: нахил, пелюстки, падаюча зірка
+// Звуки в Радовалці (шкатулка, ігри); push звучить, як налаштовано в телефоні
+function soundSwitch() {
+  const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
+  const paint = () => {
+    btn.setAttribute('aria-checked', String(soundOn()));
+    btn.replaceChildren(
+      h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, '🎵'),
+      h('span', { class: 'about-row-label' }, 'Звуки в Радовалке', h('small', {}, 'Письма, ход в игре, пара, победа')),
+      h('span', { class: 'about-toggle', 'aria-hidden': 'true' }));
+  };
+  btn.addEventListener('click', () => { setSound(!soundOn()); paint(); if (soundOn()) sfx('pair'); });
+  paint();
+  return btn;
+}
+
 function stillSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
   const paint = () => {
@@ -689,6 +705,7 @@ function openAbout(showNews) {
       aboutGroup('Уведомления', pushPanel()),
       // Раптом від руху фону укачує — вимикається тут
       aboutGroup('Фон', stillSwitch()),
+      aboutGroup('Звуки', soundSwitch()),
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('На всякий случай',
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),

@@ -1,6 +1,7 @@
 // Маленькі анімації на відповідь людині: сердечка, виліт картки, згортання рядка.
 // Web Animations API — без класів у CSS для кожного руху; «менше руху» в телефоні — нічого не рухаємо
 import { reduceMotion } from './ui.js';
+import { sfx } from './sound.js';
 
 // Сердечка (чи інший значок) розлітаються з середини елемента
 export function burst(el, glyph = '❤️', n = 9) {
@@ -66,6 +67,7 @@ export function petRun(row, html) {
 // «💞 Люблю тебя!» побачили вперше: рядок б'ється, як серце, і з нього злітають угору сердечка, погойдуючись
 const LOVE = ['💞', '❤️', '💗', '💖', '💕', '💘'];
 export function loveRain(el) {
+  if (el?.isConnected) sfx('love');
   if (reduceMotion || !el?.isConnected) return;
   el.animate([
     { transform: 'scale(1)' }, { transform: 'scale(1.28)' }, { transform: 'scale(1)' },
@@ -900,6 +902,7 @@ const QUAKE = {
 
 let fxCalm = 0;
 export function reactFx(el, glyph) {
+  if (glyph && el?.isConnected) sfx('react');
   if (reduceMotion || !el?.isConnected || !glyph) return;
   // Поки йде реакція, тло не їздить за нахилом (depth.js) — відеокарта зайнята лише смайликами
   const root = document.documentElement;
@@ -1462,6 +1465,7 @@ function salute(x, y, colors, n, delay) {
 }
 // Перемога: мої фішки підстрибують, салют мого кольору, великий знак з 👑
 export function boardWin(board, svg, sex) {
+  sfx('win');
   if (reduceMotion || !board?.isConnected) return;
   const { r, x, y } = boardMid(board);
   board.querySelectorAll(':is(.ttt-cell, .db-box, .mm-card).is-me .gsym').forEach((p, k) => jolt(p, [
@@ -1492,6 +1496,7 @@ export function boardWin(board, svg, sex) {
 }
 // Поразка: мої фішки никнуть і бліднуть, легкий дощик над полем, потім «Реванш?»
 export function boardLose(board, svg, sex) {
+  sfx('lose');
   if (reduceMotion || !board?.isConnected) return;
   const { r, x, y } = boardMid(board);
   board.querySelectorAll(':is(.ttt-cell, .db-box, .mm-card).is-me .gsym').forEach((p, k) => p.animate([
@@ -1521,6 +1526,7 @@ export function boardLose(board, svg, sex) {
 }
 // Нічия: ♂ і ♀ з'їжджаються до середини й обіймаються, між ними ❤️, угору — сердечка
 export function boardDraw(board, svgHe, svgShe) {
+  sfx('draw');
   if (reduceMotion || !board?.isConnected) return;
   const { x, y } = boardMid(board);
   const pair = [[svgHe, 'he', -1], [svgShe, 'she', 1]];

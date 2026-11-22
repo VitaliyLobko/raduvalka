@@ -8,6 +8,7 @@ import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, freeCap,
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
+import { sfx } from './sound.js';
 import { saveMeme } from './memesave.js';
 import { moodWord } from './checkin.js';
 import { ask } from './ask.js';
@@ -377,6 +378,8 @@ function draw(force = false, older = false) {
   if (mineNew) requestAnimationFrame(toEnd);
   else if (arrived && !wasStuck) jump.hidden = false;
   paintDown();
+  // Прийшло від другого — шкатулка, пішло моє — шурх
+  if (arrived) sfx(mineNew ? 'sent' : 'letter');
   // Новий лист від другого — курʼєр підбігає до нього
   if (arrived && !mineNew && arrived.type === 'in') {
     const pet = arrived.l.mascot || petFor('push');

@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst } from './fx.js';
+import { sfx } from './sound.js';
 import { gameSheet } from './games.js';
 
 // Ключ не міняти: за ним сервер і другий телефон знаходять питання. Нові — дописувати в кінець своєї теми
@@ -312,6 +313,7 @@ function result(g) {
       [...open.body.querySelectorAll('.same-row')].forEach((li, i) => li.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: 300 + i * 120, easing: 'ease-out', fill: 'backwards' }));
     }
     if (g.hits >= 3) burst(big, '💞', g.hits * 3);
+    sfx(g.hits ? 'win' : 'lose', 250);
     markSeen(g);
   }
 }

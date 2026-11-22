@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { get, send, getAltKey } from './api.js';
 import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
+import { sfx } from './sound.js';
 import { mascotImg, petName, petLine, petFileImg } from './icons.js';
 import { placer, seaEl, shipEl, miniShip, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
@@ -402,7 +403,7 @@ async function show(g, fresh) {
   if (g.done) {
     status.textContent = duelResult(g);
     status.classList.add('is-final');
-    if (fresh1) burst(stage, g.done.won ? '🎉' : '💪', 12);
+    if (fresh1) { burst(stage, g.done.won ? '🎉' : '💪', 12); sfx(g.done.won ? 'win' : 'lose'); }
     act.replaceChildren(...doneActs(g));
     return;
   }
@@ -434,13 +435,16 @@ async function reveal(stage, status, r) {
   const [them, me] = hands('✊', '✊');
   stage.replaceChildren(them, me);
   status.textContent = 'Раз, два, три…';
-  if (!reduceMotion) {
+  if (reduceMotion) sfx('tock');
+  else {
     const bob = [{ transform: 'translateY(0)' }, { transform: 'translateY(-22px)', offset: 0.45 }, { transform: 'translateY(0)' }];
     for (let i = 0; i < 3; i += 1) {
+      sfx(i < 2 ? 'tick' : 'tock', 150);
       // eslint-disable-next-line no-await-in-loop
       await Promise.all([them, me].map((x) => x.querySelector('.duel-glyph').animate(bob, { duration: 340, easing: 'ease-in-out' }).finished.catch(() => {})));
     }
   }
+  sfx('reveal');
   them.querySelector('.duel-glyph').textContent = GLYPH[r.them];
   me.querySelector('.duel-glyph').textContent = GLYPH[r.me];
   if (r.win) (r.win === 'me' ? me : them).classList.add('is-win');
@@ -560,6 +564,9 @@ const fall = (el, row) => {
 };
 // Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — знак прорисовується лінією (CSS .is-draw)
 const land = (grid, board, i) => {
+  if (grid.dots) sfx('line');
+  else if (grid.drop) sfx('drop', reduceMotion ? 0 : Math.max(0, (300 + Math.floor(i / grid.w) * 45) * 0.75 - 170));
+  else sfx('place');
   if (grid.dots) {
     // Рисочка простягається від точки до точки, а в клітинках, які вона замкнула, знак прорисовується
     pieceAt(grid, board, i)?.classList.add('is-new');
@@ -723,7 +730,7 @@ async function showBoard(g) {
   paintHistory(g.rounds.length);
   const play = !g.done && g.turn === 'me';
   board.replaceChildren(...cells(grid, g.board, { mine, play, boxes: g.boxes || '', onPick: (m) => boardMove(g, m, board) }));
-  if (fresh && g.lastBy === 'them' && g.lastCell !== null) land(grid, board, g.lastCell);
+  if (fresh && g.lastBy === 'them' && g.lastCell !== null) { land(grid, board, g.lastCell); if (play) sfx('turn', 550); }
   // Куди щойно сходив другий — тонке кільце (свіжий хід — ще й спалахує)
   if (!g.done && g.lastBy === 'them' && g.lastCell !== null) pieceAt(grid, board, g.lastCell)?.classList.add('is-last', ...(fresh ? ['is-last-new'] : []));
   if (g.done) {
@@ -800,6 +807,7 @@ async function showMemo(g) {
   const pick = (i) => memoMove(g, i, board);
   board.replaceChildren(...memoCards(g, new Set([...up].filter((i) => before.has(i))), { play, onPick: pick }));
   open.memo = { id: g.id, up };
+  if ([...up].some((i) => !before.has(i))) sfx('flip');
   requestAnimationFrame(() => up.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-up')));
   const newRound = g.rounds.length > 0 && !g.n && fresh;
   if (g.done) {
@@ -822,7 +830,8 @@ async function showMemo(g) {
     tip.replaceChildren(...[play && !g.open?.length ? petTip(grid.kind, g) : null].filter(Boolean));
     act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
   }
-  if (flash?.hit && fresh) flash.cells.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-pair'));
+  if (flash?.hit && fresh) { flash.cells.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-pair')); if (!g.done) sfx('pair', 380); }
+  if (flash && !flash.hit && fresh && !g.done) { sfx('miss', 480); if (play) sfx('turn', 2300); }
   if (fresh || (g.done && !sawEnd(g))) {
     markSeen(g);
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
@@ -832,6 +841,7 @@ async function showMemo(g) {
     open.busy = true;
     await wait(1900);
     if (!open || open.memo?.id !== g.id) return;
+    sfx('flip');
     flash.cells.forEach((i) => { board.querySelector(`[data-i="${i}"]`)?.classList.remove('is-up'); open.memo.up.delete(i); });
     open.busy = false;
   }
@@ -1040,6 +1050,7 @@ async function showBs(g) {
     open.busy = false;
   }
   const last = g.shots.at(-1);
+  if (!g.done && play && fresh.length && last?.by === 'them' && !last.hit) sfx('turn', 200);
   if (g.done) {
     // Кінець: решта чужого флоту — привидами, без записок
     (g.rest || []).forEach((s) => theirs.append(shipEl(them, s.cells, ' is-ghost')));

@@ -3,6 +3,7 @@
 // Розстановка без перетягування, постріли, потоплення, записки. Стан гри й черга — у duel.js; тут лише те, що видно.
 // Анімації — лише transform/opacity (Web Animations API чи CSS), без filter; reduceMotion — без руху
 import { h, reduceMotion, sky, toast } from './ui.js';
+import { sfx } from './sound.js';
 
 export const W = 6;
 export const FLEET = [3, 2, 2, 1];
@@ -260,6 +261,7 @@ const mid = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.w
 
 // Снаряд (зірка чи сердечко) летить дугою з поля того, хто стріляє, у клітинку
 export function fxFly(from, cell, glyph) {
+  sfx('shot');
   if (reduceMotion || !from?.isConnected || !cell?.isConnected) return Promise.resolve();
   const [x0, y0] = mid(from);
   const [x1, y1] = mid(cell);
@@ -282,6 +284,7 @@ export function fxShot(mark) {
 }
 // Мимо: кільця по воді й бризки (у нього — золоті іскри)
 export function fxMiss(cell, world) {
+  sfx('splash');
   if (reduceMotion || !cell) return;
   for (let i = 0; i < 2; i += 1) {
     const r = bit(cell, `bs-ring${world === 'vin' ? ' is-gold' : ''}`);
@@ -296,6 +299,7 @@ export function fxMiss(cell, world) {
 }
 // Влучив: спалах і віяло іскор
 export function fxHit(cell, world) {
+  sfx('hit');
   if (reduceMotion || !cell) return;
   const f = bit(cell, 'bs-flash');
   bye(f, f.animate([{ transform: 'scale(.2)', opacity: 1 }, { transform: 'scale(1.7)', opacity: 0 }], { duration: 520, easing: 'ease-out' }));
@@ -309,6 +313,7 @@ export function fxHit(cell, world) {
 // Потоплено: кораблик хитається, кренится й іде під воду з бульбашками; у нього гасне ліхтарик (CSS для is-sunk).
 // Кінцевий вигляд — клас is-sunk; бульбашок не більше 3 на клітинку
 export function fxSink(ship, world, board, cells) {
+  sfx('sunk');
   ship.classList.add('is-sunk');
   markSunk(board, cells);
   if (reduceMotion) return Promise.resolve();
@@ -329,6 +334,7 @@ export function fxSink(ship, world, board, cells) {
 // «💌 Записка в кораблике»: конвертик вилітає з потопленого кораблика й розгортається листком над полем;
 // тап чи кілька секунд — ховається
 export function noteReveal(host, text, world, from = null) {
+  sfx('note', 250);
   const card = h('button', { type: 'button', class: `bs-note-pop is-${world}`, 'aria-live': 'polite' },
     h('span', { class: 'bs-note-head' }, '💌 Записка в кораблике:'), h('span', { class: 'bs-note-text' }, text));
   host.append(card);
@@ -361,6 +367,7 @@ export function noteReveal(host, text, world, from = null) {
 
 // Фінал у стилі світу, де йшов бій: перемога — фонтан сердечок чи зірок і корона, поразка — якір гойдається, бульбашки й «Реванш?»
 export function bsFinal(host, world, won) {
+  sfx(won ? 'win' : 'lose');
   const glyph = won ? SHOT[world === 'vona' ? 'vin' : 'vona'] : '🫧';
   const box = h('button', { type: 'button', class: `bs-final is-${world}${won ? ' is-won' : ''}` },
     h('span', { class: 'bs-final-icon', 'aria-hidden': 'true' }, won ? '👑' : '⚓'),

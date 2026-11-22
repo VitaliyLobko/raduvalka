@@ -4,6 +4,7 @@ import { DATA, who } from './data.js';
 import { send } from './api.js';
 import { toast, cap } from './ui.js';
 import { bellFx } from './fx.js';
+import { sfx } from './sound.js';
 
 // Сильний змах, не крок і не поворот: 3 поштовхи за 1,2 с; дзвонити — не частіше ніж раз на хвилину
 const PEAK = 22;
@@ -55,6 +56,7 @@ export async function ring() {
   if (now - sentAt < EVERY) { toast('🔔 Звоночек уже звенит — подожди минутку'); return; }
   sentAt = now;
   navigator.vibrate?.(40);
+  sfx('ring');
   bellFx(false);
   try {
     const r = await send('bell', 'POST', {});
@@ -82,7 +84,7 @@ export function bellArrived(at) {
   document.dispatchEvent(new CustomEvent('radovalka:marked'));
 }
 
-const buzz = () => { navigator.vibrate?.(BUZZ); chime(); };
+const buzz = () => { navigator.vibrate?.(BUZZ); sfx('bell'); };
 // Вібрацію й звук браузер дає лише після першого дотику до сторінки (відкрили з push, перемкнули половину)
 const touched = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
 // Тоді — за першим тапом, поки дзвінок свіжий. pointerup, а не pointerdown: на сенсорі дозвіл дає саме відпускання
@@ -97,28 +99,4 @@ function afterTap(at) {
   };
   addEventListener('pointerup', waitTap, true);
   addEventListener('keydown', waitTap, true);
-}
-
-// Дзвіночок без файлу: три удари, у кожного — основний тон і два обертони, що швидко гаснуть
-function chime() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const strike = (t0) => [[1320, 0.28, 1.4], [2640, 0.1, 0.8], [3960, 0.05, 0.5]].forEach(([f, peak, len]) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(peak, t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
-      o.connect(g).connect(ctx.destination);
-      o.start(t0);
-      o.stop(t0 + len + 0.05);
-    });
-    const t = ctx.currentTime + 0.05;
-    [0, 0.32, 0.64].forEach((d) => strike(t + d));
-    setTimeout(() => ctx.close().catch(() => {}), 2800);
-  } catch { /* без звуку — не біда */ }
 }

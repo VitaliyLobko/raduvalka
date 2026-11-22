@@ -106,6 +106,8 @@ self.addEventListener('push', (event) => {
     ...(note.urgent ? { requireInteraction: true, vibrate: [500, 200, 500, 200, 900] } : {}),
     // «🔔 Звоночек» — серцебиття
     ...(note.buzz ? { vibrate: [180, 100, 380, 550, 180, 100, 380, 550, 180, 100, 380, 550, 180, 100, 380] } : {}),
+    // Свій узор, щоб упізнати не дивлячись: гра — «тук-тук-ту-ук», решта — «ту-ту-ук» (Android 8+ може взяти узор каналу)
+    ...(!note.urgent && !note.buzz && !note.silent ? { vibrate: /^(duel|same|hot|gwish)/.test(note.tag || '') ? [180, 90, 180, 90, 420] : [220, 120, 480] } : {}),
     icon: new URL('icons/icon-192.png', scope).href,
     // «Как ты?»: кнопка «❤️ Я в порядке» прямо в сповіщенні (Android); ok — адреса й разовий токен замість ключа
     ...(Array.isArray(note.actions) ? { actions: note.actions.slice(0, 2) } : {}),
