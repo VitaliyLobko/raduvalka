@@ -1696,6 +1696,8 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .help-draft-take { align-self: flex-end; margin-top: 6px; font: 500 .8125rem/1 var(--ui); color: var(--wax); }
 .help-panel .mk-reroll { width: auto; min-height: 36px; margin: 6px auto 0; padding: 0 16px; font-size: .875rem; }
 .help-fix { margin-top: 4px; }
+.mk-go-fix { display: flex; justify-content: center; width: 100%; min-height: 40px; margin-top: 8px; border-style: dashed; }
+.mk-go-fix:disabled { opacity: .45; }
 /* Помічник відкритий — переписка над полем згортається, місце йому */
 .sheet-write.is-helping .write-thread { display: none; }
 
@@ -2317,7 +2319,7 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 /* Гифки: настрої плиткою 3×3 — один тап, і вже підбірка */
 .mk-moods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
 .mk-moods .mk-mood-tile { justify-content: center; min-height: 40px; padding: 4px 6px; font-size: .875rem; white-space: nowrap; }
-.mk-ai-more { flex: none; border-style: dashed; }
+.mk-ai-go { flex: none; border-style: dashed; border-color: var(--wax); color: var(--wax); font-weight: 600; }
 
 /* «Вместе»: дні народження — два поля в один рядок */
 .bday-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
@@ -3046,11 +3048,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 /* Вузький екран — лише мордочка: ім'я в підказці, «Помочь» не з'їжджає за край */
 @media (max-width: 400px) { .cbar-pet > span { display: none; } }
 .cbar-when.is-on { border-color: var(--wax); background: color-mix(in srgb, var(--wax) 14%, var(--paper)); color: var(--wax); }
-.cbar-fest[hidden] { display: none; }
 .cbar-opts.is-tight .cbar-help-word { display: none; }
-.cbar-fest { flex: none; padding-inline: 6px; }
-.cbar-fest.is-on { border-color: #E0A93A; background: linear-gradient(160deg, #FFF3C4, #FFE0EC); color: #8A5A00; box-shadow: 0 0 10px rgba(255, 212, 92, .55); }
-[data-side="vin"] .cbar-fest.is-on { background: linear-gradient(160deg, #4A4227, #2A3B47); color: #FFE7A0; }
 .cbar-help { border-style: dashed; border-color: var(--wax); background: transparent; color: var(--wax); font-weight: 500; }
 
 .cbar-pets { display: flex; gap: 8px; }
@@ -3081,6 +3079,7 @@ body.is-chat { height: 100dvh; overflow-y: auto; }
 .cbar-plus-label { margin: 0 0 8px 4px; font-size: .8125rem; color: var(--ink-soft); }
 .cbar-plus-label + .cbar-tiles + .cbar-plus-label { margin-top: 12px; }
 .cbar-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cbar-tiles.is-wide { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 .cbar-tile {
   display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; padding: 8px 0;
   border: 0; border-radius: 16px; background: color-mix(in srgb, var(--lavender) 22%, var(--paper)); color: var(--plum);
@@ -3178,10 +3177,6 @@ body.is-emoji .screen.is-chat { padding-bottom: calc(var(--plus-h, 0px) + 8px); 
 .sheet-write.sheet-full .voice-wrap.is-area { display: flex; flex-direction: column; min-height: 0; }
 .sheet-write.sheet-full .write-text { flex: 1; min-height: 96px; margin: 0; resize: none; }
 .write-dock { display: grid; gap: 6px; margin-top: auto; }
-.write-fest { justify-self: start; }
-.write-fest[hidden] { display: none; }
-.write-fest[aria-pressed="true"] { border-color: #E0A93A; background: linear-gradient(160deg, #FFF3C4, #FFE0EC); color: #8A5A00; box-shadow: 0 0 10px rgba(255, 212, 92, .55); }
-[data-side="vin"] .write-fest[aria-pressed="true"] { background: linear-gradient(160deg, #4A4227, #2A3B47); color: #FFE7A0; }
 /* «Когда» — одна стрічка, гортається вбік */
 .write-when { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
 .write-when::-webkit-scrollbar { display: none; }
@@ -4665,7 +4660,6 @@ html.is-still .bs-spark { animation: none; }
 .write-att-text { flex: 1; min-width: 0; font: 600 .95rem/1.3 var(--ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .write-att-x { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 1.1rem; cursor: pointer; }
 .write-att-x:active { background: color-mix(in srgb, var(--plum) 12%, transparent); }
-.write-tools .write-music[hidden] { display: none; }
 
 .ea-body { display: grid; gap: 10px; padding-bottom: 4px; }
 .ea-choice { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; box-sizing: border-box;
@@ -4808,3 +4802,12 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 [data-side="vin"] .text-size-range::-webkit-slider-thumb { border-color: var(--night); background: radial-gradient(circle at 35% 30%, #f8dc93, var(--star) 60%, #a87a1c); }
 [data-side="vin"] .text-size-range::-moz-range-thumb { border-color: var(--night); background: radial-gradient(circle at 35% 30%, #f8dc93, var(--star) 60%, #a87a1c); }
 .text-size-range:focus-visible { outline: 2px solid var(--wax); outline-offset: 4px; border-radius: 999px; }
+
+/* «новое» на конверті з дописаною, ще не прочитаною запискою — сургучна стрічечка в куті */
+.env-card { position: relative; }
+.env-new {
+  position: absolute; top: -6px; right: -4px; z-index: 3; padding: 3px 9px; border-radius: 999px;
+  background: var(--wax); color: #fff; font: 700 .75rem/1.2 var(--ui); transform: rotate(4deg);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--wax) 40%, transparent);
+}
+[data-side="vin"] .env-new { background: var(--star); color: var(--night); }

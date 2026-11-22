@@ -542,5 +542,4 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   fit();
   if (!reduceMotion) sheet.animate([{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
   setTimeout(() => { if (sheet.isConnected) document.documentElement.classList.add('is-covered'); }, 220);
-  helper.start();
 }

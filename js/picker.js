@@ -182,3 +182,34 @@ export function pickDateTime({ value = Date.now(), min = Date.now(), max = 0, ti
     paint();
   });
 }
+
+const MAX_AHEAD = 365 * 24 * 3600 * 1000;
+// Відкривається на найближче: удень — наступна ціла година сьогодні, увечері й уночі — 8:00 ранку
+function firstTime() {
+  const d = new Date();
+  const hh = d.getHours();
+  if (hh >= 20) d.setDate(d.getDate() + 1);
+  d.setHours(hh >= 20 || hh < 7 ? 8 : hh + 1, 0, 0, 0);
+  return d.getTime();
+}
+// Швидкі варіанти над календарем: через годину, сьогодні ввечері (поки ще не вечір), завтра зранку
+function quickTimes() {
+  const now = new Date();
+  const hour = Math.ceil((now.getTime() + 3600000) / 300000) * 300000;
+  const at = (days, hh) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hh, 0, 0, 0); return d.getTime(); };
+  return [
+    { label: 'Через час', at: hour },
+    ...(now.getHours() < 19 ? [{ label: 'Вечером 20:00', at: at(0, 20) }] : []),
+    { label: 'Завтра 8:00', at: at(1, 8) },
+  ];
+}
+// «Ко времени» для листа — і в рядку під чатом, і у великому вікні. current — уже вибраний час (0 — ще ні).
+// Час, що вже минув, — той самий час завтра; далі за рік не можна
+export async function pickSendTime(current = 0) {
+  const t = await pickDateTime({
+    value: current > Date.now() ? current : firstTime(), min: Date.now(), max: Date.now() + MAX_AHEAD,
+    title: 'Ко времени', quick: quickTimes(), past: 'уже прошло, уйдёт завтра в это время',
+  });
+  if (t == null) return null;
+  return Math.min(t <= Date.now() ? t + 864e5 : t, Date.now() + MAX_AHEAD);
+}

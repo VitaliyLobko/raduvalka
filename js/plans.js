@@ -876,11 +876,11 @@ function askIdeas(screen) {
   const shown = [];
   const hint = h('input', { type: 'text', maxlength: '120', placeholder: 'Пожелание: зимой, недорого, рядом с домом…', 'aria-label': 'Пожелание' });
   const status = h('p', { class: 'plan-sheet-note', 'aria-live': 'polite' });
-  const goBtn = h('button', { type: 'button', class: 'btn btn-primary plan-wide' }, '✨ Подкинуть');
+  const goBtn = h('button', { type: 'button', class: 'btn btn-primary plan-wide' }, '✨ Придумать');
   const out = h('div', { class: 'plan-ai-out' });
   openSheet(screen, 'Подкинуть идеи',
     h('h2', {}, 'Подкинуть идеи'),
-    catChips(() => cat, (k) => { cat = k; shown.length = 0; }),
+    catChips(() => cat, (k) => { cat = k; shown.length = 0; goBtn.textContent = '✨ Придумать'; }),
     hint, goBtn, status, out);
 
   // ❤️ — у колоду; ще тап по ✓ — передумали: ідея прибирається
@@ -923,7 +923,7 @@ function askIdeas(screen) {
       ideas.forEach((x) => shown.push(x.title));
       status.textContent = `Отметь ❤️ то, что хочется, — попадёт в колоду, и ${me.partner} увидит.`;
       out.replaceChildren(...ideas.map(pickCard));
-      goBtn.textContent = '✨ Ещё варианты';
+      goBtn.textContent = '🎲 Ещё варианты';
       out.scrollIntoView?.({ block: 'nearest' });
     } catch (e) {
       status.textContent = AI_ERRORS[e.status] || 'Нет связи — попробуй ещё раз.';

@@ -20,12 +20,10 @@ const KEYS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="cu
 const MAX_H = 132;
 
 let ui = null;
-// 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at
-// (святковий — kind 'date': зараз, на ранок чи свій час)
+// 'now' | 'morning' (о 8:00) | 'time' (свій час — atTime); «на утро» і свій час ідуть на сервер одним видом: kind 'morning' з at.
+// Святковий лист — лише з плитки «🎉 Праздничное» у ＋, у великому вікні
 let when = 'now';
 let atTime = 0;
-// Будь-який лист можна зробити святковим: kind 'date' — золотий конверт, приносять усі разом
-let festive = false;
 let pet = null;
 // Вибрали кур'єра самі — він і носить далі; не вибирали — після кожного листа новий випадковий
 let petPicked = false;
@@ -87,14 +85,6 @@ function build() {
       paint();
     },
   });
-  const festBtn = h('button', {
-    type: 'button', class: 'cbar-chip cbar-fest', ...keep,
-    onclick: () => {
-      festive = !festive;
-      if (festive) toast('Праздничное: придёт золотым конвертом, принесут все вместе 🎉');
-      paint();
-    },
-  }, '🎉');
   // Дата й час телефона: типово сьогодні, але можна будь-який день наперед (до року).
   // Час сьогодні, що вже минув, — той самий час завтра
   const clock = h('input', {
@@ -126,19 +116,19 @@ function build() {
       html: `<img src="${petSrc(k)}" alt="${petName(k)}" width="40" height="40">`,
       onclick: () => { pet = k; petPicked = true; picking = false; paint(); },
     })));
-  const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, festBtn, helpBtn].filter(Boolean));
+  const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, helpBtn].filter(Boolean));
   // 😊 у полі зліва, як у месенджері: тап — смайли замість клавіатури, ще тап (⌨) — назад до клавіатури
   const emoBtn = h('button', { type: 'button', class: 'cbar-emo-btn', 'aria-expanded': 'false', ...keep, onclick: () => (emo ? closeEmoji(true) : openEmoji()) });
   // ⤢ у полі справа зверху — лише коли текст уже не вміщається: те саме, але у великому вікні
   const expandBtn = h('button', {
     type: 'button', class: 'cbar-expand', hidden: true, 'aria-label': 'Развернуть письмо на весь экран', title: 'Развернуть', ...keep,
-    onclick: () => big({ where: when === 'morning' ? 'morning' : 'now' }),
+    onclick: () => big(),
   });
   // Кутики «на весь екран», а не ⤢ — щоб не плутати зі стрілою «Отправить» поруч
   expandBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
   const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, emoBtn, area, expandBtn), act);
   const el = h('div', { class: 'cbar', role: 'group', 'aria-label': 'Новое письмо' }, quote, petRow, opts, row, clock);
-  ui = { el, area, act, plusBtn, emoBtn, quote, petBtn, whenBtn, festBtn, petRow, opts, clock, expandBtn };
+  ui = { el, area, act, plusBtn, emoBtn, quote, petBtn, whenBtn, petRow, opts, clock, expandBtn };
 
   area.addEventListener('input', () => { if (!reply) draft.set(area.value); grow(); paint(); });
   // Клавіатура на телефоні — нижні вкладки ховаються, місце переписці (лише на дотиковому екрані: на ноутбуці вони не заважають)
@@ -167,7 +157,6 @@ function stepPet(pets, d) {
   img?.animate([{ transform: `translateX(${d * 14}px)`, opacity: 0.3 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
 }
 
-const isFestive = () => festive;
 // Коли прийде: undefined — зараз
 const sendAt =() => (when === 'morning' ? nextMorning().getTime() : when === 'time' ? atTime : undefined);
 // Над рядком: сьогоднішнє — лише годиною, інше — «завтра в …» чи «25 декабря в …»
@@ -182,35 +171,11 @@ const MAX_AHEAD = 365 * 24 * 3600 * 1000;
 // datetime-local хоче місцевий час без зони: 2026-11-21T14:00
 const local = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-// «Ко времени» відкривається на найближче: удень — наступна ціла година сьогодні, увечері й уночі — 8:00 ранку
-function firstTime() {
-  const d = new Date();
-  const h = d.getHours();
-  if (h >= 20) d.setDate(d.getDate() + 1);
-  d.setHours(h >= 20 || h < 7 ? 8 : h + 1, 0, 0, 0);
-  return d;
-}
-// Швидкі варіанти над календарем: через годину, сьогодні ввечері (поки ще не вечір), завтра зранку
-function quickTimes() {
-  const now = new Date();
-  const hour = new Date(Math.ceil((now.getTime() + 3600000) / 300000) * 300000);
-  const at = (days, hh) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hh, 0, 0, 0); return d.getTime(); };
-  return [
-    { label: 'Через час', at: hour.getTime() },
-    ...(now.getHours() < 19 ? [{ label: 'Вечером 20:00', at: at(0, 20) }] : []),
-    { label: 'Завтра 8:00', at: at(1, 8) },
-  ];
-}
 // «Ко времени»: своя шторка (дата сіткою, час барабанами); вибране йде через той самий обробник прихованого поля
 async function pickTime() {
   closePlus();
   const { clock } = ui;
-  const d = when === 'time' ? new Date(atTime) : firstTime();
-  const { pickDateTime } = await import('./picker.js');
-  const t = await pickDateTime({
-    value: d.getTime(), min: Date.now(), max: Date.now() + MAX_AHEAD, title: 'Ко времени', quick: quickTimes(),
-    past: 'уже прошло, уйдёт завтра в это время',
-  });
+  const t = await (await import('./picker.js')).pickSendTime(when === 'time' ? atTime : 0);
   if (t == null) return;
   clock.value = local(new Date(t));
   clock.dispatchEvent(new Event('change'));
@@ -223,14 +188,13 @@ function grow() {
   area.classList.toggle('is-tall', area.scrollHeight + 2 > MAX_H);
   showExpand();
 }
-// Велике вікно не знає «Ко времени» — зі своїм часом ⤢ не показуємо, щоб час тихо не загубився
 function showExpand() {
-  if (ui) ui.expandBtn.hidden = !ui.area.classList.contains('is-tall') || when === 'time';
+  if (ui) ui.expandBtn.hidden = !ui.area.classList.contains('is-tall');
 }
 
 function paint() {
   if (!ui) return;
-  const { el, area, act, plusBtn, quote, petBtn, whenBtn, festBtn, petRow, opts } = ui;
+  const { el, area, act, plusBtn, quote, petBtn, whenBtn, petRow, opts } = ui;
   const text = area.value.trim();
   const typing = document.activeElement === area;
   quote.hidden = !reply;
@@ -254,12 +218,8 @@ function paint() {
   whenBtn.textContent = morning ? '🌅 на утро' : when === 'time' ? `🕐 ${dayWord(atTime)}в ${hhmm(atTime)}` : '🕐 сейчас';
   whenBtn.setAttribute('aria-label', morning ? `На утро, в ${hhmm(nextMorning().getTime())}. Тап — отправить сейчас`
     : when === 'time' ? `Придёт ${dayWord(atTime)}в ${hhmm(atTime)}. Тап — отправить сейчас` : 'Сейчас. Тап — выбрать время');
-  // «🎉» — будь-який лист; поруч зі своїм часом рядок довший — «Помочь» стискається до ✨
-  const fest = isFestive();
+  // Зі своїм часом рядок довший — «Помочь» стискається до ✨
   opts.classList.toggle('is-tight', when === 'time');
-  festBtn.classList.toggle('is-on', fest);
-  festBtn.setAttribute('aria-pressed', String(fest));
-  festBtn.setAttribute('aria-label', fest ? 'Праздничное письмо — тап, чтобы обычное' : 'Сделать праздничным');
   ui.emoBtn.innerHTML = emo ? KEYS : SMILE;
   ui.emoBtn.setAttribute('aria-label', emo ? 'Клавиатура' : 'Смайлы');
   ui.emoBtn.setAttribute('aria-expanded', String(!!emo));
@@ -274,8 +234,7 @@ function paint() {
     if (!listening) { act.innerHTML = MIC; act.setAttribute('aria-label', 'Сказать голосом'); }
   } else {
     act.innerHTML = ARROW;
-    const what = fest ? 'праздничное ' : '';
-    act.setAttribute('aria-label', morning ? `Отправить ${what}на утро` : when === 'time' ? `Отправить ${what}к ${hhmm(atTime)}` : `Отправить${fest ? ' праздничное' : ''}`);
+    act.setAttribute('aria-label', morning ? 'Отправить на утро' : when === 'time' ? `Отправить к ${hhmm(atTime)}` : 'Отправить');
     act.removeAttribute('aria-pressed');
   }
   act.classList.toggle('is-empty', mode === 'send' && !text);
@@ -292,7 +251,7 @@ async function sendText() {
   try {
     const at = sendAt();
     const r = await deliver('letter', 'letters', {
-      kind: isFestive() ? 'date' : at ? 'morning' : 'now',
+      kind: at ? 'morning' : 'now',
       text,
       mascot: p,
       at,
@@ -303,7 +262,6 @@ async function sendText() {
     draft.set('');
     if (reply === r0) reply = null;
     when = 'now';
-    festive = false;
     if (!petPicked) pet = anyPet();
     r0?.sent?.();
     grow();
@@ -336,15 +294,15 @@ function big(preset = {}) {
   closePlus();
   const r0 = reply;
   openWrite({
-    where: when === 'morning' ? 'morning' : undefined,
-    festive,
+    where: when === 'time' ? 'time' : when === 'morning' ? 'morning' : undefined,
+    at: when === 'time' ? atTime : undefined,
     ...preset,
     pet,
     text: r0 ? ui.area.value : undefined,
     reply: r0 ? { ...r0, sent: () => { if (reply === r0) reply = null; r0.sent?.(); } } : undefined,
     onClose: (sent, text) => {
       ui.area.value = sent ? '' : r0 ? text : draft.get();
-      if (sent) { when = 'now'; festive = false; }
+      if (sent) when = 'now';
       grow();
       paint();
       // Узяли текст із помічника — він у рядку, клавіатура вже відкрита: лишилось ➤
@@ -392,9 +350,10 @@ function openPlus() {
       reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),
-    h('div', { class: 'cbar-tiles' }, ...[
+    h('div', { class: 'cbar-tiles is-wide' }, ...[
       tile('🕐', 'Ко времени', () => pickTime(), ' is-special'),
       envs.length ? tile('✉️', 'В конверт', () => big({ where: 'env' }), ' is-special') : null,
+      reply ? null : tile('🎉', 'Праздничное', () => big({ festive: true }), ' is-special'),
     ].filter(Boolean)));
   plus = panel;
   document.body.append(panel);

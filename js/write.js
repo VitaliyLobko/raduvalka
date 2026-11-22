@@ -1,5 +1,5 @@
-// Велике вікно «Написать»: лист зараз, на ранок, у її/його конверт чи до дати. Звичайний лист пишуть у рядку під
-// чатом (compose.js), сюди — з його «＋» («В конверт», «К дате»), ⤢ у довгому рядку і «✨ Помочь»
+// Велике вікно «Написать»: лист зараз, на ранок, до свого часу чи у її/його конверт. Звичайний лист пишуть у рядку під
+// чатом (compose.js), сюди — з його «＋» («В конверт», «🎉 Праздничное»), ⤢ у довгому рядку і «✨ Помочь»
 import { DATA, who } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
@@ -78,20 +78,23 @@ export function prewarmWrite() {
 // preset — { where: 'env', envId } з тапу по сповіщенню про порожній конверт;
 // { reply: { quote, on, sent } } — відповідь: той самий екран із цитатою зверху; лист, фото чи гифка йдуть новим
 // повідомленням із цією цитатою; on — на що відповідають ('letter' | 'gif' | 'photo'), sent() — після відправки.
-// З рядка під чатом: where ('morning' | 'env'), pet — хто понесе, text — уже набране (для відповіді),
+// З рядка під чатом: where ('time' + at | 'morning' | 'env'), pet — хто понесе, text — уже набране (для відповіді),
 // help — одразу розгорнути «✨ Помочь», onClose(sent, text) — вікно закрилось: надіслано чи ні і що лишилось у полі
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
   const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
-  let where = presetEnv || (preset.where === 'env' && envs.length) ? 'env'
-    : preset.where === 'morning' ? 'morning' : 'now';
+  // 'time' — свій час (atTime), як «Ко времени» в рядку; «на утро» — той самий свій час о 8:00
+  let atTime = preset.where === 'morning' ? nextMorning().getTime() : preset.at > Date.now() ? preset.at : 0;
+  let where = presetEnv || (preset.where === 'env' && envs.length) ? 'env' : atTime ? 'time' : 'now';
   let envId = presetEnv || envs[0]?.id || null;
   let pet = DATA.mascots[preset.pet] ? preset.pet : petFor('push');
   let sentOk = false;
-  // Святковий: kind 'date' — золотий конверт, приносять усі; у конверт — не буває
-  let festive = !!preset.festive;
+  // Святковий — лише з плитки «🎉 Праздничное»: kind 'date', золотий конверт, приносять усі; у конверт — не буває
+  const festive = !!preset.festive && where !== 'env';
+  // Коли прийде: undefined — зараз
+  const sendAt = () => (where === 'time' ? atTime : undefined);
 
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
   const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': reply ? 'Текст ответа' : 'Текст письма', placeholder: reply ? 'Пару слов в ответ…' : said });
@@ -103,10 +106,8 @@ export function openWrite(preset = {}) {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
-  // Вкладення (одне): фото, гифка, голос, пісня — лише в конверт або святковий; лишається, навіть якщо перемкнули
-  // «Когда» чи 🎉, — піде, коли лист знову такий
+  // Вкладення (одне): фото, гифка, голос, пісня — лише в конверт або святковий
   let att = null;
-  let musicBtn = null;
   const attOk = () => where === 'env' || festive;
   const attBox = h('div', { class: 'write-att', hidden: true });
   const lazyAttach = () => import('./envattach.js');
@@ -117,24 +118,15 @@ export function openWrite(preset = {}) {
     attBox.replaceChildren(attachChip(att, () => { att = null; paintAtt(); paintNote(); }));
   };
   const setAtt = (a) => { att = a; paintAtt(); paintNote(); };
-  const festBtn = h('button', {
-    type: 'button', class: 'mk-chip write-fest',
-    onclick: () => { festive = !festive; paintNote(); paintAtt(); },
-  }, '🎉 Праздничное');
   const paintNote = () => {
-    const m = nextMorning();
+    const at = sendAt();
     note.textContent = where === 'now'
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
-      : where === 'morning'
-        ? `Придёт ${dayWord(m.getTime())} в ${hhmm(m.getTime())} запечатанным конвертом.`
-        : `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`;
-    if (where !== 'env' && festive) note.textContent += ' Праздничным: золотой конверт, принесут все вместе 🎉';
-    if (!attOk() && att) note.textContent += ' 📎 Вложение уйдёт только в конверт или праздничным письмом — сейчас письмо без него.';
+      : where === 'env'
+        ? `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`
+        : `Придёт ${dayWord(at)} в ${hhmm(at)} запечатанным конвертом.`;
+    if (festive) note.textContent += ' Золотой конверт, принесут все вместе 🎉';
     envRow.hidden = where !== 'env';
-    festBtn.hidden = where === 'env';
-    if (musicBtn) musicBtn.hidden = !attOk();
-    attBox.hidden = !att || !attOk();
-    festBtn.setAttribute('aria-pressed', String(festive));
   };
 
   const chips = (items, picked, onPick) => {
@@ -145,15 +137,29 @@ export function openWrite(preset = {}) {
       onclick: () => { picked = v; paint(); onPick(v); },
     }, html ? null : label)));
     paint();
+    row.pick = (v) => { picked = v; paint(); };
     return row;
   };
 
-  // «Когда» — за входом: із «В конверт» лише конверти (стрічки нема); із ⤢ і «Помочь» — «Сейчас / На утро»,
-  // конверт обирають лише через «＋»
+  // «Когда» — за входом: із «В конверт» лише конверти (стрічки нема); із ⤢, «Помочь» і «🎉» — «Сейчас /
+  // Ко времени», конверт обирають лише через «＋»
+  const timeLabel = () => (where === 'time' ? `🕐 ${dayWord(atTime)} ${hhmm(atTime)}` : 'Ко времени');
+  const pickTime = async () => {
+    const t = await (await import('./picker.js')).pickSendTime(atTime);
+    if (t != null) { atTime = t; where = 'time'; }
+    whereRow.pick(where);
+    whereRow.querySelector('[data-v="time"]').textContent = timeLabel();
+    paintNote();
+  };
   const whereRow = chips([
     { v: 'now', label: 'Сейчас' },
-    { v: 'morning', label: 'На утро' },
-  ], where, (v) => { where = v; paintNote(); });
+    { v: 'time', label: timeLabel() },
+  ], where, (v) => {
+    if (v === 'time') { pickTime(); return; }
+    where = v;
+    whereRow.querySelector('[data-v="time"]').textContent = timeLabel();
+    paintNote();
+  });
   envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; }));
   [whereRow, envRow.firstChild].forEach((row) => { row.classList.add('write-when'); ribbon(row); });
   paintNote();
@@ -201,10 +207,10 @@ export function openWrite(preset = {}) {
       composeMeme(file, memeSent, re);
     },
   });
-  musicBtn = h('button', {
-    type: 'button', class: 'mk-chip write-music', hidden: !attOk(),
+  const musicBtn = attOk() ? h('button', {
+    type: 'button', class: 'mk-chip write-music',
     onclick: async () => (await lazyAttach()).pickMusic(setAtt),
-  }, '🎵 Музыка');
+  }, '🎵 Музыка') : null;
   const tools = h('div', { class: 'write-tools' },
     h('label', { class: 'mk-chip' }, picker, '📷 Фото'),
     h('button', {
@@ -216,7 +222,7 @@ export function openWrite(preset = {}) {
       },
     }, '🎞 Гифка'),
     musicBtn,
-    reply ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openGames(); } }, '🎲 Игры'),
+    reply || festive ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openGames(); } }, '🎲 Игры'),
     helper);
 
   // Відповідь — над полем цитата (тап — цілим); новий лист — кусок переписки, як у месенджері: новіше внизу, біля поля
@@ -248,8 +254,7 @@ export function openWrite(preset = {}) {
     try {
       // id — один на вкладення: повтор після обірваної відповіді сервер упізнає й не покладе листа вдруге
       att.cid ||= newCid();
-      const to = where === 'env' ? { kind: 'env', env: envId }
-        : { kind: 'date', at: where === 'morning' ? nextMorning().getTime() : undefined };
+      const to = where === 'env' ? { kind: 'env', env: envId } : { kind: 'date', at: sendAt() };
       await ea.sendAttached({ ...to, text, mascot: pet, cid: att.cid }, att,
         (p) => { go.textContent = `${Math.round(p * 100)}%`; });
     } catch (e) {
@@ -274,11 +279,12 @@ export function openWrite(preset = {}) {
     try {
       const r = await deliver('letter', 'letters', {
         ...(withAtt ? { media: (await lazyAttach()).mediaBody(att) } : {}),
-        kind: festive && where !== 'env' ? 'date' : where,
+        // Свій час на сервері — kind 'morning' з at
+        kind: where === 'env' ? 'env' : festive ? 'date' : where === 'now' ? 'now' : 'morning',
         text,
         mascot: pet,
         env: where === 'env' ? envId : undefined,
-        at: where === 'morning' ? nextMorning().getTime() : undefined,
+        at: sendAt(),
         quote: reply?.quote,
         on: reply?.on,
       });
@@ -301,7 +307,7 @@ export function openWrite(preset = {}) {
   });
 
   // На весь екран, як у месенджері: заголовок, переписка (або цитата), інструменти, поле, знизу — «Когда», хто понесе, «Отправить»
-  const title = preset.help ? '✨ Помочь написать' : reply ? 'Ответ' : `Письмо ${me.toWhom}`;
+  const title = preset.help ? '✨ Помочь написать' : reply ? 'Ответ' : festive ? '🎉 Праздничное письмо' : `Письмо ${me.toWhom}`;
   const backdrop = h('div', { class: 'backdrop', onclick: () => close() });
   const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}${preset.help ? ' is-help-solo' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     writeDecor(),
@@ -316,7 +322,7 @@ export function openWrite(preset = {}) {
       attBox,
       area,
       h('div', { class: 'write-dock' }, ...[
-        where === 'env' ? null : whereRow, envRow, festBtn, note,
+        where === 'env' ? null : whereRow, envRow, note,
         h('div', { class: 'write-send' }, ...[pets.length ? petRow : null, go].filter(Boolean)),
       ].filter(Boolean)),
     ].filter(Boolean)));

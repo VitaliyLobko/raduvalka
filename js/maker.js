@@ -31,14 +31,15 @@ const CAPTION_MOODS = [
 ];
 const OWN = '✎ своё';
 
-// Помічник підпису: щойно відкрили — варіанти від ШІ чипами (тап — підпис на фото), під ними настрій (тап — нові)
-// і «✎ своё» (свій повод чи що на фото). about — що відомо про картинку (назва гифки);
+// Помічник підпису — як скрізь із ШІ: настрій (чи «✎ своё») лише обирає, «✨ Придумать» — варіанти чипами
+// (тап — підпис на фото), далі «🎲 Ещё варианты». about — що відомо про картинку (назва гифки);
 // image() — зменшене фото { b64, type } для моделі із зором; onPick — підпис змінився
 export function captionHelper(field, { about = '', image = null, onPick }) {
   let mood = CAPTION_MOODS[0];
   let seq = 0;
-  const out = h('div', { class: 'mk-chips mk-row mk-capts', 'aria-live': 'polite' });
-  const more = h('button', { type: 'button', class: 'mk-chip cap-more', 'aria-label': 'Ещё варианты', onclick: () => ask() }, '🎲 ещё');
+  const go = h('button', { type: 'button', class: 'mk-chip mk-ai-go', onclick: () => ask() }, '✨ Придумать');
+  const out = h('div', { class: 'mk-chips mk-row mk-capts', 'aria-live': 'polite' }, go);
+  const more = h('button', { type: 'button', class: 'mk-chip mk-ai-go', onclick: () => ask() }, '🎲 Ещё варианты');
   const own = h('input', {
     type: 'text', maxlength: '200', enterkeyhint: 'go', hidden: true, class: 'cap-own',
     placeholder: 'Свой повод или что на фото', 'aria-label': 'Свой повод или что на фото',
@@ -46,14 +47,16 @@ export function captionHelper(field, { about = '', image = null, onPick }) {
   own.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ask(); } });
   const moods = h('div', { class: 'mk-chips mk-row cap-moods', role: 'radiogroup', 'aria-label': 'Настроение подписи' });
   const paintMoods = (picked) => moods.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === picked)));
+  // Інший настрій — старі варіанти вже не про нього: знову «✨ Придумать»
   [...CAPTION_MOODS.map((x) => x.label), OWN].forEach((label) => moods.append(h('button', {
     type: 'button', role: 'radio', class: 'mk-chip', 'data-v': label,
     onclick: () => {
       paintMoods(label);
       own.hidden = label !== OWN;
+      seq += 1;
+      out.replaceChildren(go);
       if (label === OWN) { own.focus(); return; }
       mood = CAPTION_MOODS.find((x) => x.label === label);
-      ask();
     },
   }, label)));
   paintMoods(mood.label);
@@ -85,10 +88,11 @@ export function captionHelper(field, { about = '', image = null, onPick }) {
       if (n === seq) out.replaceChildren(h('span', { class: 'mk-wait' }, 'Не придумалось'), more);
     }
   }
+  // Зверху вниз, як у «Помочь написать»: настрій → «✨ Придумать» на місці варіантів → варіанти
   const el = h('div', { class: 'cap-assist' },
-    h('p', { class: 'mk-label' }, '✨ Подписи — тап, и она на фото'), out,
-    h('p', { class: 'mk-label' }, 'Настроение'), moods, own);
-  return { el, start: ask };
+    h('p', { class: 'mk-label' }, 'Подпись: настроение'), moods, own,
+    h('p', { class: 'mk-label' }, 'Варианты — тап, и подпись на фото'), out);
+  return { el };
 }
 
 // Шторка вибору гифки; onGif(gif) — обрали
@@ -151,7 +155,7 @@ function gifPanel(done) {
   ribbon(chips);
   const input = h('input', { type: 'search', maxlength: '80', placeholder: 'Найти своими словами', 'aria-label': 'Найти гифку', enterkeyhint: 'search' });
   const form = h('form', { class: 'mk-gif-search', role: 'search' }, input, h('button', { type: 'submit', class: 'btn', 'aria-label': 'Искать' }, '🔎'));
-  const aiGo = h('button', { type: 'button', class: 'mk-chip mk-ai-more' }, '✨ Ещё идеи');
+  const aiGo = h('button', { type: 'button', class: 'mk-chip mk-ai-go' }, '✨ Придумать');
 
   const keyOf = (s) => (s.mood ? `m:${s.mood.key}` : s.recent ? 'recent' : s.trending ? 'trending' : `q:${s.q}`);
   const pick = (src) => {
@@ -165,7 +169,7 @@ function gifPanel(done) {
     const now = keyOf(source);
     moods.replaceChildren(...MOODS.map((m) => h('button', {
       type: 'button', role: 'radio', class: 'mk-chip mk-mood-tile', 'aria-checked': String(now === `m:${m.key}`),
-      onclick: () => { ai = []; ask += 1; moodFor = m; pick({ mood: m }); },
+      onclick: () => { ai = []; ask += 1; moodFor = m; aiGo.textContent = '✨ Придумать'; pick({ mood: m }); },
     }, m.label)));
     const list = [
       ...(recentGifs().length ? [{ label: '🕘 Недавние', src: { recent: true } }] : []),
@@ -202,7 +206,7 @@ function gifPanel(done) {
       toast('Не получилось подобрать — попробуй ещё раз');
     }
     aiGo.disabled = false;
-    aiGo.textContent = '✨ Ещё идеи';
+    aiGo.textContent = ai.length ? '🎲 Ещё варианты' : '✨ Придумать';
   });
 
   let seq = 0;

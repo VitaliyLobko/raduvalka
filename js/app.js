@@ -10,7 +10,7 @@ import { composeBar, composeReply, composeFocus, composeLeave } from './compose.
 import { letterFeed, chatTitle, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, aboutGroup, aboutRow, aboutRowBody, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
-import { renderEnvelopes } from './envelopes.js';
+import { renderEnvelopes, markEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel, chipFestive } from './together.js';
 import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck } from './plans.js';
 import { composeMeme } from './memes.js';
@@ -616,8 +616,9 @@ function refreshAll() {
   setTimeout(maybeCookie, 1500);
   refreshLetter();
   loadSos();
-  // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання
-  get('envelopes').then((list) => { if (Array.isArray(list)) DATA.envelopes = list; }).catch(() => {});
+  // Конверти: нові записки — до наступного заходу на вкладку; відкритий екран не чіпаємо, щоб не збити читання.
+  // Крапка на марці — одразу
+  get('envelopes').then((list) => { if (Array.isArray(list)) { DATA.envelopes = list; markEnvelopes(); } }).catch(() => {});
   // «Вместе»: другий призначив чи переніс зустріч — лічильник і відкрита шторка одразу нові
   get('together').then((t) => {
     if (!t || JSON.stringify(t) === JSON.stringify(DATA.together)) return;
@@ -831,6 +832,7 @@ async function start() {
   loadWishes().then(markWishes).catch(() => {});
   loadPlans().then(markPlans).catch(() => {});
   markLetter();
+  markEnvelopes();
   render();
   maybeWelcome();
   takeShared();

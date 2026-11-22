@@ -86,13 +86,19 @@ export function mountHelper(box, area, { solo = false, onTake = null } = {}) {
   const results = h('div', { class: 'mk-results', 'aria-live': 'polite' });
   const go = h('button', { type: 'button', class: 'btn btn-primary mk-go' }, '✨ Придумать');
 
+  // Як скрізь із ШІ: чип лише обирає, що поправити, — править кнопка «✨ Поправить»
+  let fixKind = '';
+  const fixGo = h('button', { type: 'button', class: 'btn mk-go-fix', disabled: true, onclick: () => fixText(fixKind, fixGo) }, '✨ Поправить');
+  const fixChips = h('div', { class: 'mk-chips', role: 'radiogroup', 'aria-label': 'Что поправить' }, ...FIXES.map(({ v, label }) => h('button', {
+    type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': 'false', 'data-v': v,
+    onclick: () => {
+      fixKind = v;
+      fixChips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === v)));
+      fixGo.disabled = false;
+    },
+  }, label)));
   const fixBox = h('div', { class: 'help-fix', hidden: true },
-    h('p', { class: 'mk-label' }, 'Или поправить мой текст'),
-    h('div', { class: 'mk-chips' }, ...FIXES.map(({ v, label }) => h('button', {
-      type: 'button',
-      class: 'mk-chip',
-      onclick: (e) => fixText(v, e.currentTarget),
-    }, label))));
+    h('p', { class: 'mk-label' }, 'Или поправить мой текст'), fixChips, fixGo);
   const paintFix = () => { fixBox.hidden = area.value.trim().length < 10; };
   area.addEventListener('input', paintFix);
 

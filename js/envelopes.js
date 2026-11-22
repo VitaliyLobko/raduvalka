@@ -8,6 +8,13 @@ import { h, toast, cap, waxSeal, reduceMotion, signLine, ENV_POCKET, SAGITTARIUS
 const seen = () => (DATA.mine.seen ||= {});
 
 const left = (env) => Math.max(0, env.notes.length - (seen()[env.id] || 0));
+// Нове — непрочитана записка, яку дописали в застосунку ({ id, text }); заготовки (рядки) новими не рахуємо
+const fresh = (env) => env.notes.slice(seen()[env.id] || 0).some((n) => typeof n !== 'string');
+
+// Сургучна крапка на марці «Конверты», поки в якомусь конверті лежить нова записка
+export function markEnvelopes() {
+  document.querySelector('.tab[data-tab="envelopes"]')?.classList.toggle('has-new', DATA.envelopes.some(fresh));
+}
 
 // Хто приносить конверт: основний кур'єр або варіант із env.looks [{ mascot, pose, line }].
 // Міняється раз на добу (за місцевою датою), конверти — не всі разом
@@ -44,11 +51,12 @@ export function renderEnvelopes(screen) {
   let opening = false;
   const cards = DATA.envelopes.map((env, i) => {
     const n = left(env);
+    const isNew = fresh(env);
     const card = h('button', {
       type: 'button',
-      class: `env-card${n ? '' : ' is-empty'}`,
+      class: `env-card${n ? '' : ' is-empty'}${isNew ? ' is-new' : ''}`,
       style: `--tint: var(${TINTS[i % TINTS.length]}); --tilt: ${TILTS[i % TILTS.length]}deg`,
-      'aria-label': `Открой, когда ${env.label}. ${n ? `Писем: ${n}` : 'Пусто'}`,
+      'aria-label': `Открой, когда ${env.label}. ${n ? `Писем: ${n}` : 'Пусто'}${isNew ? '. Есть новое' : ''}`,
       onclick: () => {
         if (opening) return;
         // Тап — одразу великий конверт у читанні (міні на полиці вдруге не відкриваємо)
@@ -62,6 +70,7 @@ export function renderEnvelopes(screen) {
       h('span', { class: 'me-front', html: POCKET }),
       h('span', { class: 'me-flap', html: FLAP }),
       h('span', { class: 'me-seal', html: waxSeal('') }, h('span', { class: 'me-emoji' }, env.emoji))),
+    isNew ? h('span', { class: 'env-new', 'aria-hidden': 'true' }, 'новое') : null,
     h('span', { class: 'env-label' }, env.label),
     h('span', { class: 'env-meta' }, n ? `${n} ${plural(n)}` : 'пусто'),
     env.signal && DATA.partnerPush ? h('span', { class: 'env-signal' }, `${cap(who().partner)} узнает, когда откроешь`) : null);
@@ -78,6 +87,7 @@ export function renderEnvelopes(screen) {
       h('p', { class: 'bubble' }, h('b', {}, `${petName(pet)}: `), h('span', { class: 'env-say' }, 'Открой, когда…'))) : null,
     h('div', { class: 'env-grid' }, ...cards),
   ].filter(Boolean));
+  markEnvelopes();
 }
 
 function plural(n) {
