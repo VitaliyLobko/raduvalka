@@ -4444,9 +4444,14 @@ html.is-still .bs-mark.is-fire, html.is-still .bs-stage.is-aim .bs-board::after,
 .gi-spark { fill: none; stroke: var(--gi-gold); stroke-width: 2; }
 .gi-heart-a { fill: var(--gi-she); }
 .gi-heart-b { fill: var(--gi-gold); opacity: .9; }
-.gi-flame { fill: var(--gi-she); }
+.gi-flame { fill: #F07A2E; }
 .gi-flame-in { fill: var(--gi-gold); }
-.gi-flame-heart { fill: #fff; }
+.gi-berry { fill: #E0314F; }
+.gi-seed { fill: #FFE08A; }
+.gi-leaf { fill: #3FAE5A; }
+[data-side="vin"] .gi-flame { fill: #FF8A3D; }
+[data-side="vin"] .gi-berry { fill: #FF4D68; }
+[data-side="vin"] .gi-leaf { fill: #5FCB77; }
 .gi-paper { fill: var(--gi-paper); stroke: var(--gi-soft); stroke-width: 2; }
 .gi-fold { fill: none; stroke: var(--gi-soft); stroke-width: 2; }
 .gi-lines { fill: none; stroke: var(--gi-soft); stroke-width: 2; }
