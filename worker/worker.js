@@ -123,6 +123,8 @@ const MIGRATIONS = [
 // ИИ для конструктора мемчиків: підписи й пошукові запити
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
+// Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований)
+const MEME_FREE = /^(meme|hand|plate)\.[0-4]\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}$/;
 
 let schemaReady = false;
 // Підпис схеми: змінились CREATE чи міграції — інший підпис, і схема прокрутиться ще раз
@@ -481,7 +483,7 @@ async function memesRoute(req, db, side, rest, notify, files) {
       img: '',
       url: null,
       caption: clip(body.caption, 300) || null,
-      style: ['top', 'bottom'].includes(body.style) ? body.style : null,
+      style: ['top', 'bottom'].includes(body.style) || MEME_FREE.test(String(body.style ?? '')) ? body.style : null,
       quote: quoteOf(body),
       created: Date.now(),
       reaction: null,

@@ -3,8 +3,8 @@ import { DATA } from './data.js';
 import { get, send } from './api.js';
 import { openBlob } from './seal.js';
 import { petName, petFor } from './icons.js';
-import { h, toast, ARROW } from './ui.js';
-import { rememberGif, captionHelper } from './maker.js';
+import { h, toast } from './ui.js';
+import { rememberGif } from './maker.js';
 
 const MAX_SIDE = 1280;
 const GIF_MAX = 1_300_000;
@@ -34,6 +34,42 @@ export function media(kind, label, src) {
   const v = h('video', { 'aria-label': label, autoplay: true, loop: true, muted: true, playsinline: true, preload: 'auto', ...(src ? { src } : {}) });
   v.muted = true;
   return v;
+}
+
+// ── Підпис поверх гифки, як у фото: стиль, колір, місце, розмір і поворот. Текст шифрується як завжди (caption),
+// у style — лише де й як він намальований: 'look.колір.x.y.k.r' (x, y — тисячні кадру, k — відсотки, r — градуси).
+// Малює CSS, а не canvas, тож гифка лишається живою; у редакторі, стрічці й на весь екран — той самий шар
+export const CAP_COLORS = ['#ffffff', '#ff4f8b', '#ffcb3d', '#6fd3ff', '#2a1730'];
+export const CAP_COLOR_NAMES = ['белый', 'розовый', 'жёлтый', 'голубой', 'тёмный'];
+export const capLight = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6;
+};
+const FREE = /^(meme|hand|plate)\.([0-4])\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})$/;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+export function freeStyle(code) {
+  const m = FREE.exec(code || '');
+  return m ? { look: m[1], color: +m[2], x: clamp(+m[3] / 1000, 0, 1), y: clamp(+m[4] / 1000, 0, 1), k: clamp(+m[5] / 100, 0.25, 8), r: +m[6] } : null;
+}
+export const freeCode = (c) => [c.look, c.color, Math.round(clamp(c.x, 0, 1) * 1000), Math.round(clamp(c.y, 0, 1) * 1000),
+  Math.round(clamp(c.k, 0.25, 8) * 100), Math.round(((((c.r % 360) + 540) % 360) - 180))].join('.');
+export function paintFree(el, c, text) {
+  const color = CAP_COLORS[c.color] || CAP_COLORS[0];
+  el.className = `meme-free is-${c.look}`;
+  el.textContent = text;
+  el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${capLight(color) ? (c.look === 'plate' ? '#2a1730' : '#000') : '#fff'}`;
+  return el;
+}
+export const freeCap = (c, text) => paintFree(h('span', { 'aria-hidden': 'true' }), c, text);
+// Рамка точно по кадру гифки (пропорції — з відео), щоб місце підпису в частках кадру всюди збігалось
+export function gifFrame(el, cap = null, ar = 0) {
+  const frame = h('span', { class: 'gif-frame' }, el, cap);
+  const set = (w, hh) => { if (w && hh) frame.style.setProperty('--ar', String(w / hh)); };
+  set(ar, 1);
+  const read = () => set(el.videoWidth || el.naturalWidth, el.videoHeight || el.naturalHeight);
+  el.addEventListener(el.tagName === 'VIDEO' ? 'loadedmetadata' : 'load', read);
+  read();
+  return frame;
 }
 
 const pet = () => petFor('memes');
@@ -171,73 +207,18 @@ export async function composeMeme(file, done, re = null) {
   });
 }
 
-// GIF із пошуку: на сервер іде лише посилання GIPHY
-export function composeGif(gif, done, re = null) {
-  sendSheet(gif.url, async (caption, style) => {
-    const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style, ...re });
-    rememberGif(gif);
-    return meme;
-  }, done, 'bottom', gif.title || '');
-}
-
-// Шторка «що надсилаю»: прев'ю, підпис (свій або ✨ від ШІ) і де він — під картинкою чи поверх, «Отправить».
-// post(caption, style) повертає збережений мемчик; style0 — де підпис спочатку (GIF — поверх знизу);
-// about — що відомо про картинку (назва гифки) для ШІ; image() — зменшене фото для моделі із зором
-function sendSheet(preview, post, done, style0 = null, about = '', image = null) {
-  // Гифка з пошуку приходить посиланням, фото з галереї — blob: так і називаємо
-  const gif = !preview.startsWith('blob:');
-  let style = style0;
-  const over = h('span', { class: 'meme-over', 'aria-hidden': 'true' });
-  const caption = h('input', {
-    type: 'text',
-    'data-voice': true,
-    maxlength: '300',
-    placeholder: 'Подпись (можно без)',
-    'aria-label': 'Подпись',
-  });
-  const paint = () => {
-    over.textContent = caption.value;
-    over.className = `meme-over is-${style || 'none'}`;
-    over.hidden = !style || !caption.value.trim();
-    place.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === String(style))));
-  };
-  const place = h('div', { class: 'mk-chips meme-place', role: 'radiogroup', 'aria-label': 'Где подпись' },
-    ...[['null', 'Под картинкой'], ['top', 'Сверху'], ['bottom', 'Снизу']].map(([v, label]) => h('button', {
-      type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v,
-      onclick: () => { style = v === 'null' ? null : v; paint(); },
-    }, label)));
-  caption.addEventListener('input', paint);
-  const helper = captionHelper(caption, { about, image, onPick: paint });
-  const close = () => { sheet.remove(); backdrop.remove(); };
-  const go = h('button', { type: 'button', class: 'btn btn-primary', html: `${ARROW}Отправить` });
-  go.addEventListener('click', async () => {
-    go.disabled = true;
-    try {
-      const meme = await post(caption.value, caption.value.trim() ? style : null);
+// GIF із пошуку: на сервер іде лише посилання GIPHY; підпис — шаром поверх (редактор gifedit.js)
+export async function composeGif(gif, done, re = null) {
+  const { gifEditor } = await import('./gifedit.js');
+  gifEditor(gif, {
+    fail: sendError,
+    send: async (caption, style) => {
+      const meme = await send('memes', 'POST', { gif: { url: gif.url }, caption, style, ...re });
+      rememberGif(gif);
       DATA.memes = [meme, ...(DATA.memes || [])];
-      close();
       const key = pet();
-      toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} ${gif ? 'гифку' : 'фото'} ➶`);
+      toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} гифку ➶`);
       done?.();
-    } catch (e) {
-      go.disabled = false;
-      toast(sendError(e));
-    }
+    },
   });
-  const backdrop = h('div', { class: 'backdrop', onclick: close });
-  const sheet = h('div', { class: 'sheet sheet-maker sheet-meme', role: 'dialog', 'aria-modal': 'true', 'aria-label': gif ? 'Новая гифка' : 'Новое фото' },
-    h('div', { class: 'sheet-inner' },
-      h('h2', {}, gif ? 'Гифка' : 'Фото'),
-      h('div', { class: 'meme-frame' }, Object.assign(media(preview, 'Что отправляю', preview), { className: 'meme-preview' }), over),
-      caption,
-      helper.el,
-      h('p', { class: 'mk-label' }, 'Где подпись'),
-      place,
-      h('div', { class: 'sheet-actions' },
-        h('button', { type: 'button', class: 'btn', onclick: close }, 'Отмена'),
-        go)));
-  document.body.append(backdrop, sheet);
-  paint();
-  // Варіанти — одразу, без «✨»: людина бачить, що підпис можна взяти готовий
-  helper.start();
 }

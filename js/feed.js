@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
-import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP } from './memes.js';
+import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, freeCap, gifFrame } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
@@ -962,17 +962,25 @@ function fileCard(m) {
     }, '⬇ Скачать'));
 }
 
+// Картинка мемчика з підписом поверх: новий (стиль, місце, колір) — шаром у рамці кадру, старий — зверху чи знизу
+function memeMedia(m, label, src) {
+  const el = media(m.url, label, src);
+  const free = m.caption && freeStyle(m.style);
+  if (free) return { el, view: [gifFrame(el, freeCap(free, m.caption))] };
+  const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
+  return { el, view: [el, over] };
+}
+
 function memeBubble(m) {
   const me = who();
   const it = { type: 'meme', key: `m:${m.id}`, m };
-  const over = m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null;
   // Старе фото стерли, щоб у базі лишалось місце: підпис і відповіді лишаються, картинки нема
   const pic = m.file ? fileCard(m) : m.gone && !m.url
     ? h('p', { class: 'meme-gone' }, '🖼 Фото удалено, чтобы освободить место')
     : h('button', {
       type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть на весь экран',
       onclick: () => showMeme(m, pic),
-    }, media(m.url, m.caption || memeWord(m)), over);
+    }, ...memeMedia(m, m.caption || memeWord(m)).view);
   const isNew = m.mine ? (m.replied || 0) > seenAt.replies : m.created > seenAt.memes;
   let acts;
   if (m.mine) {
@@ -994,7 +1002,7 @@ function memeBubble(m) {
   return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}`, 'data-created': m.created },
     quoteLine(m.quote, m.created),
     pic,
-    m.caption && !over ? h('p', { class: 'meme-cap' }, m.caption) : null,
+    m.caption && !m.style ? h('p', { class: 'meme-cap' }, m.caption) : null,
     replyLine,
     h('div', { class: 'feed-acts' },
       h('span', { class: 'feed-meta' }, `${m.file ? '📎' : '🖼'} ${hhmm(m.created)}`, newMark(!m.mine && isNew)),
@@ -1039,10 +1047,9 @@ function showMeme(m, pic) {
   if (!src) return;
   const close = () => { view.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const el = media(m.url, m.caption || memeWord(m), src);
+  const { el, view: shown } = memeMedia(m, m.caption || memeWord(m), src);
   const view = h('div', { class: 'photo-view feed-full', role: 'dialog', 'aria-modal': 'true', 'aria-label': memeWord(m), onclick: close },
-    h('div', { class: 'feed-full-frame' }, el,
-      m.caption && m.style ? h('span', { class: `meme-over is-${m.style}`, 'aria-hidden': 'true' }, m.caption) : null),
+    h('div', { class: 'feed-full-frame' }, ...shown),
     m.caption && !m.style ? h('p', { class: 'feed-full-cap' }, m.caption) : null,
     h('button', {
       type: 'button', class: 'feed-full-save', 'aria-label': `Сохранить ${m.url ? 'гифку' : 'фото'} на устройство`,

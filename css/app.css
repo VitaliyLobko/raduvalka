@@ -1390,16 +1390,6 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .meme-del { font-size: 1rem; opacity: .7; }
 .meme-their { font-size: .9375rem; }
 
-.meme-preview {
-  display: block;
-  width: 100%;
-  max-height: 46vh;
-  object-fit: contain;
-  margin-bottom: 12px;
-  border-radius: 14px;
-  background: var(--env);
-}
-
 .sheet input[type="text"] {
   width: 100%;
   min-height: 46px;
@@ -1988,9 +1978,7 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .mk-gif-chips .mk-chip { flex: none; }
 
 /* Підпис поверх картинки — як у справжнього мема */
-.meme-img, .meme-frame { position: relative; }
-.meme-frame .meme-preview { margin-bottom: 0; }
-.meme-frame { margin-bottom: 12px; }
+.meme-img { position: relative; }
 .meme-over {
   position: absolute;
   left: 8px;
@@ -2007,7 +1995,29 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 }
 .meme-over.is-top { top: 10px; }
 .meme-over.is-bottom { bottom: 10px; }
-.meme-place { margin: 8px 0 4px; }
+/* Підпис як у фото поверх гифки: рамка точно по кадру (--ar з відео), розміри — частки ширини кадру (cqw),
+   місце, розмір і поворот — з коду style; ті самі правила в редакторі, у стрічці й на весь екран */
+.gif-frame {
+  position: relative; display: block; container-type: inline-size; overflow: hidden;
+  aspect-ratio: var(--ar, 1); width: min(100%, calc(var(--gh, 50vh) * var(--ar, 1))); margin: 0 auto;
+}
+.feed-pic .gif-frame > :is(img, video), .feed-full-frame .gif-frame > :is(img, video), .gif-stage .gif-frame > :is(img, video) {
+  display: block; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; object-fit: cover;
+}
+.feed-full-frame .gif-frame { width: min(94vw, calc(82vh * var(--ar, 1))); border-radius: 12px; }
+.meme-free {
+  position: absolute; left: var(--x); top: var(--y); width: max-content; max-width: 86cqw;
+  transform: translate(-50%, -50%) rotate(var(--r)) scale(var(--k));
+  color: var(--c); text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none;
+}
+.meme-free[hidden] { display: none; }
+.meme-free.is-meme {
+  font: 700 7.5cqw/1.15 Rubik, system-ui, sans-serif; text-transform: uppercase;
+  -webkit-text-stroke: .16em var(--ink); paint-order: stroke fill;
+}
+.meme-free.is-hand { font: 400 10cqw/1.05 Caveat, 'Segoe Print', cursive; text-shadow: 0 .03em .12em rgba(0, 0, 0, .45); }
+.meme-free.is-plate { font: 600 6cqw/1.15 Rubik, system-ui, sans-serif; padding: .3em .45em; border-radius: .4em; background: var(--c); color: var(--ink); }
+.gif-stage .gif-frame { --gh: 100%; border-radius: 14px; box-shadow: 0 10px 28px -14px rgba(42, 23, 48, .55); -webkit-user-select: none; user-select: none; }
 
 /* Кнопки під листом переносяться, коли не влазять */
 .actions { flex-wrap: wrap; }
@@ -2037,9 +2047,7 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .mk-results .mk-group { margin-top: 8px; }
 .mk-results textarea { font-size: 1.2rem; }
 
-/* Шторка фото/гифки: прев'ю, підпис, одразу варіанти ШІ стрічкою, під ними настрій стрічкою (тап — нові варіанти), де підпис */
-.sheet-meme .meme-preview { max-height: 32vh; }
-.sheet-meme .sheet-inner > .voice-wrap { margin-top: 10px; }
+/* Помічник підпису: одразу варіанти ШІ стрічкою, під ними настрій стрічкою (тап — нові варіанти) */
 .cap-assist { display: grid; gap: 4px; margin-top: 8px; }
 .cap-assist .mk-label { margin: 4px 0 0; }
 .mk-capts:empty { display: none; }
@@ -2059,8 +2067,6 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
   font: 1.15rem/1.15 var(--hand);
 }
 .mk-capts .mk-wait { margin: 4px 0; }
-.sheet-meme .meme-place { margin: 4px 0 0; }
-.sheet-meme .sheet-actions { margin-top: 10px; }
 .sheet-maker .mk-ai { margin: 0 0 10px; }
 
 /* Його половина: перемикачі й порожні стани на нічному небі читаються, як у «Планах» */
