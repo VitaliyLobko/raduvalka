@@ -277,6 +277,7 @@ export async function sendAttached(letter, a, onProgress) {
 export function attachError(e) {
   if (e?.status === 429) return 'На сегодня лимит файлов исчерпан — попробуй завтра';
   if (e?.status === 413) return 'Слишком большой файл — до 25 МБ';
+  if (e?.status === 507) return 'Хранилище файлов заполнено — удали старые файлы из переписки или приложи ссылку';
   if (e?.status === 415) return 'Такой файл не подходит — нужна песня MP3 или M4A';
   if (e?.status) return `Сервер не принял (код ${e.status}${e.code ? `, ${e.code}` : ''}). Попробуй ещё раз`;
   return 'Нет связи — письмо с вложением не ушло. Попробуй ещё раз, когда появится интернет';

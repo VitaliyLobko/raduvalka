@@ -50,6 +50,9 @@ const MEME_TYPES = /^image\/(webp|jpeg|png|gif)$/;
 const MAX_FILE = 25 * 1024 * 1024 + 64;
 // Сховище файлів: понад межу — найстаріші стираються (безкоштовно в R2 — 10 ГБ)
 const FILES_LIMIT = 8 * 1024 ** 3;
+// Жорстка межа: понад неї новий файл не приймаємо зовсім. R2, на відміну від Workers і D1, понад безкоштовне виставляє
+// рахунок на картку, а вкладення невідкритих листів чистка не стирає — тож місце може й не звільнитись
+const FILES_HARD = 9 * 1024 ** 3;
 const MIME = /^[\w.+-]{1,60}\/[\w.+-]{1,80}$/;
 // Захист від чужого, якщо ключ раптом витече: за добу з одного боку — не більше 60 файлів і 1 ГБ
 // (рахунок R2 тоді не виросте: межа зберігання й операцій безкоштовного плану недосяжна)
@@ -122,6 +125,24 @@ const MIGRATIONS = [
   // n — назва пісні e1., cap — підпис фото e1.), gif (gif — посилання GIPHY, cap, style), link (url — посилання на пісню, e1.);
   // gone — коли байти стерто, щоб звільнити місце
   'ALTER TABLE letters ADD COLUMN media TEXT',
+  // Індекси. Безкоштовний D1 рахує прочитані рядки (5 млн на добу), а без індексу кожен запит читає всю таблицю:
+  // cron щохвилини, стрічка, конверти — з роками переписки це впирається в ліміт. Під кожен частий запит — свій
+  // push «На утро» / «Ко времени» (cron щохвилини)
+  'CREATE INDEX IF NOT EXISTS letters_push ON letters (pushed, at)',
+  // Отримані: стрічка, «Мне», конверти
+  'CREATE INDEX IF NOT EXISTS letters_dst ON letters (dst, at)',
+  // Надіслані: letters/sent і запас
+  'CREATE INDEX IF NOT EXISTS letters_src ON letters (src, created)',
+  // Надіслані у стрічці — за тим самим виразом часу, що й у запиті feedPage
+  "CREATE INDEX IF NOT EXISTS letters_sent ON letters (src, (CASE WHEN kind = 'env' THEN created ELSE at END))",
+  // Вкладення листів (чистка R2) і файли переписки — лише рядки, де вони є
+  'CREATE INDEX IF NOT EXISTS letters_media ON letters (created) WHERE media IS NOT NULL',
+  'CREATE INDEX IF NOT EXISTS memes_created ON memes (created)',
+  'CREATE INDEX IF NOT EXISTS memes_file ON memes (created) WHERE file IS NOT NULL',
+  'CREATE INDEX IF NOT EXISTS marks_at ON marks (at)',
+  // Запас (cron щодесять хвилин) і листи в конверти — свої
+  'CREATE INDEX IF NOT EXISTS letters_kind ON letters (kind, src, dst)',
+  'CREATE INDEX IF NOT EXISTS letters_env ON letters (dst, kind, created)',
 ];
 
 // ИИ для конструктора мемчиків: підписи й пошукові запити
@@ -167,8 +188,14 @@ export default {
       if (!all) return;
       await wishReminders(env);
       await sosCleanup(env.DB);
+      // Місце рахується підсумовуванням усієї бази (усі рядки — у ліміт прочитаних), тож щогодини, не щодесять хвилин:
+      // за годину переповнитись не встигне (запас — 30 % бази й 2 ГБ R2, файлів за добу — до 1 ГБ на половину)
+      const d = new Date(at);
+      const local = event.cron !== EVERY_MINUTE;
+      if (!local && d.getUTCMinutes() >= 10) return;
       await photoCleanup(env);
       await fileCleanup(env);
+      if (local || d.getUTCHours() === 3) await orphanFiles(env, at);
     })());
   },
 };
@@ -258,7 +285,7 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
   const envEvent = path.match(/^envelopes\/([\w-]{1,40})\/(empty|opened)$/);
   if (m === 'POST' && envEvent) return envelopeEvent(env.DB, side, envEvent[1], envEvent[2], notify);
-  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify, env.FILES);
+  if (path === 'letters' || path.startsWith('letters/')) return lettersRoute(req, env.DB, side, path.slice(8), notify, env.FILES, env.FILES_HARD_BYTES);
 
   if (path === 'wishes' || path.startsWith('wishes/')) return wishesRoute(req, env.DB, side, path.slice(7), notify);
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6), notify);
@@ -581,16 +608,24 @@ async function memesRoute(req, db, side, rest, notify, files) {
 // (base64url JSON: n — назва, вже «e1.», t — тип, s — розмір до шифрування, quote/on — відповідь)
 // Лічильник доби окремим записом — видалення файлу його не зменшує, тож межу не обійти «завантажив — стер».
 // len — заявлений розмір (content-length) для перевірки ще до читання тіла; take(b) — записати справжній
-async function fileQuota(db, side, len) {
+// Скільки зараз лежить у R2 (файли переписки й вкладення листів, крім стертих) — за частковими індексами, дешево
+const storedFiles = async (db) => (await db.prepare(`SELECT IFNULL(SUM(json_extract(file, '$.s')), 0) AS n FROM memes WHERE file IS NOT NULL AND gone IS NULL`).first('n'))
+  + (await db.prepare(`SELECT IFNULL(SUM(json_extract(media, '$.s')), 0) AS n ${LETTER_FILES}`).first('n'));
+// hard — інша жорстка межа (тест)
+async function fileQuota(db, side, len, hard) {
   const key = `files-day:${side}`;
   const now = Date.now();
   const q0 = await getDoc(db, key);
   const q = q0 && now - q0.from < DAY_MS ? q0 : { from: now, n: 0, b: 0 };
   const fits = (b) => q.n < FILES_PER_DAY && q.b + (b || 0) <= FILES_BYTES_PER_DAY;
   if (!fits(len)) throw fail(429, 'files-day');
+  const stored = await storedFiles(db);
+  const room = (b) => stored + (b || 0) <= (Number(hard) || FILES_HARD);
+  if (!room(len)) throw fail(507, 'storage-full');
   return {
     take: async (b) => {
       if (!fits(b)) throw fail(429, 'files-day');
+      if (!room(b)) throw fail(507, 'storage-full');
       await putDoc(db, key, { from: q.from, n: q.n + 1, b: q.b + b });
     },
   };
@@ -600,7 +635,7 @@ async function postFile(req, env, side, notify) {
   if (!env.FILES) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
   if (len > MAX_FILE) throw fail(413, 'size');
-  const quota = await fileQuota(env.DB, side, len);
+  const quota = await fileQuota(env.DB, side, len, env.FILES_HARD_BYTES);
   let meta;
   try {
     meta = JSON.parse(atob(String(req.headers.get('x-file-meta') || '').replace(/-/g, '+').replace(/_/g, '/')));
@@ -1049,12 +1084,12 @@ function fileMedia(m, size) {
   return out;
 }
 
-async function lettersRoute(req, db, side, rest, notify, files) {
+async function lettersRoute(req, db, side, rest, notify, files, hard) {
   const m = req.method;
 
   // Лист у конверт із фото, голосом чи піснею — одним запитом, щоб байти в R2 не лишились без листа:
   // тіло — 4 байти довжини JSON (big-endian) ‖ JSON листа { env, text, mascot, cid, media { k, t, d, n, cap } } ‖ байти (RAD1)
-  if (m === 'POST' && rest === 'attach') return attachLetter(req, db, side, files);
+  if (m === 'POST' && rest === 'attach') return attachLetter(req, db, side, files, hard);
 
   // Надіслані мною — з тим, що вже сталося на тому боці
   if (m === 'GET' && rest === 'sent') {
@@ -1194,11 +1229,11 @@ async function lettersRoute(req, db, side, rest, notify, files) {
   throw fail(405, 'method');
 }
 
-async function attachLetter(req, db, side, files) {
+async function attachLetter(req, db, side, files, hard) {
   if (!files) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
   if (len > MAX_FILE + MAX_JSON) throw fail(413, 'size');
-  const quota = await fileQuota(db, side, len);
+  const quota = await fileQuota(db, side, len, hard);
   const buf = new Uint8Array(await req.arrayBuffer());
   const head = buf.byteLength >= 4 ? new DataView(buf.buffer, buf.byteOffset, 4).getUint32(0) : 0;
   if (!head || head > MAX_JSON || 4 + head >= buf.byteLength) throw fail(400, 'body');
@@ -3638,6 +3673,38 @@ async function fileCleanup(env, now = Date.now()) {
     await db.batch(pick.map((r) => db.prepare("UPDATE letters SET media = json_set(media, '$.gone', ?) WHERE id = ?").bind(now, r.id)));
   });
   if (gone) console.log('fileCleanup', { gone });
+  return gone;
+}
+
+// Файли в R2 без свого рядка (скинули базу, обірвалось між «поклали файл» і «записали лист») — не рахуються
+// в межу й інакше лежали б вічно. Раз на добу: старші за добу (щойно покладений ще може чекати свій рядок)
+const R2_KEY = /^([fl])-([a-z0-9]{16,32})$/;
+async function orphanFiles(env, now = Date.now()) {
+  if (!env.FILES?.list) return 0;
+  const db = env.DB;
+  const live = async (table, ids) => {
+    const cond = table === 'memes' ? 'file IS NOT NULL AND gone IS NULL' : "media IS NOT NULL AND json_extract(media, '$.gone') IS NULL";
+    const out = new Set();
+    for (let i = 0; i < ids.length; i += 90) {
+      const part = ids.slice(i, i + 90);
+      const { results } = await db.prepare(`SELECT id FROM ${table} WHERE ${cond} AND id IN (${part.map(() => '?').join(', ')})`).bind(...part).all();
+      results.forEach((r) => out.add(r.id));
+    }
+    return out;
+  };
+  let cursor;
+  let gone = 0;
+  do {
+    const page = await env.FILES.list({ cursor, limit: 500 });
+    const old = page.objects.filter((o) => R2_KEY.test(o.key) && now - new Date(o.uploaded).getTime() > DAY_MS);
+    const ids = (p) => old.filter((o) => o.key[0] === p).map((o) => o.key.slice(2));
+    const [chat, mail] = await Promise.all([live('memes', ids('f')), live('letters', ids('l'))]);
+    const dead = old.filter((o) => !(o.key[0] === 'f' ? chat : mail).has(o.key.slice(2))).map((o) => o.key);
+    if (dead.length) await env.FILES.delete(dead);
+    gone += dead.length;
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  if (gone) console.log('orphanFiles', { gone });
   return gone;
 }
 

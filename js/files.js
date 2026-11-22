@@ -83,6 +83,7 @@ export async function sendFile(file, done, re = null) {
     if (e.abort) toast('Отправка отменена');
     else if (e.status === 429) toast('На сегодня файлов хватит — завтра снова можно');
     else if (e.status === 503) toast('Файлы пока не подключены');
+    else if (e.status === 507) toast('Хранилище файлов заполнено — удали старые файлы из переписки');
     else if (e.status === 413) toast('Файл слишком большой — можно до 25 МБ');
     else toast('Не отправилось — нет связи');
   } finally {
