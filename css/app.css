@@ -1160,6 +1160,8 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
   min-width: 0; min-height: 44px; padding: 0 2px; border: 1px solid var(--rule); border-radius: 12px; background: var(--field);
   color: inherit; font: 500 .75rem/1.1 var(--ui); letter-spacing: -.01em; cursor: pointer;
 }
+/* Сьомий інструмент — сам у ряду: на всю ширину, щоб не висів зліва */
+.instr-row:not(.sfx-row) > :last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
 .instr-chip[aria-checked="true"] { background: var(--wax); border-color: var(--wax); color: var(--on-plum); }
 .instr-chip:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
 .instr-note { margin: 0; font-size: .8125rem; color: var(--ink-soft); }

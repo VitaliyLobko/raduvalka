@@ -17,6 +17,7 @@ export const INSTRUMENTS = {
   violin: { name: 'Скрипка', on: 'на скрипке' },
   cello: { name: 'Виолончель', on: 'на виолончели' },
   bells: { name: 'Колокольчики', on: 'на колокольчиках' },
+  chip: { name: '8-бит', on: 'в стиле 8-бит' },
 };
 const INSTR = 'radovalka:instrument';
 const known = (k) => (Object.hasOwn(INSTRUMENTS, k) ? k : 'kalimba');
@@ -266,7 +267,32 @@ const violin = (f, t, v = 0.22, len = 0.9) => bowed(f, t, v, len, VIOLIN);
 const cello = (f, t, v = 0.22, len = 0.9) => bowed(f / 2, t, v, len, CELLO);
 // Колокольчики: уся мелодія — скляними дзвіночками
 const chimes = (f, t, v = 0.22, len = 0.9) => bell(f, t, v * 0.6, len * 1.3 + 0.3);
-const VOICES = { kalimba: pluck, harp, flute, violin, cello, bells: chimes };
+// 8-біт: звук старих приставок. Вузький прямокутний імпульс (25 %, як канал NES), перший кадр — октавою вище
+// («піу»), гучність спадає сходинками по 1/30 с, без вібрато
+let chipWave = null;
+function chip(f, t, v = 0.22, len = 0.9) {
+  if (!chipWave) {
+    const n = 24;
+    const re = new Float32Array(n);
+    const im = new Float32Array(n);
+    for (let k = 1; k < n; k += 1) im[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * 0.25);
+    chipWave = ctx.createPeriodicWave(re, im);
+  }
+  const L = Math.min(len * 0.55, 0.42) + 0.06;
+  const steps = Math.max(2, Math.round(L * 30));
+  const peak = v * 0.85;
+  const o = ctx.createOscillator();
+  o.setPeriodicWave(chipWave);
+  o.frequency.setValueAtTime(f * 2, t);
+  o.frequency.setValueAtTime(f, t + 1 / 60);
+  const g = ctx.createGain();
+  for (let i = 0; i <= steps; i += 1) g.gain.setValueAtTime(peak * (1 - i / steps) ** 1.5, t + i / 30);
+  g.gain.setValueAtTime(0, t + (steps + 1) / 30);
+  o.connect(g).connect(out);
+  o.start(t);
+  o.stop(t + (steps + 1) / 30 + 0.02);
+}
+const VOICES = { kalimba: pluck, harp, flute, violin, cello, bells: chimes, chip };
 
 // Глухий удар з падінням висоти: дерев'яна фішка, падіння, вибух
 const thump = (t, f0, f1, len, v) => osc('sine', f0, t, v, len, { to: f1, attack: 0.002 });
