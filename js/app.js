@@ -20,7 +20,7 @@ import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
-import { sfx, soundOn, setSound } from './sound.js';
+import { sfx, soundOn, setSound, INSTRUMENTS, myInstrument, setMyInstrument, partnerInstrument, setPartnerInstrument, preview } from './sound.js';
 import { openDuel } from './duel.js';
 import { openSame } from './same.js';
 import { openHot } from './hot.js';
@@ -647,6 +647,29 @@ function soundSwitch() {
   return btn;
 }
 
+// Свій інструмент: ним звучить моє тут і в другого все, що прийшло від мене. Тап — одразу послухати
+function instrumentPicker() {
+  const row = h('div', { class: 'instr-row', role: 'radiogroup', 'aria-label': 'Мой инструмент' });
+  const paint = () => {
+    const cur = myInstrument();
+    row.replaceChildren(...Object.entries(INSTRUMENTS).map(([k, { name }]) => h('button', {
+      type: 'button', class: 'instr-chip', role: 'radio', 'aria-checked': String(k === cur), onclick: () => pick(k),
+    }, name)));
+  };
+  const pick = (k) => {
+    setMyInstrument(k);
+    paint();
+    if (soundOn()) preview(k);
+    if (DATA.mine.instrument !== k) { DATA.mine.instrument = k; save('mine', { instrument: k }); }
+  };
+  paint();
+  const p = who().partner;
+  return h('div', { class: 'instr' },
+    h('p', { class: 'instr-title' }, 'Мой инструмент'),
+    row,
+    h('p', { class: 'instr-note' }, `${cap(p)} играет ${INSTRUMENTS[partnerInstrument()].on}: так звучат ${p === 'она' ? 'её' : 'его'} письма и ходы`));
+}
+
 function stillSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
   const paint = () => {
@@ -705,7 +728,7 @@ function openAbout(showNews) {
       aboutGroup('Уведомления', pushPanel()),
       // Раптом від руху фону укачує — вимикається тут
       aboutGroup('Фон', stillSwitch()),
-      aboutGroup('Звуки', soundSwitch()),
+      aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
       // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('На всякий случай',
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
@@ -775,6 +798,9 @@ async function start() {
   if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
   document.body.classList.remove('is-booting');
   try { sessionStorage.removeItem('radovalka:boot-retry'); } catch { /* приватне вікно */ }
+  // Інструменти: свій — як збережено на сервері (новий телефон теж), другого — для того, що від нього приходить
+  if (DATA.mine?.instrument) setMyInstrument(DATA.mine.instrument);
+  setPartnerInstrument(DATA.partnerInstrument);
   prewarmWrite();
   applySide();
   drawChip();

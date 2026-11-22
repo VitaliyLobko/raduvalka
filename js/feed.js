@@ -379,7 +379,7 @@ function draw(force = false, older = false) {
   else if (arrived && !wasStuck) jump.hidden = false;
   paintDown();
   // Прийшло від другого — шкатулка, пішло моє — шурх
-  if (arrived) sfx(mineNew ? 'sent' : 'letter');
+  if (arrived) sfx(mineNew ? 'sent' : 'letter', 0, mineNew ? 'me' : 'them');
   // Новий лист від другого — курʼєр підбігає до нього
   if (arrived && !mineNew && arrived.type === 'in') {
     const pet = arrived.l.mascot || petFor('push');

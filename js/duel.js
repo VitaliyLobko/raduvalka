@@ -563,10 +563,10 @@ const fall = (el, row) => {
     { duration: 300 + row * 45, easing: 'ease-in' });
 };
 // Новий хід на полі: у «Четыре в ряд» — падіння, у хрестиках — знак прорисовується лінією (CSS .is-draw)
-const land = (grid, board, i) => {
-  if (grid.dots) sfx('line');
-  else if (grid.drop) sfx('drop', reduceMotion ? 0 : Math.max(0, (300 + Math.floor(i / grid.w) * 45) * 0.75 - 170));
-  else sfx('place');
+const land = (grid, board, i, from = 'me') => {
+  if (grid.dots) sfx('line', 0, from);
+  else if (grid.drop) sfx('drop', reduceMotion ? 0 : Math.max(0, (300 + Math.floor(i / grid.w) * 45) * 0.75 - 170), from);
+  else sfx('place', 0, from);
   if (grid.dots) {
     // Рисочка простягається від точки до точки, а в клітинках, які вона замкнула, знак прорисовується
     pieceAt(grid, board, i)?.classList.add('is-new');
@@ -730,7 +730,7 @@ async function showBoard(g) {
   paintHistory(g.rounds.length);
   const play = !g.done && g.turn === 'me';
   board.replaceChildren(...cells(grid, g.board, { mine, play, boxes: g.boxes || '', onPick: (m) => boardMove(g, m, board) }));
-  if (fresh && g.lastBy === 'them' && g.lastCell !== null) { land(grid, board, g.lastCell); if (play) sfx('turn', 550); }
+  if (fresh && g.lastBy === 'them' && g.lastCell !== null) { land(grid, board, g.lastCell, 'them'); if (play) sfx('turn', 550, 'them'); }
   // Куди щойно сходив другий — тонке кільце (свіжий хід — ще й спалахує)
   if (!g.done && g.lastBy === 'them' && g.lastCell !== null) pieceAt(grid, board, g.lastCell)?.classList.add('is-last', ...(fresh ? ['is-last-new'] : []));
   if (g.done) {
@@ -830,8 +830,9 @@ async function showMemo(g) {
     tip.replaceChildren(...[play && !g.open?.length ? petTip(grid.kind, g) : null].filter(Boolean));
     act.replaceChildren(h('button', { type: 'button', class: 'duel-cancel', onclick: () => cancel(g) }, 'Отменить игру'));
   }
-  if (flash?.hit && fresh) { flash.cells.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-pair')); if (!g.done) sfx('pair', 380); }
-  if (flash && !flash.hit && fresh && !g.done) { sfx('miss', 480); if (play) sfx('turn', 2300); }
+  const by = flash?.by === 'them' ? 'them' : 'me';
+  if (flash?.hit && fresh) { flash.cells.forEach((i) => board.querySelector(`[data-i="${i}"]`)?.classList.add('is-pair')); if (!g.done) sfx('pair', 380, by); }
+  if (flash && !flash.hit && fresh && !g.done) { sfx('miss', 480, by); if (play) sfx('turn', 2300, 'them'); }
   if (fresh || (g.done && !sawEnd(g))) {
     markSeen(g);
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
@@ -1050,7 +1051,7 @@ async function showBs(g) {
     open.busy = false;
   }
   const last = g.shots.at(-1);
-  if (!g.done && play && fresh.length && last?.by === 'them' && !last.hit) sfx('turn', 200);
+  if (!g.done && play && fresh.length && last?.by === 'them' && !last.hit) sfx('turn', 200, 'them');
   if (g.done) {
     // Кінець: решта чужого флоту — привидами, без записок
     (g.rest || []).forEach((s) => theirs.append(shipEl(them, s.cells, ' is-ghost')));

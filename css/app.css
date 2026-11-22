@@ -1152,6 +1152,17 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .about-row-go { flex: none; color: var(--ink-soft); font-size: 1.4rem; line-height: 1; transition: transform .2s; }
 .about-news[open] > summary .about-row-go { transform: rotate(90deg); }
 .about-card .text-size { padding: 12px 0; }
+/* Мій інструмент: шість кнопок 3×2 і підпис, на чому грає другий */
+.instr { display: grid; gap: 8px; padding: 12px 0; }
+.instr-title { margin: 0; font: 500 1rem/1.2 var(--ui); }
+.instr-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.instr-chip {
+  min-width: 0; min-height: 44px; padding: 0 2px; border: 1px solid var(--rule); border-radius: 12px; background: var(--field);
+  color: inherit; font: 500 .75rem/1.1 var(--ui); letter-spacing: -.01em; cursor: pointer;
+}
+.instr-chip[aria-checked="true"] { background: var(--wax); border-color: var(--wax); color: var(--on-plum); }
+.instr-chip:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+.instr-note { margin: 0; font-size: .8125rem; color: var(--ink-soft); }
 .about-card .text-size-row { margin-bottom: 8px; }
 .about-card .text-size-sample { margin: 0; background: color-mix(in srgb, currentColor 7%, transparent); }
 .about-card .push-panel { margin: 0; padding: 12px 0; grid-template-columns: 1fr 1fr; }

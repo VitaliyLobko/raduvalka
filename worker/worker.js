@@ -37,7 +37,9 @@ const SIDES = ['vona', 'vin'];
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'bdayVona', 'bdayVin'];
 const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
 // stockFrom — 'YYYY-MM-DD', з якого дня запас підстраховує; нема — запас на паузі
-const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom', 'chatCleared'];
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom', 'chatCleared', 'instrument'];
+// Інструмент звуків (js/sound.js INSTRUMENTS): свій — у mine, другий телефон грає ним те, що прийшло від тебе
+const INSTRUMENT_KEYS = ['kalimba', 'harp', 'flute', 'violin', 'cello', 'bells'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;
@@ -235,7 +237,7 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
 
   if (m === 'GET' && path === 'boot') {
-    const [letter, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins, welcome] = await Promise.all([
+    const [letter, envelopes, partnerEnvelopes, together, mine, mascots, memes, checkins, welcome, theirs] = await Promise.all([
       dayLetter(env.DB, side),
       myEnvelopes(env.DB, side),
       getDoc(env.DB, `envelopes:${other(side)}`),
@@ -246,6 +248,7 @@ async function route(req, env, ctx, info = {}) {
       listMemes(env.DB, side, 60),
       checkinsOf(env.DB, side),
       getDoc(env.DB, `letter:${side}`),
+      getDoc(env.DB, `mine:${other(side)}`),
     ]);
     return json({
       side,
@@ -268,6 +271,8 @@ async function route(req, env, ctx, info = {}) {
       hot: !!hotBank(env),
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
       partnerSign: (await getDoc(env.DB, 'signs'))?.[other(side)] || null,
+      // Інструмент другого — ним звучить те, що прийшло від нього; з його mine — лише це поле
+      partnerInstrument: theirs?.instrument || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
       imgs: await imgVersions(env.DB, mascots),
       memes,
@@ -361,6 +366,7 @@ async function route(req, env, ctx, info = {}) {
 
   if (m === 'PUT' && path === 'mine') {
     const patch = pick(await readJson(req), MINE_FIELDS);
+    if ('instrument' in patch && !INSTRUMENT_KEYS.includes(patch.instrument)) throw fail(400, 'instrument');
     const next = { ...((await getDoc(env.DB, `mine:${side}`)) || {}), ...patch };
     await putDoc(env.DB, `mine:${side}`, next);
     return json(next);
