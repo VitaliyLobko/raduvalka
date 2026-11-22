@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
-import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, gifOver } from './memes.js';
+import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, gifOver, stickParse, stickSrc } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
@@ -213,11 +213,13 @@ export function letterFeed(o) {
 const fresh = () => document.dispatchEvent(new CustomEvent('radovalka:fresh'));
 
 // Гифка з пошуку — за посиланням, решта — фото з галереї; icon — з значком, для рядка переписки
-const memeWord = (m, icon = false) => (m.url ? `${icon ? '🎞 ' : ''}Гифка`
+// Наклейка — без посилання й файла, лише код наклейки
+const isSticker = (m) => !m.url && !m.file && !!m.stick;
+const memeWord = (m, icon = false) => (isSticker(m) ? `${icon ? '🐾 ' : ''}Наклейка` : m.url ? `${icon ? '🎞 ' : ''}Гифка`
   : m.file ? `${icon ? '📎 ' : ''}${m.file.n || 'Файл'}` : `${icon ? '🖼 ' : ''}Фото`);
 // Що цитувати у відповіді на мемчик/файл і на що відповідають (для push)
-const memeSaid = (m) => m.caption || (m.url ? 'гифка' : m.file ? `📎 ${m.file.n || 'файл'}` : 'фото');
-const memeOn = (m) => (m.url ? 'gif' : m.file ? 'file' : 'photo');
+const memeSaid = (m) => m.caption || (isSticker(m) ? '🐾 наклейка' : m.url ? 'гифка' : m.file ? `📎 ${m.file.n || 'файл'}` : 'фото');
+const memeOn = (m) => (isSticker(m) ? 'sticker' : m.url ? 'gif' : m.file ? 'file' : 'photo');
 // Іконка файлу за типом
 const fileIcon = (t = '') => (/^image\//.test(t) ? '🖼' : /^video\//.test(t) ? '🎬' : /^audio\//.test(t) ? '🎵'
   : /pdf$/.test(t) ? '📕' : /zip|rar|7z|tar|gzip/.test(t) ? '🗜' : /sheet|excel|csv/.test(t) ? '📊' : /word|document|text/.test(t) ? '📄' : '📎');
@@ -989,7 +991,10 @@ function memeBubble(m) {
   const me = who();
   const it = { type: 'meme', key: `m:${m.id}`, m };
   // Старе фото стерли, щоб у базі лишалось місце: підпис і відповіді лишаються, картинки нема
-  const pic = m.file ? fileCard(m) : m.gone && !m.url
+  const sticker = isSticker(m) ? stickParse(m.stick)[0] : null;
+  const pic = sticker ? h('div', { class: 'meme-sticker', role: 'img', 'aria-label': `Наклейка: ${petName(sticker.key) || 'питомец'}` },
+    stickSrc(sticker) ? h('img', { src: stickSrc(sticker), alt: '', draggable: 'false', style: sticker.fx ? 'transform: scaleX(-1)' : null }) : h('span', {}, '🐾'))
+    : m.file ? fileCard(m) : m.gone && !m.url
     ? h('p', { class: 'meme-gone' }, '🖼 Фото удалено, чтобы освободить место')
     : h('button', {
       type: 'button', class: 'meme-img feed-pic', 'data-id': m.id, 'data-url': m.url || '', 'aria-label': 'Открыть на весь экран',
@@ -1025,7 +1030,7 @@ function memeBubble(m) {
 
 
 async function removeMeme(m) {
-  if (!await ask({ title: `Удалить ${m.url ? 'эту гифку' : m.file ? 'этот файл' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
+  if (!await ask({ title: `Удалить ${isSticker(m) ? 'эту наклейку' : m.url ? 'эту гифку' : m.file ? 'этот файл' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
   try {
     await send(`memes/${m.id}`, 'DELETE');
     DATA.memes = DATA.memes.filter((x) => x.id !== m.id);

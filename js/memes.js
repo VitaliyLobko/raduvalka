@@ -276,6 +276,30 @@ export async function composeMeme(file, done, re = null) {
   });
 }
 
+// Наклейка-улюбленець окремим повідомленням: шторка з вибором (stickpick.js), тап по позі — одразу надіслано
+export async function composeSticker(done, re = null) {
+  const { stickerRow } = await import('./stickpick.js');
+  const close = () => { el.remove(); backdrop.remove(); };
+  const { el: row } = stickerRow({
+    onPet: async (key, i) => {
+      close();
+      try {
+        const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re });
+        DATA.memes = [meme, ...(DATA.memes || [])];
+        const p = pet();
+        toast(`${petName(p) || 'Почтальон'} ${isShe(p) ? 'понесла' : 'понёс'} наклейку ➶`);
+        done?.();
+      } catch (e) { toast(sendError(e)); }
+    },
+  });
+  if (!row) { toast('Пока нет фото питомцев для наклеек'); return; }
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const el = h('div', { class: 'sheet sticker-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Наклейка' },
+    h('div', { class: 'write-head' }, h('h2', {}, '🐾 Наклейка'), h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
+    h('p', { class: 'hint' }, 'Тап — и наклейка улетит в чат'), row);
+  document.body.append(backdrop, el);
+}
+
 // GIF із пошуку: на сервер іде лише посилання GIPHY; підпис — шаром поверх (редактор gifedit.js)
 export async function composeGif(gif, done, re = null) {
   const { gifEditor } = await import('./gifedit.js');

@@ -5042,3 +5042,9 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .gif-sticks img { position: absolute; aspect-ratio: 1; height: auto; border-radius: 50%; border: max(2px, .5cqw) solid #fff; object-fit: cover; box-shadow: 0 2px 8px rgba(0, 0, 0, .4); box-sizing: border-box; }
 .gif-sticks.is-edit img { pointer-events: auto; cursor: grab; touch-action: none; }
 .gif-sticks img.is-sel { outline: 2px dashed var(--wax, #e0a93a); outline-offset: 3px; }
+/* Наклейка-улюбленець у чаті: велика кругла фотка в білій рамці, без підкладки повідомлення */
+.meme-sticker { display: grid; place-items: center; padding: 4px 0; }
+.meme-sticker img { width: 136px; height: 136px; border-radius: 50%; border: 5px solid #fff; object-fit: cover; box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .45); }
+.meme-sticker span { font-size: 4rem; }
+.sticker-sheet { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.sticker-sheet .hint { margin: 0 0 10px; }

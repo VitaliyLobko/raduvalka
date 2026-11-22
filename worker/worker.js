@@ -546,6 +546,17 @@ async function memesRoute(req, db, side, rest, notify, files) {
       'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, stick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.quote, meme.created, null, meme.stick);
 
+    // Наклейка-улюбленець окремим повідомленням: лише код однієї наклейки, без файла (фото улюбленців є на обох телефонах)
+    if (body.sticker != null) {
+      const st = stickOf(body.sticker);
+      if (!st || st.includes('~')) throw fail(400, 'sticker');
+      meme.stick = st;
+      meme.caption = null;
+      await insertMeme().run();
+      notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(body), 'sticker') : stickerNote(side));
+      return json(view(meme, side), 201);
+    }
+
     // GIF із GIPHY — лише посилання, файл не зберігаємо
     if (body.gif) {
       const gifUrl = String(body.gif.url || '');
@@ -2667,6 +2678,9 @@ const sender = (side, he, she) => (side === 'vin' ? he : she);
 function memeNote(from, gif) {
   return { title: gif ? 'Тебе гифка 🎞' : 'Тебе фото 📷', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
+function stickerNote(from) {
+  return { title: 'Тебе наклейка 🐾', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
+}
 function fileNote(from) {
   return { title: 'Тебе файл 📎', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
@@ -4119,8 +4133,8 @@ function likeNote(from, kind) {
 
 // as — чим відповіли, якщо не словами: 'gif' | 'photo'
 function replyNote(from, on, as) {
-  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : on === 'file' ? 'на твой файл' : 'на твоё письмо';
-  const how = { gif: 'Гифкой', photo: 'Фото', file: 'Файлом' }[as];
+  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : on === 'file' ? 'на твой файл' : on === 'sticker' ? 'на твою наклейку' : 'на твоё письмо';
+  const how = { gif: 'Гифкой', photo: 'Фото', file: 'Файлом', sticker: 'Наклейкой' }[as];
   return {
     title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
     body: how ? `${how} ${what}` : what[0].toUpperCase() + what.slice(1),
@@ -4129,7 +4143,7 @@ function replyNote(from, on, as) {
 }
 // Відповідь новим повідомленням: цитата (до 300 знаків) і на що — для push
 const quoteOf = (b) => clip(b.quote, 300) || null;
-const quoteOn = (b) => (['gif', 'photo', 'file'].includes(b.on) ? b.on : 'letter');
+const quoteOn = (b) => (['gif', 'photo', 'file', 'sticker'].includes(b.on) ? b.on : 'letter');
 
 async function pushRoute(req, env, side, path) {
   const m = req.method;

@@ -6,7 +6,7 @@ import { DATA } from './data.js';
 import { deliver } from './outbox.js';
 import { petName, petSrc, petFor } from './icons.js';
 import { h, toast, ARROW, hhmm, dayWord as dayName } from './ui.js';
-import { composeMeme, composeGif } from './memes.js';
+import { composeMeme, composeGif, composeSticker } from './memes.js';
 import { openGifs } from './maker.js';
 import { openGames } from './games.js';
 import { openWrite, draft, nextMorning, QUEUED, sentToast } from './write.js';
@@ -357,6 +357,7 @@ function openPlus() {
       fileTile(camera, '📷', 'Камера'),
       DATA.files ? fileTile(filePicker, '📎', 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
+      tile('🐾', 'Наклейка', () => { closePlus(); composeSticker(sent, re); }),
       reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),
