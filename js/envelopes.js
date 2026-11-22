@@ -214,7 +214,7 @@ function openReread(screen, env) {
   const close = () => { reader.cleanup(); reader.remove(); renderEnvelopes(screen); };
   const preview = (note) => {
     const t = noteText(note).replace(/\s+/g, ' ').trim();
-    const pic = note.media ? `${MEDIA_ICON[note.media.k] || '📎'} ` : '';
+    const pic = note.media ? `${(note.media.k === 'multi' ? note.media.items : [note.media]).map((x) => MEDIA_ICON[x.k] || '📎').join('')} ` : '';
     return pic + (t.length > 90 ? `${t.slice(0, 90)}…` : t || 'вложение');
   };
   reader = overlay(close,

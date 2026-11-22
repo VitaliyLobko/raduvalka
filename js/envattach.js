@@ -10,7 +10,11 @@ const VOICE_MAX = 60;
 const SONG_MAX = 25 * 1024 * 1024;
 const LABEL = 'Прикрепить';
 // Що несуть байтами (R2), а що — лише описом
-export const hasBytes = (a) => ['photo', 'voice', 'song'].includes(a?.k);
+export const hasBytes = (a) => (Array.isArray(a) ? a.some(hasBytes) : ['photo', 'voice', 'song'].includes(a?.k));
+// Скільки можна прикласти до одного листа (сервер теж тримає цю межу)
+export const MAX_ATT = 6;
+// Вкладення листа списком: кілька ({ k: 'multi', items }) чи одне (старий вигляд)
+export const attachItems = (m) => (!m ? [] : m.k === 'multi' ? m.items || [] : [m]);
 
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -41,6 +45,7 @@ export function service(url) {
 export function attachLine(a) {
   if (!a) return '';
   if (a.gone) return '📎 вложение удалено, чтобы освободить место';
+  if (a.k === 'multi') return (a.items || []).map(attachLine).join(' · ');
   if (a.k === 'photo') return '📷 фото';
   if (a.k === 'gif') return '🎞 гифка';
   if (a.k === 'voice') return `🎤 голос · ${mmss(a.d || 0)}`;
@@ -256,13 +261,16 @@ export function mediaBody(a) {
 
 // Лист із байтами — одним запитом: 4 байти довжини ‖ JSON листа (зашифровані поля) ‖ байти (RAD1). Без черги:
 // такий лист завеликий для телефона без звʼязку — краще чесно сказати «не пішло»
+// a — одне вкладення чи список: файли йдуть підряд, у кожного в описі len — скільки його байтів
 export async function sendAttached(letter, a, onProgress) {
-  const plain = { ...letter, media: mediaBody(a) };
-  const [sealed, bytes] = await Promise.all([sealBody('letters/attach', plain), sealFile(a.blob)]);
+  const list = Array.isArray(a) ? a : [a];
+  const files = await Promise.all(list.map((x) => (hasBytes(x) ? sealFile(x.blob) : null)));
+  const plain = { ...letter, media: list.map((x, i) => ({ ...mediaBody(x), ...(files[i] ? { len: files[i].size } : {}) })) };
+  const sealed = await sealBody('letters/attach', plain);
   const json = new TextEncoder().encode(JSON.stringify(sealed));
   const len = new Uint8Array(4);
   new DataView(len.buffer).setUint32(0, json.byteLength);
-  const body = new Blob([len, json, bytes], { type: 'application/octet-stream' });
+  const body = new Blob([len, json, ...files.filter(Boolean)], { type: 'application/octet-stream' });
   const out = await new Promise((ok, no) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API}/api/letters/attach`);
@@ -281,7 +289,8 @@ export async function sendAttached(letter, a, onProgress) {
 }
 export function attachError(e) {
   if (e?.status === 429) return 'На сегодня лимит файлов исчерпан — попробуй завтра';
-  if (e?.status === 413) return 'Слишком большой файл — до 25 МБ';
+  if (e?.status === 413) return 'Слишком большой файл — каждый до 25 МБ, все вместе до 60 МБ';
+  if (e?.status === 400 && e.code === 'media') return `В одно письмо — не больше ${MAX_ATT} вложений`;
   if (e?.status === 507) return 'Хранилище файлов заполнено — удали старые файлы из переписки или приложи ссылку';
   if (e?.status === 415) return 'Такой файл не подходит — нужна песня MP3 или M4A';
   if (e?.status) return `Сервер не принял (код ${e.status}${e.code ? `, ${e.code}` : ''}). Попробуй ещё раз`;
@@ -290,16 +299,23 @@ export function attachError(e) {
 
 // ── Відкриття конверта: вкладення над текстом. Кидає помилку, якщо не завантажилось (конверт лишається запечатаним);
 // стерте (місце в сховищі) — лише напис ──
-async function bytesOf(id, t) {
-  const res = await fetch(`${API}/api/letters/${id}/file`, { headers: { authorization: `Bearer ${getKey()}` } });
+async function bytesOf(id, t, f) {
+  const res = await fetch(`${API}/api/letters/${id}/file${f ? `?f=${f}` : ''}`, { headers: { authorization: `Bearer ${getKey()}` } });
   if (res.status === 404) return null;
   if (!res.ok) throw Object.assign(new Error(`api ${res.status}`), { status: res.status });
   const plain = await openBlob(await res.blob());
   return new Blob([plain], { type: t || 'application/octet-stream' });
 }
+const gone = () => ({ el: h('p', { class: 'ea-gone' }, attachLine({ gone: true })), stop: () => {} });
+// Кілька вкладень — стовпчиком у тому порядку, як прикладали: фото, гифки, голос, пісні
 export async function renderAttach(note, opts = {}) {
-  const a = note.media;
-  const gone = () => ({ el: h('p', { class: 'ea-gone' }, attachLine({ gone: true })), stop: () => {} });
+  const m = note.media;
+  if (!m || m.gone) return gone();
+  if (m.k !== 'multi') return renderOne(note.id, m, opts);
+  const parts = await Promise.all(m.items.map((x) => renderOne(note.id, x, opts)));
+  return { el: h('div', { class: 'ea-multi' }, ...parts.map((x) => x.el)), stop: () => parts.forEach((x) => x.stop()) };
+}
+async function renderOne(id, a, opts) {
   if (!a || a.gone) return gone();
   if (a.k === 'gif') {
     const el = media(a.gif, 'Гифка в письме', a.gif);
@@ -319,7 +335,7 @@ export async function renderAttach(note, opts = {}) {
       stop: () => {},
     };
   }
-  const blob = await bytesOf(note.id, a.t);
+  const blob = await bytesOf(id, a.t, a.f);
   if (!blob) return gone();
   if (a.k === 'photo') {
     const url = URL.createObjectURL(blob);

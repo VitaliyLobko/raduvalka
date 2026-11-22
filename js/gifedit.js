@@ -152,7 +152,9 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   const helper = captionHelper(caption, { about: gif.title || '', onPick: sync });
 
   // ── Відправка ──
-  const go = h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW });
+  // Не «Отправить» (у лист — прикласти): словами й скріпкою, щоб не плутати зі стрілкою відправки
+  const go = label === 'Отправить' ? h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW })
+    : h('button', { type: 'button', class: 'ph-send is-attach' }, '📎 ', label);
   go.addEventListener('click', async () => {
     if (go.disabled) return;
     go.disabled = true;

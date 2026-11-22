@@ -4961,3 +4961,17 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .pl-wait { color: var(--ink-soft); font-size: .8125rem; }
 .postcard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .postcard-songs { flex: none; min-height: 36px; font-size: .875rem; }
+/* У лист: «📎 Прикрепить» словами — не стрілка відправки */
+.ph-send.is-attach { width: auto; padding: 0 16px; border-radius: 999px; font: 700 .9375rem/1 inherit; white-space: nowrap; }
+/* «Помочь написать»: поле в один рядок — мікрофон по центру, а не вгорі як у великому полі */
+.voice-wrap.is-area:has(> .help-words) .voice-btn { top: 50%; transform: translateY(-50%); }
+/* Кілька вкладень: у «Написать» — стовпчиком, у відкритому листі — одне під одним */
+.write-att { display: grid; gap: 6px; }
+.ea-multi { display: grid; gap: 12px; }
+.ph-ic { display: grid; place-items: center; }
+.ph-ic svg { width: 22px; height: 22px; }
+/* Наклейки-улюбленці: спершу «кого», поруч — його пози */
+.ph-pet-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ph-pet-row > .ph-pets { flex: 1; min-width: 0; }
+.ph-pet-pick { flex: none; max-width: 40%; height: 40px; padding: 0 28px 0 12px; border: 1.5px solid currentColor; border-radius: 999px; background: transparent; color: inherit; font: 700 .9375rem/1 inherit; }
+.ph-pet-pick option { color: #222; }

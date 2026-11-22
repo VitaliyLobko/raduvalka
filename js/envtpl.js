@@ -37,7 +37,7 @@ export async function openTemplates(env, changed) {
       const body = { kind: 'env', env: env.id, tpl: note.i, text: '', cid: newCid() };
       if (ea.hasBytes(a)) await ea.sendAttached(body, a, (p) => { st.textContent = `${Math.round(p * 100)}%`; });
       else await send('letters', 'POST', { ...body, media: ea.mediaBody(a) });
-      toast('Приложено — откроют вместе с письмом');
+      toast('Приложено — откроют вместе с письмом. Можно добавить ещё');
       changed?.();
     } catch (e) {
       toast(e?.status === 409 ? 'Это письмо уже открыли — к нему не приложить' : ea.attachError(e));
@@ -100,17 +100,19 @@ export async function openTemplates(env, changed) {
         type: 'file', accept: 'image/*', class: 'visually-hidden',
         onchange: (e) => { const [f] = e.target.files; e.target.value = ''; if (f) ea.pickPhoto(f, (a) => upload(note, a, row)); },
       });
+      // Уже прикладене — значками (✕ прибирає все); поки не більше MAX_ATT — можна докласти ще
+      const items = ea.attachItems(note.media);
+      const more = items.length < ea.MAX_ATT;
       const tools = note.read
         ? h('span', { class: 'tpl-state' }, 'уже открыто')
-        : note.media
-          ? h('span', { class: 'tpl-tools' },
-            h('span', { class: 'tpl-state tpl-has' }, ICON[note.media.k] || '📎 вложение'),
-            h('button', { type: 'button', class: 'mk-chip tpl-x', 'aria-label': 'Убрать вложение', onclick: () => remove(note) }, '✕'))
-          : h('span', { class: 'tpl-tools' },
-            h('span', { class: 'tpl-state' }),
-            h('label', { class: 'mk-chip tpl-add', 'aria-label': 'Приложить фото' }, picker, '📷'),
-            h('button', { type: 'button', class: 'mk-chip tpl-add', 'aria-label': 'Приложить гифку', onclick: () => ea.pickGif((a) => upload(note, a, row)) }, '🎞'),
-            h('button', { type: 'button', class: 'mk-chip tpl-add', 'aria-label': 'Приложить музыку', onclick: () => ea.pickMusic((a) => upload(note, a, row)) }, '🎵'));
+        : h('span', { class: 'tpl-tools' },
+          items.length
+            ? h('span', { class: 'tpl-state tpl-has' }, items.length === 1 ? ICON[items[0].k] || '📎 вложение' : items.map((x) => (ICON[x.k] || '📎').split(' ')[0]).join(''))
+            : h('span', { class: 'tpl-state' }),
+          items.length ? h('button', { type: 'button', class: 'mk-chip tpl-x', 'aria-label': 'Убрать все вложения', onclick: () => remove(note) }, '✕') : null,
+          more ? h('label', { class: 'mk-chip tpl-add', 'aria-label': 'Приложить фото' }, picker, '📷') : null,
+          more ? h('button', { type: 'button', class: 'mk-chip tpl-add', 'aria-label': 'Приложить гифку', onclick: () => ea.pickGif((a) => upload(note, a, row)) }, '🎞') : null,
+          more ? h('button', { type: 'button', class: 'mk-chip tpl-add', 'aria-label': 'Приложить музыку', onclick: () => ea.pickMusic((a) => upload(note, a, row)) }, '🎵') : null);
       if (!note.read) {
         tools.append(
           h('button', { type: 'button', class: 'mk-chip tpl-add tpl-edit', 'aria-label': 'Поправить текст', onclick: () => edit(note, row) }, '✏️'),

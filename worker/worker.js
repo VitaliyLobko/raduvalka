@@ -1099,8 +1099,28 @@ async function tplTarget(db, side, envId, i) {
   if (n == null) throw fail(400, 'tpl');
   const seen = ((await getDoc(db, `mine:${other(side)}`)) || {}).seen || {};
   if (i < (seen[envId] || 0)) throw fail(409, 'opened');
-  if (typeof n !== 'string') throw fail(409, 'tpl');
-  return { key, list, e, text: n };
+  if (typeof n === 'string') return { key, list, e, text: n, row: null };
+  // Уже з вкладенням — докладаємо до того ж рядка
+  const row = await db.prepare("SELECT id, media FROM letters WHERE id = ? AND kind = 'tpl' AND src = ?").bind(n.letter, side).first();
+  if (!row) throw fail(409, 'tpl');
+  return { key, list, e, text: n.text, row };
+}
+// Перший вільний номер файла в рядку (для нового — 0)
+const nextF = (t) => mediaItems(t?.row ? mediaOf(t.row) : null).reduce((a, x) => (x.f != null ? Math.max(a, x.f + 1) : a), 0);
+// Нові вкладення до заготовки: є рядок — доповнюємо його, нема — новий
+async function tplAttach(db, side, t, i, id, add, mascot, now) {
+  if (!t.row) {
+    const media = packMedia(add);
+    await tplInsert(db, side, t, i, id, media, mascot, now);
+    return { id, media };
+  }
+  const old = mediaOf(t.row);
+  if (old?.gone) throw fail(409, 'tpl');
+  const list = [...mediaItems(old), ...add];
+  if (list.length > MAX_ITEMS) throw fail(400, 'media');
+  const media = packMedia(list);
+  await db.prepare("UPDATE letters SET media = ? WHERE id = ? AND kind = 'tpl'").bind(JSON.stringify(media), t.row.id).run();
+  return { id: t.row.id, media };
 }
 // Рядок вкладення й заготовка — одним batch: не лишиться ні рядка без записки, ні записки без рядка
 async function tplInsert(db, side, t, i, id, media, mascot, now) {
@@ -1126,7 +1146,7 @@ async function tplRemove(db, side, files, envId, i) {
     db.prepare('UPDATE docs SET v = ?, updated = ? WHERE k = ?').bind(JSON.stringify(list), Date.now(), key),
     db.prepare("DELETE FROM letters WHERE id = ? AND kind = 'tpl'").bind(n.letter),
   ]);
-  if (r && files && MEDIA_BYTES.includes(mediaOf(r)?.k)) await files.delete(`l-${r.id}`);
+  if (r && files && mediaOf(r)?.s != null) await files.delete(lkeys(r.id));
   return json({ ok: true });
 }
 
@@ -1160,7 +1180,7 @@ async function noteDrop(db, side, files, envId, i) {
     db.prepare('UPDATE docs SET v = ?, updated = ? WHERE k = ?').bind(JSON.stringify(t.list), Date.now(), t.key),
     ...(r ? [db.prepare("DELETE FROM letters WHERE id = ? AND kind = 'tpl'").bind(r.id)] : []),
   ]);
-  if (r && files && MEDIA_BYTES.includes(mediaOf(r)?.k)) await files.delete(`l-${r.id}`);
+  if (r && files && mediaOf(r)?.s != null) await files.delete(lkeys(r.id));
   return json({ ok: true });
 }
 
@@ -1170,6 +1190,28 @@ function mediaOf(r) {
   try { return JSON.parse(r.media); } catch { return null; }
 }
 const MEDIA_BYTES = ['photo', 'voice', 'song'];
+// Кілька вкладень: { k: 'multi', s (сума байтів, якщо є файли), items: [...] }; у файлового f — номер у R2 (0 → l-id, n → l-id-n).
+// Одне вкладення лишається простим обʼєктом, як раніше
+const MAX_ITEMS = 6;
+const MAX_TOTAL = 60 * 1024 * 1024;
+const mediaItems = (md) => (!md ? [] : md.k === 'multi' ? md.items || [] : [md.s != null ? { ...md, f: 0 } : md]);
+const lkey = (id, f) => (f ? `l-${id}-${f}` : `l-${id}`);
+// Усі можливі ключі листа — R2 мовчки пропускає відсутні
+const lkeys = (id) => Array.from({ length: MAX_ITEMS }, (_, f) => lkey(id, f));
+function packMedia(list) {
+  if (!list.length) return null;
+  if (list.length === 1 && !list[0].f) { const { f, ...one } = list[0]; return one; }
+  const bytes = list.filter((x) => x.s != null);
+  return { k: 'multi', ...(bytes.length ? { s: bytes.reduce((a, x) => a + x.s, 0) } : {}), items: list };
+}
+// Без байтів: одне чи список (гифки, посилання)
+function linkList(m) {
+  if (m == null) return null;
+  const list = Array.isArray(m) ? m : [m];
+  if (!list.length) return null;
+  if (list.length > MAX_ITEMS) throw fail(400, 'media');
+  return list.map(linkMedia);
+}
 const MEDIA_TYPES = { photo: /^image\/(webp|jpeg|png|gif)$/, voice: /^audio\/[\w.+-]{1,40}$/, song: /^audio\/[\w.+-]{1,40}$/ };
 const VOICE_MAX_S = 75;
 // Без байтів — гифка GIPHY чи посилання на пісню (зашифроване — перевіряє телефон, до шифрування й коли відкриває)
@@ -1221,13 +1263,17 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
   if (m === 'GET' && rest === 'songs') {
     const { results } = await db.prepare(
       "SELECT id, src, kind, at, created, opened, liked, media FROM letters WHERE media IS NOT NULL "
-        + "AND json_extract(media, '$.k') IN ('song', 'link') AND kind IN ('now', 'morning', 'date', 'env', 'tpl') "
+        + "AND json_extract(media, '$.k') IN ('song', 'link', 'multi') AND kind IN ('now', 'morning', 'date', 'env', 'tpl') "
         + 'AND (src = ? OR (dst = ? AND opened IS NOT NULL)) ORDER BY created DESC LIMIT 200',
     ).bind(side, side).all();
-    return json(results.map((r) => ({
-      id: r.id, mine: r.src === side, kind: r.kind, at: r.kind === 'date' ? r.at : r.created,
-      opened: !!r.opened, liked: !!r.liked, media: mediaOf(r),
-    })));
+    // Лист із кількома вкладеннями — окремий рядок на кожну пісню (у пісні-файла f каже, який файл брати)
+    return json(results.flatMap((r) => {
+      const md = mediaOf(r);
+      return mediaItems(md).filter((x) => x.k === 'song' || x.k === 'link').map((x) => ({
+        id: r.id, mine: r.src === side, kind: r.kind, at: r.kind === 'date' ? r.at : r.created,
+        opened: !!r.opened, liked: !!r.liked, media: md?.gone ? { ...x, gone: md.gone } : x,
+      }));
+    }));
   }
 
   // Мій запас — лише відправнику, від найстарішого (його видадуть першим)
@@ -1255,7 +1301,8 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
     const kind = String(b.kind || '');
     const text = clip(b.text, MAX_LETTER);
     // Вкладення (гифка, посилання) — лише в лист у конверт і святковий; з ним текст може бути порожнім
-    const media = kind === 'env' || kind === 'date' ? linkMedia(b.media) : null;
+    const links = kind === 'env' || kind === 'date' ? linkList(b.media) : null;
+    const media = links ? packMedia(links) : null;
     if (!LETTER_KINDS.includes(kind) || (!text && !media)) throw fail(400, 'letter');
     const now = Date.now();
     let at = now;
@@ -1288,8 +1335,8 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
     if (kind === 'env' && b.tpl != null) {
       if (!media) throw fail(400, 'letter');
       const t = await tplTarget(db, side, envId, Number(b.tpl));
-      await tplInsert(db, side, t, Number(b.tpl), id, media, mascot, now);
-      return json({ id, kind: 'tpl', env: envId, media }, 201);
+      const out = await tplAttach(db, side, t, Number(b.tpl), id, links, mascot, now);
+      return json({ id: out.id, kind: 'tpl', env: envId, media: out.media }, 201);
     }
     const stocked = kind === 'stock' ? now : null;
     // «Сейчас» — сповіщаємо одразу; «На утро» і святковий на свій час — cron, коли настане час; записки в конверт — ні.
@@ -1314,8 +1361,10 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
   // Байти вкладення з R2 (зашифровані RAD1 — розшифровує телефон)
   if (m === 'GET' && sub === 'file') {
     const md = mediaOf(r);
-    if (!md || !MEDIA_BYTES.includes(md.k) || md.gone || !files) throw fail(404, 'not found');
-    const obj = await files.get(`l-${r.id}`);
+    const f = Number(new URL(req.url).searchParams.get('f')) || 0;
+    const it = mediaItems(md).find((x) => x.f === f);
+    if (!md || md.gone || !it || !MEDIA_BYTES.includes(it.k) || !files) throw fail(404, 'not found');
+    const obj = await files.get(lkey(r.id, f));
     if (!obj) throw fail(404, 'not found');
     return new Response(obj.body, {
       headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, max-age=31536000, immutable' },
@@ -1359,7 +1408,7 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
     if (r.src !== side) throw fail(403, 'forbidden');
     if (r.opened) throw fail(409, 'opened');
     await db.prepare('DELETE FROM letters WHERE id = ?').bind(r.id).run();
-    if (files && MEDIA_BYTES.includes(mediaOf(r)?.k)) await files.delete(`l-${r.id}`);
+    if (files && mediaOf(r)?.s != null) await files.delete(lkeys(r.id));
     return json({ ok: true });
   }
 
@@ -1369,15 +1418,29 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
 async function attachLetter(req, db, side, files, hard, notify) {
   if (!files) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
-  if (len > MAX_FILE + MAX_JSON) throw fail(413, 'size');
+  if (len > MAX_TOTAL + MAX_JSON) throw fail(413, 'size');
   const buf = new Uint8Array(await req.arrayBuffer());
   const head = buf.byteLength >= 4 ? new DataView(buf.buffer, buf.byteOffset, 4).getUint32(0) : 0;
   if (!head || head > MAX_JSON || 4 + head >= buf.byteLength) throw fail(400, 'body');
   let b;
   try { b = JSON.parse(new TextDecoder().decode(buf.subarray(4, 4 + head))); } catch { throw fail(400, 'body'); }
   const bytes = buf.subarray(4 + head);
-  if (bytes.byteLength > MAX_FILE) throw fail(413, 'size');
-  const media = fileMedia(b.media, bytes.byteLength);
+  if (bytes.byteLength > MAX_TOTAL) throw fail(413, 'size');
+  // Опис — список (новий телефон: у файлового len — скільки його байтів підряд у тілі) чи один обʼєкт (старий)
+  const raw = Array.isArray(b.media) ? b.media : [b.media];
+  if (!raw.length || raw.length > MAX_ITEMS) throw fail(400, 'media');
+  const single = !Array.isArray(b.media);
+  let pos = 0;
+  const parts = [];
+  const add = raw.map((m) => {
+    if (!MEDIA_BYTES.includes(String(m?.k || ''))) return linkMedia(m);
+    const n = single ? bytes.byteLength : Number(m.len);
+    if (!Number.isInteger(n) || n <= 0 || n > MAX_FILE || pos + n > bytes.byteLength) throw fail(413, 'size');
+    parts.push(bytes.subarray(pos, pos + n));
+    pos += n;
+    return fileMedia(m, n);
+  });
+  if (pos !== bytes.byteLength || !parts.length) throw fail(400, 'body');
   // Святковий (kind 'date') — без конверта, на свій час, як звичайний святковий; інакше — у конверт
   const festive = b.kind === 'date';
   const envId = festive ? null : String(b.env || '');
@@ -1397,6 +1460,9 @@ async function attachLetter(req, db, side, files, hard, notify) {
   const tpl = !festive && b.tpl != null ? await tplTarget(db, side, envId, Number(b.tpl)) : null;
   // Квота доби й межа сховища — уже знаючи, що це не повтор
   const quota = await fileQuota(db, side, bytes.byteLength, hard);
+  // Номери файлів у R2: до заготовки з вкладенням — після вже покладених
+  let f = nextF(tpl);
+  for (const m of add) if (m.s != null) m.f = f++;
   const mascots = (await getDoc(db, 'mascots')) || {};
   const mascot = mascots[b.mascot] ? String(b.mascot) : null;
   const text = clip(b.text, MAX_LETTER);
@@ -1410,11 +1476,14 @@ async function attachLetter(req, db, side, files, hard, notify) {
   await quota.take(bytes.byteLength);
   // Спершу байти, потім рядок: обірвалось між ними — лишиться файл без листа, але лише в цьому рідкісному разі
   // й під тим самим id (повтор із тим самим cid його перезапише)
-  await files.put(`l-${id}`, bytes);
+  const rowId = tpl?.row ? tpl.row.id : id;
+  const fs = add.filter((m) => m.s != null);
+  await Promise.all(fs.map((m, k) => files.put(lkey(rowId, m.f), parts[k])));
   if (tpl) {
-    await tplInsert(db, side, tpl, Number(b.tpl), id, media, mascot, now);
-    return json({ id, kind: 'tpl', env: envId, media }, 201);
+    const out = await tplAttach(db, side, tpl, Number(b.tpl), id, add, mascot, now);
+    return json({ id: out.id, kind: 'tpl', env: envId, media: out.media }, 201);
   }
+  const media = packMedia(add);
   await db.prepare(
     'INSERT INTO letters (id, src, dst, kind, env, mascot, text, quote, at, created, pushed, stocked, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ).bind(id, side, other(side), kind, envId, mascot, text, null, at, now, later ? null : 0, null, JSON.stringify(media)).run();
@@ -3802,7 +3871,7 @@ async function photoCleanup(env, now = Date.now()) {
 // Файли в R2 понад FILES_LIMIT: стираємо найстаріші, сам рядок лишається з позначкою gone.
 // Рахуємо все в R2 — і файли переписки (f-), і вкладення листів у конверт (l-). Стираємо спершу файли переписки,
 // коли їх уже нема — вкладення відкритих листів; вкладення ще не відкритого листа не стираємо ніколи
-const LETTER_FILES = "FROM letters WHERE media IS NOT NULL AND json_extract(media, '$.k') IN ('photo', 'voice', 'song') "
+const LETTER_FILES = "FROM letters WHERE media IS NOT NULL AND json_extract(media, '$.s') IS NOT NULL "
   + "AND json_extract(media, '$.gone') IS NULL";
 async function fileCleanup(env, now = Date.now()) {
   const db = env.DB;
@@ -3831,7 +3900,7 @@ async function fileCleanup(env, now = Date.now()) {
     await db.batch(pick.map((r) => db.prepare('UPDATE memes SET gone = ? WHERE id = ?').bind(now, r.id)));
   });
   await sweep(() => db.prepare(`SELECT id, json_extract(media, '$.s') AS n ${LETTER_FILES} AND opened IS NOT NULL ORDER BY created ASC LIMIT 50`).all(), async (pick) => {
-    await env.FILES.delete(pick.map((r) => `l-${r.id}`));
+    await env.FILES.delete(pick.flatMap((r) => lkeys(r.id)));
     await db.batch(pick.map((r) => db.prepare("UPDATE letters SET media = json_set(media, '$.gone', ?) WHERE id = ?").bind(now, r.id)));
   });
   if (gone) console.log('fileCleanup', { gone });
@@ -3844,9 +3913,9 @@ const ATTACH_KEEP_MS = 30 * DAY_MS;
 async function openedAttachCleanup(env, now = Date.now()) {
   if (!env.FILES) return 0;
   const db = env.DB;
-  const { results } = await db.prepare(`SELECT id ${LETTER_FILES} AND opened IS NOT NULL AND opened < ? LIMIT 200`).bind(now - ATTACH_KEEP_MS).all();
+  const { results } = await db.prepare(`SELECT id ${LETTER_FILES} AND opened IS NOT NULL AND opened < ? LIMIT 150`).bind(now - ATTACH_KEEP_MS).all();
   if (!results.length) return 0;
-  await env.FILES.delete(results.map((r) => `l-${r.id}`));
+  await env.FILES.delete(results.flatMap((r) => lkeys(r.id)));
   await db.batch(results.map((r) => db.prepare("UPDATE letters SET media = json_set(media, '$.gone', ?) WHERE id = ?").bind(now, r.id)));
   console.log('openedAttachCleanup', { gone: results.length });
   return results.length;
@@ -3854,7 +3923,7 @@ async function openedAttachCleanup(env, now = Date.now()) {
 
 // Файли в R2 без свого рядка (скинули базу, обірвалось між «поклали файл» і «записали лист») — не рахуються
 // в межу й інакше лежали б вічно. Раз на добу: старші за добу (щойно покладений ще може чекати свій рядок)
-const R2_KEY = /^([fl])-([a-z0-9]{16,32})$/;
+const R2_KEY = /^([fl])-([a-z0-9]{16,32})(-\d)?$/;
 async function orphanFiles(env, now = Date.now()) {
   if (!env.FILES?.list) return 0;
   const db = env.DB;
@@ -3873,9 +3942,10 @@ async function orphanFiles(env, now = Date.now()) {
   do {
     const page = await env.FILES.list({ cursor, limit: 500 });
     const old = page.objects.filter((o) => R2_KEY.test(o.key) && now - new Date(o.uploaded).getTime() > DAY_MS);
-    const ids = (p) => old.filter((o) => o.key[0] === p).map((o) => o.key.slice(2));
+    const idOf = (k) => k.slice(2).replace(/-\d$/, '');
+    const ids = (p) => old.filter((o) => o.key[0] === p).map((o) => idOf(o.key));
     const [chat, mail] = await Promise.all([live('memes', ids('f')), live('letters', ids('l'))]);
-    const dead = old.filter((o) => !(o.key[0] === 'f' ? chat : mail).has(o.key.slice(2))).map((o) => o.key);
+    const dead = old.filter((o) => !(o.key[0] === 'f' ? chat : mail).has(idOf(o.key))).map((o) => o.key);
     if (dead.length) await env.FILES.delete(dead);
     gone += dead.length;
     cursor = page.truncated ? page.cursor : undefined;

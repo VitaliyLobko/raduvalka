@@ -106,18 +106,29 @@ export function openWrite(preset = {}) {
 
   const note = h('p', { class: 'write-note' });
   const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
-  // Вкладення (одне): фото, гифка, голос, пісня — лише в конверт або святковий
-  let att = null;
+  // Вкладення (кілька, до MAX_ATT): фото, гифки, голос, пісні — лише в конверт або святковий
+  let atts = [];
+  // id — один на набір вкладень: повтор після обірваної відповіді сервер упізнає й не покладе листа вдруге; змінили набір — новий
+  let attCid = null;
   const attOk = () => where === 'env' || festive;
   const attBox = h('div', { class: 'write-att', hidden: true });
   const lazyAttach = () => import('./envattach.js');
   const paintAtt = async () => {
-    attBox.hidden = !att || !attOk();
-    if (!att) { attBox.replaceChildren(); return; }
+    attBox.hidden = !atts.length || !attOk();
+    if (!atts.length) { attBox.replaceChildren(); return; }
     const { attachChip } = await lazyAttach();
-    attBox.replaceChildren(attachChip(att, () => { att = null; paintAtt(); paintNote(); }));
+    attBox.replaceChildren(...atts.map((a) => attachChip(a, () => { atts = atts.filter((x) => x !== a); attCid = null; paintAtt(); paintNote(); })));
   };
-  const setAtt = (a) => { att = a; paintAtt(); paintNote(); };
+  // Ще одне до вже прикладених (не замість)
+  const setAtt = async (a) => {
+    const { MAX_ATT } = await lazyAttach();
+    if (atts.length >= MAX_ATT) { toast(`В одно письмо — не больше ${MAX_ATT} вложений`); return; }
+    atts = [...atts, a];
+    attCid = null;
+    paintAtt();
+    paintNote();
+    toast(atts.length > 1 ? `Приложено: ${atts.length}. Можно добавить ещё или отправить` : 'Приложено. Можно добавить ещё или отправить');
+  };
   const paintNote = () => {
     const at = sendAt();
     note.textContent = where === 'now'
@@ -273,9 +284,9 @@ export function openWrite(preset = {}) {
     const label = go.innerHTML;
     try {
       // id — один на вкладення: повтор після обірваної відповіді сервер упізнає й не покладе листа вдруге
-      att.cid ||= newCid();
+      attCid ||= newCid();
       const to = where === 'env' ? { kind: 'env', env: envId } : { kind: 'date', at: sendAt() };
-      await ea.sendAttached({ ...to, text, mascot: pet, cid: att.cid }, att,
+      await ea.sendAttached({ ...to, text, mascot: pet, cid: attCid }, atts,
         (p) => { go.textContent = `${Math.round(p * 100)}%`; });
     } catch (e) {
       go.innerHTML = label;
@@ -292,13 +303,13 @@ export function openWrite(preset = {}) {
 
   go.addEventListener('click', async () => {
     const text = area.value.trim();
-    const withAtt = attOk() && att;
+    const withAtt = attOk() && atts.length > 0;
     if (!text && !withAtt) { area.focus(); return; }
     go.disabled = true;
-    if (withAtt && (await lazyAttach()).hasBytes(att)) { sendAttached(text); return; }
+    if (withAtt && (await lazyAttach()).hasBytes(atts)) { sendAttached(text); return; }
     try {
       const r = await deliver('letter', 'letters', {
-        ...(withAtt ? { media: (await lazyAttach()).mediaBody(att) } : {}),
+        ...(withAtt ? { media: atts.map((await lazyAttach()).mediaBody) } : {}),
         // Свій час на сервері — kind 'morning' з at
         kind: where === 'env' ? 'env' : festive ? 'date' : where === 'now' ? 'now' : 'morning',
         text,

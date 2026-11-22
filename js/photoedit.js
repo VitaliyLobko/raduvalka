@@ -687,7 +687,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     type: 'button', class: 'ph-tool', 'aria-label': label, 'aria-pressed': 'false', 'data-m': m,
     onclick: () => setMode(mode === m ? 'move' : m),
   }, icon);
-  const tCrop = tool('✂️', 'Обрезать и повернуть', 'crop');
+  // Звичний значок обрізки (два кути рамки), а не ножиці — ті читались як «вирізати»
+  const tCrop = tool(h('span', { class: 'ph-ic', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>' }), 'Обрезать и повернуть', 'crop');
   const tDraw = tool('✏️', 'Рисовать', 'draw');
   const tStick = tool('😊', 'Наклейка', 'stick');
   const tBlur = tool('💧', 'Размыть', 'blur');
@@ -792,8 +793,13 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const mirY = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по вертикали', onclick: () => mirror('fy') }, '⇅');
   const selPanel = h('div', { class: 'ph-sel', hidden: true }, trash, downBtn, upBtn, mirX, mirY);
   stage.append(selPanel);
-  // Улюбленці — окремою стрічкою над смайлами: усі пози кожного, головна першою; фото без ключа (blob:) — полотно не «брудниться»
-  const petStickers = Object.keys(DATA.mascots || {}).flatMap((key) => petFiles(key).map((file) => {
+  // Улюбленці: спершу список «кого» (з mascots), поруч — усі пози обраного, головна першою;
+  // фото без ключа (blob:) — полотно не «брудниться». Обраного памʼятаємо
+  const PET_KEY = 'radovalka:sticker-pet';
+  const pets = Object.keys(DATA.mascots || {}).filter((key) => petFiles(key).some((f) => petFileSrc(f)));
+  let petNow = (() => { try { return localStorage.getItem(PET_KEY); } catch { return null; } })();
+  if (!pets.includes(petNow)) petNow = pets[0];
+  const petBtn = (key, file) => {
     const src = petFileSrc(file);
     if (!src) return null;
     return h('button', {
@@ -809,9 +815,21 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
         finishMode(true);
       },
     }, h('img', { src, alt: '', width: 56, height: 56, draggable: 'false', loading: 'lazy' }));
-  })).filter(Boolean);
-  const petRow = petStickers.length ? h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' }, ...petStickers) : null;
-  if (petRow) ribbon(petRow);
+  };
+  const petPick = pets.length > 1 ? h('select', { class: 'ph-pet-pick', 'aria-label': 'Чьи наклейки' },
+    ...pets.map((key) => h('option', { value: key, selected: key === petNow }, petName(key)))) : null;
+  const petPoses = h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' });
+  const paintPoses = () => {
+    petPoses.replaceChildren(...petFiles(petNow).map((f) => petBtn(petNow, f)).filter(Boolean));
+    petPoses.scrollLeft = 0;
+  };
+  petPick?.addEventListener('change', () => {
+    petNow = petPick.value;
+    try { localStorage.setItem(PET_KEY, petNow); } catch { /* приватне вікно */ }
+    paintPoses();
+  });
+  if (pets.length) { paintPoses(); ribbon(petPoses); }
+  const petRow = pets.length ? h('div', { class: 'ph-pet-row' }, petPick, petPoses) : null;
   const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...STICKERS.map((s) => h('button', {
     type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`,
     onclick: () => {
@@ -869,7 +887,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   }
 
   // ── Відправка ──
-  const go = h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW });
+  // Не «Отправить» (у лист — прикласти): словами й скріпкою, щоб не плутати зі стрілкою відправки
+  const go = label === 'Отправить' ? h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW })
+    : h('button', { type: 'button', class: 'ph-send is-attach' }, '📎 ', label);
   go.addEventListener('click', async () => {
     if (go.disabled) return;
     go.disabled = true;

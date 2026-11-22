@@ -862,7 +862,7 @@ function inBubble(l) {
   // append, на відміну від h(), друкує null як текст — порожні відсіюємо
   // Вкладення святкового листа — у шторці листа під текстом; тут лише рядок, що відкриває шторку
   const att = l.media ? (l.media.gone ? h('p', { class: 'sent-att' }, '📎 вложение удалено')
-    : h('button', { type: 'button', class: 'sent-att feed-att-open', onclick: () => ops.open?.(l) }, `${SENT_ATT[l.media.k] || '📎 вложение'} · открыть`)) : null;
+    : h('button', { type: 'button', class: 'sent-att feed-att-open', onclick: () => ops.open?.(l) }, `${sentAtt(l.media)} · открыть`)) : null;
   bubble.append(...[body, att,
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
     h('div', { class: 'feed-acts' }, like, replyBtn(it))].filter(Boolean));
@@ -917,6 +917,11 @@ function openHere(l, env) {
 
 // Вкладення мого листа в конверт — одним словом під текстом
 const SENT_ATT = { photo: '📷 с фото', gif: '🎞 с гифкой', voice: '🎤 с голосом', song: '🎵 с песней', link: '🔗 со ссылкой на песню' };
+// Кілька вкладень — числом і значками
+const ATT_IC = { photo: '📷', gif: '🎞', voice: '🎤', song: '🎵', link: '🔗' };
+const sentAtt = (m) => (m.k === 'multi'
+  ? `${m.items.map((x) => ATT_IC[x.k] || '📎').join('')} ${m.items.length} ${m.items.length < 5 ? 'вложения' : 'вложений'}`
+  : SENT_ATT[m.k] || '📎 вложение');
 function outBubble(l, later) {
   const me = who();
   const e = (DATA.partnerEnvelopes || []).find((x) => x.id === l.env);
@@ -948,7 +953,7 @@ function outBubble(l, later) {
   bubble.append(...[
     quoteLine(l.quote, l.created || l.at),
     l.text ? h('p', { class: textClass(l.text), onclick: () => bubble.classList.toggle('is-open') }, l.text) : null,
-    l.media ? h('p', { class: 'sent-att' }, l.media.gone ? '📎 вложение удалено' : (SENT_ATT[l.media.k] || '📎 вложение')) : null,
+    l.media ? h('p', { class: 'sent-att' }, l.media.gone ? '📎 вложение удалено' : sentAtt(l.media)) : null,
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
       h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply, newMark(isNew)) : null,

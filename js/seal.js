@@ -129,6 +129,8 @@ export async function sealBy(spec, v) {
   if (spec === 'bin') return sealBytes(v);
   if (Array.isArray(spec)) return Array.isArray(v) ? Promise.all(v.map((x) => sealBy(spec[0], x))) : v;
   if (!v || typeof v !== 'object') return v;
+  // Обʼєктний опис, а прийшов список (кілька вкладень листа) — той самий опис для кожного
+  if (Array.isArray(v)) return Promise.all(v.map((x) => sealBy(spec, x)));
   const out = { ...v };
   for (const [f, s] of Object.entries(spec)) if (f in out) out[f] = await sealBy(s, out[f]);
   return out;
