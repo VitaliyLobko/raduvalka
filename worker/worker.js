@@ -187,6 +187,7 @@ export default {
       await ensureSchema(env.DB);
       if (all) await releaseStock(env.DB, at);
       await cronPush(env);
+      await sosRepeat(env, at);
       if (!all) return;
       await wishReminders(env);
       await sosCleanup(env.DB);
@@ -3738,6 +3739,23 @@ async function sosCleanup(db) {
       await sosWipe(db, side);
       await db.prepare('DELETE FROM docs WHERE k = ?').bind(`sos:${side}`).run();
     }
+  }
+}
+
+// SOS без «Вижу» й «Отбой»: push другому щохвилини (cron), не довше SOS_REPEAT від сигналу — телефон дзвонить
+// і з вимкненим екраном. Коли нагадали востаннє — окремим документом sosping:<сторона>, щоб не переписувати
+// сам сигнал (паралельне «Вижу» не загубиться)
+const SOS_REPEAT = 30 * 60 * 1000;
+async function sosRepeat(env, now = Date.now()) {
+  if (!env.VAPID_PRIVATE) return;
+  for (const side of SIDES) {
+    const s = await getDoc(env.DB, `sos:${side}`);
+    const since = s?.created || s?.at;
+    if (!s || s.seen || s.ok || now - since > SOS_REPEAT || now - since < 50_000) continue;
+    const ping = await getDoc(env.DB, `sosping:${side}`);
+    if (ping?.id === s.id && now - ping.at < 50_000) continue;
+    await putDoc(env.DB, `sosping:${side}`, { id: s.id, at: now });
+    await pushSide(env, other(side), sosNote(side, s.at, now));
   }
 }
 
