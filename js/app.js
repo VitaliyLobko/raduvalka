@@ -20,7 +20,7 @@ import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
-import { sfx, soundOn, setSound, INSTRUMENTS, myInstrument, setMyInstrument, partnerInstrument, setPartnerInstrument, preview } from './sound.js';
+import { sfx, soundOn, setSound, INSTRUMENTS, DEFAULT_INSTRUMENT, myInstrument, setMyInstrument, partnerInstrument, setPartnerInstrument, preview } from './sound.js';
 import { openDuel } from './duel.js';
 import { openSame } from './same.js';
 import { openHot } from './hot.js';
@@ -745,7 +745,7 @@ function openAbout(showNews) {
       h('div', { class: 'about-foot' },
         h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне')),
       // Ліцензія записів інструментів (CC BY 3.0) вимагає назвати автора
-      h('p', { class: 'about-credit' }, 'Записи инструментов: FluidR3 GM, Frank Wen, лицензия CC BY 3.0')));
+      h('p', { class: 'about-credit' }, 'Записи инструментов: FluidR3 GM, Frank Wen, лицензия CC BY 3.0. Шорохи и стуки: Kenney, CC0')));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
   // Клік по «Радовалка» передає подію — розгортаємо лише на явне true
@@ -800,9 +800,11 @@ async function start() {
   if (!('welcome' in DATA)) DATA.welcome = DATA.letter && !DATA.letter.id ? DATA.letter : null;
   document.body.classList.remove('is-booting');
   try { sessionStorage.removeItem('radovalka:boot-retry'); } catch { /* приватне вікно */ }
-  // Інструменти: свій — як збережено на сервері (новий телефон теж), другого — для того, що від нього приходить
-  if (DATA.mine?.instrument) setMyInstrument(DATA.mine.instrument);
-  setPartnerInstrument(DATA.partnerInstrument);
+  // Інструменти: свій — як збережено на сервері (новий телефон теж), другого — для того, що від нього приходить.
+  // Ще не обирали — з першого дня в нього контрабас, у неї дзвіночки
+  const instr = (k, side) => (Object.hasOwn(INSTRUMENTS, k ?? '') ? k : DEFAULT_INSTRUMENT[side]);
+  setMyInstrument(instr(DATA.mine?.instrument, DATA.side));
+  setPartnerInstrument(instr(DATA.partnerInstrument, DATA.side === 'vin' ? 'vona' : 'vin'));
   prewarmWrite();
   applySide();
   drawChip();

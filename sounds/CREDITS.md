@@ -16,3 +16,24 @@
 | bells | glockenspiel |
 
 Файлы не изменены; в приложении у каждой ноты срезается тишина в начале и меняется высота.
+
+# Шорохи и стуки (папка fx)
+
+Наборы **Kenney** ([kenney.nl](https://kenney.nl)), лицензия
+[Creative Commons Zero (CC0)](https://creativecommons.org/publicdomain/zero/1.0/).
+
+| Файл | Набор | Исходный файл |
+|---|---|---|
+| envelope-open.ogg | Casino Audio | cards-pack-open-2.ogg |
+| envelope-send.ogg | Casino Audio | card-shove-1.ogg |
+| card-flip.ogg | Casino Audio | card-place-1.ogg |
+| chip-clack.ogg | Casino Audio | chips-stack-1.ogg |
+| wood-knock.ogg | Impact Sounds | impactWood_light_000.ogg |
+| punch.ogg | Impact Sounds | impactPunch_heavy_000.ogg |
+| metal-crash.ogg | Impact Sounds | impactPlate_heavy_000.ogg |
+| pen-line.ogg | Interface Sounds | scratch_001.ogg |
+| bloop.ogg | Interface Sounds | drop_001.ogg |
+| paper-rustle.ogg | RPG Audio | bookFlip3.ogg |
+| cloth.ogg | RPG Audio | cloth1.ogg |
+
+Файлы не изменены (только переименованы); в приложении срезается тишина в начале.

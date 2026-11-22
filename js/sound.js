@@ -20,6 +20,8 @@ export const INSTRUMENTS = {
   bass: { name: 'Контрабас', on: 'на контрабасе' },
   bells: { name: 'Колокольчики', on: 'на колокольчиках' },
 };
+// Поки ніхто не обирав: у нього контрабас, у неї дзвіночки
+export const DEFAULT_INSTRUMENT = { vin: 'bass', vona: 'bells' };
 const INSTR = 'radovalka:instrument';
 const known = (k) => (Object.hasOwn(INSTRUMENTS, k) ? k : 'kalimba');
 export function myInstrument() { try { return known(localStorage.getItem(INSTR)); } catch { return 'kalimba'; } }
@@ -77,6 +79,7 @@ function audio() {
   for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
   loadBank(myInstrument());
   loadBank(theirs);
+  loadFx();
   return ctx;
 }
 // Перший дотик — будимо звук заздалегідь (і тягнемо записи), щоб перший сигнал не запізнився
@@ -183,6 +186,33 @@ function loadBank(k, again = false) {
   });
 }
 export const samplesReady = (k) => !!bank.get(k);
+
+// Шуми — записи Kenney (CC0, sounds/fx): папір, картон, дерево, удари. Ім'я → null (вантажиться) | { buf, norm }
+const FX = ['envelope-open', 'envelope-send', 'card-flip', 'wood-knock', 'chip-clack', 'pen-line', 'punch', 'metal-crash',
+  'bloop', 'paper-rustle', 'cloth'];
+const fx = new Map();
+function loadFx() {
+  for (const n of FX) {
+    if (fx.has(n)) continue;
+    fx.set(n, null);
+    const url = new URL(`../sounds/fx/${n}.ogg`, import.meta.url).href;
+    sampleBytes(url).then((b) => ctx.decodeAudioData(b)).then((d) => fx.set(n, trimmed(d)), () => fx.delete(n));
+  }
+}
+export const fxReady = () => FX.every((n) => fx.get(n));
+// Зіграти запис-шум (пік v, висота ледь гуляє — щоб повтори не були однаковими); false — нема, грає синтез
+function rec(n, t, v) {
+  const r = fx.get(n);
+  if (!r) { if (!fx.has(n)) loadFx(); return false; }
+  const s = ctx.createBufferSource();
+  s.buffer = r.buf;
+  s.playbackRate.value = 0.96 + Math.random() * 0.08;
+  const g = ctx.createGain();
+  g.gain.value = v * r.norm;
+  s.connect(g).connect(out);
+  s.start(t);
+  return true;
+}
 function sampleVoice(k, list) {
   const p = SAMPLED[k];
   return (f, t, v = 0.22, len = 0.9) => {
@@ -228,11 +258,11 @@ const SOUNDS = {
     I(N.A6, t + 0.3, 0.19, 1.2); B(N.D7, t + 0.46, 0.05);
   },
   // Пішов: шурх угору й дві ноти вгору — «полетіло»
-  sent: (t, I) => { noise(t, 0.24, 700, 3600, { v: 0.07, q: 0.9 }); I(N.D6, t + 0.14, 0.09, 0.3); I(N.A6, t + 0.24, 0.11, 0.6); },
+  sent: (t, I) => { rec('envelope-send', t, 0.3) || noise(t, 0.24, 700, 3600, { v: 0.07, q: 0.9 }); I(N.D6, t + 0.14, 0.09, 0.3); I(N.A6, t + 0.24, 0.11, 0.6); },
   // Твій хід: легкий підхід і «дінь-дон»
   turn: (t, I) => { I(N.E6, t, 0.07, 0.2); I(N.F6, t + 0.06, 0.16, 0.9); I(N.D6, t + 0.3, 0.17, 1.3); },
   // Карточка перевертається: клац картону
-  flip: (t, I) => { noise(t, 0.07, 1800, 4200, { v: 0.12, q: 1.5, attack: 0.002 }); I(N.E6, t + 0.02, 0.05, 0.25); },
+  flip: (t, I) => { rec('card-flip', t, 0.12) || noise(t, 0.07, 1800, 4200, { v: 0.12, q: 1.5, attack: 0.002 }); I(N.E6, t + 0.02, 0.05, 0.25); },
   // Пара: «та-да-да-ДАМ» — чотири вгору, остання довга, й іскра
   pair: (t, I, B) => {
     I(N.D6, t, 0.14, 0.3); I(N.F6, t + 0.07, 0.15, 0.3); I(N.A6, t + 0.14, 0.16, 0.35);
@@ -241,16 +271,16 @@ const SOUNDS = {
   // Мимо: м'яке «о-ой» — три ноти донизу, остання довша
   miss: (t, I) => { I(N.B5, t, 0.13, 0.25); I(N.A5, t + 0.11, 0.11, 0.25); I(N.F5, t + 0.22, 0.13, 0.6); },
   // Хрестик/нулик: дерев'яний тук і нотка
-  place: (t, I) => { thump(t, 520, 240, 0.09, 0.32); I(N.A5, t + 0.01, 0.1, 0.4); },
+  place: (t, I) => { rec('wood-knock', t, 0.4) || thump(t, 520, 240, 0.09, 0.32); I(N.A5, t + 0.01, 0.1, 0.4); },
   // Фішка «Четыре в ряд»: падає (свист донизу) і стукає об дно
-  drop: (t, I) => { osc('sine', 1400, t, 0.035, 0.18, { to: 500 }); thump(t + 0.17, 380, 150, 0.12, 0.4); I(N.D5, t + 0.17, 0.08, 0.3); },
+  drop: (t, I) => { osc('sine', 1400, t, 0.035, 0.18, { to: 500 }); rec('chip-clack', t + 0.17, 0.7) || thump(t + 0.17, 380, 150, 0.12, 0.4); I(N.D5, t + 0.17, 0.08, 0.3); },
   // Рисочка олівцем
-  line: (t, I) => { noise(t, 0.14, 2200, 3400, { v: 0.07, q: 2.2 }); I(N.B5, t + 0.1, 0.06, 0.3); },
+  line: (t, I) => { rec('pen-line', t, 0.08) || noise(t, 0.14, 2200, 3400, { v: 0.07, q: 2.2 }); I(N.B5, t + 0.1, 0.06, 0.3); },
   // «Раз, два, три»: тихі удари, третій вищий
   tick: (t, I) => I(N.A5, t, 0.12, 0.3),
   tock: (t, I) => I(N.D6, t, 0.14, 0.4),
   // Руки відкрились: шурх і дві ноти разом
-  reveal: (t, I) => { noise(t, 0.09, 900, 2600, { v: 0.09 }); I(N.F6, t + 0.02, 0.13, 0.5); I(N.A6, t + 0.05, 0.1, 0.5); },
+  reveal: (t, I) => { rec('cloth', t, 0.3) || noise(t, 0.09, 900, 2600, { v: 0.09 }); I(N.F6, t + 0.02, 0.13, 0.5); I(N.A6, t + 0.05, 0.1, 0.5); },
   // Перемога: фанфара — тріоль угору, довга нота, «та-там» і великий фінал з акордом, потім зорепад іскор
   win: (t, I, B) => {
     I(N.D5, t, 0.13, 0.3); I(N.F5, t + 0.09, 0.14, 0.3); I(N.A5, t + 0.18, 0.15, 0.3);
@@ -266,15 +296,15 @@ const SOUNDS = {
   // Морський бій: постріл летить (свист), сплеск, влучання (бум), потопив (бульки донизу), записка (дзвіночки)
   shot: (t) => noise(t, 0.4, 3200, 800, { v: 0.045, q: 9 }),
   splash: (t, I) => { noise(t, 0.45, 1400, 500, { v: 0.2, q: 0.7, type: 'lowpass', attack: 0.005 }); I(N.D6, t + 0.05, 0.05, 0.3); },
-  hit: (t) => { thump(t, 160, 45, 0.35, 0.55); noise(t, 0.22, 2000, 400, { v: 0.16, q: 0.6, type: 'lowpass', attack: 0.002 }); },
-  sunk: (t) => { thump(t, 120, 40, 0.5, 0.45); [N.B5, N.A5, N.F5, N.E5, N.D5].forEach((f, i) => osc('sine', f * 0.5, t + 0.2 + i * 0.12, 0.09, 0.18, { to: f * 0.45 })); },
-  note: (t) => { bell(N.A6, t, 0.08); bell(N.D7, t + 0.12, 0.07); bell(N.F7, t + 0.24, 0.05); },
+  hit: (t) => { if (!rec('punch', t, 0.6)) { thump(t, 160, 45, 0.35, 0.55); noise(t, 0.22, 2000, 400, { v: 0.16, q: 0.6, type: 'lowpass', attack: 0.002 }); } },
+  sunk: (t) => { rec('metal-crash', t, 0.85) || thump(t, 120, 40, 0.5, 0.45); [N.B5, N.A5, N.F5, N.E5, N.D5].forEach((f, i) => osc('sine', f * 0.5, t + 0.2 + i * 0.12, 0.09, 0.18, { to: f * 0.45 })); },
+  note: (t) => { rec('paper-rustle', t, 0.25); bell(N.A6, t + 0.08, 0.08); bell(N.D7, t + 0.2, 0.07); bell(N.F7, t + 0.32, 0.05); },
   // Реакція: бульбашка лопнула
-  react: (t) => osc('sine', 620, t, 0.16, 0.08, { to: 1500, attack: 0.003 }),
+  react: (t) => rec('bloop', t, 0.35) || osc('sine', 620, t, 0.16, 0.08, { to: 1500, attack: 0.003 }),
   // Сердечка: три іскри вгорі
   love: (t) => [N.F6, N.A6, N.D7].forEach((f, i) => bell(f, t + i * 0.09, 0.06, 0.9)),
   // Конверт відкрили: папір і дві ноти вгору
-  open: (t, I) => { noise(t, 0.28, 400, 1900, { v: 0.07, q: 0.8 }); I(N.F6, t + 0.2, 0.1, 0.4); I(N.A6, t + 0.32, 0.12, 0.8); },
+  open: (t, I) => { rec('envelope-open', t, 0.3) || noise(t, 0.28, 400, 1900, { v: 0.07, q: 0.8 }); I(N.F6, t + 0.2, 0.1, 0.4); I(N.A6, t + 0.32, 0.12, 0.8); },
   // Дзвіночок: три удари (вхідний) — і один тихий, коли кличеш сам
   bell: (t) => [0, 0.32, 0.64].forEach((d) => { osc('sine', 1320, t + d, 0.28, 1.4, { attack: 0.01 }); osc('sine', 2640, t + d, 0.1, 0.8); osc('sine', 3960, t + d, 0.05, 0.5); }),
   ring: (t) => { osc('sine', 1320, t, 0.14, 1.1, { attack: 0.01 }); osc('sine', 2640, t, 0.05, 0.6); },
