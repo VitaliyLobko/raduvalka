@@ -4995,3 +4995,5 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 @media (prefers-reduced-transparency: reduce) { .ph-backdrop { display: none; } }
 .letter-att:empty, .ea-below:empty { display: none; }
 .ea-below { margin-top: 12px; }
+.ph-pet-emoji { display: grid; place-items: center; width: 100%; height: 100%; font-size: 1.6rem; line-height: 1; }
+

@@ -793,12 +793,15 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const mirY = h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку по вертикали', onclick: () => mirror('fy') }, '⇅');
   const selPanel = h('div', { class: 'ph-sel', hidden: true }, trash, downBtn, upBtn, mirX, mirY);
   stage.append(selPanel);
-  // Улюбленці: спершу список «кого» (з mascots), поруч — усі пози обраного, головна першою;
-  // фото без ключа (blob:) — полотно не «брудниться». Обраного памʼятаємо
+  // Наклейки одним рядком: зліва «що» — мордочка улюбленця чи 😊 (тап — вибір із трьох улюбленців і смайликів),
+  // праворуч — пози обраного чи смайлики. Фото без ключа (blob:) — полотно не «брудниться». Обране памʼятаємо
   const PET_KEY = 'radovalka:sticker-pet';
+  const EMOJI = 'emoji';
   const pets = Object.keys(DATA.mascots || {}).filter((key) => petFiles(key).some((f) => petFileSrc(f)));
+  const kinds = [...pets, EMOJI];
   let petNow = (() => { try { return localStorage.getItem(PET_KEY); } catch { return null; } })();
-  if (!pets.includes(petNow)) petNow = pets[0];
+  if (!kinds.includes(petNow)) petNow = kinds[0];
+  const kindName = (key) => (key === EMOJI ? 'смайлики' : petName(key));
   const petBtn = (key, file) => {
     const src = petFileSrc(file);
     if (!src) return null;
@@ -816,33 +819,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       },
     }, h('img', { src, alt: '', width: 56, height: 56, draggable: 'false', loading: 'lazy' }));
   };
-  // «Кого» — мордочкою (головна поза) з ▾; тап — мордочки всіх, вибрав — поруч його пози
-  const face = (key) => h('img', { src: petFileSrc(petFiles(key).find((f) => petFileSrc(f))), alt: '', width: 40, height: 40, draggable: 'false' });
-  const petMenu = h('div', { class: 'ph-pet-menu', role: 'listbox', 'aria-label': 'Чьи наклейки', hidden: true });
-  const petPick = pets.length > 1 ? h('button', {
-    type: 'button', class: 'ph-pet-pick', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
-    onclick: () => { petMenu.hidden = !petMenu.hidden; petPick.setAttribute('aria-expanded', String(!petMenu.hidden)); },
-  }) : null;
-  const petPoses = h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' });
-  const paintPoses = () => {
-    petPick?.replaceChildren(face(petNow), h('span', { class: 'ph-pet-caret', 'aria-hidden': 'true' }, '▾'));
-    petPick?.setAttribute('aria-label', `Наклейки: ${petName(petNow)}. Выбрать другого`);
-    petMenu.replaceChildren(...pets.map((key) => h('button', {
-      type: 'button', class: 'ph-pet-opt', role: 'option', 'aria-selected': String(key === petNow), 'aria-label': petName(key),
-      onclick: () => {
-        petNow = key;
-        try { localStorage.setItem(PET_KEY, petNow); } catch { /* приватне вікно */ }
-        petMenu.hidden = true;
-        petPick.setAttribute('aria-expanded', 'false');
-        paintPoses();
-      },
-    }, face(key))));
-    petPoses.replaceChildren(...petFiles(petNow).map((f) => petBtn(petNow, f)).filter(Boolean));
-    petPoses.scrollLeft = 0;
-  };
-  if (pets.length) { paintPoses(); ribbon(petPoses); }
-  const petRow = pets.length ? h('div', { class: 'ph-pet-row' }, petPick ? h('div', { class: 'ph-pet-wrap' }, petPick, petMenu) : null, petPoses) : null;
-  const stickRow = h('div', { class: 'mk-chips mk-row ph-stickers' }, ...STICKERS.map((s) => h('button', {
+  const emojiBtn = (s) => h('button', {
     type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`,
     onclick: () => {
       const v = view();
@@ -851,9 +828,35 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       items.push(sel);
       finishMode(true);
     },
-  }, s)));
-  ribbon(stickRow);
-  const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, petRow, stickRow);
+  }, s);
+  const face = (key) => (key === EMOJI ? h('span', { class: 'ph-pet-emoji' }, '😊')
+    : h('img', { src: petFileSrc(petFiles(key).find((f) => petFileSrc(f))), alt: '', width: 40, height: 40, draggable: 'false' }));
+  const petMenu = h('div', { class: 'ph-pet-menu', role: 'listbox', 'aria-label': 'Какие наклейки', hidden: true });
+  const petPick = h('button', {
+    type: 'button', class: 'ph-pet-pick', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
+    onclick: () => { petMenu.hidden = !petMenu.hidden; petPick.setAttribute('aria-expanded', String(!petMenu.hidden)); },
+  });
+  const petPoses = h('div', { class: 'mk-chips mk-row ph-stickers ph-pets' });
+  const paintPoses = () => {
+    petPick.replaceChildren(face(petNow), h('span', { class: 'ph-pet-caret', 'aria-hidden': 'true' }, '▾'));
+    petPick.setAttribute('aria-label', `Наклейки: ${kindName(petNow)}. Выбрать другие`);
+    petMenu.replaceChildren(...kinds.map((key) => h('button', {
+      type: 'button', class: 'ph-pet-opt', role: 'option', 'aria-selected': String(key === petNow), 'aria-label': kindName(key),
+      onclick: () => {
+        petNow = key;
+        try { localStorage.setItem(PET_KEY, petNow); } catch { /* приватне вікно */ }
+        petMenu.hidden = true;
+        petPick.setAttribute('aria-expanded', 'false');
+        paintPoses();
+      },
+    }, face(key))));
+    petPoses.replaceChildren(...(petNow === EMOJI ? STICKERS.map(emojiBtn) : petFiles(petNow).map((f) => petBtn(petNow, f)).filter(Boolean)));
+    petPoses.scrollLeft = 0;
+  };
+  paintPoses();
+  ribbon(petPoses);
+  const petRow = h('div', { class: 'ph-pet-row' }, h('div', { class: 'ph-pet-wrap' }, petPick, petMenu), petPoses);
+  const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, petRow);
 
   function setMode(m) {
     pipette = null;
