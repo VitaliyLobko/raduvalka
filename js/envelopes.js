@@ -1,4 +1,5 @@
 // «Відкрий, коли…»: полиця конвертів на різні випадки
+import { sfx } from './sound.js';
 import { DATA, who } from './data.js';
 import { save, send } from './api.js';
 import { mascotImg, petName, petFor, petLine } from './icons.js';
@@ -188,6 +189,8 @@ function openCard(screen, env) {
       ...[heart, read ? rereadBtn(false) : null,
         h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Закрыть')].filter(Boolean)));
 
+  // Шурхіт паперу — разом із тим, як злітає сургуч і відкидається клапан
+  sfx('open', big ? 300 : 0);
   if (big) {
     const inner = reader.querySelector('.reader-inner');
     inner.classList.add('is-sealed');
