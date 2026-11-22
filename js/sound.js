@@ -358,6 +358,8 @@ const SOUNDS = {
   spin: (t) => spinTicks(t, (at) => rec('reel-tick', at, 0.16) || osc('square', 1800, at, 0.02, 0.012, { attack: 0.001 })),
   // Барабан став: «та-дам» і іскра
   pick: (t, I, B) => { I(N.A5, t, 0.13, 0.3); I(N.D6, t + 0.11, 0.18, 1.2); B(N.A6, t + 0.24, 0.05); },
+  // SOS у того, кого кличуть: двотонова сирена «ві-у» чотири рази, сухо (без відлуння), не музика
+  sos: (t) => { for (let i = 0; i < 4; i += 1) { osc('square', 960, t + i * 0.5, 0.09, 0.24, { attack: 0.005, dest: dry }); osc('square', 720, t + i * 0.5 + 0.25, 0.09, 0.24, { attack: 0.005, dest: dry }); } },
   // Голос за ідею: ❤️ — легкий підскок угору; ✕ і ⏳ — картка м'яко ковзнула вбік
   like: (t, I) => { rec('envelope-send', t, 0.14); I(N.D6, t + 0.04, 0.11, 0.3); I(N.A6, t + 0.12, 0.13, 0.6); },
   pass: (t) => rec('envelope-send', t, 0.2) || noise(t, 0.2, 1600, 700, { v: 0.06, q: 0.9 }),
@@ -402,6 +404,12 @@ export function sfxSpin(rows, ms) {
   spinMs = 3200;
 }
 // Послухати інструмент у налаштуваннях: «твій хід» і пара
+// Тривога SOS у того, кого кличуть: грає й при вимкнених звуках Радовалки (вибір «Звуки» — про розваги, не про біду).
+// Потрібні лише дотик до сторінки раніше (так вимагає браузер) і відкритий екран
+export function sosAlarm() {
+  if (document.visibilityState !== 'visible') return;
+  try { if (audio()) SOUNDS.sos(ctx.currentTime + 0.02); } catch { /* без звуку — лишається вібрація */ }
+}
 export function preview(instrument) {
   play('turn', 0, instrument);
   play('pair', 900, instrument);

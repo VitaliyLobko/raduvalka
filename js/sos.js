@@ -5,6 +5,7 @@ import { get, send, getBlob } from './api.js';
 import { h, toast, cap, hhmm } from './ui.js';
 import { deliver, newCid } from './outbox.js';
 import { hasSecret, seal } from './seal.js';
+import { sosAlarm } from './sound.js';
 
 const REC_MAX = 30;
 const ago = (ms) => {
@@ -227,6 +228,8 @@ function voiceBtn(s) {
   return btn;
 }
 
+// Сигнал, на який уже пролунала тривога (у цьому відкритті застосунку)
+let alarmed = null;
 function theirCard(raw) {
   const s = place(raw);
   const me = who();
@@ -240,6 +243,12 @@ function theirCard(raw) {
         type: 'button', class: 'btn sos-close',
         onclick: () => { try { localStorage.setItem(OK_CLOSED, s.id); } catch { /* приватне вікно — сховається за годину */ } paintSos(); },
       }, 'Понятно'));
+  }
+  // Новий сигнал, ще без «Вижу», — тривога й сильна вібрація, раз на сигнал (перемальовування не повторює)
+  if (!s.seen && alarmed !== s.id) {
+    alarmed = s.id;
+    sosAlarm();
+    navigator.vibrate?.([300, 150, 300, 150, 300]);
   }
   const seenBtn = s.seen ? h('p', { class: 'sos-meta' }, `Ты отметил${me.youOpened === 'открыла' ? 'а' : ''}, что видишь ✓`)
     : h('button', {
