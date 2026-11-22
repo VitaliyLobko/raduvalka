@@ -129,9 +129,16 @@ function build() {
   const opts = h('div', { class: 'cbar-opts' }, ...[pets.length > 1 ? petBtn : null, whenBtn, festBtn, helpBtn].filter(Boolean));
   // 😊 у полі зліва, як у месенджері: тап — смайли замість клавіатури, ще тап (⌨) — назад до клавіатури
   const emoBtn = h('button', { type: 'button', class: 'cbar-emo-btn', 'aria-expanded': 'false', ...keep, onclick: () => (emo ? closeEmoji(true) : openEmoji()) });
-  const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, emoBtn, area), act);
+  // ⤢ у полі справа зверху — лише коли текст уже не вміщається: те саме, але у великому вікні
+  const expandBtn = h('button', {
+    type: 'button', class: 'cbar-expand', hidden: true, 'aria-label': 'Развернуть письмо на весь экран', title: 'Развернуть', ...keep,
+    onclick: () => big({ where: when === 'morning' ? 'morning' : 'now' }),
+  });
+  // Кутики «на весь екран», а не ⤢ — щоб не плутати зі стрілою «Отправить» поруч
+  expandBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+  const row = h('div', { class: 'cbar-row' }, plusBtn, h('label', { class: 'cbar-field' }, emoBtn, area, expandBtn), act);
   const el = h('div', { class: 'cbar', role: 'group', 'aria-label': 'Новое письмо' }, quote, petRow, opts, row, clock);
-  ui = { el, area, act, plusBtn, emoBtn, quote, petBtn, whenBtn, festBtn, petRow, opts, clock };
+  ui = { el, area, act, plusBtn, emoBtn, quote, petBtn, whenBtn, festBtn, petRow, opts, clock, expandBtn };
 
   area.addEventListener('input', () => { if (!reply) draft.set(area.value); grow(); paint(); });
   // Клавіатура на телефоні — нижні вкладки ховаються, місце переписці (лише на дотиковому екрані: на ноутбуці вони не заважають)
@@ -199,6 +206,11 @@ function grow() {
   area.style.height = 'auto';
   area.style.height = `${Math.min(area.scrollHeight + 2, MAX_H)}px`;
   area.classList.toggle('is-tall', area.scrollHeight + 2 > MAX_H);
+  showExpand();
+}
+// Велике вікно не знає «Ко времени» — зі своїм часом ⤢ не показуємо, щоб час тихо не загубився
+function showExpand() {
+  if (ui) ui.expandBtn.hidden = !ui.area.classList.contains('is-tall') || when === 'time';
 }
 
 function paint() {
@@ -219,6 +231,7 @@ function paint() {
   petRow.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === pet)));
   // Свій час, що вже минув (рядок довго лежав), — назад на «сейчас»
   if (when === 'time' && atTime <= Date.now()) when = 'now';
+  showExpand();
   const morning = when === 'morning';
   const later = when !== 'now';
   whenBtn.classList.toggle('is-on', later);
@@ -367,7 +380,6 @@ function openPlus() {
     h('div', { class: 'cbar-tiles' }, ...[
       tile('🕐', 'Ко времени', () => pickTime(), ' is-special'),
       envs.length ? tile('✉️', 'В конверт', () => big({ where: 'env' }), ' is-special') : null,
-      tile('⤢', 'Большое', () => big({ where: when === 'morning' ? 'morning' : 'now' }), ' is-special'),
     ].filter(Boolean)));
   plus = panel;
   document.body.append(panel);
