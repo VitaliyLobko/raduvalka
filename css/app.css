@@ -4812,8 +4812,9 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 [data-side="vin"] .env-new { background: var(--star); color: var(--night); }
 /* «перечитать N» у рядку під конвертом — прочитані листи, не розпечатуючи нового */
 .env-slot { display: grid; align-content: start; gap: 2px; }
-.env-slot .env-meta { margin: 0; }
-.env-reread { margin: -10px -6px; padding: 10px 6px; border: 0; background: none; color: var(--wax); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.env-slot .env-meta { margin: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.env-reread { flex: none; margin: -10px -6px; padding: 10px 6px; border: 0; background: none; color: var(--wax); font: 700 1rem/1.1 var(--hand); cursor: pointer; }
+.env-reread:active { opacity: .7; }
 [data-side="vin"] .env-reread { color: var(--star); }
 .env-reread-title { margin: 4px 0 10px; font: 600 1rem/1.3 var(--ui); }
 .env-reread-items { display: grid; gap: 6px; max-height: min(52vh, 420px); overflow-y: auto; overscroll-behavior: contain; }

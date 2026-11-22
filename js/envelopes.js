@@ -74,14 +74,13 @@ export function renderEnvelopes(screen) {
       h('span', { class: 'me-seal', html: waxSeal('') }, h('span', { class: 'me-emoji' }, env.emoji))),
     isNew ? h('span', { class: 'env-new', 'aria-hidden': 'true' }, 'новое') : null,
     h('span', { class: 'env-label' }, env.label));
-    // Рядок під назвою — поза кнопкою конверта, щоб у ньому жило посилання «перечитать» (кнопка в кнопці не можна);
-    // тап по самому лічильнику відкриває конверт, як і раніше
+    // Лічильник і «перечитать ✎» (рукописом, у тому ж рядку праворуч) — поза кнопкою конверта: кнопка в кнопці не можна;
+    // тап по лічильнику відкриває конверт, як і раніше
     const done = readCount(env);
     return h('div', { class: `env-slot${n ? '' : ' is-empty'}` },
       card,
       h('p', { class: 'env-meta' },
         h('span', { onclick: () => card.click() }, n ? `${n} ${plural(n)}` : 'пусто'),
-        done ? ' · ' : null,
         done ? h('button', {
           type: 'button', class: 'env-reread', 'aria-label': `Перечитать прочитанные: ${done}`,
           onclick: () => { if (!opening) { opening = true; openReread(screen, env); } },
