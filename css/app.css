@@ -4060,6 +4060,10 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   background: color-mix(in srgb, var(--lavender) 40%, transparent); color: var(--ink); font: 600 .75rem/1.5 var(--ui); }
 .game-tile-text .game-tile-live.is-me { background: var(--plum); color: #fff; }
 .game-tile-text .game-tile-live[hidden] { display: none; }
+/* «Совпадёт? 🔥» — лише для дорослих */
+.game-tile-text .game-tile-adult { display: inline-block; padding: 1px 7px; border-radius: 6px; border: 1.5px solid #e0245e;
+  color: #e0245e; font: 800 .75rem/1.4 var(--ui); letter-spacing: .02em; }
+[data-side="vin"] .game-tile-text .game-tile-adult { border-color: #ff6b8f; color: #ff6b8f; }
 [data-side="vin"] .game-tile-text .game-tile-live { background: rgba(255, 255, 255, .12); color: var(--ink); }
 [data-side="vin"] .game-tile-text .game-tile-live.is-me { background: var(--star); color: var(--night); }
 /* «💞 Совпадёт?» */

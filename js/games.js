@@ -33,10 +33,10 @@ export function openGames() {
   const go = (open) => () => { sh.close(); open(); };
   // live — плашка «идёт» на плитці гри, що вже триває: чия черга
   const live = {};
-  const tile = (icon, name, about, onclick, kind) => h('button', { type: 'button', class: 'game-tile', onclick },
+  const tile = (icon, name, about, onclick, kind, adult = false) => h('button', { type: 'button', class: 'game-tile', onclick },
     // Свій SVG-значок гри (gameicons.js); нема — як раніше емодзі
     GAME_ICONS[kind || 'same'] ? h('span', { class: 'game-tile-icon game-icon', 'aria-hidden': 'true', html: GAME_ICONS[kind || 'same'] }) : h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, icon),
-    h('span', { class: 'game-tile-text' }, h('b', {}, name, kind ? (live[kind] = h('span', { class: 'game-tile-live', hidden: true })) : null), h('span', {}, about)));
+    h('span', { class: 'game-tile-text' }, h('b', {}, name, adult ? h('span', { class: 'game-tile-adult', title: 'Только для взрослых' }, '18+') : null, kind ? (live[kind] = h('span', { class: 'game-tile-live', hidden: true })) : null), h('span', {}, about)));
   const sh = gameSheet({ icon: '🎲', title: 'Игры', cls: 'games-sheet' });
   sh.body.append(
     tile('✊', 'Камень-ножницы', 'До двух побед, руки открываются одновременно', go(() => openDuel({ game: 'rps' })), 'rps'),
@@ -58,6 +58,6 @@ export function openGames() {
   sh.body.append(...[
     tile('💞', 'Совпадёт?', '10 вопросов: отвечаете каждый за себя, потом смотрите, где совпало', go(openSame)),
     // Набір питань живе на сервері: нема його — нема й плитки
-    DATA.hot ? tile('🔥', 'Совпадёт? 🔥', 'Вопросы только для вас двоих: видно лишь то, что хочется обоим', go(() => openHot()), 'hot') : null,
+    DATA.hot ? tile('🔥', 'Совпадёт? 🔥', 'Вопросы только для вас двоих: видно лишь то, что хочется обоим', go(() => openHot()), 'hot', true) : null,
   ].filter(Boolean));
 }
