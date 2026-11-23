@@ -19,6 +19,18 @@ export const INSTRUMENTS = {
   cello: { name: 'Виолончель', on: 'на виолончели' },
   bass: { name: 'Контрабас', on: 'на контрабасе' },
   bells: { name: 'Колокольчики', on: 'на колокольчиках' },
+  musicbox: { name: 'Шкатулка', on: 'на музыкальной шкатулке' },
+  celesta: { name: 'Челеста', on: 'на челесте' },
+  vibes: { name: 'Вибрафон', on: 'на вибрафоне' },
+  marimba: { name: 'Маримба', on: 'на маримбе' },
+  piano: { name: 'Рояль', on: 'на рояле' },
+  guitar: { name: 'Гитара', on: 'на гитаре' },
+  accordion: { name: 'Аккордеон', on: 'на аккордеоне' },
+  harmonica: { name: 'Гармошка', on: 'на губной гармошке' },
+  ocarina: { name: 'Окарина', on: 'на окарине' },
+  panflute: { name: 'Панфлейта', on: 'на панфлейте' },
+  steeldrum: { name: 'Стил-драм', on: 'на стил-драме' },
+  koto: { name: 'Кото', on: 'на кото' },
 };
 // Поки ніхто не обирав: у нього контрабас, у неї дзвіночки
 export const DEFAULT_INSTRUMENT = { vin: 'bass', vona: 'bells' };
@@ -146,6 +158,19 @@ const SAMPLED = {
   bass: { oct: -3, len: 1, min: 0.4, max: 1.1, gain: 1.4, dry: true },
   // Дзвіночки на октаву вище — у динаміку телефона тихі короткі нотки губились: гучніше
   bells: { oct: 1, len: 1.6, min: 0.6, max: 2, gain: 1.3 },
+  // Щипкові й ударні — з хвостом, як калімба й арфа; духові й язичкові — тягнуться, як флейта
+  musicbox: { oct: 1, len: 1.5, min: 0.6, max: 1.8, gain: 1.1 },
+  celesta: { oct: 0, len: 1.4, min: 0.6, max: 1.6, gain: 0.66 },
+  vibes: { oct: 0, len: 1.5, min: 0.6, max: 1.8, gain: 0.74 },
+  marimba: { oct: 0, len: 1, min: 0.4, max: 1.2, gain: 0.63 },
+  piano: { oct: 0, len: 1.3, min: 0.5, max: 1.6, gain: 1.05 },
+  guitar: { oct: -1, len: 1.3, min: 0.5, max: 1.6, gain: 1.03 },
+  accordion: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.92 },
+  harmonica: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.71 },
+  ocarina: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.53 },
+  panflute: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.57 },
+  steeldrum: { oct: 0, len: 1.2, min: 0.45, max: 1.4, gain: 1.12 },
+  koto: { oct: 0, len: 1.3, min: 0.5, max: 1.6, gain: 1.5 },
 };
 const ANCHORS = [['E', 5, 659.25], ['A', 5, 880], ['D', 6, 1174.66], ['Gb', 6, 1479.98]];
 // Файли не змінюються (нова запис — нова назва), тож лежать у власному кеші: другий раз — без мережі

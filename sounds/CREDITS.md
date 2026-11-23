@@ -14,6 +14,18 @@
 | cello | cello |
 | bass | acoustic_bass |
 | bells | glockenspiel |
+| musicbox | music_box |
+| celesta | celesta |
+| vibes | vibraphone |
+| marimba | marimba |
+| piano | acoustic_grand_piano |
+| guitar | acoustic_guitar_nylon |
+| accordion | accordion |
+| harmonica | harmonica |
+| ocarina | ocarina |
+| panflute | pan_flute |
+| steeldrum | steel_drums |
+| koto | koto |
 
 Файлы не изменены; в приложении у каждой ноты срезается тишина в начале и меняется высота.
 

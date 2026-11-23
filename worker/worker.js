@@ -39,7 +39,8 @@ const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
 // stockFrom — 'YYYY-MM-DD', з якого дня запас підстраховує; нема — запас на паузі
 const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom', 'chatCleared', 'instrument'];
 // Інструмент звуків (js/sound.js INSTRUMENTS): свій — у mine, другий телефон грає ним те, що прийшло від тебе
-const INSTRUMENT_KEYS = ['kalimba', 'harp', 'flute', 'violin', 'cello', 'bass', 'bells'];
+const INSTRUMENT_KEYS = ['kalimba', 'harp', 'flute', 'violin', 'cello', 'bass', 'bells', 'musicbox', 'celesta', 'vibes',
+  'marimba', 'piano', 'guitar', 'accordion', 'harmonica', 'ocarina', 'panflute', 'steeldrum', 'koto'];
 const DOC_KEY = /^(?:(?:letter|envelopes):(?:vona|vin)|mascots|together|voice)$/;
 const IMG_NAME = /^[a-z0-9-]{1,64}$/;
 const MAX_JSON = 64 * 1024;
