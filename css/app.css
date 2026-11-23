@@ -1127,7 +1127,19 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: .2em;
 }
+/* Значок перед написом: у неї контурна сакура, у нього планета з кільцем — підказка, що тут меню */
+.wm-ico { display: inline-flex; flex: none; width: .92em; height: .92em; transform-origin: 50% 55%; }
+.wm-ico svg { width: 100%; height: 100%; overflow: visible; fill: color-mix(in srgb, currentColor 16%, transparent);
+  stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.wm-ico .wm-core { fill: currentColor; stroke: none; }
+.wm-ico .wm-ring { fill: none; }
+.wm-ico .wm-star { fill: var(--star); stroke: none; }
+.wm-planet, [data-side="vin"] .wm-sakura { display: none; }
+[data-side="vin"] .wm-planet { display: block; }
 
 .about-version { margin: -6px 0 18px; color: var(--ink-soft); }
 /* «О Радовалке»: групи — дрібний підпис, під ним картка з рядками через тонку лінію */
@@ -1150,6 +1162,9 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .about-row-go { flex: none; color: var(--ink-soft); font-size: 1.4rem; line-height: 1; transition: transform .2s; }
 .about-news[open] > summary .about-row-go { transform: rotate(90deg); }
 .about-card .text-size { padding: 12px 0; }
+/* Підзаголовок усередині картки (кілька налаштувань в одній групі) */
+.about-sub { margin: 12px 0 0; font: 500 1rem/1.2 var(--ui); }
+.about-sub + .text-size { padding-top: 8px; }
 /* Мій інструмент: згорнутий рядок, усередині — сімейства; під ним підпис, на чому грає другий */
 .instr { display: grid; gap: 8px; padding: 0 0 12px; }
 .instr-pick[open] > summary .about-row-go { transform: rotate(90deg); }
@@ -5097,8 +5112,9 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 /* Наклейки-улюбленці поверх гифки: круглі фото в білій рамці, як на фото; у редакторі — тягнуться пальцем */
 .gif-sticks { position: absolute; inset: 0; pointer-events: none; }
 .gif-sticks img { position: absolute; aspect-ratio: 1; height: auto; border-radius: 50%; border: max(2px, .5cqw) solid #fff; object-fit: cover; box-shadow: 0 2px 8px rgba(0, 0, 0, .4); box-sizing: border-box; }
-.gif-sticks.is-edit img { pointer-events: auto; cursor: grab; touch-action: none; }
-.gif-sticks img.is-sel { outline: 2px dashed var(--wax, #e0a93a); outline-offset: 3px; }
+.gif-sticks .stick-emo { position: absolute; display: grid; place-items: center; aspect-ratio: 1; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35)); -webkit-user-select: none; user-select: none; }
+.gif-sticks.is-edit > * { pointer-events: auto; cursor: grab; touch-action: none; }
+.gif-sticks .is-sel { outline: 2px dashed var(--wax, #e0a93a); outline-offset: 3px; }
 /* Наклейка-улюбленець у чаті: велика кругла фотка в білій рамці, без підкладки повідомлення */
 .meme-sticker { display: grid; place-items: center; padding: 4px 0; }
 .meme-sticker img { width: 136px; height: 136px; border-radius: 50%; border: 5px solid #fff; object-fit: cover; box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .45); }

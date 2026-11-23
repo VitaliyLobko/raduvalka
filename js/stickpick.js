@@ -4,6 +4,13 @@ import { DATA } from './data.js';
 import { petName, petFiles, petFileSrc } from './icons.js';
 import { h, ribbon } from './ui.js';
 
+// Смайлики-наклейки для фото й гифок — групами: ніжність, настрій, «вогонь», сезон і звірі
+export const EMOJI_STICKERS = [
+  '❤️', '😍', '🥰', '😘', '🤗', '🫶', '💋', '💞', '🫂', '💌', '🌹', '💍', '🥂', '🏠', '🕊️',
+  '😂', '😜', '🤭', '🥳', '🤪', '😇', '😈', '😎', '🥺', '🙈', '😴',
+  '🔥', '💯', '✨', '⭐', '🎉', '👑', '💪', '🫡', '🇺🇦',
+  '🌸', '🍓', '🦋', '🐾', '🐶', '🐱', '☀️', '🌙', '❄️', '☕', '🎄', '🍊', '🧣',
+];
 const PET_KEY = 'radovalka:sticker-pet';
 const EMOJI = 'emoji';
 

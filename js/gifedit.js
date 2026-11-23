@@ -3,8 +3,8 @@
 // його текст (шифрується, як завжди) і код місця в style
 import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
-import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, stickLayer, paintSticks, stickCode, MAX_STICK } from './memes.js';
-import { stickerRow } from './stickpick.js';
+import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, stickLayer, paintSticks, stickCode, MAX_STICK, emojiKey } from './memes.js';
+import { stickerRow, EMOJI_STICKERS } from './stickpick.js';
 import { sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 
@@ -75,7 +75,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     if (armed) { pickFrom(e); return; }
     // Перший палець обирає: на наклейці — її, повз — підпис (наклейка знімається з вибору)
     if (!ptrs.size) {
-      const hit = e.target.closest?.('.gif-sticks img');
+      const hit = e.target.closest?.('.gif-sticks [data-n]');
       const n = hit ? Number(hit.dataset.n) : -1;
       if (n !== sel) { sel = n; redraw(); }
     }
@@ -206,15 +206,18 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   });
 
   // ── Наклейки-улюбленці: 😊 у шапці відкриває рядок вибору; обрана — 🗑 і ⇆ над гифкою
+  const addStick = (key, i, k) => {
+    if (sticks.length >= MAX_STICK) { toast(`На гифку — не больше ${MAX_STICK} наклеек`); return; }
+    const n = sticks.length;
+    sticks.push({ key, i, x: 0.3 + (n % 3) * 0.2, y: 0.35 + (n % 2) * 0.15, k, r: 0, fx: false });
+    sel = n;
+    commit();
+    redraw();
+  };
   const { el: petRow } = stickerRow({
-    onPet: (key, i) => {
-      if (sticks.length >= MAX_STICK) { toast(`На гифку — не больше ${MAX_STICK} наклеек`); return; }
-      const n = sticks.length;
-      sticks.push({ key, i, x: 0.3 + (n % 3) * 0.2, y: 0.35 + (n % 2) * 0.15, k: 0.3, r: 0, fx: false });
-      sel = n;
-      commit();
-      redraw();
-    },
+    onPet: (key, i) => addStick(key, i, 0.3),
+    emojis: EMOJI_STICKERS,
+    onEmoji: (s) => addStick(emojiKey(s), 0, 0.22),
   });
   const stickPanel = h('div', { class: 'ph-panel ph-panel-stick', hidden: true }, petRow);
   const tStick = petRow ? h('button', {

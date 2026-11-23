@@ -788,17 +788,13 @@ function openAbout(showNews) {
       getAltKey() ? aboutGroup('Половина', sideSwitch()) : null,
       // Вхід у «Вместе» й тут — у шапці лише значок із числом
       aboutGroup('Вместе', aboutRow('💞', cap(chipLabel()), 'Наша открытка и дата встречи', () => { close(); setTimeout(openTogether, 300); })),
-      // Замок на вхід: PIN або відбиток (кожен телефон — свій)
-      aboutGroup('Замок', pinPanel(aboutRow)),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
-      aboutGroup('Размер букв в письмах', textSizePanel()),
-      aboutGroup('Письма', autoOpenSwitch()),
-      aboutGroup('Уведомления', pushPanel()),
-      // Раптом від руху фону укачує — вимикається тут
-      aboutGroup('Фон', stillSwitch()),
+      aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
       aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
-      // Дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
-      aboutGroup('На всякий случай',
+      // Свої для кожного телефона: сповіщення й рух фону (раптом від нього укачує)
+      aboutGroup('Этот телефон', pushPanel(), stillSwitch()),
+      // Замок на вхід (PIN або відбиток) і дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
+      aboutGroup('Защита', pinPanel(aboutRow),
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
       // Лише на його половині: печеньки, ідеї, питання — окремою шторкою (модуль вантажиться за потреби)
       DATA.side === 'vin' ? aboutGroup('Только у тебя',
@@ -823,7 +819,14 @@ function openAbout(showNews) {
   }
 }
 
-document.getElementById('about-btn').addEventListener('click', () => openAbout());
+document.getElementById('about-btn').addEventListener('click', (e) => {
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    e.currentTarget.querySelector('.wm-ico')?.animate(
+      [{ transform: 'rotate(0)' }, { transform: 'rotate(-28deg)' }, { transform: 'rotate(0)' }],
+      { duration: 520, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+  }
+  openAbout();
+});
 
 // Перехід на шифрування: те, що цей телефон колись написав відкрито (свої листи, цитати, свої відповіді), — шифруємо й
 // віддаємо назад. На кожному запуску, доки не вдасться; вдалось — позначка й більше не питаємо

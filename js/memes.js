@@ -114,9 +114,19 @@ export function stickParse(code) {
     return { key, i: +i, x: +sx / 1000, y: +sy / 1000, k: +k / 1000, r: +r, fx: f === '1' };
   });
 }
+// Смайлик-наклейка: ключ «e_» + кодові точки hex через «-» (😍 → e_1f60d, 🇺🇦 → e_1f1fa-1f1e6) — влазить у той самий код
+const EMOJI_KEY = /^e_[0-9a-f]{2,5}(?:-[0-9a-f]{2,5}){0,3}$/;
+export const emojiKey = (s) => `e_${[...s].map((c) => c.codePointAt(0).toString(16)).join('-')}`;
+export const stickEmoji = (s) => {
+  if (!EMOJI_KEY.test(s.key)) return null;
+  const cps = s.key.slice(2).split('-').map((x) => parseInt(x, 16));
+  return cps.every((c) => c >= 0x200d && c <= 0x10ffff) ? String.fromCodePoint(...cps) : null;
+};
 // Файл пози (нема такого улюбленця чи пози — наклейку пропускаємо); фото, що ще докачується, підставиться саме (data-pet)
 export const stickFile = (s) => petFiles(s.key)[s.i] || null;
 export const stickImg = (s, attrs = {}) => {
+  const e = stickEmoji(s);
+  if (e) return h('span', { ...attrs, class:['stick-emo', attrs.class].filter(Boolean).join(' ') }, e);
   const f = stickFile(s);
   return f ? h('img', { src: petFileSrc(f) || null, 'data-pet': f, alt: '', draggable: 'false', ...attrs }) : null;
 };
@@ -124,7 +134,8 @@ export function paintSticks(layer, list, sel = -1) {
   layer.replaceChildren(...list.map((s, n) => {
     const img = stickImg(s, { 'data-n': String(n), class: n === sel ? 'is-sel' : null });
     if (!img) return null;
-    img.style.cssText = `left:${s.x * 100}%;top:${s.y * 100}%;width:${s.k * 100}%;transform:translate(-50%, -50%) rotate(${s.r}deg)${s.fx ? ' scaleX(-1)' : ''}`;
+    // Смайлик — текст: розмір шрифту від ширини кадру (cqw), щоб скрізь збігався з редактором
+    img.style.cssText = `left:${s.x * 100}%;top:${s.y * 100}%;width:${s.k * 100}%;${img.tagName === 'SPAN' ? `font-size:${(s.k * 78).toFixed(2)}cqw;` : ''}transform:translate(-50%, -50%) rotate(${s.r}deg)${s.fx ? ' scaleX(-1)' : ''}`;
     return img;
   }).filter(Boolean));
   return layer;

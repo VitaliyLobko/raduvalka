@@ -3,7 +3,7 @@
 // Без правок іде той самий файл, що й раніше; «Под фото» — звичайний підпис текстом під картинкою, як завжди
 import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
-import { stickerRow } from './stickpick.js';
+import { stickerRow, EMOJI_STICKERS } from './stickpick.js';
 import { ownColor, sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 import { capFont, capFontCss, CAP_SIZE } from './memes.js';
@@ -28,7 +28,6 @@ const FRAME = { side: 0.05, bottom: 0.22, paper: '#fbf8f3', ink: '#2a1730', soft
 // Пензель розмиття — частка ширини кадру; розмите фото — зменшене до BLUR_PX і розтягнуте назад (номерів не прочитати)
 const BLUR_W = 0.075;
 const BLUR_PX = 56;
-const STICKERS = ['❤️', '😍', '🥰', '😘', '🤗', '😂', '🔥', '💯', '✨', '🌸', '🍓', '💋', '🫶', '😎', '🥺', '🙈', '⭐', '🎉', '☀️', '🌙', '🐾', '💌', '👑', '🦋'];
 
 const lum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
@@ -815,7 +814,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       items.push(sel);
       finishMode(true);
     },
-    emojis: STICKERS,
+    emojis: EMOJI_STICKERS,
     onEmoji: (s) => {
       const v = view();
       const n = items.filter((x) => x.look === 'emoji').length;
