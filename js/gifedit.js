@@ -4,7 +4,7 @@
 import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
 import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, stickLayer, paintSticks, stickCode, MAX_STICK, emojiKey } from './memes.js';
-import { stickerRow, EMOJI_STICKERS } from './stickpick.js';
+import { stickerRow, EMOJI_STICKERS, HANDLE_PATH } from './stickpick.js';
 import { sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 
@@ -27,6 +27,9 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   const sLayer = stickLayer([]);
   sLayer.classList.add('is-edit');
   frame.insertBefore(sLayer, layer);
+  const knob = h('span', { class: 'gif-handle', 'aria-hidden': 'true', hidden: true });
+  knob.innerHTML = `<svg viewBox="0 0 24 24"><path d="${HANDLE_PATH}"/></svg>`;
+  frame.append(knob);
   const stage = h('div', { class: 'ph-stage gif-stage', 'aria-label': 'Гифка: подпись двигается пальцем, двумя — размер и поворот' }, frame);
   const belowLine = h('p', { class: 'ph-below', hidden: true });
 
@@ -50,13 +53,27 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     belowLine.hidden = cap.look !== 'below' || !text;
     paintSticks(sLayer, sticks, sel);
     selBar.hidden = sel < 0;
+    // Ручка — у правому нижньому куті обраної наклейки, а без неї — підпису; кут повертається разом з ними
+    const o = sel >= 0 ? sticks[sel] : on ? cap : null;
+    knob.hidden = !o;
+    if (!o) return;
+    // Відступ від краю росте разом з розміром — тоді ручка йде точно за пальцем
+    const [hx, hy] = sel >= 0 ? Array(2).fill(`${o.k * 56}cqw`)
+      : [`${layer.offsetWidth * o.k * 0.56}px`, `${layer.offsetHeight * o.k * 0.6}px`];
+    const a = (o.r * Math.PI) / 180;
+    const c = Math.cos(a).toFixed(4);
+    const s = Math.sin(a).toFixed(4);
+    knob.style.left = `calc(${o.x * 100}% + ${c} * ${hx} + ${(-s).toFixed(4)} * ${hy})`;
+    knob.style.top = `calc(${o.y * 100}% + ${s} * ${hx} + ${c} * ${hy})`;
+    knob.style.setProperty('--r', `${o.r}deg`);
   };
   const redraw = () => { if (!raf) raf = requestAnimationFrame(paint); };
 
   // ── Палець: один — тягне підпис, два — розмір і поворот (де б не торкнулись гифки) ──
   const ptrs = new Map();
   let g = null;
-  const target = () => (sel >= 0 ? sticks[sel] : cap.look === 'below' ? null : cap);
+  let hd = null;
+  const target =() => (sel >= 0 ? sticks[sel] : cap.look === 'below' ? null : cap);
   const gesture = () => {
     const pts = [...ptrs.values()];
     const r = frame.getBoundingClientRect();
@@ -73,6 +90,16 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   };
   stage.addEventListener('pointerdown', (e) => {
     if (armed) { pickFrom(e); return; }
+    // Ручка: один палець крутить і розтягує довкола центру обраного
+    const o = target();
+    if (!ptrs.size && o && e.target.closest?.('.gif-handle')) {
+      const r = frame.getBoundingClientRect();
+      const cx = r.left + o.x * r.width;
+      const cy = r.top + o.y * r.height;
+      hd = { id: e.pointerId, o, cx, cy, d: Math.hypot(e.clientX - cx, e.clientY - cy) || 1, a: Math.atan2(e.clientY - cy, e.clientX - cx), k: o.k, r: o.r };
+      try { stage.setPointerCapture(e.pointerId); } catch { /* синтетичний дотик */ }
+      return;
+    }
     // Перший палець обирає: на наклейці — її, повз — підпис (наклейка знімається з вибору)
     if (!ptrs.size) {
       const hit = e.target.closest?.('.gif-sticks [data-n]');
@@ -84,6 +111,13 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     gesture();
   });
   stage.addEventListener('pointermove', (e) => {
+    if (hd && hd.id === e.pointerId) {
+      const [lo, hi] = hd.o === cap ? [0.25, 8] : [0.06, 1.2];
+      hd.o.k = Math.min(hi, Math.max(lo, (hd.k * Math.hypot(e.clientX - hd.cx, e.clientY - hd.cy)) / hd.d));
+      hd.o.r = hd.r + ((Math.atan2(e.clientY - hd.cy, e.clientX - hd.cx) - hd.a) * 180) / Math.PI;
+      redraw();
+      return;
+    }
     if (!ptrs.has(e.pointerId)) return;
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!g) return;
@@ -103,7 +137,11 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     }
     redraw();
   });
-  const up = (e) => { if (ptrs.delete(e.pointerId)) gesture(); if (!ptrs.size) commit(); };
+  const up = (e) => {
+    if (hd?.id === e.pointerId) hd = null;
+    if (ptrs.delete(e.pointerId)) gesture();
+    if (!ptrs.size) commit();
+  };
   stage.addEventListener('pointerup', up);
   stage.addEventListener('pointercancel', up);
 

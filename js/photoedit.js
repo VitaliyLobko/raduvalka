@@ -3,7 +3,7 @@
 // Без правок іде той самий файл, що й раніше; «Под фото» — звичайний підпис текстом під картинкою, як завжди
 import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper } from './maker.js';
-import { stickerRow, EMOJI_STICKERS } from './stickpick.js';
+import { stickerRow, EMOJI_STICKERS, HANDLE_PATH } from './stickpick.js';
 import { ownColor, sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 import { capFont, capFontCss, CAP_SIZE } from './memes.js';
@@ -28,6 +28,7 @@ const FRAME = { side: 0.05, bottom: 0.22, paper: '#fbf8f3', ink: '#2a1730', soft
 // Пензель розмиття — частка ширини кадру; розмите фото — зменшене до BLUR_PX і розтягнуте назад (номерів не прочитати)
 const BLUR_W = 0.075;
 const BLUR_PX = 56;
+const HANDLE_SHAPE = new Path2D(HANDLE_PATH);
 
 const lum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
@@ -273,6 +274,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let pipette = null;
   let sel = null;
   let mode = 'move';
+  // Ручка обраного (координати фото, рахує відмальовка) і її жест: один палець — розмір і поворот довкола центру
+  let handle = null;
+  let hd = null;
   let tmpCrop = null;
   let frame = false;
   // Віддзеркалення фото — у координатах уже повернутого фото, поверх повороту
@@ -371,7 +375,32 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       const m = 8 / sc / sel.k;
       ctx.strokeRect(-sel.box.w / 2 - m, -sel.box.h / 2 - m, sel.box.w + m * 2, sel.box.h + m * 2);
       ctx.restore();
-    }
+      // Ручка в правому нижньому куті рамки: радіус — 14 css-пікселів за будь-якого масштабу фото
+      const cx = (sel.box.w / 2 + m) * sel.k;
+      const cy = (sel.box.h / 2 + m) * sel.k;
+      const c = Math.cos(sel.rot);
+      const s = Math.sin(sel.rot);
+      const R = (14 * (canvas.width / parseFloat(canvas.style.width) || 1)) / sc;
+      handle = { x: sel.x + cx * c - cy * s, y: sel.y + cx * s + cy * c };
+      ctx.save();
+      ctx.translate(handle.x, handle.y);
+      ctx.shadowColor = 'rgba(0, 0, 0, .45)';
+      ctx.shadowBlur = 6 / sc;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(0, 0, R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.rotate(sel.rot);
+      ctx.scale(R / 13, R / 13);
+      ctx.translate(-12, -12);
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#4A2545';
+      ctx.stroke(HANDLE_SHAPE);
+      ctx.restore();
+    } else handle = null;
     if (mode === 'crop' && tmpCrop) {
       const c = tmpCrop;
       ctx.save();
@@ -553,6 +582,10 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       cropDrag = corner || inside ? { k: corner?.[2] || 'move', x: p.x, y: p.y, c: { ...c } } : null;
       return;
     }
+    if (!ptrs.size && sel && handle && Math.hypot(p.x - handle.x, p.y - handle.y) <= 24 * p.per) {
+      hd = { id: e.pointerId, d: Math.hypot(p.x - sel.x, p.y - sel.y) || 1, a: Math.atan2(p.y - sel.y, p.x - sel.x), k: sel.k, rot: sel.rot };
+      return;
+    }
     ptrs.set(e.pointerId, p);
     if (ptrs.size === 1) {
       sel = hit(p);
@@ -592,6 +625,12 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       redraw();
       return;
     }
+    if (hd && hd.id === e.pointerId && sel) {
+      sel.k = Math.min(8, Math.max(0.25, (hd.k * Math.hypot(p.x - sel.x, p.y - sel.y)) / hd.d));
+      sel.rot = hd.rot + Math.atan2(p.y - sel.y, p.x - sel.x) - hd.a;
+      redraw();
+      return;
+    }
     if (!ptrs.has(e.pointerId)) return;
     ptrs.set(e.pointerId, p);
     if (!sel || !g) return;
@@ -611,6 +650,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const up = (e) => {
     if (stroke?.id === e.pointerId) stroke = null;
     cropDrag = null;
+    if (hd?.id === e.pointerId) hd = null;
     if (ptrs.delete(e.pointerId)) gesture();
     if (!ptrs.size) commit();
   };
