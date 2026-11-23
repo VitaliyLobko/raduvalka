@@ -899,12 +899,8 @@ function inBubble(l) {
   return bubble;
 }
 
-// Хто приніс: його кур'єр; стара наклейка-улюбленець без кур'єра — він сам; а як нема — той, хто зазвичай приносить
-function courierOf(l) {
-  if (DATA.mascots[l.mascot]) return l.mascot;
-  const st = !l.url && !l.file && l.stick ? stickParse(l.stick)[0] : null;
-  return st && DATA.mascots[st.key] ? st.key : petFor('push');
-}
+// Хто приніс: обраний відправником кур'єр (лист, фото, гифка, наклейка), а як нема — той, хто зазвичай приносить
+const courierOf = (l) => (DATA.mascots[l.mascot] ? l.mascot : petFor('push'));
 
 // Запечатаний лист у чаті: міні-конверт із печаттю, назва й «Открыть»; тап — шторка на весь екран
 function envBubble(l) {

@@ -300,11 +300,10 @@ export async function composeMeme(file, done, re = null) {
 // Наклейка-улюбленець окремим повідомленням (вибір — у клавіатурі 😊): лише код пози, фото є на обох телефонах
 export async function sendSticker(key, i, done, re = null) {
   try {
-    // Наклейку-улюбленця несе він сам
-    const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re, mascot: key });
+    const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re });
     DATA.memes = [meme, ...(DATA.memes || [])];
     sfx('sent');
-    const p = DATA.mascots[key] ? key : pet();
+    const p = DATA.mascots[re?.mascot] ? re.mascot : pet();
     toast(`${petName(p) || 'Почтальон'} ${isShe(p) ? 'понесла' : 'понёс'} наклейку ➶`);
     done?.();
   } catch (e) { toast(sendError(e)); }
