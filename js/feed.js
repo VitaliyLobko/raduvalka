@@ -902,12 +902,16 @@ function inBubble(l) {
 // Хто приніс: обраний відправником кур'єр (лист, фото, гифка, наклейка), а як нема — той, хто зазвичай приносить
 const courierOf = (l) => (DATA.mascots[l.mascot] ? l.mascot : petFor('push'));
 
-// Запечатаний лист у чаті: міні-конверт із печаттю, назва й «Открыть»; тап — шторка на весь екран
+// Літачок — SVG, а не символ ✈: символ тягне запасний шрифт і гальмує перший показ
+const PLANE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>';
+
+// Запечатаний лист у чаті: конверт авіапошти, улюбленець на марці, назва й «Открыть»; тап — шторка на весь екран
 function envBubble(l) {
   const festive = l.kind === 'date';
   const pet = courierOf(l);
   const she = DATA.mascots[pet]?.g === 'f';
   const name = festive ? 'Праздничное письмо 🎉' : 'Тебе письмо';
+  const who = [pet ? `${petName(pet)} ${she ? 'принесла' : 'принёс'}` : '', l.tpl ? 'первое письмо' : ''].filter(Boolean).join(' · ');
   return h('button', {
     type: 'button', class: `feed-bubble feed-env${festive ? ' is-festive' : ''}`,
     'aria-label': `${name}: открыть`,
@@ -919,8 +923,10 @@ function envBubble(l) {
     pet ? null : h('span', { class: 'feed-env-pic', 'aria-hidden': 'true' }),
     h('span', { class: 'feed-env-text' },
       h('b', {}, name),
-      h('span', {}, `${pet ? `${petName(pet)} ${she ? 'принесла' : 'принёс'} · ` : ''}${hhmm(l.at)}${l.tpl ? ' · первое письмо' : ''}`)),
-    h('span', { class: 'feed-env-go', 'aria-hidden': 'true' }, 'Открыть'));
+      who ? h('span', {}, who) : null),
+    h('span', { class: 'feed-env-go', 'aria-hidden': 'true' }, 'Открыть'),
+    // Літачок авіапошти над часом
+    h('span', { class: 'feed-env-time', html: `${PLANE}<span>${hhmm(l.at)}</span>` }));
 }
 
 // Звичайний лист розкривається прямо в чаті: печатка злітає — і на місці конверта сам лист, цілим
