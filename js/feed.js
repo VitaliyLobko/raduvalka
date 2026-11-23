@@ -115,8 +115,17 @@ export function redrawFeed() { draw(); }
 document.addEventListener('radovalka:duel-seen', () => draw());
 
 // Запечатаний: справжній лист чи привітальний, ще не відкритий
+// «Открывать письма сразу» (налаштування цього телефона): звичайні листи без конверта, прочитано при показі.
+// Святковий і перший привітальний — усе одно конвертом (у них своє розкриття)
+const AUTO_OPEN = 'radovalka:auto-open';
+export function autoOpen() { try { return localStorage.getItem(AUTO_OPEN) === '1'; } catch { return false; } }
+export function setAutoOpen(on) {
+  try { if (on) localStorage.setItem(AUTO_OPEN, '1'); else localStorage.removeItem(AUTO_OPEN); } catch { /* приватне вікно */ }
+  draw();
+}
+const autoLetter = (l) => !l.tpl && ['now', 'morning'].includes(l.kind) && autoOpen();
 // Лист лише зі смайлів приходить як є, без конверта (див. bareLetter)
-const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind)) && !(l.kind === 'now' && bareLetter(l));
+const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind)) && !(l.kind === 'now' && bareLetter(l)) && !autoLetter(l);
 
 // Час, за яким рядок стоїть у чаті, — так само рахує сервер для меж сторінок
 const tIn = (l) => l.at;
@@ -482,7 +491,7 @@ function isFresh(it) {
 function rowFor(it) {
   // Рядок спору залежить і від того, чи я вже бачив розкриття (localStorage), — текст рядка теж у підписі
   const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : it.n?.kind === 'same' ? sameSig(it.n.same) : it.n?.kind === 'hot' ? hotSig(it.n.hot) : null;
-  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel]);
+  const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel, it.type === 'in' && autoOpen()]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
   const el = row(it);
@@ -877,8 +886,9 @@ function inBubble(l) {
     fresh();
     openFx(bubble, l.text);
   }
-  // Смайли без пузиря нема що розкривати: прочитано, щойно показались на відкритому екрані (і ефект — тоді ж)
-  if (!l.opened && !l.tpl && bareLetter(l)) {
+  // Смайли без пузиря нема що розкривати (і «Открывать письма сразу»): прочитано, щойно показались на відкритому екрані,
+  // ефект — тоді ж
+  if (!l.opened && !l.tpl && (bareLetter(l) || autoLetter(l))) {
     const seen = () => {
       if (l.opened || !bubble.isConnected) return;
       if (document.visibilityState === 'visible') markRead();

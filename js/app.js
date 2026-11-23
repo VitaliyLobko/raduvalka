@@ -7,7 +7,7 @@ import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
 import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
-import { letterFeed, chatTitle, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest } from './feed.js';
+import { letterFeed, chatTitle, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest, autoOpen, setAutoOpen } from './feed.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
 import { h, toast, cap, reduceMotion, aboutGroup, aboutRow, aboutRowBody, waxSeal, SAGITTARIUS_GLYPH, signLine, ENV_POCKET as POCKET, hhmm } from './ui.js';
 import { renderEnvelopes, markEnvelopes } from './envelopes.js';
@@ -721,6 +721,22 @@ function instrumentPicker() {
     h('p', { class: 'instr-note' }, `${cap(p)} играет ${INSTRUMENTS[partnerInstrument()].on}: так звучат ${p === 'она' ? 'её' : 'его'} письма и ходы`));
 }
 
+// Як приходять листи: конвертом, що відкриваєш сам (за замовчуванням), чи одразу відкритими. Свій для кожного телефона
+function autoOpenSwitch() {
+  const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
+  const paint = () => {
+    btn.setAttribute('aria-checked', String(autoOpen()));
+    btn.replaceChildren(
+      h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, '✉️'),
+      h('span', { class: 'about-row-label' }, 'Открывать письма сразу',
+        h('small', {}, autoOpen() ? 'Письмо приходит уже открытым' : 'Письмо приходит конвертом и открывается по тапу')),
+      h('span', { class: 'about-toggle', 'aria-hidden': 'true' }));
+  };
+  btn.addEventListener('click', () => { setAutoOpen(!autoOpen()); paint(); });
+  paint();
+  return btn;
+}
+
 function stillSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
   const paint = () => {
@@ -776,6 +792,7 @@ function openAbout(showNews) {
       aboutGroup('Замок', pinPanel(aboutRow)),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Размер букв в письмах', textSizePanel()),
+      aboutGroup('Письма', autoOpenSwitch()),
       aboutGroup('Уведомления', pushPanel()),
       // Раптом від руху фону укачує — вимикається тут
       aboutGroup('Фон', stillSwitch()),
