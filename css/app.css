@@ -42,7 +42,7 @@
 
 /* Його половина: шторки й картки темні, як «Вместе», — ніч, крем, золото. Ті самі імена змінних,
    тож правила лишаються спільні: «слива» в нього — крем, «папір» — ніч, акцент — золото */
-[data-side="vin"] :is(.sheet, .cbar, .cbar-plus, .bubble, .feed-bubble, .feed-hidden li, .want, .inbox-item, .meme, .sent-item) {
+[data-side="vin"] :is(.sheet, .cbar, .cbar-plus, .bubble, .feed-bubble, .feed-hidden li, .want, .inbox-item, .meme, .sent-item, .cp-panel) {
   --paper: #134A5E;
   --plum: var(--cream);
   --lavender: rgba(244, 230, 196, .26);
@@ -53,7 +53,7 @@
   --rule: rgba(244, 230, 196, .14);
   --chip: rgba(255, 255, 255, .1);
 }
-[data-side="vin"] .sheet .btn-primary { background: var(--star); border-color: var(--star); color: var(--night); }
+[data-side="vin"] :is(.sheet, .cp-panel) .btn-primary { background: var(--star); border-color: var(--star); color: var(--night); }
 [data-side="vin"] .sheet ::placeholder { color: rgba(244, 230, 196, .5); }
 /* Його свої повідомлення — світліша ніч (золото з бірюзою дає болотне), «Я в порядке» — золото */
 [data-side="vin"] :is(.feed-row.is-mine .feed-bubble, .write-msg.is-mine) { background: color-mix(in srgb, var(--cream) 13%, #134A5E); }
@@ -2047,12 +2047,12 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .meme-free.is-plate { font: 600 6cqw/1.15 Rubik, system-ui, sans-serif; padding: .3em .45em; border-radius: .4em; background: var(--c); color: var(--ink); }
 .meme-free.is-bubble {
   font: 600 6cqw/1.15 Rubik, system-ui, sans-serif; padding: .5em .7em; border-radius: 1.1em; background: var(--c); color: var(--ink);
-  border: .09em solid var(--ink); filter: drop-shadow(0 .06em .3em rgba(0, 0, 0, .35));
+  border: .09em solid var(--edge, var(--ink)); filter: drop-shadow(0 .06em .3em rgba(0, 0, 0, .35));
 }
 .meme-free.is-bubble::before, .meme-free.is-bubble::after {
   content: ''; position: absolute; top: 100%; clip-path: polygon(12% 0, 100% 0, 0 100%);
 }
-.meme-free.is-bubble::before { left: 12%; width: 1.5em; height: 1.2em; background: var(--ink); }
+.meme-free.is-bubble::before { left: 12%; width: 1.5em; height: 1.2em; background: var(--edge, var(--ink)); }
 .meme-free.is-bubble::after { left: calc(12% + .2em); width: 1.12em; height: .86em; background: var(--c); }
 .meme-free.is-tape {
   font: 400 9cqw/1.05 Caveat, 'Segoe Print', cursive; padding: .28em .6em; color: var(--ink); rotate: -3deg;
@@ -4256,7 +4256,42 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 }
 .ph-panel-draw { flex-wrap: wrap; row-gap: 10px; }
 .ph-panel-draw .ph-swatches { flex: 1 0 100%; justify-content: center; }
-.ph-own-input { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+/* Свій колір: панель знизу — зразок і квадрат відтінку, веселка, HEX і «Готово»; фото над нею видно */
+.cp-panel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: grid; gap: 14px;
+  max-width: 480px; margin: 0 auto; padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0; background: var(--paper); color: var(--ink);
+  box-shadow: 0 -12px 34px -10px rgba(0, 0, 0, .45); animation: cp-up .18s ease-out;
+}
+@keyframes cp-up { from { transform: translateY(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cp-panel { animation: none; } }
+.cp-top { display: grid; grid-template-columns: 30% 1fr; height: 150px; border-radius: 14px; overflow: hidden; }
+.cp-preview { background: var(--cur); }
+.cp-sv {
+  position: relative; touch-action: none; cursor: crosshair;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(var(--h, 0) 100% 50%));
+}
+.cp-dot {
+  position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 2.5px solid #fff; border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(0, 0, 0, .25); pointer-events: none;
+}
+.cp-hue {
+  position: relative; height: 14px; margin: 6px 11px; border-radius: 7px; touch-action: none; cursor: pointer;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.cp-hue::before { content: ''; position: absolute; inset: -12px -11px; }
+.cp-hue-dot { top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; background: var(--cur); }
+.cp-row { display: flex; align-items: center; gap: 10px; }
+.cp-hex-wrap {
+  position: relative; flex: 1; display: grid; min-width: 0;
+}
+.cp-hex-wrap > span { position: absolute; top: -8px; left: 50%; padding: 0 4px; transform: translateX(-50%); background: var(--paper); font-size: .75rem; color: var(--ink-soft); }
+.cp-hex {
+  width: 100%; min-height: 44px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 10px; background: none;
+  color: inherit; font: 500 1rem/1 var(--ui); text-align: center; text-transform: lowercase;
+}
+.cp-hex:focus-visible, .cp-sv:focus-visible, .cp-hue:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+.cp-done { flex: none; min-height: 44px; }
 .ph-pipette { display: grid; place-items: center; background: var(--paper); color: var(--ink); }
 .ph-pipette[aria-pressed="true"] { background: var(--wax); color: var(--paper); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--wax); }
 .ph-stage.is-pipette, .ph-stage.is-pipette canvas { cursor: crosshair; }
@@ -4309,6 +4344,11 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-tab:focus-visible { outline: 2px solid var(--wax); outline-offset: 1px; }
 .ph-pane { min-height: 40px; display: flex; flex-direction: column; justify-content: center; }
 .ph-cap-colors { display: flex; justify-content: center; }
+/* «Плашка | Текст» над кружками; «A» — колір тексту сам під тло */
+.ph-cap-target { justify-content: center; margin-bottom: 8px; }
+.ph-cap-target[hidden] { display: none; }
+.ph-auto { display: grid; place-items: center; background: var(--paper); color: var(--ink); font: 700 .875rem/1 var(--ui); }
+.ph-auto[hidden] { display: none; }
 .ph-fonts .mk-chip { font-size: .95rem; }
 /* ✨ підписи й настрій — по рядку, без підписів-заголовків: фото лишається якомога більшим */
 .sheet-photo .cap-assist .mk-label { display: none; }

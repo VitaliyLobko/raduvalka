@@ -179,12 +179,12 @@ function drawItem(ctx, it) {
   const text = () => lines.forEach((l, i) => ctx.fillText(l, 0, y0 + i * lh));
   if (it.look === 'bubble') {
     drawBubble(ctx, it, bw, bh);
-    ctx.fillStyle = ink(it.color);
+    ctx.fillStyle = it.ink || ink(it.color);
     text();
   } else if (it.look === 'tape') {
     ctx.rotate(-0.05);
     drawTape(ctx, it, bw, bh);
-    ctx.fillStyle = ink(it.color);
+    ctx.fillStyle = it.ink || ink(it.color);
     text();
   } else if (it.look === 'neon') {
     drawNeon(ctx, it, text, lines, y0, lh);
@@ -192,7 +192,7 @@ function drawItem(ctx, it) {
     ctx.fillStyle = it.color;
     rrect(ctx, -bw / 2, -bh / 2, bw, bh, it.size * 0.4);
     ctx.fill();
-    ctx.fillStyle = ink(it.color);
+    ctx.fillStyle = it.ink || ink(it.color);
     text();
   } else if (it.look === 'meme') {
     ctx.lineJoin = 'round';
@@ -267,6 +267,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   let capItem = null;
   let look = 'below';
   let color = COLORS[0];
+  // Колір тексту на плашці, облачку, скотчі; '' — сам під тло
+  let capInk = '';
   let font = '';
   let drawColor = COLORS[1];
   let pipette = null;
@@ -529,7 +531,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       const hex = sampleColor(ctx, ((e.clientX - r.left) * canvas.width) / r.width, ((e.clientY - r.top) * canvas.height) / r.height);
       const k = pipette;
       pipette = null;
-      if (hex) (k === 'cap' ? setCapColor : setDrawColor)(hex); else paintTools();
+      if (hex) ({ cap: setCapColor, ink: setCapInk, draw: setDrawColor })[k](hex); else paintTools();
       return;
     }
     try { canvas.setPointerCapture(e.pointerId); } catch { /* синтетичний дотик */ }
@@ -634,7 +636,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     } else {
       const v = v0();
       if (!capItem) {
-        capItem = { x: v.x + v.w / 2, y: v.y + v.h * 0.8, k: 1, rot: 0, color, wrap: v.w * 0.86 };
+        capItem = { x: v.x + v.w / 2, y: v.y + v.h * 0.8, k: 1, rot: 0, color, ink: capInk, wrap: v.w * 0.86 };
         items.push(capItem);
       }
       const f = capFont(font);
@@ -665,8 +667,15 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     paintTools();
     redraw();
   };
+  const setCapInk = (x) => {
+    capInk = x;
+    const target = textual(sel) ? sel : capItem;
+    if (target) target.ink = x;
+    paintTools();
+    redraw();
+  };
   const setDrawColor = (x) => { drawColor = x; paintTools(); };
-  // Піпетка: 'cap' чи 'draw' — чий колір візьме наступний дотик до фото
+  // Піпетка: 'cap', 'ink' (текст на плашці) чи 'draw' — чий колір візьме наступний дотик до фото
   const armPipette = (k) => {
     pipette = pipette === k ? null : k;
     if (pipette) toast('Коснись фото — возьму оттуда цвет');
@@ -677,7 +686,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     onLook: (v) => { look = v; syncCaption(); },
     onFont: (v) => { font = v; syncCaption(); loadFont(); },
     onColor: (c) => setCapColor(typeof c === 'number' ? COLORS[c] : c),
-    onPipette: () => armPipette('cap'),
+    onInk: (c) => setCapInk(typeof c === 'number' ? COLORS[c] : c),
+    onPipette: (t) => armPipette(t === 'text' ? 'ink' : 'cap'),
   });
   const helper = captionHelper(caption, { image, onPick: syncCaption });
 
@@ -701,7 +711,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const snap = () => ({
     items: items.map((it) => ({ ...it, box: null, cap: it === capItem, ...(it === capItem ? { text: '' } : {}) })),
     strokes: strokes.map((s) => ({ ...s, pts: s.pts.slice() })),
-    crop: crop && { ...crop }, turns, flipX, flipY, frame, look, color, font,
+    crop: crop && { ...crop }, turns, flipX, flipY, frame, look, color, capInk, font,
   });
   const snapKey = (s) => JSON.stringify(s, (k, v) => (k === 'img' ? undefined : v));
   const past = [];
@@ -725,6 +735,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     capItem = items.find((it) => it.cap) || null;
     strokes.splice(0, strokes.length, ...s.strokes.map((x) => ({ ...x, pts: x.pts.slice() })));
     ({ turns, flipX, flipY, frame, look, color, font } = s);
+    capInk = s.capInk || '';
     crop = s.crop && { ...s.crop };
     if (mode === 'crop') tmpCrop = crop ? { ...crop } : { x: 0, y: 0, w: rw(), h: rh() };
     sel = null;
@@ -852,7 +863,11 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     undo.disabled = !strokes.some((s) => !s.blur);
     blurUndo.disabled = !strokes.some((s) => s.blur);
     const cur = textual(sel) ? sel.color : color;
-    style.paint({ text: caption.value.trim(), look, font, color: cur, preset: COLORS.indexOf(cur), armed: pipette === 'cap' });
+    const curInk = (textual(sel) ? sel.ink : capInk) || '';
+    style.paint({
+      text: caption.value.trim(), look, font, color: cur, preset: COLORS.indexOf(cur), ink: curInk, inkPreset: COLORS.indexOf(curInk),
+      armed: pipette === 'cap' || pipette === 'ink',
+    });
     drawColors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === drawColor)));
     drawOwn.paint(drawColor, COLORS.includes(drawColor), pipette === 'draw');
     stage.classList.toggle('is-pipette', !!pipette);

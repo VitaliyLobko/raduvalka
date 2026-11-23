@@ -11,7 +11,8 @@ import { capStyle, histButtons } from './capstyle.js';
 // gif — { url, title, w, h } з пошуку; send(caption, style, stick) — надіслати (кидає помилку — вікно лишається);
 // stick — код наклейок-улюбленців (memes.js), вони теж шаром поверх живої гифки
 export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
-  const cap = { look: 'below', color: 0, font: '', x: 0.5, y: 0.8, k: 1, r: 0 };
+  // ink — колір тексту на плашці, облачку, скотчі ('' — сам під тло)
+  const cap = { look: 'below', color: 0, font: '', ink: '', x: 0.5, y: 0.8, k: 1, r: 0 };
   // crossOrigin — щоб піпетка могла прочитати кадр (Giphy віддає дозвіл); ставимо до src, інакше не діє
   const video = media(gif.url, 'Что отправляю');
   video.crossOrigin = 'anonymous';
@@ -116,8 +117,16 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     onLook: (v) => { cap.look = v; sync(); },
     onFont: (v) => { cap.font = v; sync(); },
     onColor: (c) => { cap.color = c; sync(); },
-    onPipette: () => { armed = !armed; if (armed) toast('Коснись гифки — возьму оттуда цвет'); sync(); },
+    onInk: (c) => { cap.ink = typeof c === 'number' ? CAP_COLORS[c] : c; sync(); },
+    onPipette: (t) => {
+      armed = !armed;
+      inkPick = t === 'text';
+      if (armed) toast('Коснись гифки — возьму оттуда цвет');
+      sync();
+    },
   });
+  // Піпетка бере колір тексту на плашці, а не саму плашку
+  let inkPick = false;
   // Піпетка: поточний кадр у полотно розміром з рамку, колір під пальцем
   function pickFrom(e) {
     armed = false;
@@ -128,14 +137,17 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     const cx = c.getContext('2d', { willReadFrequently: true });
     let hex = null;
     try { cx.drawImage(video, 0, 0, c.width, c.height); hex = sampleColor(cx, e.clientX - r.left, e.clientY - r.top); } catch { /* кадр ще не готовий */ }
-    if (hex) cap.color = hex; else toast('Из этой гифки цвет не взять — выбери в 🎨');
+    if (hex && inkPick) cap.ink = hex;
+    else if (hex) cap.color = hex;
+    else toast('Из этой гифки цвет не взять — выбери в 🎨');
     sync();
   }
   function sync() {
     const custom = typeof cap.color === 'string';
     style.paint({
       text: caption.value.trim(), look: cap.look, font: cap.font,
-      color: custom ? cap.color : CAP_COLORS[cap.color], preset: custom ? -1 : cap.color, armed,
+      color: custom ? cap.color : CAP_COLORS[cap.color], preset: custom ? -1 : cap.color,
+      ink: cap.ink, inkPreset: CAP_COLORS.indexOf(cap.ink), armed,
     });
     stage.classList.toggle('is-pipette', armed);
     redraw();

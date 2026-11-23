@@ -13,9 +13,16 @@ export const histButtons = (onUndo, onRedo) => [
 export const CAP_LOOKS =['meme', 'hand', 'plate', 'bubble', 'tape', 'neon'];
 const LOOK_NAMES = { meme: 'Мем', hand: 'Рукой', plate: 'Плашка', bubble: 'Облачко', tape: 'Скотч', neon: 'Неон' };
 
-// belowLabel — назва «під картинкою»; onLook(v), onFont(v — '' це шрифт виду), onColor(i — номер кружка, або hex), onPipette()
-export function capStyle({ belowLabel, onLook, onFont, onColor, onPipette }) {
+// Види з тлом: колір — плашці, а тексту — окремий (за замовчуванням «Авто»: темний чи білий під тло)
+export const CAP_FILLED = new Set(['plate', 'bubble', 'tape']);
+
+// belowLabel — назва «під картинкою»; onLook(v), onFont(v — '' це шрифт виду), onColor(i — номер кружка, або hex),
+// onInk(v — '' це «Авто», номер кружка або hex) — колір тексту на плашці; onPipette(target — 'fill' | 'text')
+export function capStyle({ belowLabel, onLook, onFont, onColor, onInk, onPipette }) {
   let tab = 'look';
+  // Що фарбують кружки на плашці: саму плашку чи текст
+  let target = 'fill';
+  const pickColor = (v) => (target === 'text' ? onInk(v) : onColor(v));
   const radio = (label, v, pick, extra = {}) => h('button', {
     type: 'button', role: 'radio', class: 'mk-chip', 'data-v': v, onclick: () => pick(v), ...extra,
   }, label);
@@ -25,13 +32,22 @@ export function capStyle({ belowLabel, onLook, onFont, onColor, onPipette }) {
   const fonts = h('div', { class: 'mk-chips mk-row ph-looks ph-fonts', role: 'radiogroup', 'aria-label': 'Шрифт подписи' },
     radio('Обычный', '', onFont),
     ...CAP_FONTS.map((f) => radio(f.label, f.v, onFont, { style: `font-family:'${f.family}';font-weight:${f.weight}` })));
-  const own = ownColor({ label: 'Цвет подписи', onPick: onColor, onPipette });
+  const own = ownColor({ label: 'Цвет подписи', onPick: (c) => pickColor(c), onPipette: () => onPipette(target) });
+  const auto = h('button', {
+    type: 'button', class: 'ph-swatch ph-auto', role: 'radio', 'data-v': 'auto', 'aria-label': 'Цвет текста: авто', onclick: () => onInk(''),
+  }, 'A');
   const colors = h('div', { class: 'ph-swatches ph-cap-colors', role: 'radiogroup', 'aria-label': 'Цвет подписи' },
+    auto,
     ...CAP_COLORS.map((c, i) => h('button', {
       type: 'button', class: 'ph-swatch', role: 'radio', style: `--c:${c}`, 'data-v': String(i), 'aria-label': CAP_COLOR_NAMES[i],
-      onclick: () => onColor(i),
+      onclick: () => pickColor(i),
     })), own.el);
-  const panes = { look: h('div', { class: 'ph-pane' }, looks), font: h('div', { class: 'ph-pane' }, fonts), color: h('div', { class: 'ph-pane' }, colors) };
+  const targetBtn = (k, label) => h('button', {
+    type: 'button', role: 'radio', class: 'mk-chip', 'data-v': k, onclick: () => { target = k; paint(last); },
+  }, label);
+  const targets = h('div', { class: 'mk-chips ph-cap-target', role: 'radiogroup', 'aria-label': 'Что красить' },
+    targetBtn('fill', 'Плашка'), targetBtn('text', 'Текст'));
+  const panes = { look: h('div', { class: 'ph-pane' }, looks), font: h('div', { class: 'ph-pane' }, fonts), color: h('div', { class: 'ph-pane' }, targets, colors) };
   ribbon(looks);
   ribbon(fonts);
   const tabBtn = (k, label) => h('button', {
@@ -40,7 +56,8 @@ export function capStyle({ belowLabel, onLook, onFont, onColor, onPipette }) {
   const tabs = [tabBtn('look', 'Вид'), tabBtn('font', 'Шрифт'), tabBtn('color', 'Цвет')];
   const el = h('div', { class: 'ph-capstyle', hidden: true }, h('div', { class: 'ph-tabs', role: 'tablist', 'aria-label': 'Подпись' }, ...tabs), panes.look, panes.font, panes.color);
 
-  // s: { text, look, font, color — hex, preset — номер кружка або -1, armed — піпетка чекає }
+  // s: { text, look, font, color — hex, preset — номер кружка або -1, ink — hex або '' (авто), inkPreset — номер або -1,
+  //      armed — піпетка чекає }
   let last = null;
   function paint(s) {
     last = s;
@@ -55,8 +72,18 @@ export function capStyle({ belowLabel, onLook, onFont, onColor, onPipette }) {
     for (const [k, p] of Object.entries(panes)) p.hidden = k !== tab;
     looks.querySelectorAll('.mk-chip').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === s.look)));
     fonts.querySelectorAll('.mk-chip').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === (s.font || ''))));
-    colors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(+b.dataset.v === s.preset)));
-    own.paint(s.color, s.preset >= 0, s.armed);
+    // Плашка, облачко, скотч — перемикач «Плашка | Текст»; в інших видів колір і так у тексту
+    const filled = CAP_FILLED.has(s.look);
+    if (!filled) target = 'fill';
+    targets.hidden = !filled;
+    targets.querySelectorAll('.mk-chip').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === target)));
+    const text = target === 'text';
+    auto.hidden = !text;
+    const ink = s.ink || '';
+    const preset = text ? (ink ? s.inkPreset : -2) : s.preset;
+    auto.setAttribute('aria-checked', String(text && !ink));
+    colors.querySelectorAll('.ph-swatch[data-v]:not(.ph-auto)').forEach((b) => b.setAttribute('aria-checked', String(+b.dataset.v === preset)));
+    own.paint(text ? ink : s.color, text ? !ink || s.inkPreset >= 0 : s.preset >= 0, s.armed);
   }
   return { el, paint };
 }

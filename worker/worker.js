@@ -154,8 +154,8 @@ const MIGRATIONS = [
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 // Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований);
-// колір — номер готового (0–4) або свій hex без «#»; шрифт — необовʼязковий хвіст
-const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}(?:\.(?:lobster|marck|bubbles|comfortaa|russo|playfair|press))?$/;
+// колір — номер готового (0–4) або свій hex без «#»; шрифт і колір тексту на плашці (i_rrggbb) — необовʼязкові хвости
+const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}(?:\.(?:lobster|marck|bubbles|comfortaa|russo|playfair|press))?(?:\.i_[0-9a-f]{6})?$/;
 
 // Наклейки-улюбленці поверх гифки: 'ключ.поза.x.y.розмір.поворот.дзеркало' через «~», до 8 (x, y, розмір — тисячні кадру).
 // Фото улюбленців однакові на обох телефонах, тож досить ключа й номера пози

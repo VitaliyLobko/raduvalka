@@ -64,7 +64,8 @@ export const CAP_SIZE = { meme: 0.075, plate: 0.06, bubble: 0.06, hand: 0.07, ta
 // Назви сімейств — у лапках: «Press Start 2P» без них ламає весь рядок шрифту
 export const capFontCss = (f, size) => `${f.weight} ${size} '${f.family}', system-ui, sans-serif`;
 // Колір — номер готового кружка (0–4) або свій: шість hex-цифр без «#»; шрифт — необовʼязковий хвіст
-const FREE = /^(meme|hand|plate|bubble|tape|neon)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})(?:\.([a-z]{3,9}))?$/;
+// Хвости: шрифт і колір тексту на плашці (.i_rrggbb — підкреслення, щоб hex із самих літер не сплутався зі шрифтом)
+const FREE = /^(meme|hand|plate|bubble|tape|neon)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})(?:\.([a-z]{3,9}))?(?:\.i_([0-9a-f]{6}))?$/;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // Види з фоном під текстом — на світлому фоні текст темно-сливовий
 const FILLED = new Set(['plate', 'bubble', 'tape']);
@@ -72,20 +73,24 @@ export function freeStyle(code) {
   const m = FREE.exec(code || '');
   return m ? {
     look: m[1], color: m[2].length === 6 ? `#${m[2]}` : +m[2], x: clamp(+m[3] / 1000, 0, 1), y: clamp(+m[4] / 1000, 0, 1),
-    k: clamp(+m[5] / 100, 0.25, 8), r: +m[6], font: capFont(m[7])?.v || '',
+    k: clamp(+m[5] / 100, 0.25, 8), r: +m[6], font: capFont(m[7])?.v || '', ink: m[8] ? `#${m[8]}` : '',
   } : null;
 }
-// Без шрифту — старі шість частин: такий код читають і застосунки до появи шрифтів
+// Без шрифту й кольору тексту — старі шість частин: такий код читають і застосунки до появи шрифтів
+const inkOf = (c) => (FILLED.has(c.look) && /^#[0-9a-f]{6}$/.test(c.ink || '') ? c.ink : '');
 export const freeCode = (c) => [c.look, typeof c.color === 'string' ? c.color.slice(1) : c.color, Math.round(clamp(c.x, 0, 1) * 1000), Math.round(clamp(c.y, 0, 1) * 1000),
-  Math.round(clamp(c.k, 0.25, 8) * 100), Math.round(((((c.r % 360) + 540) % 360) - 180)), ...(capFont(c.font) ? [c.font] : [])].join('.');
+  Math.round(clamp(c.k, 0.25, 8) * 100), Math.round(((((c.r % 360) + 540) % 360) - 180)), ...(capFont(c.font) ? [c.font] : []),
+  ...(inkOf(c) ? [`i_${inkOf(c).slice(1)}`] : [])].join('.');
 export function paintFree(el, c, text) {
   const color = (typeof c.color === 'string' && /^#[0-9a-f]{6}$/.test(c.color) ? c.color : CAP_COLORS[c.color]) || CAP_COLORS[0];
   el.className = `meme-free is-${c.look}`;
   el.textContent = text;
-  const ink = capLight(color) ? (FILLED.has(c.look) ? '#2a1730' : '#000') : '#fff';
+  // Обвідка облачка — завжди під тло (як на фото); свій колір — лише в тексту
+  const edge = capLight(color) ? (FILLED.has(c.look) ? '#2a1730' : '#000') : '#fff';
+  const ink = inkOf(c) || edge;
   // Неон: сяйво кольором і біла серцевина; темний колір — навпаки
   const dark = capLum(color) < 0.22;
-  el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${ink};`
+  el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${ink};--edge:${edge};`
     + `--glow:${dark ? '#fff' : color};--core:${dark ? color : '#fff'}`;
   // Свій шрифт — поверх шрифту виду (inline сильніший за клас); прописи в мемі не перетворюємо на великі
   const f = capFont(c.font);
