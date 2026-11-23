@@ -288,13 +288,15 @@ async function sendText() {
   }
 }
 
-// Фото чи гифка відповіддю: цитата йде з ними й зникає, щойно надіслано
+// Фото, гифка, файл чи наклейка: несе той, хто обраний на мордочці (як лист); цитата йде з ними й зникає, щойно надіслано
 function memeReply() {
   const r0 = reply;
   return {
-    re: r0 ? { quote: r0.quote, on: r0.on } : null,
+    re: { ...(r0 ? { quote: r0.quote, on: r0.on } : {}), mascot: pet },
     sent: () => {
-      if (reply === r0) { reply = null; paint(); }
+      if (reply === r0) reply = null;
+      if (!petPicked) pet = anyPet();
+      paint();
       r0?.sent?.();
       document.dispatchEvent(new CustomEvent('radovalka:sent'));
     },

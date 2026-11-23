@@ -399,7 +399,7 @@ function draw(force = false, older = false) {
   if (fromThem) sfx('letter', 0, 'them');
   // Новий лист від другого — курʼєр підбігає до нього
   if (arrived && !mineNew && arrived.type === 'in') {
-    const pet = arrived.l.mascot || petFor('push');
+    const pet = courierOf(arrived.l);
     requestAnimationFrame(() => petRun(rows.get(arrived.key)?.el, mascotImg(pet)));
   }
   sizes.disconnect();
@@ -899,8 +899,12 @@ function inBubble(l) {
   return bubble;
 }
 
-// Хто приніс лист: його кур'єр, а як нема — той, хто зазвичай приносить
-const courierOf = (l) => (DATA.mascots[l.mascot] ? l.mascot : petFor('push'));
+// Хто приніс: його кур'єр; стара наклейка-улюбленець без кур'єра — він сам; а як нема — той, хто зазвичай приносить
+function courierOf(l) {
+  if (DATA.mascots[l.mascot]) return l.mascot;
+  const st = !l.url && !l.file && l.stick ? stickParse(l.stick)[0] : null;
+  return st && DATA.mascots[st.key] ? st.key : petFor('push');
+}
 
 // Запечатаний лист у чаті: міні-конверт із печаттю, назва й «Открыть»; тап — шторка на весь екран
 function envBubble(l) {

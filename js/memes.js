@@ -290,7 +290,7 @@ export async function composeMeme(file, done, re = null) {
       urls.set(meme.id, URL.createObjectURL(out));
       DATA.memes = [meme, ...(DATA.memes || [])];
       sfx('sent');
-      const key = pet();
+      const key = DATA.mascots[re?.mascot] ? re.mascot : pet();
       toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} фото ➶`);
       done?.();
     },
@@ -300,10 +300,11 @@ export async function composeMeme(file, done, re = null) {
 // Наклейка-улюбленець окремим повідомленням (вибір — у клавіатурі 😊): лише код пози, фото є на обох телефонах
 export async function sendSticker(key, i, done, re = null) {
   try {
-    const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re });
+    // Наклейку-улюбленця несе він сам
+    const meme = await send('memes', 'POST', { sticker: stickCode([{ key, i, x: 0.5, y: 0.5, k: 1, r: 0, fx: false }]), ...re, mascot: key });
     DATA.memes = [meme, ...(DATA.memes || [])];
     sfx('sent');
-    const p = pet();
+    const p = DATA.mascots[key] ? key : pet();
     toast(`${petName(p) || 'Почтальон'} ${isShe(p) ? 'понесла' : 'понёс'} наклейку ➶`);
     done?.();
   } catch (e) { toast(sendError(e)); }
@@ -319,7 +320,7 @@ export async function composeGif(gif, done, re = null) {
       rememberGif(gif);
       DATA.memes = [meme, ...(DATA.memes || [])];
       sfx('sent');
-      const key = pet();
+      const key = DATA.mascots[re?.mascot] ? re.mascot : pet();
       toast(`${petName(key) || 'Почтальон'} ${isShe(key) ? 'понесла' : 'понёс'} гифку ➶`);
       done?.();
     },

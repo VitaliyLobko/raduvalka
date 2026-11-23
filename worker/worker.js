@@ -130,6 +130,8 @@ const MIGRATIONS = [
   'ALTER TABLE letters ADD COLUMN media TEXT',
   // Наклейки-улюбленці поверх гифки (код STICK)
   'ALTER TABLE memes ADD COLUMN stick TEXT',
+  // Хто з улюбленців несе фото, гифку, файл чи наклейку (ключ із mascots), як у листа
+  'ALTER TABLE memes ADD COLUMN mascot TEXT',
   // Індекси. Безкоштовний D1 рахує прочитані рядки (5 млн на добу), а без індексу кожен запит читає всю таблицю:
   // cron щохвилини, стрічка, конверти — з роками переписки це впирається в ліміт. Під кожен частий запит — свій
   // push «На утро» / «Ко времени» (cron щохвилини)
@@ -542,10 +544,11 @@ async function memesRoute(req, db, side, rest, notify, files) {
       created: Date.now(),
       reaction: null,
       stick: null,
+      mascot: await mascotOf(db, body.mascot),
     };
     const insertMeme = () => db.prepare(
-      'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, stick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.quote, meme.created, null, meme.stick);
+      'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, stick, mascot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(meme.id, meme.src, meme.dst, meme.img, meme.url, meme.caption, meme.caption ? meme.style : null, meme.quote, meme.created, null, meme.stick, meme.mascot);
 
     // Наклейка-улюбленець окремим повідомленням: лише код однієї наклейки, без файла (фото улюбленців є на обох телефонах)
     if (body.sticker != null) {
@@ -690,17 +693,24 @@ async function postFile(req, env, side, notify) {
   const meme = {
     id, src: side, dst: other(side), img: '', url: null, caption: null, style: null,
     quote: quoteOf(meta || {}), created: Date.now(), reaction: null, file: JSON.stringify(file),
+    mascot: await mascotOf(env.DB, meta?.mascot),
   };
   await quota.take(buf.byteLength);
   await env.FILES.put(`f-${id}`, buf);
   await env.DB.prepare(
-    'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  ).bind(meme.id, meme.src, meme.dst, '', null, null, null, meme.quote, meme.created, null, meme.file).run();
+    'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, file, mascot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).bind(meme.id, meme.src, meme.dst, '', null, null, null, meme.quote, meme.created, null, meme.file, meme.mascot).run();
   notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(meta), 'file') : fileNote(side));
   return json(view(meme, side), 201);
 }
 
 const other = (side) => (side === 'vin' ? 'vona' : 'vin');
+// Кур'єр — лише справжній улюбленець із mascots, інакше null (телефон візьме того, хто зазвичай приносить)
+async function mascotOf(db, key) {
+  if (typeof key !== 'string' || !key || key.length > 40) return null;
+  const mascots = (await getDoc(db, 'mascots')) || {};
+  return Object.hasOwn(mascots, key) ? key : null;
+}
 
 const WISH_MARKS = ['eye', 'bought'];
 
@@ -1652,7 +1662,7 @@ function view(r, side) {
   return {
     id: r.id, mine: r.src === side, url: r.url || null, caption: r.caption, style: r.style || null, quote: r.quote || null,
     created: r.created, reaction: r.reaction,
-    reply: r.reply || null, replied: r.replied || null, gone: r.gone || null, stick: r.stick || null,
+    reply: r.reply || null, replied: r.replied || null, gone: r.gone || null, stick: r.stick || null, mascot: r.mascot || null,
     ...(r.file ? { file: JSON.parse(r.file) } : {}),
   };
 }

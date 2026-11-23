@@ -58,7 +58,7 @@ export async function sendFile(file, done, re = null) {
       seal(name),
       re?.quote ? seal(String(re.quote).slice(0, 300)) : null,
     ]);
-    const meta = b64u(JSON.stringify({ n, t: file.type || 'application/octet-stream', s: file.size, ...(re ? { quote, on: re.on } : {}) }));
+    const meta = b64u(JSON.stringify({ n, t: file.type || 'application/octet-stream', s: file.size, ...(re?.quote ? { quote, on: re.on } : {}), ...(re?.mascot ? { mascot: re.mascot } : {}) }));
     const meme = await new Promise((ok, no) => {
       xhr = new XMLHttpRequest();
       xhr.open('POST', `${API}/api/files`);
