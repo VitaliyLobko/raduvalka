@@ -5317,3 +5317,10 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 [data-side="vin"] .text-font[aria-pressed="true"] { background: var(--star); color: var(--night); }
 .fx-raincloud { z-index: 62; filter: drop-shadow(0 6px 10px rgba(40, 55, 80, .35)); }
 .fx-raincloud svg { display: block; }
+/* Выбраний шрифт листів — і в полі «Написать» (рядок і велике вікно) */
+.cbar-text, .sheet-write .write-text { font-family: var(--msg-font, var(--hand)); }
+.cbar-text { font-size: calc(1.375rem * var(--msg-fk, 1)); }
+/* 👀 лупа: мʼяка пляма світла під склом */
+.fx-lensglow { z-index: 61; width: 76px; height: 76px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 246, 200, .75), rgba(255, 246, 200, .25) 55%, transparent 72%); }
+.fx-lens { z-index: 62; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .25)); }
+.sheet-write .write-text { font-size: calc(1.6rem * var(--msg-fk, 1)); }
