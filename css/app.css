@@ -2710,9 +2710,7 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .fx-burst { position: fixed; z-index: 60; font-size: 1.6rem; line-height: 1; pointer-events: none; }
 /* Фото з реакції лишилось на екрані — дотик будь-де прибирає (шар поверх усього, прозорий) */
 .fx-hold { position: fixed; inset: 0; z-index: 90; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-/* ✕ угорі праворуч і підказка внизу — проступають, коли сцена дограла; на темному склі, щоб читались на будь-якому тлі */
-.fx-hold-x { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 14px; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(255, 255, 255, .35);
-  border-radius: 50%; background: rgba(20, 12, 30, .5); color: #fff; font: 600 1.2rem/1 var(--ui); cursor: pointer; animation: fade .4s both; }
+/* Підказка внизу — проступає, коли сцена дограла; на темному склі, щоб читалась на будь-якому тлі */
 .fx-hold-hint { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 158px); margin: 0; padding: 8px 16px; border-radius: 999px;
   background: rgba(20, 12, 30, .5); color: #fff; font: 600 .95rem var(--ui); white-space: nowrap; transform: translateX(-50%); animation: fade .6s .2s both; }
 .is-spring { transition: transform .45s cubic-bezier(.3, 1.7, .5, 1) !important; }
