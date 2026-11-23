@@ -3034,7 +3034,7 @@ body.is-chat-page { height: 100dvh; overflow-y: auto; }
 .feed-env-text b { font: 700 1.45rem/1.15 var(--hand); text-wrap: balance; }
 .feed-env-text span { font-size: .8125rem; color: var(--ink-soft); }
 .feed-env-go {
-  grid-area: go; justify-self: start; display: grid; place-items: center; min-height: 34px; padding: 0 14px; border-radius: 999px;
+  grid-area: go; justify-self: end; display: grid; place-items: center; min-height: 34px; padding: 0 14px; border-radius: 999px;
   position: relative; background: var(--plum); color: #fff; font: 600 .875rem/1 var(--ui);
 }
 /* Кличе двічі — кільце навколо кнопки, у якого міняється лише прозорість (анімація тіні перемальовувалась щокадру) */
