@@ -333,10 +333,14 @@ function render() {
   // «Письма» — екран без прокрутки сторінки: гортається лише чат, блок «Я в порядке + SOS» завжди на місці
   const chat = tab === 'letter';
   screen.classList.toggle('is-chat', chat);
-  document.body.classList.toggle('is-chat', chat);
+  // Окрема назва, не is-chat: зміна класу, що є в правилах «.is-chat .нащадок», перераховує стилі всієї сторінки разом із фоном
+  document.body.classList.toggle('is-chat-page', chat);
   // Поки пишуть, вкладки сховані (висота 0) — тоді лишаємо заміряну раніше
-  const tabsH = document.querySelector('.tabs').offsetHeight;
-  if (chat && tabsH) document.documentElement.style.setProperty('--tabs-h', `${tabsH}px`);
+  // Читання висоти змушує браузер перерахувати розкладку посеред перемальовування — лише там, де вона потрібна
+  const tabsH = chat ? document.querySelector('.tabs').offsetHeight : 0;
+  // Змінна на корені перераховує стилі всієї сторінки — пишемо лише нову
+  const root = document.documentElement.style;
+  if (chat && tabsH && root.getPropertyValue('--tabs-h') !== `${tabsH}px`) root.setProperty('--tabs-h', `${tabsH}px`);
   if (tab !== 'letter') composeLeave();
   if (tab === 'letter') {
     renderLetter();

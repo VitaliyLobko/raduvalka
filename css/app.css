@@ -283,8 +283,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* Конверт — головний герой екрана */
-.screen:has(.stage) { display: flex; flex-direction: column; }
-
 .stage {
   position: relative;
   display: grid;
@@ -2903,7 +2901,7 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 
 /* «Письма» — міні-чат на один екран: сторінка не гортається, гортається лише переписка між блоком безпеки
    і рядком «Написать…» — тож «Я в порядке» і SOS завжди під рукою */
-body.is-chat { height: 100dvh; overflow-y: auto; }
+body.is-chat-page { height: 100dvh; overflow-y: auto; }
 /* Без min-height: 0 екран не стискається нижче вмісту: коли згори все не влазить (SOS на малому телефоні),
    гортається сторінка, а чат тримає свої 160px і «Написать…» лишається досяжним */
 .screen.is-chat {

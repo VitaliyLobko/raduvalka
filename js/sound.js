@@ -471,9 +471,9 @@ export function sosAlarm() {
   if (document.visibilityState !== 'visible') return;
   try { if (audio()) SOUNDS.sos(ctx.currentTime + 0.02); } catch { /* без звуку — лишається вібрація */ }
 }
+// Послухати інструмент: лише «лист» (три ноти) — так другий чує мої листи; без стуків і шурхотів
 export function preview(instrument) {
-  play('turn', 0, instrument);
-  play('pair', 900, instrument);
+  play('letter', 0, instrument);
 }
 
 // Лабораторія звуків (dev/soundlab.html): ті самі цеглинки, щоб пробувати нові фрази поруч зі старими
