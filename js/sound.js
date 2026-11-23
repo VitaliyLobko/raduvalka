@@ -25,7 +25,6 @@ export const INSTRUMENTS = {
   marimba: { name: 'Маримба', on: 'на маримбе' },
   piano: { name: 'Рояль', on: 'на рояле' },
   guitar: { name: 'Гитара', on: 'на гитаре' },
-  accordion: { name: 'Аккордеон', on: 'на аккордеоне' },
   harmonica: { name: 'Гармошка', on: 'на губной гармошке' },
   ocarina: { name: 'Окарина', on: 'на окарине' },
   panflute: { name: 'Панфлейта', on: 'на панфлейте' },
@@ -34,8 +33,23 @@ export const INSTRUMENTS = {
 };
 // Поки ніхто не обирав: у нього контрабас, у неї дзвіночки
 export const DEFAULT_INSTRUMENT = { vin: 'bass', vona: 'bells' };
+// Сімейства для вибору в «Звуках»
+export const INSTRUMENT_FAMILIES = [
+  ['Звонкие', ['bells', 'musicbox', 'celesta', 'vibes']],
+  ['Щипковые', ['kalimba', 'harp', 'guitar', 'koto']],
+  ['Духовые', ['flute', 'panflute', 'ocarina', 'harmonica']],
+  ['Струнные и рояль', ['violin', 'cello', 'piano']],
+  ['Ритм и низы', ['marimba', 'steeldrum', 'bass']],
+];
+// Прибрані інструменти → найсхожий із тих, що лишились (вибір міг лишитись на сервері чи в телефоні)
+const RETIRED = { accordion: 'harmonica' };
+// Ключ, який можна грати: прибраний — на заміну, невідомий — fallback
+export const instrumentKey = (k, fallback) => {
+  const r = RETIRED[k] ?? k;
+  return Object.hasOwn(INSTRUMENTS, r ?? '') ? r : fallback;
+};
 const INSTR = 'radovalka:instrument';
-const known = (k) => (Object.hasOwn(INSTRUMENTS, k) ? k : 'kalimba');
+const known = (k) => instrumentKey(k, 'kalimba');
 export function myInstrument() { try { return known(localStorage.getItem(INSTR)); } catch { return 'kalimba'; } }
 export function setMyInstrument(k) {
   try { localStorage.setItem(INSTR, known(k)); } catch { /* приватне вікно */ }
@@ -165,7 +179,6 @@ const SAMPLED = {
   marimba: { oct: 0, len: 1, min: 0.4, max: 1.2, gain: 0.63 },
   piano: { oct: 0, len: 1.3, min: 0.5, max: 1.6, gain: 1.05 },
   guitar: { oct: -1, len: 1.3, min: 0.5, max: 1.6, gain: 1.03 },
-  accordion: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.92 },
   harmonica: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.71 },
   ocarina: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.53 },
   panflute: { oct: 0, len: 0.8, min: 0.45, max: 0.9, gain: 0.57 },

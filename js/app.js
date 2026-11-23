@@ -20,7 +20,7 @@ import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
 import { startBell } from './bell.js';
-import { sfx, soundOn, setSound, INSTRUMENTS, DEFAULT_INSTRUMENT, myInstrument, setMyInstrument, partnerInstrument, setPartnerInstrument, preview } from './sound.js';
+import { sfx, soundOn, setSound, INSTRUMENTS, INSTRUMENT_FAMILIES, instrumentKey, DEFAULT_INSTRUMENT, myInstrument, setMyInstrument, partnerInstrument, setPartnerInstrument, preview } from './sound.js';
 import { openDuel } from './duel.js';
 import { openSame } from './same.js';
 import { openHot } from './hot.js';
@@ -655,6 +655,12 @@ document.addEventListener('visibilitychange', () => {
 });
 
 const newsList = (list) => h('ul', { class: 'news' }, ...list.map(([v, text]) => h('li', {}, h('b', {}, v), h('span', {}, text))));
+// Розгортка, вміст якої будується лише при першому відкритті: сотні версій «Ранее» гальмували відкриття меню
+function lazyDetails(cls, label, build) {
+  const d = h('details', { class: cls }, h('summary', {}, label));
+  d.addEventListener('toggle', () => { if (d.open && d.childElementCount === 1) d.append(build()); });
+  return d;
+}
 
 // Перемикач «Движение фона»: нахил, пелюстки, падаюча зірка
 // Звуки в Радовалці (шкатулка, ігри); push звучить, як налаштовано в телефоні
@@ -672,14 +678,15 @@ function soundSwitch() {
   return btn;
 }
 
-// Свій інструмент: ним звучить моє тут і в другого все, що прийшло від мене. Тап — одразу послухати
+// Свій інструмент: ним звучить моє тут і в другого все, що прийшло від мене. Згорнутий рядок із поточним;
+// розгорнувся — інструменти по сімействах (будуються лише тоді). Тап — одразу послухати
 function instrumentPicker() {
-  const row = h('div', { class: 'instr-row', role: 'radiogroup', 'aria-label': 'Мой инструмент' });
+  const cur = h('small', {});
+  const chips = [];
   const paint = () => {
-    const cur = myInstrument();
-    row.replaceChildren(...Object.entries(INSTRUMENTS).map(([k, { name }]) => h('button', {
-      type: 'button', class: 'instr-chip', role: 'radio', 'aria-checked': String(k === cur), onclick: () => pick(k),
-    }, name)));
+    const k = myInstrument();
+    cur.textContent = INSTRUMENTS[k].name;
+    chips.forEach((c) => c.setAttribute('aria-checked', String(c.dataset.k === k)));
   };
   const pick = (k) => {
     setMyInstrument(k);
@@ -687,11 +694,26 @@ function instrumentPicker() {
     if (soundOn()) preview(k);
     if (DATA.mine.instrument !== k) { DATA.mine.instrument = k; save('mine', { instrument: k }); }
   };
+  const box = h('details', { class: 'instr-pick' },
+    h('summary', { class: 'about-row' },
+      h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, '🎻'),
+      h('span', { class: 'about-row-label' }, 'Мой инструмент', cur),
+      h('span', { class: 'about-row-go', 'aria-hidden': 'true' }, '›')));
+  box.addEventListener('toggle', () => {
+    if (!box.open || chips.length) return;
+    box.append(h('div', { class: 'instr-fams', role: 'radiogroup', 'aria-label': 'Мой инструмент' },
+      ...INSTRUMENT_FAMILIES.map(([title, keys]) => h('div', { class: 'instr-fam' },
+        h('p', { class: 'instr-fam-title' }, title),
+        h('div', { class: 'instr-fam-row' }, ...keys.map((k) => {
+          const c = h('button', { type: 'button', class: 'instr-chip', role: 'radio', 'data-k': k, onclick: () => pick(k) }, INSTRUMENTS[k].name);
+          chips.push(c);
+          return c;
+        }))))));
+    paint();
+  });
   paint();
   const p = who().partner;
-  return h('div', { class: 'instr' },
-    h('p', { class: 'instr-title' }, 'Мой инструмент'),
-    row,
+  return h('div', { class: 'instr' }, box,
     h('p', { class: 'instr-note' }, `${cap(p)} играет ${INSTRUMENTS[partnerInstrument()].on}: так звучат ${p === 'она' ? 'её' : 'его'} письма и ходы`));
 }
 
@@ -735,7 +757,7 @@ function openAbout(showNews) {
   const news = h('details', { class: 'about-news' },
     h('summary', { class: 'about-row' }, ...aboutRowBody('📰', 'Что нового', null)),
     newsList(NEWS.slice(0, 3)),
-    NEWS.length > 3 ? h('details', { class: 'news-more' }, h('summary', {}, 'Ранее'), newsList(NEWS.slice(3))) : null);
+    NEWS.length > 3 ? lazyDetails('news-more', 'Ранее', () => newsList(NEWS.slice(3))) : null);
   const sheet = h('div', { class: 'sheet sheet-together sheet-about', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'О Радовалке' },
     h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
     h('div', { class: 'sheet-inner' },
@@ -827,7 +849,7 @@ async function start() {
   try { sessionStorage.removeItem('radovalka:boot-retry'); } catch { /* приватне вікно */ }
   // Інструменти: свій — як збережено на сервері (новий телефон теж), другого — для того, що від нього приходить.
   // Ще не обирали — з першого дня в нього контрабас, у неї дзвіночки
-  const instr = (k, side) => (Object.hasOwn(INSTRUMENTS, k ?? '') ? k : DEFAULT_INSTRUMENT[side]);
+  const instr = (k, side) => instrumentKey(k, DEFAULT_INSTRUMENT[side]);
   setMyInstrument(instr(DATA.mine?.instrument, DATA.side));
   setPartnerInstrument(instr(DATA.partnerInstrument, DATA.side === 'vin' ? 'vona' : 'vin'));
   prewarmWrite();

@@ -1152,9 +1152,15 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
 .about-row-go { flex: none; color: var(--ink-soft); font-size: 1.4rem; line-height: 1; transition: transform .2s; }
 .about-news[open] > summary .about-row-go { transform: rotate(90deg); }
 .about-card .text-size { padding: 12px 0; }
-/* Мій інструмент: шість кнопок 3×2 і підпис, на чому грає другий */
-.instr { display: grid; gap: 8px; padding: 12px 0; }
-.instr-title { margin: 0; font: 500 1rem/1.2 var(--ui); }
+/* Мій інструмент: згорнутий рядок, усередині — сімейства; під ним підпис, на чому грає другий */
+.instr { display: grid; gap: 8px; padding: 0 0 12px; }
+.instr-pick[open] > summary .about-row-go { transform: rotate(90deg); }
+.instr-fams { display: grid; gap: 10px; padding: 4px 0 6px; }
+.instr-fam { display: grid; gap: 4px; }
+.instr-fam-title { margin: 0; font-size: .8125rem; color: var(--ink-soft); }
+/* Трійка — в один ряд, четвірка — 2×2 (в один ряд на 360 не влазить) */
+.instr-fam-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.instr-fam-row:has(> :nth-child(4)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .instr-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .instr-chip {
   min-width: 0; min-height: 44px; padding: 0 2px; border: 1px solid var(--rule); border-radius: 12px; background: var(--field);

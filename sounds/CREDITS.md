@@ -20,7 +20,6 @@
 | marimba | marimba |
 | piano | acoustic_grand_piano |
 | guitar | acoustic_guitar_nylon |
-| accordion | accordion |
 | harmonica | harmonica |
 | ocarina | ocarina |
 | panflute | pan_flute |
