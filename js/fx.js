@@ -142,6 +142,7 @@ function release() {
   if (!hd) return;
   held = null;
   clearTimeout(hd.timer);
+  removeEventListener('keydown', hd.key);
   hd.tap?.remove();
   for (const s of hd.els) s.animate([{ opacity: 0 }], { duration: 320, easing: 'ease-in', fill: 'forwards' }).finished.finally(() => s.remove());
   hd.ok();
@@ -153,12 +154,26 @@ function hold(D) {
   // Шар для дотику — лише коли сцена дограла: до того дотик іде в саму сторінку, як і в інших реакцій
   hd.timer = setTimeout(() => {
     if (held !== hd) return;
+    // Вікно для back.js (role=dialog): «Назад» на телефоні клацає по ньому й закриває. Закриваємо на click, а не
+    // на pointerdown — інакше відпущений палець «клацнув» би по листу під фото
     hd.tap = document.createElement('div');
     hd.tap.className = 'fx-hold';
-    hd.tap.setAttribute('role', 'button');
-    hd.tap.setAttribute('aria-label', 'Закрыть');
-    hd.tap.addEventListener('pointerdown', (e) => { e.preventDefault(); release(); });
+    hd.tap.setAttribute('role', 'dialog');
+    hd.tap.setAttribute('aria-label', 'Фото из реакции');
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'fx-hold-x';
+    x.setAttribute('aria-label', 'Закрыть');
+    x.textContent = '✕';
+    const hint = document.createElement('p');
+    hint.className = 'fx-hold-hint';
+    hint.textContent = 'Коснись, чтобы закрыть';
+    hd.tap.append(x, hint);
+    hd.tap.addEventListener('click', release);
+    hd.key = (e) => { if (e.key === 'Escape') release(); };
+    addEventListener('keydown', hd.key);
     document.body.append(hd.tap);
+    x.focus({ preventScroll: true });
   }, D * SLOW);
   held = hd;
   return hd.els;

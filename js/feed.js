@@ -616,15 +616,24 @@ function holdToReact(bubble, it) {
   }, true);
 }
 const MOUSE = matchMedia('(hover: hover) and (pointer: fine)');
+const SWAY = ['🌌', '🍓', '🛡️'];
 function openReactions(bubble, it) {
   document.querySelector('.react-layer')?.remove();
   const cur = reactionOf(it);
   const r = bubble.getBoundingClientRect();
   const close = () => layer.remove();
+  // Наші реакції з фото (🌌, 🍓, 🛡️) при відкритті списку легко гойдаються — кожна трохи пізніше за попередню
+  let sway = 0;
+  const face = (e) => {
+    if (reduceMotion || !SWAY.includes(e)) return reactFace(e);
+    const s = h('span', { class: 'react-sway' }, reactFace(e));
+    s.style.animationDelay = `${150 + (sway += 1) * 120}ms`;
+    return s;
+  };
   const opt = (e) => h('button', {
     type: 'button', role: 'menuitem', class: `react-opt${e === cur ? ' is-on' : ''}`, 'aria-label': e,
     onclick: (ev) => { ev.stopPropagation(); close(); if (e !== cur) countReaction(e); setReaction(it, e === cur ? null : e, bubble); },
-  }, reactFace(e));
+  }, face(e));
   // Спершу — ряд частих і «⌄»; розгорнули — усі реакції групами
   const more = h('button', {
     type: 'button', class: 'react-opt react-more', 'aria-label': 'Все реакции', 'aria-expanded': 'false',
