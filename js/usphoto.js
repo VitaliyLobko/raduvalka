@@ -1,4 +1,5 @@
-// Альбоми фото для реакцій: us — «Наши фото» (🌌, додають обоє), her — її фото (🍓, додає лише він). До LIMIT у кожному.
+// Альбоми фото для реакцій: us — «Наши фото» (🌌, додають обоє), her — її фото (🍓, додає лише він), his — його фото
+// (🛡️, додає лише вона). До LIMIT у кожному.
 // На сервері й у кеші телефону — лише шифротекст (RAD1); розшифроване — тільки в памʼяті (blob:), щоб анімація брала
 // фото одразу, без мережі. Вікно альбому — usphoto-edit.js
 import { API, getKey } from './api.js';
@@ -141,7 +142,8 @@ function makeAlbum(name) {
 
 export const US = makeAlbum('us');
 export const HER = makeAlbum('her');
-export const ALBUMS = { us: US, her: HER };
+export const HIS = makeAlbum('his');
+export const ALBUMS = { us: US, her: HER, his: HIS };
 
 // Для fx.js і старих тестів
 export const usPhoto = () => US.pick();

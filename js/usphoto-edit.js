@@ -1,11 +1,16 @@
-// Вікно альбому фото (з ⋯ біля «Письма»): us — «Наши фото» для 🌌 (коло), her — її фото для 🍓 (серце, лише в нього).
+// Вікно альбому фото (з ⋯ біля «Письма»): us — «Наши фото» для 🌌 (коло), her — її фото для 🍓 (серце, лише в нього),
+// his — його фото для 🛡️ (щит, лише в неї).
 // Сітка знімків, «＋» додає (можна кілька за раз — кадруємо по одному), прибрати — другим натисканням на знімок.
 // Кадр: палець зсуває, два пальці чи повзунок збільшують. Вирізаємо через canvas: заодно зникають метадані (місце, телефон)
 import { h, toast } from './ui.js';
 import { ALBUMS, LIMIT } from './usphoto.js';
 import { reactFx } from './fx.js';
 
-const HEART = 'M130 228 C 52 170, 6 124, 6 72 C 6 34, 36 8, 72 8 C 98 8, 118 24, 130 44 C 142 24, 162 8, 188 8 C 224 8, 254 34, 254 72 C 254 124, 208 170, 130 228 Z';
+// Фігурні кадри: контур у своїй системі координат (як у fx.js), w × h — її розмір
+const SHAPES = {
+  'is-heart': { w: 260, h: 240, d: 'M130 228 C 52 170, 6 124, 6 72 C 6 34, 36 8, 72 8 C 98 8, 118 24, 130 44 C 142 24, 162 8, 188 8 C 224 8, 254 34, 254 72 C 254 124, 208 170, 130 228 Z' },
+  'is-shield': { w: 240, h: 280, d: 'M120 6 L228 40 C228 150 194 228 120 272 C46 228 12 150 12 40 Z' },
+};
 const CFG = {
   us: {
     title: 'Наши фото', glyph: '🌌', shape: 'is-circle', w: 512, h: 512,
@@ -14,6 +19,10 @@ const CFG = {
   her: {
     title: 'Её фото', glyph: '🍓', shape: 'is-heart', w: 520, h: 480,
     note: 'До 10 фото. Когда ставишь 🍓 на её письмо, в сердечке каждый раз другое. Видите их только вы двое',
+  },
+  his: {
+    title: 'Его фото', glyph: '🛡️', shape: 'is-shield', w: 480, h: 560,
+    note: 'До 10 фото. Когда ставишь 🛡️ на его письмо, в щите каждый раз другое. Видите их только вы двое',
   },
 };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -29,13 +38,14 @@ function sheet(title, cls, ...kids) {
   return { box, close };
 }
 
-// Форма кадру: серце — через clip-path (інлайн-стиль лише з JS, CSP) і рожевий кант по краю, як у 🍓
+// Форма кадру: серце чи щит — через clip-path (інлайн-стиль лише з JS, CSP) і кант по краю, як у реакції
 function frame(el, cfg) {
   el.classList.add(cfg.shape);
-  if (cfg.shape !== 'is-heart') return;
-  const k = el.offsetWidth / 260 || 1;
-  el.style.clipPath = `path('${HEART.replace(/[\d.]+/g, (n) => String(Math.round(Number(n) * k * 10) / 10))}')`;
-  el.insertAdjacentHTML('beforeend', `<svg class="us-heart-edge" viewBox="0 0 260 240" preserveAspectRatio="none" aria-hidden="true"><path d="${HEART}"/></svg>`);
+  const sh = SHAPES[cfg.shape];
+  if (!sh) return;
+  const k = el.offsetWidth / sh.w || 1;
+  el.style.clipPath = `path('${sh.d.replace(/[\d.]+/g, (n) => String(Math.round(Number(n) * k * 10) / 10))}')`;
+  el.insertAdjacentHTML('beforeend', `<svg class="us-heart-edge" viewBox="0 0 ${sh.w} ${sh.h}" preserveAspectRatio="none" aria-hidden="true"><path d="${sh.d}"/></svg>`);
 }
 
 export function openAlbum(name) {
@@ -102,7 +112,8 @@ async function crop(name, files, added) {
   const next = (n) => crop(name, files.slice(1), added + n);
   let bmp;
   try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { toast('Это фото открыть не получилось'); next(0); return; }
-  const V = Math.min(innerWidth - 64, 300);
+  // Високий кадр (щит) — вужчий, щоб вікно влазило в екран телефону
+  const V = Math.min(innerWidth - 64, 300, Math.round((290 * cfg.w) / cfg.h));
   const VH = Math.round((V * cfg.h) / cfg.w);
   // base — масштаб, коли фото рівно накриває кадр; z — у скільки разів більше (ZMIN…5): менше 1 — у кадр влазить більше,
   // а порожні краї заповнює розмита копія того ж фото; x, y — зсув центру фото, px

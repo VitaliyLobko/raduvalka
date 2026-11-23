@@ -2,7 +2,7 @@
 // Web Animations API — без класів у CSS для кожного руху; «менше руху» в телефоні — нічого не рухаємо
 import { reduceMotion } from './ui.js';
 import { sfx } from './sound.js';
-import { usPhoto, US, HER } from './usphoto.js';
+import { usPhoto, US, HER, HIS } from './usphoto.js';
 import { GALAXY } from './galaxy.js';
 
 // Сердечка (чи інший значок) розлітаються з середини елемента
@@ -948,7 +948,7 @@ let fxCalm = 0;
 // Реакції з фото: на першому старті фото ще стягуються — чекаємо перше (не довше 2,5 с), інакше вийшла б галактика
 // чи звичайна полуниця. Сама реакція має бути синхронною (SLOW), тож чекаємо до неї
 function albumWait(el, glyph) {
-  const album = glyph === '🌌' ? US : glyph === '🍓' && fromHim(el) ? HER : null;
+  const album = glyph === '🌌' ? US : glyph === '🍓' && fromHim(el) ? HER : glyph === '🛡️' && !fromHim(el) ? HIS : null;
   if (!album?.waiting()) return null;
   return Promise.race([album.ready(), new Promise((ok) => { setTimeout(ok, 2500); })]);
 }
@@ -1683,7 +1683,9 @@ const fromHim = (el) => {
 };
 const berryPhotos = (el) => HER.size() > 0 && fromHim(el);
 function durOf(glyph, el) {
-  return glyph === '🍓' && berryPhotos(el) ? BERRY_D : DUR[glyph];
+  if (glyph === '🍓' && berryPhotos(el)) return BERRY_D;
+  if (glyph === '🛡️' && shieldPhotos(el)) return SHIELD_D;
+  return DUR[glyph];
 }
 let berryId = 0;
 function berryHeart() {
@@ -1790,6 +1792,59 @@ REACT_FX['🛡️'] = (el, x, y) => {
     spray(hx, hy, ['✨'], 5, { dist: 70, size: '1rem', delay: at, from: side > 0 ? -60 : 120, to: side > 0 ? 60 : 240, dur: 600 });
   }
 };
+
+// 🛡️ від неї, коли є його фото (альбом his): посеред екрана золотий щит із заклепками й одним його фото — щоразу
+// іншим; довкола купол, три удари відскакують іскрами. Від нього чи без фото — звичайний щит
+const SHIELD = 'M120 6 L228 40 C228 150 194 228 120 272 C46 228 12 150 12 40 Z';
+const SHIELD_D = 3600;
+const shieldPhotos = (el) => HIS.size() > 0 && !fromHim(el);
+let shieldId = 0;
+function shieldPhoto() {
+  const D = SHIELD_D;
+  const cx = innerWidth / 2;
+  const cy = clamp(innerHeight * 0.45, 210, innerHeight - 220);
+  const live = (s, frames, o) => gone(s)(s.animate(frames, { fill: 'backwards', ...o }));
+  live(shape('fx-dome is-wide', cx, cy), [
+    { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.18 },
+    { transform: `${C} scale(1.04)`, opacity: 0.85, offset: 0.85 }, { transform: `${C} scale(1.2)`, opacity: 0 },
+  ], { duration: D, easing: 'ease-out' });
+  const id = `fx-shield-${shieldId += 1}`;
+  const rivets = [[120, 15], [34, 45], [206, 45], [120, 260]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#FFE7A0" stroke="#A9761E" stroke-width="1.2"/>`).join('');
+  const w = shape('fx-shield', cx, cy, `<div class="fx-shield-ph"><i></i></div><svg viewBox="0 0 240 280" width="240" height="280">`
+    + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE7A0"/><stop offset=".45" stop-color="#E8B84A"/><stop offset="1" stop-color="#A9761E"/></linearGradient></defs>`
+    + `<path d="${SHIELD}" fill="none" stroke="url(#${id})" stroke-width="9" stroke-linejoin="round"/>`
+    + `<path d="${SHIELD}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.4" transform="translate(120 140) scale(.94) translate(-120 -140)"/>${rivets}</svg>`);
+  const ph = w.firstElementChild;
+  ph.style.clipPath = `path('${SHIELD}')`;
+  const photo = ph.firstElementChild;
+  photo.style.backgroundImage = `url("${HIS.pick()}")`;
+  photo.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }], { duration: D, fill: 'both', easing: 'linear' });
+  // Щит виїжджає знизу, на кожен удар здригається, наприкінці тане
+  const hits = [[-1, -0.35, 1100], [1, -0.05, 1650], [-1, 0.3, 2200]];
+  const frames = [{ transform: `${C} translateY(90px) scale(.4)`, opacity: 0 }, { transform: `${C} scale(1.08)`, opacity: 1, offset: 0.14 }, { transform: C, offset: 0.2 }];
+  for (const [side, , at] of hits) {
+    const o = at / D;
+    frames.push({ transform: `${C} translateX(${side * -10}px) rotate(${side * -5}deg) scale(.97)`, offset: o + 0.015 }, { transform: C, offset: o + 0.07 });
+  }
+  frames.push({ transform: `${C} scale(1.03)`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.75)`, opacity: 0 });
+  live(w, frames, { duration: D, easing: 'ease-out' });
+  // Удари — по краю щита (нижче він вужчий)
+  for (const [side, dy, at] of hits) {
+    const hx = cx + side * (106 - Math.max(0, dy) * 70);
+    const hy = cy + dy * 140;
+    const c = glyphAt('☄️', hx, hy, '1.8rem');
+    gone(c)(c.animate([
+      { transform: `translate(calc(-50% + ${side * innerWidth * 0.6}px), calc(-50% - 90px)) rotate(${side > 0 ? 200 : -20}deg)`, opacity: 1 },
+      { transform: `${C} rotate(${side > 0 ? 200 : -20}deg)`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.3)`, opacity: 0 },
+    ], { duration: 420, delay: at - 400, easing: 'ease-in', fill: 'backwards' }));
+    const boom = glyphAt('💥', hx, hy, '2.4rem');
+    gone(boom)(boom.animate([{ transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1.2)`, opacity: 1, offset: 0.3 }, { transform: `${C} scale(1.5)`, opacity: 0 }],
+      { duration: 450, delay: at, fill: 'backwards' }));
+    spray(hx, hy, ['✨'], 5, { dist: 70, size: '1rem', delay: at, from: side > 0 ? -60 : 120, to: side > 0 ? 60 : 240, dur: 600 });
+  }
+}
+const plainShield = REACT_FX['🛡️'];
+REACT_FX['🛡️'] = (el, x, y, r) => (shieldPhotos(el) ? shieldPhoto() : plainShield(el, x, y, r));
 
 // «Ракета» 🚀: тремтить біля повідомлення, клубочиться дим — старт угору за екран зі слідом іскор, нагорі спалахує зірочка
 REACT_FX['🚀'] = (el, x, y) => {

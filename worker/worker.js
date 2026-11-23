@@ -291,14 +291,15 @@ async function route(req, env, ctx, info = {}) {
       us: (await getDoc(env.DB, 'us-photo'))?.at || null,
       // Її фото для 🍓 — так само час останньої зміни
       her: (await getDoc(env.DB, 'her-photo'))?.at || null,
+      his: (await getDoc(env.DB, 'his-photo'))?.at || null,
       memes,
     });
   }
 
   if (m === 'GET' && path === 'letter') {
-    const [letter, checkins, us, her] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side), getDoc(env.DB, 'us-photo'), getDoc(env.DB, 'her-photo')]);
-    // us / her — час останньої зміни альбомів: телефон, що повернувся з фону, дотягне нове без повного boot
-    return json({ letter, checkins, us: us?.at || null, her: her?.at || null });
+    const [letter, checkins, us, her, his] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side), getDoc(env.DB, 'us-photo'), getDoc(env.DB, 'her-photo'), getDoc(env.DB, 'his-photo')]);
+    // us / her / his — час останньої зміни альбомів: телефон, що повернувся з фону, дотягне нове без повного boot
+    return json({ letter, checkins, us: us?.at || null, her: her?.at || null, his: his?.at || null });
   }
   if (path === 'seal/todo' || path === 'seal' || path === 'seal-img') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
@@ -321,7 +322,7 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
   if (m === 'POST' && path === 'files') return postFile(req, env, side, notify);
   if (path === 'us-photo') return usPhotoRoute(req, env, side, 'us', null);
-  const album = /^(us|her)-photos(?:\/(.*))?$/.exec(path);
+  const album = /^(us|her|his)-photos(?:\/(.*))?$/.exec(path);
   if (album) return usPhotoRoute(req, env, side, album[1], album[2] || '');
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify, env.FILES);
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
@@ -678,14 +679,15 @@ async function fileQuota(db, side, len, hard) {
   };
 }
 
-// Альбоми для реакцій: us — «Наши фото» (🌌, правлять обоє), her — її фото (🍓, править лише він, бачать обоє).
+// Альбоми для реакцій: us — «Наши фото» (🌌, правлять обоє), her — її фото (🍓, править лише він), his — його фото
+// (🛡️, править лише вона); бачать обоє.
 // До US_LIMIT фото, лише зашифровані (RAD1) — сервер їх не бачить і відкритих не прийме.
 // R2 <album>-photo-<id> поза чисткою файлів: та стирає тільки f-/l- за рядками бази. Перше фото з 0.4.116 лежить як us-photo
 // (у списку — id '0'). doc <album>-photo: { at — час останньої зміни (boot і letter віддають його телефонам), list: [{ id, at, by }] }
 const US_MAX = 600 * 1024;
 const US_LIMIT = 10;
 const US_ID = /^(0|[0-9a-f]{12})$/;
-const ALBUMS = { us: null, her: 'vin' };
+const ALBUMS = { us: null, her: 'vin', his: 'vona' };
 const usKey = (album, id) => (id === '0' ? `${album}-photo` : `${album}-photo-${id}`);
 async function usList(db, album) {
   const d = await getDoc(db, `${album}-photo`);
