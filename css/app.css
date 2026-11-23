@@ -3395,7 +3395,8 @@ body.is-emoji .screen.is-chat { padding-bottom: calc(var(--plus-h, 0px) + 8px); 
 @keyframes ck-shine { 0% { transform: translateX(-110%); } 45%, 100% { transform: translateX(110%); } }
 @media (prefers-reduced-motion: reduce) { .ck-rays, .ck-tw, .cookie-layer.is-gold.is-open .ck-paper::after { animation: none; } }
 @keyframes ck-in { from { transform: translateY(-60vh) rotate(-35deg) scale(.6); } }
-@keyframes ck-wobble { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) translateY(-4px); } }
+/* Гойдання — окремими rotate/translate, не transform: дві анімації на одному transform (з ck-in) браузер не віддає композитору й перемальовує щокадру */
+@keyframes ck-wobble { 0%, 100% { rotate: -4deg; translate: 0 0; } 50% { rotate: 4deg; translate: 0 -4px; } }
 @media (prefers-reduced-motion: reduce) { .ck-cookie { animation: none; } .ck-half, .ck-paper { transition: none; } }
 
 /* Анімації подій (js/fx.js, js/depth.js) */
