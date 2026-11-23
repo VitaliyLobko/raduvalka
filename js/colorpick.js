@@ -115,29 +115,68 @@ export function openPalette({ value, label, onInput, onClose }) {
 }
 
 // onPick(hex) — вибрали в панелі (на кожен рух); onDone — панель закрили; onPipette() — увімкнути/вимкнути піпетку
+// Останні свої кольори (з 🎨 і піпетки) — на цьому телефоні, спільні для підпису, олівця й гифки; у ряду — два
+const RECENT_KEY = 'radovalka:recent-colors';
+let recent = null;
+const recents = () => {
+  if (!recent) {
+    try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter((c) => HEX.test(c)).slice(0, 3); } catch { recent = []; }
+  }
+  return recent;
+};
+const remember = (c) => {
+  if (!HEX.test(c || '')) return;
+  recent = [c, ...recents().filter((x) => x !== c)].slice(0, 3);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch { /* приватне вікно */ }
+};
+
 export function ownColor({ label, onPick, onPipette, onDone }) {
   let cur = '#ff4f8b';
+  let mine = false;
+  let armedNow = false;
   const own = h('button', {
     type: 'button', class: 'ph-swatch ph-own', role: 'radio', 'aria-checked': 'false', 'aria-label': `${label}: свой цвет`,
     onclick: () => openPalette({
       value: cur, label,
       onInput: (c) => { cur = c; onPick(c); },
       // Закрили панель — одна правка в історії ↶ (редактор знімає стан на change у своїй шторці)
-      onClose: () => { own.dispatchEvent(new Event('change', { bubbles: true })); onDone?.(); },
+      onClose: () => { remember(cur); own.dispatchEvent(new Event('change', { bubbles: true })); onDone?.(); drawRecent(); },
     }),
   });
   const pip = h('button', {
     type: 'button', class: 'ph-swatch ph-pipette', 'aria-pressed': 'false', 'aria-label': 'Пипетка: взять цвет с картинки',
     html: PIPETTE, onclick: () => onPipette(),
   });
+  // Недавні — перед 🎨; той, що вже стоїть у 🎨, вдруге не показуємо
+  const box = h('span', { class: 'ph-own-wrap' });
+  let shown = '';
+  const drawRecent = () => {
+    const list = recents().filter((c) => !(mine && c === cur)).slice(0, 2);
+    if (list.join() === shown) return;
+    shown = list.join();
+    box.replaceChildren(...list.map((c) => {
+      const b = h('button', {
+        type: 'button', class: 'ph-swatch ph-recent', role: 'radio', 'aria-checked': 'false', 'aria-label': `${label}: недавний ${c}`,
+        onclick: () => { onPick(c); remember(c); b.dispatchEvent(new Event('change', { bubbles: true })); drawRecent(); },
+      });
+      b.style.setProperty('--c', c);
+      return b;
+    }));
+  };
   // cur — поточний колір; preset — він із готових кружків; armed — піпетка чекає дотику
   const paint = (c, preset, armed) => {
     own.setAttribute('aria-checked', String(!preset));
     if (HEX.test(c || '')) cur = c;
+    mine = !preset;
     if (preset) own.style.removeProperty('--c'); else own.style.setProperty('--c', c);
     pip.setAttribute('aria-pressed', String(!!armed));
+    // Піпетка щойно взяла колір — він теж «недавній»
+    if (armedNow && !armed && !preset) remember(cur);
+    armedNow = !!armed;
+    drawRecent();
   };
-  return { el: h('span', { class: 'ph-own-wrap' }, own, pip), paint };
+  drawRecent();
+  return { el: h('span', { class: 'ph-own-wrap' }, box, own, pip), paint };
 }
 
 // Середній колір квадрата 5×5 навколо точки (x, y — пікселі полотна); полотно без дозволу на читання — null
