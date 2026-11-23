@@ -287,16 +287,18 @@ async function route(req, env, ctx, info = {}) {
       partnerInstrument: theirs?.instrument || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
       imgs: await imgVersions(env.DB, mascots),
-      // «Наше фото» для 🌌 — час заливки (null — не вибрали): та сама версія — з кешу телефону
+      // «Наши фото» для 🌌 — час останньої зміни (null — не вибрали): та сама версія — з кешу телефону
       us: (await getDoc(env.DB, 'us-photo'))?.at || null,
+      // Її фото для 🍓 — так само час останньої зміни
+      her: (await getDoc(env.DB, 'her-photo'))?.at || null,
       memes,
     });
   }
 
   if (m === 'GET' && path === 'letter') {
-    const [letter, checkins, us] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side), getDoc(env.DB, 'us-photo')]);
-    // us — час «Нашого фото»: телефон, що повернувся з фону, дотягне нове без повного boot
-    return json({ letter, checkins, us: us?.at || null });
+    const [letter, checkins, us, her] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side), getDoc(env.DB, 'us-photo'), getDoc(env.DB, 'her-photo')]);
+    // us / her — час останньої зміни альбомів: телефон, що повернувся з фону, дотягне нове без повного boot
+    return json({ letter, checkins, us: us?.at || null, her: her?.at || null });
   }
   if (path === 'seal/todo' || path === 'seal' || path === 'seal-img') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
@@ -318,7 +320,9 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6), notify);
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
   if (m === 'POST' && path === 'files') return postFile(req, env, side, notify);
-  if (path === 'us-photo') return usPhotoRoute(req, env, side);
+  if (path === 'us-photo') return usPhotoRoute(req, env, side, 'us', null);
+  const album = /^(us|her)-photos(?:\/(.*))?$/.exec(path);
+  if (album) return usPhotoRoute(req, env, side, album[1], album[2] || '');
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify, env.FILES);
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
   if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
@@ -674,31 +678,72 @@ async function fileQuota(db, side, len, hard) {
   };
 }
 
-// «Наше фото» для реакції 🌌: одне на пару, лише зашифроване (RAD1) — сервер його не бачить і відкрите не прийме.
-// R2 us-photo поза чисткою файлів: та стирає тільки f-/l- за рядками бази. Час заливки — у doc us-photo (для boot)
+// Альбоми для реакцій: us — «Наши фото» (🌌, правлять обоє), her — її фото (🍓, править лише він, бачать обоє).
+// До US_LIMIT фото, лише зашифровані (RAD1) — сервер їх не бачить і відкритих не прийме.
+// R2 <album>-photo-<id> поза чисткою файлів: та стирає тільки f-/l- за рядками бази. Перше фото з 0.4.116 лежить як us-photo
+// (у списку — id '0'). doc <album>-photo: { at — час останньої зміни (boot і letter віддають його телефонам), list: [{ id, at, by }] }
 const US_MAX = 600 * 1024;
-async function usPhotoRoute(req, env, side) {
+const US_LIMIT = 10;
+const US_ID = /^(0|[0-9a-f]{12})$/;
+const ALBUMS = { us: null, her: 'vin' };
+const usKey = (album, id) => (id === '0' ? `${album}-photo` : `${album}-photo-${id}`);
+async function usList(db, album) {
+  const d = await getDoc(db, `${album}-photo`);
+  return { at: d?.at || null, list: d?.list || (d?.at ? [{ id: '0', at: d.at, by: d.by }] : []) };
+}
+async function usBody(req) {
+  if (Number(req.headers.get('content-length')) > US_MAX) throw fail(413, 'size');
+  const buf = new Uint8Array(await req.arrayBuffer());
+  if (!buf.byteLength || buf.byteLength > US_MAX) throw fail(413, 'size');
+  if (buf[0] !== 0x52 || buf[1] !== 0x41 || buf[2] !== 0x44 || buf[3] !== 0x31) throw fail(400, 'sealed');
+  return buf;
+}
+async function usSave(db, album, list) {
+  const v = { at: list.length ? Date.now() : null, list };
+  if (list.length) await putDoc(db, `${album}-photo`, v);
+  else await db.prepare('DELETE FROM docs WHERE k = ?').bind(`${album}-photo`).run();
+  return json(v);
+}
+// sub: null — старий шлях us-photo (телефон 0.4.116: одне фото — перше зі списку); '' — список; інакше id фото
+async function usPhotoRoute(req, env, side, album, sub) {
   if (!env.FILES) throw fail(503, 'files');
   const m = req.method;
-  if (m === 'GET') {
-    const obj = await env.FILES.get('us-photo');
+  if (m !== 'GET' && ALBUMS[album] && ALBUMS[album] !== side) throw fail(403, 'album');
+  const { list } = await usList(env.DB, album);
+  const key = (id) => usKey(album, id);
+  const bytes = async (id) => {
+    const obj = id !== undefined && await env.FILES.get(key(id));
     if (!obj) throw fail(404, 'not found');
     return new Response(obj.body, { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, no-store' } });
+  };
+  if (sub === null) {
+    if (m === 'GET') return bytes(list[0]?.id);
+    if (m === 'PUT') {
+      const buf = await usBody(req);
+      if (list.length) await env.FILES.delete(list.map((x) => key(x.id)));
+      await env.FILES.put(key('0'), buf);
+      return usSave(env.DB, album, [{ id: '0', at: Date.now(), by: side }]);
+    }
+    if (m === 'DELETE') {
+      if (list.length) await env.FILES.delete(list.map((x) => key(x.id)));
+      return usSave(env.DB, album, []);
+    }
+    throw fail(405, 'method');
   }
-  if (m === 'PUT') {
-    if (Number(req.headers.get('content-length')) > US_MAX) throw fail(413, 'size');
-    const buf = new Uint8Array(await req.arrayBuffer());
-    if (!buf.byteLength || buf.byteLength > US_MAX) throw fail(413, 'size');
-    if (buf[0] !== 0x52 || buf[1] !== 0x41 || buf[2] !== 0x44 || buf[3] !== 0x31) throw fail(400, 'sealed');
-    await env.FILES.put('us-photo', buf);
-    const v = { at: Date.now(), by: side };
-    await putDoc(env.DB, 'us-photo', v);
-    return json(v);
+  if (!sub) {
+    if (m === 'GET') return json(await usList(env.DB, album));
+    if (m !== 'POST') throw fail(405, 'method');
+    if (list.length >= US_LIMIT) throw fail(409, 'limit');
+    const buf = await usBody(req);
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+    await env.FILES.put(key(id), buf);
+    return usSave(env.DB, album, [...list, { id, at: Date.now(), by: side }]);
   }
+  if (!US_ID.test(sub) || !list.some((x) => x.id === sub)) throw fail(404, 'not found');
+  if (m === 'GET') return bytes(sub);
   if (m === 'DELETE') {
-    await env.FILES.delete('us-photo');
-    await env.DB.prepare('DELETE FROM docs WHERE k = ?').bind('us-photo').run();
-    return json({ at: null });
+    await env.FILES.delete(key(sub));
+    return usSave(env.DB, album, list.filter((x) => x.id !== sub));
   }
   throw fail(405, 'method');
 }

@@ -6,7 +6,7 @@ import { forgetSecret, hasSecret, seal, sealBlob } from './seal.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
-import { syncUsPhoto } from './usphoto.js';
+import { US, HER } from './usphoto.js';
 import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
 import { letterFeed, chatTitle, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest, autoOpen, setAutoOpen } from './feed.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
@@ -105,9 +105,10 @@ function markLetter() {
 // Push ще нема: свіжий лист і мемчики дотягуємо при поверненні в застосунок
 async function refreshLetter() {
   try {
-    const { letter, checkins, us } = await get('letter');
-    // «Наше фото» змінили, поки застосунок був у фоні (старий воркер us не віддає — тоді не чіпаємо)
-    if (us !== undefined && us !== (DATA.us || null)) { DATA.us = us; syncUsPhoto(us); }
+    const { letter, checkins, us, her } = await get('letter');
+    // Альбоми фото змінили, поки застосунок був у фоні (старий воркер us/her не віддає — тоді не чіпаємо)
+    if (us !== undefined && us !== (DATA.us || null)) US.sync(us);
+    if (her !== undefined && her !== (DATA.her || null)) HER.sync(her);
     if (checkins && JSON.stringify(checkins) !== JSON.stringify(DATA.checkins)) {
       DATA.checkins = checkins;
       paintCheckin();
@@ -887,8 +888,8 @@ async function start() {
   setMyInstrument(instr(DATA.mine?.instrument, DATA.side));
   setPartnerInstrument(instr(DATA.partnerInstrument, DATA.side === 'vin' ? 'vona' : 'vin'));
   prewarmWrite();
-  // «Наше фото» для 🌌 — заздалегідь у памʼять, коли телефон вільний: анімація не чекає мережі
-  (self.requestIdleCallback || ((fn) => setTimeout(fn, 800)))(() => syncUsPhoto(DATA.us));
+  // Фото для 🌌 і 🍓 — заздалегідь у памʼять, коли телефон вільний: анімація не чекає мережі
+  (self.requestIdleCallback || ((fn) => setTimeout(fn, 800)))(() => { US.sync(DATA.us); HER.sync(DATA.her); });
   applySide();
   drawChip();
   loadWishes().then(markWishes).catch(() => {});

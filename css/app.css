@@ -3920,15 +3920,13 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-cos-arc text { font-family: var(--hand); font-weight: 700; }
 .fx-cos-t text { font-size: 25px; fill: #FFE7A8; letter-spacing: .5px; }
 .fx-cos-b text { font-size: 27px; fill: #FFF0F7; }
-/* Вікно «Наше фото»: те саме нічне небо, коло в золотому кільці, як у 🌌 */
+/* Вікно «Наши фото»: те саме нічне небо, коло в золотому кільці, як у 🌌 */
 .us-sheet { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   padding: 20px 16px; background: radial-gradient(circle at 50% 40%, #3E1D63, #0B0820 75%); color: #FFF0F7; text-align: center; }
 .us-title { margin: 0; font: 700 2rem var(--hand); color: #FFE7A8; text-shadow: 0 0 10px rgba(255, 200, 120, .6); }
 .us-view { --v: 260px; position: relative; flex: none; width: var(--v); height: var(--v); border-radius: 50%; overflow: hidden; touch-action: none; cursor: grab;
   background: #2A1E5C; box-shadow: 0 0 0 3px #F5C76A, 0 0 0 9px rgba(245, 199, 106, .18), 0 0 40px 10px rgba(255, 190, 230, .4); }
 .us-view img { position: absolute; left: 50%; top: 50%; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
-.us-view.is-still { cursor: default; }
-.us-view.is-still img { left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
 .us-zoom { width: min(260px, 80vw); accent-color: #F5C76A; }
 .us-note { margin: 0; max-width: 300px; font-size: .9rem; line-height: 1.35; opacity: .82; }
 .us-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
@@ -3936,6 +3934,41 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .us-btn.is-main { border-color: #F5C76A; background: #F5C76A; color: #2A1730; }
 .us-btn:disabled { opacity: .6; }
 .us-sheet :focus-visible { outline: 2px solid #FFE7A8; outline-offset: 3px; }
+/* Сітка альбому: кружечки (серця — у її фото), «＋» додає; натиснули — темніє з «Убрать?», ще раз — прибрали */
+.us-grid { display: grid; grid-template-columns: repeat(4, 64px); gap: 12px; justify-content: center; }
+.us-tile { position: relative; width: 64px; height: 64px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; background: #2A1E5C; cursor: pointer;
+  box-shadow: 0 0 0 2px #F5C76A; }
+.us-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.us-tile-x { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(20, 6, 30, .72);
+  color: #FFF0F7; font: 600 .72rem var(--ui); opacity: 0; transition: opacity .15s; }
+.us-tile.is-sure .us-tile-x { opacity: 1; }
+.us-tile.is-add { background: none; box-shadow: inset 0 0 0 2px rgba(255, 231, 168, .55); color: #FFE7A8; font-size: 1.8rem; line-height: 1; }
+/* Її фото: кадр-серце (форма — clip-path з JS), кант — svg по краю; тло вікна рожевіше */
+.us-sheet.is-heart { background: radial-gradient(circle at 50% 40%, #6B1D48, #1A0814 75%); }
+.us-sheet.is-heart .us-title { color: #FFC2D8; text-shadow: 0 0 10px rgba(255, 90, 150, .6); }
+.us-sheet.is-heart .us-btn.is-main { border-color: #FF6FA2; background: #FF6FA2; color: #2A0A1C; }
+.us-sheet.is-heart .us-zoom { accent-color: #FF6FA2; }
+.us-view.is-heart { height: var(--vh); border-radius: 0; box-shadow: none; background: #4A1530; }
+.us-tile.is-heart { height: 59px; border-radius: 0; box-shadow: none; background: #4A1530; align-self: center; }
+.us-heart-edge { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.us-heart-edge path { fill: none; stroke: #FF4F8B; stroke-width: 9; vector-effect: non-scaling-stroke; }
+.us-tile .us-heart-edge path { stroke-width: 5; }
+.us-tile.is-heart .us-tile-x { padding-bottom: 8px; font-size: .6rem; }
+.us-sheet.is-heart .us-tile.is-add { box-shadow: inset 0 0 0 2px rgba(255, 111, 162, .6); color: #FFC2D8; }
+/* 🌌: рамка-кільце із зірочок (по черзі із золотою) */
+.fx-us-ring.is-stars { border: 1.5px solid rgba(255, 240, 200, .6); }
+.fx-us-ring.is-stars::after { display: none; }
+.fx-cos-star { z-index: 62; color: #FFE9A8; font-size: 17px; line-height: 1; text-shadow: 0 0 8px #FFD36A; }
+.fx-cos-star.is-small { font-size: 11px; }
+/* 🍓 з її фото: рожеве сяйво, серце з кантом поверх полуничного дощу; сяйво під серцем — градієнтом, не filter (ривки) */
+.fx-berry { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(255, 128, 168, .45), rgba(255, 79, 139, .16) 55%, rgba(60, 12, 40, .3)); }
+.fx-heart { z-index: 64; width: 260px; height: 240px; }
+.fx-heart::before { content: ''; position: absolute; inset: -34px; background: radial-gradient(closest-side, rgba(212, 20, 90, .42), rgba(212, 20, 90, 0)); }
+.fx-heart-ph { position: absolute; inset: 0; background: #F7B8D2; }
+.fx-heart-ph i { position: absolute; inset: 0; background: center / cover no-repeat; }
+.fx-heart svg { position: absolute; inset: 0; overflow: visible; }
+.fx-heart-dots { z-index: 64; display: flex; gap: 7px; }
+.fx-heart-dots i { width: 8px; height: 8px; border-radius: 50%; background: #FF4F8B; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); opacity: .35; }
 /* Значок реакції 🌌 у рядку, на кнопці й під повідомленням — розміром зі смайлик */
 .rx-face { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.2em; line-height: 0; }
 .rx-face svg { display: block; width: 100%; height: 100%; }
