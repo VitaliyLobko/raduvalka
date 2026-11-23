@@ -254,8 +254,8 @@ function drawFoot(ctx, x0, y0, w, hh, text) {
 }
 
 // blob — уже стиснуте фото (prepare); send(out, caption) — надіслати (кидає помилку — вікно лишається);
-// fail(e) — текст помилки; image() — зменшене фото для ШІ-підписів
-export async function photoEditor(blob, { send, fail, image, label = 'Отправить' }) {
+// fail(e) — текст помилки; image() — зменшене фото для ШІ-підписів; cancel() — закрили хрестиком, нічого не надіславши
+export async function photoEditor(blob, { send, fail, image, label = 'Отправить', cancel }) {
   let base;
   try { base = await createImageBitmap(blob); } catch { toast('Эту картинку открыть не получилось'); return; }
 
@@ -979,7 +979,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // ✕ і «Назад» спершу виходять з малювання / обрізки / наклейок, і лише потім закривають
   const x = h('button', {
     type: 'button', class: 'sheet-close ph-close', 'aria-label': 'Закрыть',
-    onclick: () => { if (mode !== 'move') finishMode(false); else close(); },
+    onclick: () => { if (mode !== 'move') finishMode(false); else { close(); cancel?.(); } },
   }, '✕');
   // Фон — саме фото, сильно розмите: у кожного свій колір замість суцільної заливки
   const backUrl = URL.createObjectURL(blob);

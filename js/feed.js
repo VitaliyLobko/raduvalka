@@ -451,15 +451,7 @@ function chatMenu(t) {
       type: 'button', class: 'chat-menu-act', role: 'menuitem',
       onclick: (e) => { e.stopPropagation(); close(); clearChat(!on); },
     }, on ? '↩️ Вернуть историю' : '🧹 Очистить чат'),
-    h('p', { class: 'chat-menu-note' }, on ? 'Снова покажу всю переписку' : 'Только в твоём чате, письма не удаляются'),
-    // Альбоми фото для реакцій — окремим модулем, лише коли натиснули; її фото для 🍓 веде тільки він, його для 🛡️ — вона
-    ...[['us', reactFace('🌌'), ' Наши фото', 'Для реакции «Вселенная нас любит»'], ['her', '🍓', ' Её фото', 'В сердечке, когда ставишь 🍓 на её письмо'],
-      ['his', '🛡️', ' Его фото', 'В щите, когда ставишь 🛡️ на его письмо']]
-      .filter(([a]) => a === 'us' || (a === 'her') === (DATA.side === 'vin'))
-      .flatMap(([a, face, label, note]) => [h('button', {
-        type: 'button', class: 'chat-menu-act', role: 'menuitem',
-        onclick: async (e) => { e.stopPropagation(); close(); (await import('./usphoto-edit.js')).openAlbum(a); },
-      }, face, label), h('p', { class: 'chat-menu-note' }, note)]));
+    h('p', { class: 'chat-menu-note' }, on ? 'Снова покажу всю переписку' : 'Только в твоём чате, письма не удаляются'));
   const opened = Date.now();
   const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, menu);
   document.body.append(layer);

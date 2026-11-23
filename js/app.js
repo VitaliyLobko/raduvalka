@@ -14,7 +14,7 @@ import { h, toast, cap, reduceMotion, aboutGroup, aboutRow, aboutRowBody, waxSea
 import { renderEnvelopes, markEnvelopes } from './envelopes.js';
 import { renderTogether, chipLabel, chipFestive } from './together.js';
 import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck } from './plans.js';
-import { composeMeme } from './memes.js';
+import { composeMeme, reactFace } from './memes.js';
 import { maybeWelcome } from './welcome.js';
 import { startTour } from './tour.js';
 import { showLock } from './lock.js';
@@ -800,6 +800,19 @@ function openAbout(showNews) {
       getAltKey() ? aboutGroup('Половина', sideSwitch()) : null,
       // Вхід у «Вместе» й тут — у шапці лише значок із числом
       aboutGroup('Вместе', aboutRow('💞', cap(chipLabel()), 'Наша открытка и дата встречи', () => { close(); setTimeout(openTogether, 300); })),
+      // Альбоми для реакцій і плейлист — модулі вантажаться лише на тап; її фото (🍓) веде тільки він, його (🛡️) — вона
+      aboutGroup('Фото и песни',
+        ...[['us', reactFace('🌌'), 'Наши фото', 'Для реакции «Вселенная нас любит»'], ['her', '🍓', 'Её фото', 'В сердечке, когда ставишь 🍓 на её письмо'],
+          ['his', reactFace('🛡️'), 'Его фото', 'В щите, когда ставишь «Щит» на его письмо']]
+          .filter(([a]) => a === 'us' || (a === 'her') === (DATA.side === 'vin'))
+          .map(([a, face, label, note]) => aboutRow(face, label, note, async () => {
+            close();
+            try { (await import('./usphoto-edit.js')).openAlbum(a); } catch { toast('Не открылось — обнови Радовалку'); }
+          })),
+        aboutRow('🎵', 'Плейлист', 'Песни из писем', async () => {
+          close();
+          try { (await import('./playlist.js')).openPlaylist(); } catch { toast('Не открылось — обнови Радовалку'); }
+        })),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
       aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
       aboutGroup('Звуки', soundSwitch(), instrumentPicker()),

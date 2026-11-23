@@ -124,14 +124,51 @@ function glyphAt(text, x, y, size, cls = '') {
 }
 // Елемент потрапляє на сторінку лише тоді, коли починається його рух: інакше перший кадр
 // малює всі 20–30 великих емодзі разом і на слабкому телефоні «залипає»
-const gone = (s) => (a) => {
+const gone = (s, keep) => (a) => {
   const delay = a.effect?.getTiming().delay || 0;
   const add = () => { if (!s.isConnected) document.body.append(s); };
   if (delay > 40) setTimeout(add, delay - 30);
   else add();
-  a.finished.finally(() => s.remove());
+  if (keep) keep.push(s);
+  else a.finished.finally(() => s.remove());
 };
 const C = 'translate(-50%, -50%)';
+
+// Реакції з фото: сцена грає як завжди, але фото з рамкою й тлом не тануть — лишаються, поки не торкнешся екрана.
+// hold(D) — почати (повертає список, куди gone складає те, що лишається); stay — ті самі кадри без останнього, зникнення
+let held = null;
+function release() {
+  const hd = held;
+  if (!hd) return;
+  held = null;
+  clearTimeout(hd.timer);
+  hd.tap?.remove();
+  for (const s of hd.els) s.animate([{ opacity: 0 }], { duration: 320, easing: 'ease-in', fill: 'forwards' }).finished.finally(() => s.remove());
+  hd.ok();
+}
+function hold(D) {
+  release();
+  const hd = { els: [], tap: null };
+  hd.done = new Promise((ok) => { hd.ok = ok; });
+  // Шар для дотику — лише коли сцена дограла: до того дотик іде в саму сторінку, як і в інших реакцій
+  hd.timer = setTimeout(() => {
+    if (held !== hd) return;
+    hd.tap = document.createElement('div');
+    hd.tap.className = 'fx-hold';
+    hd.tap.setAttribute('role', 'button');
+    hd.tap.setAttribute('aria-label', 'Закрыть');
+    hd.tap.addEventListener('pointerdown', (e) => { e.preventDefault(); release(); });
+    document.body.append(hd.tap);
+  }, D * SLOW);
+  held = hd;
+  return hd.els;
+}
+const stay = (frames) => {
+  const f = frames.slice(0, -1);
+  const { offset, ...last } = f[f.length - 1];
+  f[f.length - 1] = last;
+  return f;
+};
 
 // Розліт дрібних значків з точки: glyphs по колу (або в секторі from..to, градуси), dist — як далеко
 function spray(x, y, glyphs, n, { dist = 120, size = '1.8rem', delay = 0, from = 0, to = 360, fall = 40, dur = 1000 } = {}) {
@@ -213,11 +250,11 @@ function twinkle(g, x, y, size, delay, dur = 700) {
   ], { duration: dur, delay, easing: 'ease-out', fill: 'backwards' }));
 }
 // Напівпрозорий шар на весь екран (затемнення, спалах)
-function veil(cls, frames, dur, delay = 0, x = 0, y = 0) {
+function veil(cls, frames, dur, delay = 0, x = 0, y = 0, keep = null) {
   const v = shape(cls, 0, 0);
   v.style.setProperty('--vx', `${x}px`);
   v.style.setProperty('--vy', `${y}px`);
-  gone(v)(v.animate(frames, { duration: dur, delay, fill: 'both' }));
+  gone(v, keep)(v.animate(keep ? stay(frames) : frames, { duration: dur, delay, fill: 'both' }));
 }
 const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="true">'
   + '<g transform="rotate(-50 22 26)" fill="#2b2a31" stroke="#e8b84a" stroke-width="1.6">'
@@ -958,6 +995,7 @@ export function reactFx(el, glyph, waited = false) {
   if (wait) { wait.then(() => reactFx(el, glyph, true)); return; }
   if (glyph && el?.isConnected) sfx('react');
   if (reduceMotion || !el?.isConnected || !glyph) return;
+  release();
   // Поки йде реакція, тло не їздить за нахилом (depth.js) — відеокарта зайнята лише смайликами
   const root = document.documentElement;
   root.classList.add('is-fx');
@@ -1025,7 +1063,8 @@ export function reactFxQueued(el, glyph) {
   fxQueue = fxQueue.then(() => albumWait(el, glyph)).then(() => {
     if (!el?.isConnected || reduceMotion) return undefined;
     reactFx(el, glyph, true);
-    return new Promise((ok) => { setTimeout(ok, (durOf(glyph, el) || 2200) * SLOW - 400); });
+    // Фото з реакції чекає дотику — наступна йде, коли його прибрали
+    return new Promise((ok) => { setTimeout(ok, (durOf(glyph, el) || 2200) * SLOW - 400); }).then(() => held?.done);
   });
 }
 
@@ -1591,10 +1630,12 @@ REACT_FX['🌌'] = () => {
   const cy = clamp(innerHeight * 0.46, 250, innerHeight - 250);
   const R = 98;
   const RS = 146;
-  const live = (s, frames, o) => gone(s)(s.animate(frames, { fill: 'backwards', ...o }));
+  const us = usPhoto();
+  const keep = us ? hold(D) : null;
+  const live = (s, frames, o, k) => gone(s, k)(s.animate(k ? stay(frames) : frames, { ...o, fill: k ? 'both' : 'backwards' }));
   const fade = [{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }];
-  veil('fx-cosmos', fade, D, 0, cx, cy);
-  live(shape('fx-milky', cx, cy), fade, { duration: D });
+  veil('fx-cosmos', fade, D, 0, cx, cy, keep);
+  live(shape('fx-milky', cx, cy), fade, { duration: D }, keep);
   // Зоряний пил уздовж смуги (вона під 40° — знизу зліва вгору направо)
   const a = (-50 * Math.PI) / 180;
   for (let i = 0; i < 26; i += 1) {
@@ -1609,7 +1650,6 @@ REACT_FX['🌌'] = () => {
     { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(.45)`, opacity: 1, offset: 0.35 },
     { transform: `${C} scale(.3)`, offset: 0.5 }, { transform: `${C} scale(4.5)`, opacity: 0.9, offset: 0.8 }, { transform: `${C} scale(6)`, opacity: 0 },
   ], { duration: 1300, delay: 300, easing: 'ease-out' });
-  const us = usPhoto();
   const disc = shape(`fx-us${us ? '' : ' is-galaxy'}`, cx, cy, us ? '' : GALAXY);
   if (us) disc.style.backgroundImage = `url("${us}")`;
   else disc.firstElementChild.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-140deg)' }], { duration: D, easing: 'linear' });
@@ -1617,7 +1657,7 @@ REACT_FX['🌌'] = () => {
     { transform: `${C} scale(.05)`, opacity: 0 }, { transform: `${C} scale(1.06)`, opacity: 1, offset: 0.12 }, { transform: `${C} scale(1)`, offset: 0.18 },
     { transform: `${C} scale(1.035)`, offset: 0.45 }, { transform: `${C} scale(1)`, offset: 0.55 }, { transform: `${C} scale(1.035)`, offset: 0.65 },
     { transform: `${C} scale(1)`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.92)`, opacity: 0 },
-  ], { duration: D - 900, delay: 900, easing: 'ease-in-out' });
+  ], { duration: D - 900, delay: 900, easing: 'ease-in-out' }, keep);
   // Рамка — по черзі золоте кільце й кільце із зірочок. Проявляється за зіркою, що біжить по колу від верху.
   // Рамкою, не штрихом SVG: stroke-dashoffset рахує процесор кожен кадр, а прозорість і масштаб — відеокарта
   cosmosFrame = cosmosFrame === 'gold' ? 'stars' : 'gold';
@@ -1629,12 +1669,12 @@ REACT_FX['🌌'] = () => {
         { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(1.6)`, opacity: 1, offset: 0.06 }, { transform: C, offset: 0.12 },
         { transform: `${C} scale(${i % 2 ? 1.3 : 0.75})`, opacity: 0.6, offset: 0.4 }, { transform: C, opacity: 1, offset: 0.65 },
         { transform: C, opacity: 1, offset: 0.9 }, { transform: `${C} scale(0)`, opacity: 0 },
-      ], { duration: D - 1000 - i * 60, delay: 1000 + i * 60, easing: 'ease-out' });
+      ], { duration: D - 1000 - i * 60, delay: 1000 + i * 60, easing: 'ease-out' }, keep);
     }
   }
   live(shape(`fx-us-ring${cosmosFrame === 'stars' ? ' is-stars' : ''}`, cx, cy), [
     { transform: `${C} scale(1.12)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.22 }, { transform: C, opacity: 1, offset: 0.9 }, { transform: C, opacity: 0 },
-  ], { duration: D - 1000, delay: 1000, easing: 'ease-out' });
+  ], { duration: D - 1000, delay: 1000, easing: 'ease-out' }, keep);
   live(shape('fx-dot is-big', cx, cy), [
     { transform: `${C} rotate(0) translateY(-${R + 2}px)`, opacity: 1 }, { transform: `${C} rotate(360deg) translateY(-${R + 2}px)`, opacity: 1, offset: 0.9 },
     { transform: `${C} rotate(380deg) translateY(-${R + 2}px) scale(2)`, opacity: 0 },
@@ -1661,8 +1701,8 @@ REACT_FX['🌌'] = () => {
   const arc = (cls, d, text, base) => `<svg class="${cls}" viewBox="${-rb - 40} ${-rb - 40} ${(rb + 40) * 2} ${(rb + 40) * 2}" width="${(rb + 40) * 2}" height="${(rb + 40) * 2}">`
     + `<path id="${cls}-p" d="${d}" fill="none"/><text><textPath href="#${cls}-p" startOffset="50%" text-anchor="middle"${base}>${text}</textPath></text></svg>`;
   const arcIn = [{ transform: C, opacity: 0 }, { transform: C, opacity: 1, offset: 0.14 }, { transform: C, opacity: 1, offset: 0.86 }, { transform: C, opacity: 0 }];
-  live(shape('fx-cos-arc', cx, cy, arc('fx-cos-t', `M ${-rt} 0 A ${rt} ${rt} 0 0 1 ${rt} 0`, 'Вселенная нас любит', '')), arcIn, { duration: D - 2000, delay: 1900 });
-  live(shape('fx-cos-arc', cx, cy, arc('fx-cos-b', `M ${-rb} 0 A ${rb} ${rb} 0 0 0 ${rb} 0`, 'Вместе, долго и счастливо!', ' dominant-baseline="hanging"')), arcIn, { duration: D - 2500, delay: 2400 });
+  live(shape('fx-cos-arc', cx, cy, arc('fx-cos-t', `M ${-rt} 0 A ${rt} ${rt} 0 0 1 ${rt} 0`, 'Вселенная нас любит', '')), arcIn, { duration: D - 2000, delay: 1900 }, keep);
+  live(shape('fx-cos-arc', cx, cy, arc('fx-cos-b', `M ${-rb} 0 A ${rb} ${rb} 0 0 0 ${rb} 0`, 'Вместе, долго и счастливо!', ' dominant-baseline="hanging"')), arcIn, { duration: D - 2500, delay: 2400 }, keep);
   for (let i = 0; i < 4; i += 1) {
     const t = Math.PI * (0.2 + i * 0.5);
     twinkle('✨', cx + Math.cos(t) * (R + 4), cy + Math.sin(t) * (R + 4), '1.2rem', 2700 + i * 260);
@@ -1692,8 +1732,9 @@ function berryHeart() {
   const D = BERRY_D;
   const cx = innerWidth / 2;
   const cy = clamp(innerHeight * 0.45, 200, innerHeight - 220);
-  const live = (s, frames, o) => gone(s)(s.animate(frames, { fill: 'backwards', ...o }));
-  veil('fx-berry', [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], D, 0, cx, cy);
+  const live = (s, frames, o, k) => gone(s, k)(s.animate(k ? stay(frames) : frames, { ...o, fill: k ? 'both' : 'backwards' }));
+  const keep = hold(D);
+  veil('fx-berry', [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], D, 0, cx, cy, keep);
   // Полуничний дощ на весь екран — за серцем
   const drops = 14;
   for (let i = 0; i < drops; i += 1) {
@@ -1733,7 +1774,7 @@ function berryHeart() {
     twinkle('💗', cx + (i ? 1 : -1) * (120 + Math.random() * 30), cy - 60 + Math.random() * 130, '1.3rem', at);
   });
   frames.push({ transform: C, opacity: 1, offset: o(len - 380) }, { transform: `${C} scale(.9)`, opacity: 0 });
-  live(w, frames, { duration: len, delay: BERRY_POP, easing: 'ease-out' });
+  live(w, frames, { duration: len, delay: BERRY_POP, easing: 'ease-out' }, keep);
   for (let i = 0; i < 3; i += 1) twinkle('✨', cx + [-110, 105, 0][i], cy + [-95, -100, 112][i], '1.2rem', BERRY_POP + 300 + i * 220);
 }
 const plainBerry = REACT_FX['🍓'];
@@ -1803,11 +1844,12 @@ function shieldPhoto() {
   const D = SHIELD_D;
   const cx = innerWidth / 2;
   const cy = clamp(innerHeight * 0.45, 210, innerHeight - 220);
-  const live = (s, frames, o) => gone(s)(s.animate(frames, { fill: 'backwards', ...o }));
+  const live = (s, frames, o, k) => gone(s, k)(s.animate(k ? stay(frames) : frames, { ...o, fill: k ? 'both' : 'backwards' }));
+  const keep = hold(D);
   live(shape('fx-dome is-wide', cx, cy), [
     { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.18 },
     { transform: `${C} scale(1.04)`, opacity: 0.85, offset: 0.85 }, { transform: `${C} scale(1.2)`, opacity: 0 },
-  ], { duration: D, easing: 'ease-out' });
+  ], { duration: D, easing: 'ease-out' }, keep);
   const id = `fx-shield-${shieldId += 1}`;
   const rivets = [[120, 15], [34, 45], [206, 45], [120, 260]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#FFE7A0" stroke="#A9761E" stroke-width="1.2"/>`).join('');
   const w = shape('fx-shield', cx, cy, `<div class="fx-shield-ph"><i></i></div><svg viewBox="0 0 240 280" width="240" height="280">`
@@ -1827,7 +1869,7 @@ function shieldPhoto() {
     frames.push({ transform: `${C} translateX(${side * -10}px) rotate(${side * -5}deg) scale(.97)`, offset: o + 0.015 }, { transform: C, offset: o + 0.07 });
   }
   frames.push({ transform: `${C} scale(1.03)`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.75)`, opacity: 0 });
-  live(w, frames, { duration: D, easing: 'ease-out' });
+  live(w, frames, { duration: D, easing: 'ease-out' }, keep);
   // Удари — по краю щита (нижче він вужчий)
   for (const [side, dy, at] of hits) {
     const hx = cx + side * (106 - Math.max(0, dy) * 70);

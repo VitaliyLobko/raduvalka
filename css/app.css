@@ -2708,6 +2708,8 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 
 /* Анімації свайпів: сердечка, пружина, наступна картка, рядок «Вернуть» */
 .fx-burst { position: fixed; z-index: 60; font-size: 1.6rem; line-height: 1; pointer-events: none; }
+/* Фото з реакції лишилось на екрані — дотик будь-де прибирає (шар поверх усього, прозорий) */
+.fx-hold { position: fixed; inset: 0; z-index: 90; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .is-spring { transition: transform .45s cubic-bezier(.3, 1.7, .5, 1) !important; }
 .plan-card.is-next { animation: deck-pop .38s cubic-bezier(.3, 1.5, .5, 1); }
 @keyframes deck-pop { from { opacity: 0; transform: translateY(14px) scale(.9); } }
@@ -3927,8 +3929,12 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .us-view { --v: 260px; position: relative; flex: none; width: var(--v); height: var(--v); border-radius: 50%; overflow: hidden; touch-action: none; cursor: grab;
   background: #2A1E5C; box-shadow: 0 0 0 3px #F5C76A, 0 0 0 9px rgba(245, 199, 106, .18), 0 0 40px 10px rgba(255, 190, 230, .4); }
 .us-view img { position: absolute; left: 50%; top: 50%; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
-/* Фото зменшили менше кадру — краї заповнює розмита копія (так само й при збереженні) */
-.us-view .us-bg { left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(14px) brightness(.85); transform: scale(1.15); }
+/* Де фото не накриває кадр — проступає розмита копія (так само й при збереженні); розмір і поворот — з JS */
+.us-view .us-bg { object-fit: cover; filter: blur(14px) brightness(.85); }
+.us-tools { display: flex; align-items: center; gap: 6px; width: min(300px, 86vw); }
+.us-tools .us-zoom { flex: 1; min-width: 0; width: auto; }
+.us-tool { flex: none; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(255, 231, 168, .45); border-radius: 50%; background: none; color: #FFF0F7; font: 600 1.25rem/1 var(--ui); cursor: pointer; }
+.us-tool:active { background: rgba(255, 231, 168, .18); }
 .us-zoom { width: min(260px, 80vw); accent-color: #F5C76A; }
 .us-note { margin: 0; max-width: 300px; font-size: .9rem; line-height: 1.35; opacity: .82; }
 .us-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
@@ -5182,7 +5188,6 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .pl-player:empty { display: none; }
 .pl-wait { color: var(--ink-soft); font-size: .8125rem; }
 .postcard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-.postcard-songs { flex: none; min-height: 36px; font-size: .875rem; }
 /* У лист: «📎 Прикрепить» словами — не стрілка відправки */
 .ph-send.is-attach { width: auto; padding: 0 16px; border-radius: 999px; font: 700 .9375rem/1 inherit; white-space: nowrap; }
 /* «Помочь написать»: поле в один рядок — мікрофон по центру, а не вгорі як у великому полі */

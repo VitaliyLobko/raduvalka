@@ -136,12 +136,7 @@ export function renderTogether(screen) {
   // Одна листівка на весь екран: угорі — «Врозь с», посередині — планети й сердечко, внизу — зустріч, ДР і «дней вместе»
   const postcard = h('div', { class: 'postcard' },
     h('div', { class: 'postcard-top' },
-      h('div', { class: 'postcard-head' },
-        h('h2', { class: 'postcard-title' }, 'Вместе'),
-        h('button', {
-          type: 'button', class: 'mk-chip postcard-songs', 'aria-label': 'Наш плейлист: песни из писем',
-          onclick: async () => (await import('./playlist.js')).openPlaylist(),
-        }, '🎵 Плейлист')),
+      h('div', { class: 'postcard-head' }, h('h2', { class: 'postcard-title' }, 'Вместе')),
       apartAgain || h('label', { class: 'meet-row postcard-apart' }, h('span', {}, 'Врозь с'),
         clearable(apartInput, 'дату', () => { T.apartFrom = null; save('together', { apartFrom: null }); renderTogether(screen); }))),
     card,
