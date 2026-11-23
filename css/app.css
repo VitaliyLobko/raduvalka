@@ -3927,6 +3927,8 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .us-view { --v: 260px; position: relative; flex: none; width: var(--v); height: var(--v); border-radius: 50%; overflow: hidden; touch-action: none; cursor: grab;
   background: #2A1E5C; box-shadow: 0 0 0 3px #F5C76A, 0 0 0 9px rgba(245, 199, 106, .18), 0 0 40px 10px rgba(255, 190, 230, .4); }
 .us-view img { position: absolute; left: 50%; top: 50%; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+/* Фото зменшили менше кадру — краї заповнює розмита копія (так само й при збереженні) */
+.us-view .us-bg { left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(14px) brightness(.85); transform: scale(1.15); }
 .us-zoom { width: min(260px, 80vw); accent-color: #F5C76A; }
 .us-note { margin: 0; max-width: 300px; font-size: .9rem; line-height: 1.35; opacity: .82; }
 .us-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
@@ -3967,8 +3969,6 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-heart-ph { position: absolute; inset: 0; background: #F7B8D2; }
 .fx-heart-ph i { position: absolute; inset: 0; background: center / cover no-repeat; }
 .fx-heart svg { position: absolute; inset: 0; overflow: visible; }
-.fx-heart-dots { z-index: 64; display: flex; gap: 7px; }
-.fx-heart-dots i { width: 8px; height: 8px; border-radius: 50%; background: #FF4F8B; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); opacity: .35; }
 /* Значок реакції 🌌 у рядку, на кнопці й під повідомленням — розміром зі смайлик */
 .rx-face { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.2em; line-height: 0; }
 .rx-face svg { display: block; width: 100%; height: 100%; }

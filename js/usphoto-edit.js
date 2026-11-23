@@ -13,10 +13,11 @@ const CFG = {
   },
   her: {
     title: 'Её фото', glyph: '🍓', shape: 'is-heart', w: 520, h: 480,
-    note: 'До 10 фото. Когда ставишь 🍓 на её письмо, они сменяют друг друга в сердечке. Видите их только вы двое',
+    note: 'До 10 фото. Когда ставишь 🍓 на её письмо, в сердечке каждый раз другое. Видите их только вы двое',
   },
 };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const ZMIN = 0.35;
 const play = (cfg) => reactFx(document.querySelector('.chat-title') || document.body, cfg.glyph);
 
 function sheet(title, cls, ...kids) {
@@ -103,7 +104,8 @@ async function crop(name, files, added) {
   try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { toast('Это фото открыть не получилось'); next(0); return; }
   const V = Math.min(innerWidth - 64, 300);
   const VH = Math.round((V * cfg.h) / cfg.w);
-  // base — масштаб, коли фото рівно накриває кадр; z — у скільки разів більше (1…5); x, y — зсув центру фото, px
+  // base — масштаб, коли фото рівно накриває кадр; z — у скільки разів більше (ZMIN…5): менше 1 — у кадр влазить більше,
+  // а порожні краї заповнює розмита копія того ж фото; x, y — зсув центру фото, px
   const base = Math.max(V / bmp.width, VH / bmp.height);
   let z = 1;
   let x = 0;
@@ -112,19 +114,19 @@ async function crop(name, files, added) {
   const img = h('img', { src, alt: '', draggable: 'false' });
   img.style.width = `${bmp.width}px`;
   img.style.height = `${bmp.height}px`;
-  const view = h('div', { class: 'us-view', 'aria-label': 'Двигай фото пальцем, двумя — меняй размер' }, img);
+  const view = h('div', { class: 'us-view', 'aria-label': 'Двигай фото пальцем, двумя — меняй размер' }, h('img', { src, alt: '', class: 'us-bg', draggable: 'false' }), img);
   view.style.setProperty('--v', `${V}px`);
   view.style.setProperty('--vh', `${VH}px`);
-  const zoom = h('input', { type: 'range', class: 'us-zoom', min: '1', max: '5', step: '0.01', value: '1', 'aria-label': 'Размер' });
+  const zoom = h('input', { type: 'range', class: 'us-zoom', min: String(ZMIN), max: '5', step: '0.01', value: '1', 'aria-label': 'Размер' });
   const paint = () => {
     const hw = (bmp.width * base * z - V) / 2;
     const hh = (bmp.height * base * z - VH) / 2;
-    x = clamp(x, -hw, hw);
-    y = clamp(y, -hh, hh);
+    x = clamp(x, -Math.abs(hw), Math.abs(hw));
+    y = clamp(y, -Math.abs(hh), Math.abs(hh));
     img.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${base * z})`;
     zoom.value = String(z);
   };
-  const setZ = (nz) => { const k = clamp(nz, 1, 5) / z; z *= k; x *= k; y *= k; paint(); };
+  const setZ = (nz) => { const k = clamp(nz, ZMIN, 5) / z; z *= k; x *= k; y *= k; paint(); };
   zoom.addEventListener('input', () => setZ(Number(zoom.value)));
   view.addEventListener('wheel', (e) => { e.preventDefault(); setZ(z * Math.exp(-e.deltaY / 400)); }, { passive: false });
   // Пальці: один — зсув, два — масштаб і зсув за серединою
@@ -172,6 +174,13 @@ async function crop(name, files, added) {
       const dh = bmp.height * base * z * k;
       const ctx = c.getContext('2d');
       ctx.imageSmoothingQuality = 'high';
+      // Фото менше кадру — краї та сама розмита копія, що й у вікні (без filter у canvas — просто без розмиття)
+      if (dw < cfg.w || dh < cfg.h) {
+        const cs = Math.max(cfg.w / bmp.width, cfg.h / bmp.height) * 1.15;
+        ctx.filter = `blur(${Math.round(14 * k)}px) brightness(.85)`;
+        ctx.drawImage(bmp, (cfg.w - bmp.width * cs) / 2, (cfg.h - bmp.height * cs) / 2, bmp.width * cs, bmp.height * cs);
+        ctx.filter = 'none';
+      }
       ctx.drawImage(bmp, (V / 2 + x) * k - dw / 2, (VH / 2 + y) * k - dh / 2, dw, dh);
       const jpeg = await new Promise((ok) => { c.toBlob(ok, 'image/jpeg', 0.86); });
       await album.add(jpeg);

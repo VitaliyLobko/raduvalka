@@ -93,17 +93,6 @@ function makeAlbum(name) {
       last = id;
       return urls.get(id);
     },
-    // Для слайдів: усі фото в випадковому порядку, перше — як у pick()
-    order() {
-      const first = this.pick();
-      if (!first) return [];
-      const rest = [...urls.values()].filter((u) => u !== first);
-      for (let i = rest.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [rest[i], rest[j]] = [rest[j], rest[i]];
-      }
-      return [first, ...rest];
-    },
     sync(at = DATA[name]) { busy = busy.then(() => run(at)); return busy; },
     // jpeg — уже вирізаний квадрат 512: шифруємо ключем пари; без ключа не відправляємо зовсім
     async add(jpeg) {

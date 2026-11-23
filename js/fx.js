@@ -1659,35 +1659,31 @@ REACT_FX['🌌'] = () => {
   }
 };
 
-// 🍓 від нього, коли є її фото (альбом her): велика полуниця падає в центр і розкривається серцем, у серці по черзі
-// її фото (до BERRY_N, порядок випадковий), на кожній зміні серце «тукає»; довкола полуничний дощ. Від неї чи без
+// 🍓 від нього, коли є її фото (альбом her): велика полуниця падає в центр і розкривається серцем з одним її фото —
+// щоразу іншим (випадкове, не те, що минулого разу); серце двічі «тукає», довкола полуничний дощ. Від неї чи без
 // фото — звичайна 🍓. Хто поставив: реакція стоїть на чужому листі — на моєму телефоні чужий рядок означає «я»
 const HEART = 'M130 228 C 52 170, 6 124, 6 72 C 6 34, 36 8, 72 8 C 98 8, 118 24, 130 44 C 142 24, 162 8, 188 8 C 224 8, 254 34, 254 72 C 254 124, 208 170, 130 228 Z';
-const BERRY_N = 5;
-const BERRY_IN = 900;
-const BERRY_STEP = 1150;
+const BERRY_D = 3900;
 const BERRY_POP = 760;
+const BERRY_BEATS = [1300, 2300];
 const fromHim = (el) => {
   const vin = document.documentElement.dataset.side === 'vin';
   const row = el?.closest?.('.feed-row');
   return row ? row.classList.contains('is-theirs') === vin : vin;
 };
 const berryPhotos = (el) => HER.size() > 0 && fromHim(el);
-const berryDur = () => BERRY_IN + Math.min(BERRY_N, HER.size()) * BERRY_STEP + 500;
 function durOf(glyph, el) {
-  return glyph === '🍓' && berryPhotos(el) ? berryDur() : DUR[glyph];
+  return glyph === '🍓' && berryPhotos(el) ? BERRY_D : DUR[glyph];
 }
 let berryId = 0;
 function berryHeart() {
-  const photos = HER.order().slice(0, BERRY_N);
-  const n = photos.length;
-  const D = berryDur();
+  const D = BERRY_D;
   const cx = innerWidth / 2;
   const cy = clamp(innerHeight * 0.45, 200, innerHeight - 220);
   const live = (s, frames, o) => gone(s)(s.animate(frames, { fill: 'backwards', ...o }));
-  veil('fx-berry', [{ opacity: 0 }, { opacity: 1, offset: 0.08 }, { opacity: 1, offset: 0.92 }, { opacity: 0 }], D, 0, cx, cy);
+  veil('fx-berry', [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], D, 0, cx, cy);
   // Полуничний дощ на весь екран — за серцем
-  const drops = 16;
+  const drops = 14;
   for (let i = 0; i < drops; i += 1) {
     const px = 20 + Math.random() * (innerWidth - 40);
     const s = glyphAt('🍓', px, innerHeight + 40, `${1.3 + Math.random() * 1.1}rem`);
@@ -1695,7 +1691,7 @@ function berryHeart() {
     live(s, [
       { transform: `translate(-50%, calc(-50% - ${innerHeight + 110}px)) rotate(0)`, opacity: 1 },
       { transform: `translate(calc(-50% + ${sway}px), -50%) rotate(${(Math.random() - 0.5) * 140}deg)`, opacity: 1 },
-    ], { duration: 2600 + Math.random() * 1200, delay: 150 + (i / drops) * Math.max(400, D - 4000), easing: 'linear' });
+    ], { duration: 2400 + Math.random() * 900, delay: 150 + (i / drops) * 900, easing: 'linear' });
   }
   // Велика полуниця падає в центр, плющиться — і з неї розкривається серце
   live(glyphAt('🍓', cx, cy, '5.6rem', 'fx-big'), [
@@ -1704,50 +1700,28 @@ function berryHeart() {
   ], { duration: 1000 });
   ring(cx, cy, BERRY_POP);
   const id = `fx-berry-${berryId += 1}`;
-  const w = shape('fx-heart', cx, cy, `<div class="fx-heart-ph"></div><svg viewBox="0 0 260 240" width="260" height="240">`
+  const w = shape('fx-heart', cx, cy, `<div class="fx-heart-ph"><i></i></div><svg viewBox="0 0 260 240" width="260" height="240">`
     + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8db4"/><stop offset=".5" stop-color="#ff3d7f"/><stop offset="1" stop-color="#d4145a"/></linearGradient></defs>`
     + `<path d="${HEART}" fill="none" stroke="url(#${id})" stroke-width="7" stroke-linejoin="round"/>`
     + `<path d="${HEART}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.6" transform="translate(130 120) scale(.955) translate(-130 -120)"/></svg>`);
   const ph = w.firstElementChild;
   ph.style.clipPath = `path('${HEART}')`;
-  // Коли починається і закінчується кожне фото (мс від початку сцени); сусідні накладаються на 400 мс — плавна зміна
-  const at = (i) => (i ? BERRY_IN + i * BERRY_STEP : BERRY_POP);
-  photos.forEach((u, i) => {
-    const sl = document.createElement('i');
-    sl.style.backgroundImage = `url("${u}")`;
-    ph.append(sl);
-    const start = i ? at(i) - 200 : BERRY_POP;
-    const end = i === n - 1 ? D : at(i + 1) + 200;
-    const len = end - start;
-    sl.animate([
-      { opacity: i ? 0 : 1, transform: 'scale(1)' }, { opacity: 1, offset: i ? 400 / len : 0.01 },
-      { opacity: 1, offset: i === n - 1 ? 0.99 : 1 - 400 / len }, { opacity: i === n - 1 ? 1 : 0, transform: 'scale(1.08)' },
-    ], { duration: len, delay: start, fill: 'both', easing: 'linear' });
-  });
-  // Серце: виростає з полуниці, на кожній зміні фото — подвійний «тук», наприкінці тане
+  const photo = ph.firstElementChild;
+  photo.style.backgroundImage = `url("${HER.pick()}")`;
+  // Фото повільно наближається, поки серце на екрані
+  photo.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }], { duration: D - BERRY_POP, delay: BERRY_POP, fill: 'both', easing: 'linear' });
+  // Серце: виростає з полуниці, двічі подвійний «тук», наприкінці тане
   const len = D - BERRY_POP;
   const o = (ms) => clamp(ms / len, 0, 1);
   const frames = [{ transform: `${C} scale(.05)`, opacity: 0 }, { transform: `${C} scale(1.1)`, opacity: 1, offset: o(260) }, { transform: C, offset: o(440) }];
-  for (let i = 1; i < n; i += 1) {
-    const b = at(i) - BERRY_POP;
+  BERRY_BEATS.forEach((at, i) => {
+    const b = at - BERRY_POP;
     frames.push({ transform: C, offset: o(b - 80) }, { transform: `${C} scale(1.07)`, offset: o(b) }, { transform: C, offset: o(b + 110) },
       { transform: `${C} scale(1.035)`, offset: o(b + 190) }, { transform: C, offset: o(b + 300) });
-    twinkle('💗', cx + (i % 2 ? 1 : -1) * (120 + Math.random() * 30), cy - 60 + Math.random() * 130, '1.3rem', at(i));
-  }
+    twinkle('💗', cx + (i ? 1 : -1) * (120 + Math.random() * 30), cy - 60 + Math.random() * 130, '1.3rem', at);
+  });
   frames.push({ transform: C, opacity: 1, offset: o(len - 380) }, { transform: `${C} scale(.9)`, opacity: 0 });
   live(w, frames, { duration: len, delay: BERRY_POP, easing: 'ease-out' });
-  // Точки під серцем: котре фото зараз
-  if (n > 1) {
-    const dots = shape('fx-heart-dots', cx, cy + 142, photos.map(() => '<i></i>').join(''));
-    [...dots.children].forEach((d, i) => {
-      const s = (i ? at(i) : 0) / D;
-      const e = i === n - 1 ? 1 : at(i + 1) / D;
-      d.animate([{ opacity: 0.35 }, { opacity: 0.35, offset: s }, { opacity: 1, offset: Math.min(1, s + 0.02) }, { opacity: 1, offset: e },
-        { opacity: i === n - 1 ? 1 : 0.35, offset: Math.min(1, e + 0.02) }, { opacity: i === n - 1 ? 1 : 0.35 }], { duration: D, fill: 'both' });
-    });
-    live(dots, [{ transform: C, opacity: 0 }, { transform: C, opacity: 1, offset: o(600) }, { transform: C, opacity: 1, offset: 0.94 }, { transform: C, opacity: 0 }],
-      { duration: D - BERRY_POP, delay: BERRY_POP });
-  }
   for (let i = 0; i < 3; i += 1) twinkle('✨', cx + [-110, 105, 0][i], cy + [-95, -100, 112][i], '1.2rem', BERRY_POP + 300 + i * 220);
 }
 const plainBerry = REACT_FX['🍓'];
