@@ -21,6 +21,23 @@ const read = () => {
 
 export function applyTextSize(px = read()) {
   document.documentElement.style.setProperty('--msg-k', String(px / BASE));
+  applyFont();
+}
+
+// Шрифт листів — теж свій на кожному телефоні. k — у скільки разів зменшити розмір, щоб ширші шрифти займали те ж місце, що Caveat
+const FONT_KEY = 'radovalka:letter-font';
+const FONTS = [
+  { v: 'caveat', label: 'Почерк', family: "'Caveat'", k: 1 },
+  { v: 'lobster', label: 'Открытка', family: "'Lobster'", k: 0.84 },
+  { v: 'comfortaa', label: 'Мягкий', family: "'Comfortaa'", k: 0.78 },
+  { v: 'rubik', label: 'Обычный', family: "'Rubik'", k: 0.8 },
+  { v: 'kurale', label: 'Книжный', family: "'Kurale'", k: 0.83 },
+];
+const readFont = () => { let v = null; try { v = localStorage.getItem(FONT_KEY); } catch { /* приватне вікно */ } return FONTS.find((f) => f.v === v) || FONTS[0]; };
+function applyFont(f = readFont()) {
+  const root = document.documentElement.style;
+  root.setProperty('--msg-font', `${f.family}, var(--hand)`);
+  root.setProperty('--msg-fk', String(f.k));
 }
 
 // Блок у «О Радовалке»: повзунок від дрібного до дуже крупного з засічками, зразок листа міняється одразу.
@@ -53,5 +70,20 @@ export function textSizePanel() {
       h('div', { class: 'text-size-track' }, range, h('div', { class: 'text-size-marks' }, ...marks)),
       h('span', { class: 'text-size-a is-big', 'aria-hidden': 'true' }, 'А'),
       value),
-    h('p', { class: 'text-size-sample' }, 'Скучаю по тебе. Считаю дни до встречи 💗'));
+    h('p', { class: 'text-size-sample' }, 'Скучаю по тебе. Считаю дни до встречи 💗'),
+    fontRow());
+}
+
+// Вибір шрифту: кожна кнопка написана своїм шрифтом, зразок вище міняється одразу
+function fontRow() {
+  const now = readFont();
+  const btns = FONTS.map((f) => h('button', {
+    type: 'button', class: 'mk-chip text-font', 'aria-pressed': String(f.v === now.v), style: `font-family: ${f.family}, var(--hand)`,
+    onclick: () => {
+      try { localStorage.setItem(FONT_KEY, f.v); } catch { /* приватне вікно */ }
+      applyFont(f);
+      btns.forEach((b, i) => b.setAttribute('aria-pressed', String(FONTS[i].v === f.v)));
+    },
+  }, f.label));
+  return h('div', {}, h('p', { class: 'about-sub' }, 'Шрифт писем'), h('div', { class: 'text-fonts', role: 'group', 'aria-label': 'Шрифт писем' }, ...btns));
 }

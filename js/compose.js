@@ -379,6 +379,13 @@ function openPlus() {
 }
 
 function onEsc(e) { if (e.key === 'Escape') { closePlus(); closeEmoji(); } }
+// Клік чи тап повз шторку 😊 чи «＋» (і повз сам рядок вводу) — закрити, як клавіатуру; раніше на компі лише Esc
+document.addEventListener('pointerdown', (e) => {
+  const open = emo || plus;
+  if (!open || open.contains(e.target) || ui?.el?.contains(e.target)) return;
+  closePlus();
+  closeEmoji();
+}, true);
 
 // Куди вставляти: у фокусі — виділення поля, інакше — де була каретка (або в кінець)
 function spot() {
