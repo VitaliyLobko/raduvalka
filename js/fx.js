@@ -783,34 +783,56 @@ REACT_FX['💯'] = (el, x, y) => {
   ], { duration: 1300, delay: 900, fill: 'backwards' }));
 };
 
-// «Веселка» 🌈: дуга виростає над повідомленням, на кінцях спалахують іскорки, згори сиплються різнокольорові сердечка
+// «Воображение» 🌈 — як у мемі: долоні зводять угорі й розводять по дузі, за ними на всю ширину малюється веселка,
+// над нею великий білий підпис з обводкою, на кінцях блищить
+const RAINBOW = ['#E5484D', '#F2892B', '#F5C518', '#3FA34D', '#3B7DD8', '#8E4EC6'];
 REACT_FX['🌈'] = (el, x, y) => {
-  big('🌈', x, y - 20, [
-    { transform: 'translateY(40px) scale(.2) rotate(-25deg)', opacity: 0 }, { transform: 'scale(1.12) rotate(4deg)', opacity: 1, offset: 0.3 },
-    { transform: 'scale(1) rotate(0)', offset: 0.42 }, { transform: 'scale(1.04)', opacity: 1, offset: 0.82 }, { transform: 'translateY(-30px) scale(.8)', opacity: 0 },
-  ], 2600, '6rem');
-  for (const dx of [-62, 62]) for (let k = 0; k < 3; k += 1) twinkle(k % 2 ? '✨' : '⭐', x + dx + (Math.random() - 0.5) * 24, y + 14 + (Math.random() - 0.5) * 18, '1.3rem', 650 + k * 260);
-  rise(x, y + 30, ['💜', '💙', '💚', '💛', '🧡', '❤️'], 9, { delay: 900, up: 220, spread: 220, size: 1 });
-  // Долоні розʼїжджаються від центру — ніби малюють дугу між собою
+  const D = 3100;
+  const cx = innerWidth / 2;
+  const R = Math.min(innerWidth - 40, 330) / 2 - 8;
+  const by = clamp(y + 60, R + 120, innerHeight - 110);
+  const band = 8;
+  const H = R + band;
+  const W = 2 * R + band;
+  // Дві половини від верху до кінців — малюються одночасно, услід за долонями
+  const arcs = RAINBOW.map((c, i) => {
+    const r = R - i * band;
+    const top = `${W / 2} ${H - r}`;
+    return `<path pathLength="1" stroke="${c}" d="M${top} A${r} ${r} 0 0 0 ${W / 2 - r} ${H}"/>`
+      + `<path pathLength="1" stroke="${c}" d="M${top} A${r} ${r} 0 0 1 ${W / 2 + r} ${H}"/>`;
+  }).join('');
+  const arc = shape('fx-arc', cx, by, `<svg viewBox="0 0 ${W} ${H + 2}" width="${W}" height="${H + 2}" aria-hidden="true"><g fill="none" stroke-width="${band + 0.6}">${arcs}</g></svg>`);
+  gone(arc)(arc.animate([{ opacity: 1 }, { opacity: 1, offset: 0.86 }, { opacity: 0 }], { duration: D, fill: 'backwards' }));
+  const draw = { duration: D * 0.3, delay: D * 0.08, easing: 'cubic-bezier(.4, 0, .3, 1)', fill: 'backwards' };
+  for (const p of arc.querySelectorAll('path')) p.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], draw);
+  // Долоні: разом угорі — розходяться по дузі до кінців
+  const at = (deg) => [cx + R * Math.cos((deg * Math.PI) / 180), by - R * Math.sin((deg * Math.PI) / 180)];
   for (const [g, side] of [['🫲', -1], ['🫱', 1]]) {
-    const hand = glyphAt(g, x, y + 22, '3rem');
+    const pts = [90, 70, 45, 20, 0].map((d) => at(side < 0 ? 180 - d : d));
+    const [x0, y0] = pts[0];
+    const hand = glyphAt(g, x0, y0, '3.2rem');
+    const mv = ([px, py], rot) => `translate(calc(-50% + ${px - x0}px), calc(-50% + ${py - y0}px)) rotate(${rot}deg)`;
+    const o0 = 0.08;
+    const span = 0.3;
     gone(hand)(hand.animate([
-      { transform: `${C} scale(.4)`, opacity: 0 },
-      { transform: `translate(calc(-50% + ${side * 22}px), -50%) scale(1)`, opacity: 1, offset: 0.12 },
-      { transform: `translate(calc(-50% + ${side * 92}px), calc(-50% - 14px)) rotate(${side * 14}deg)`, opacity: 1, offset: 0.45 },
-      { transform: `translate(calc(-50% + ${side * 96}px), calc(-50% - 14px)) rotate(${side * 14}deg)`, opacity: 1, offset: 0.82 },
-      { transform: `translate(calc(-50% + ${side * 110}px), calc(-50% - 20px)) scale(.7)`, opacity: 0 },
-    ], { duration: 2800, easing: 'ease-out', fill: 'backwards' }));
+      { transform: `${mv(pts[0], 0)} scale(.4)`, opacity: 0 },
+      { transform: mv(pts[0], 0), opacity: 1, offset: o0 },
+      ...pts.slice(1).map((p, i) => ({ transform: mv(p, side * (i + 1) * 12), offset: o0 + (span * (i + 1)) / 4 })),
+      { transform: mv(pts[4], side * 48), opacity: 1, offset: 0.84 },
+      { transform: `${mv(pts[4], side * 48)} scale(.7)`, opacity: 0 },
+    ], { duration: D, easing: 'linear', fill: 'backwards' }));
   }
-  // «Воображение» — кожна буква свого кольору веселки, проступає зліва направо
-  const word = shape('fx-imagine', x, y + 86);
-  for (const ch of 'Воображение') word.append(Object.assign(document.createElement('span'), { textContent: ch }));
+  // Іскри по дузі, щойно вона домалювалась
+  for (let i = 0; i < 7; i += 1) {
+    const [px, py] = at(15 + i * 25);
+    twinkle(i % 2 ? '✨' : '⭐', px + (Math.random() - 0.5) * 16, py - 10, `${1.1 + Math.random() * 0.5}rem`, D * 0.36 + i * 90);
+  }
+  const word = glyphAt('ВООБРАЖЕНИЕ', cx, Math.max(56, by - R - 34), 'min(2.5rem, 9vw)', 'fx-meme');
   gone(word)(word.animate([
-    { transform: `${C} scale(.7)`, clipPath: 'inset(-20px 100% -20px -20px)', opacity: 1 },
-    { transform: `${C} scale(1.06)`, clipPath: 'inset(-20px -20px -20px -20px)', opacity: 1, offset: 0.35 },
-    { transform: `${C} scale(1)`, clipPath: 'inset(-20px -20px -20px -20px)', opacity: 1, offset: 0.86 },
-    { transform: `${C} translateY(-8px)`, clipPath: 'inset(-20px -20px -20px -20px)', opacity: 0 },
-  ], { duration: 2300, delay: 350, easing: 'ease-out', fill: 'backwards' }));
+    { transform: `${C} scale(.4)`, opacity: 0 }, { transform: `${C} scale(1.12)`, opacity: 1, offset: 0.14 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.24 }, { transform: `${C} scale(1.03)`, opacity: 1, offset: 0.86 },
+    { transform: `${C} translateY(-10px)`, opacity: 0 },
+  ], { duration: D * 0.7, delay: D * 0.3, easing: 'ease-out', fill: 'backwards' }));
 };
 
 // «Хитренько» 😏: прищур і підморгування (стиск по вертикалі), брова вгору — нахил, поруч пробігає вогник
@@ -1662,7 +1684,8 @@ REACT_FX['💊'] = (el, x, y) => {
   ring(x, y, D * 0.34);
   spray(x, y, ['❤️', '💗', '💕', '💖'], 14, { dist: 140, size: '1.5rem', delay: D * 0.35, fall: 50, dur: 1200 });
   rise(x, y, ['❤️', '💗'], 6, { delay: D * 0.42, up: 200, spread: 180, size: 1 });
-  say('Секса тебе просто не хватает!', x, y + 96, '1.7rem', D * 0.42, D * 0.56, true);
+  // Над пігулкою: під нею в останнього повідомлення — поле вводу й меню, підпис ховався за ними
+  say('Секса тебе просто не хватает!', clamp(x, 150, innerWidth - 150), Math.max(70, y - 112), '1.55rem', D * 0.42, D * 0.56, true);
 };
 
 // «Фу» 🤮: зеленіє, надуває щоки, екран похитує — і трошки ригає дугою на повідомлення, там лишається калюжка

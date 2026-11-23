@@ -3879,15 +3879,12 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-say { z-index: 64; font-family: var(--hand); font-weight: 700; color: var(--plum); white-space: nowrap; padding: 2px 14px 4px; border-radius: 999px; background: rgba(255, 255, 255, .92); box-shadow: 0 6px 16px -6px rgba(74, 37, 69, .45); }
 [data-side="vin"] .fx-say { color: var(--star); background: rgba(8, 34, 46, .92); box-shadow: 0 0 0 1px rgba(237, 185, 73, .45), 0 6px 16px -6px rgba(0, 0, 0, .7); }
 /* Довгий підпис — у два рядки, по центру */
-.fx-say-2 { white-space: normal; width: max-content; max-width: min(300px, calc(100vw - 40px)); text-align: center; line-height: 1.1; padding: 6px 16px 8px; border-radius: 20px; }
-/* 🌈 «Воображение»: літери кольорами веселки */
-.fx-imagine { z-index: 64; font: 2.3rem/1 'Rubik Bubbles', var(--ui); white-space: nowrap; letter-spacing: 1px; filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .9)) drop-shadow(0 3px 6px rgba(42, 23, 48, .35)); }
-.fx-imagine span:nth-child(6n + 1) { color: #E5484D; }
-.fx-imagine span:nth-child(6n + 2) { color: #F2892B; }
-.fx-imagine span:nth-child(6n + 3) { color: #E8B517; }
-.fx-imagine span:nth-child(6n + 4) { color: #3FA34D; }
-.fx-imagine span:nth-child(6n + 5) { color: #3B7DD8; }
-.fx-imagine span:nth-child(6n) { color: #8E4EC6; }
+.fx-say-2 { white-space: normal; width: max-content; max-width: min(280px, calc(100vw - 32px)); text-align: center; line-height: 1.1; padding: 6px 16px 8px; border-radius: 20px; }
+/* 🌈 як у мемі: велика веселка на всю ширину (низ дуги — у точці) і білий підпис з темною обводкою */
+.fx-arc { z-index: 61; line-height: 0; translate: -50% -100%; filter: drop-shadow(0 0 6px rgba(255, 255, 255, .55)); }
+.fx-arc path { stroke-dasharray: 1; }
+.fx-meme { z-index: 64; font-family: 'Russo One', var(--ui); color: #fff; white-space: nowrap; letter-spacing: .5px;
+  -webkit-text-stroke: 2px #2A1730; paint-order: stroke fill; text-shadow: 0 3px 0 #2A1730, 0 6px 14px rgba(0, 0, 0, .35); }
 /* 🫣 визирає з-за краю: віконце, нижній край — край повідомлення */
 .fx-peek { z-index: 63; width: 110px; height: 100px; overflow: hidden; translate: -50% -100%; }
 .fx-peek span { display: block; font-size: 5.4rem; line-height: 100px; text-align: center; }
@@ -3901,6 +3898,8 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 /* 🍿 зернятко */
 .fx-kernel { z-index: 62; width: 20px; height: 17px; border-radius: 60% 45% 55% 40%; background: radial-gradient(circle at 35% 35%, #fff, #FFF1C9 60%, #F2C56B); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
 /* 💊 половинки капсули: капсула лежить навскіс, тож ріжемо по шву — діагональ із лівого верхнього кута */
+/* Рамка квадратна й з запасом: інакше смайлик (на Android ширший) вилазить за неї й обрізається, а діагональ не по шву */
+.fx-pill-l, .fx-pill-r { display: grid; place-items: center; width: 1.5em; height: 1.5em; }
 .fx-pill-l { clip-path: polygon(0 0, 100% 100%, 0 100%); }
 .fx-pill-r { clip-path: polygon(0 0, 100% 0, 100% 100%); }
 /* 🤮 краплі й калюжка */
