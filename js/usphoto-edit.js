@@ -84,9 +84,8 @@ export function openAlbum(name) {
 }
 
 function pick(name) {
-  // Лише image/* — Android відкриває свій вибір фото (як Google Фото, без «Галереї»). Із типом не-картинкою (text/plain)
-  // — звичайний вибір застосунку: Галерея, Файли, Google Фото. Не картинку відсіє crop (не відкриється — пропустимо)
-  const input = h('input', { type: 'file', accept: 'image/*,text/plain', multiple: true, hidden: true });
+  // Лише image/* — так Android дає вибір фото з Галереєю (з text/plain лишались тільки камера й файли)
+  const input = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
   input.addEventListener('change', () => {
     const files = [...(input.files || [])];
     input.remove();
