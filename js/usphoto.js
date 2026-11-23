@@ -36,8 +36,17 @@ function makeAlbum(name) {
   let last = null;
   let next = null;
   let busy = Promise.resolve();
+  // Версії, які вже пробували стягнути, і скільки синхронізацій іде — щоб реакція знала, чи чекати фото
+  const tried = new Set();
+  let running = 0;
+  let firstWait = [];
 
-  const put = (id, blob) => { if (urls.has(id)) URL.revokeObjectURL(urls.get(id)); urls.set(id, URL.createObjectURL(blob)); };
+  const put = (id, blob) => {
+    if (urls.has(id)) URL.revokeObjectURL(urls.get(id));
+    urls.set(id, URL.createObjectURL(blob));
+    firstWait.forEach((ok) => ok());
+    firstWait = [];
+  };
   const drop = (id) => { if (urls.has(id)) URL.revokeObjectURL(urls.get(id)); urls.delete(id); };
   const mark = (at, ids) => { ls.set(AT, at ? String(at) : null); ls.set(IDS, at ? JSON.stringify(ids) : null); DATA[name] = at || null; };
 
@@ -93,7 +102,19 @@ function makeAlbum(name) {
       last = id;
       return urls.get(id);
     },
-    sync(at = DATA[name]) { busy = busy.then(() => run(at)); return busy; },
+    sync(at = DATA[name]) {
+      running += 1;
+      busy = busy.then(() => run(at)).finally(() => { tried.add(at || null); running -= 1; });
+      return busy;
+    },
+    // Фото в памʼяті ще нема, а альбом не порожній і стягується (чи ще не почав) — реакції варто зачекати
+    waiting: () => !urls.size && (running > 0 || (!!DATA[name] && !tried.has(DATA[name]))),
+    // Коли зʼявиться перше фото або синхронізація закінчиться; не почалась — почати зараз
+    ready() {
+      if (!this.waiting()) return Promise.resolve();
+      if (!running) this.sync();
+      return Promise.race([busy, new Promise((ok) => { firstWait.push(ok); })]);
+    },
     // jpeg — уже вирізаний квадрат 512: шифруємо ключем пари; без ключа не відправляємо зовсім
     async add(jpeg) {
       if (!hasSecret()) throw err('secret');
@@ -114,7 +135,7 @@ function makeAlbum(name) {
       mark(at, list.map((x) => x.id));
     },
     // Для тестів: підставити фото без сервера
-    set(...blobs) { for (const id of [...urls.keys()]) drop(id); blobs.filter(Boolean).forEach((x, i) => put(`t${i}`, x)); },
+    set(...blobs) { tried.add(DATA[name] || null); for (const id of [...urls.keys()]) drop(id); blobs.filter(Boolean).forEach((x, i) => put(`t${i}`, x)); },
   };
 }
 

@@ -2,7 +2,7 @@
 // Web Animations API — без класів у CSS для кожного руху; «менше руху» в телефоні — нічого не рухаємо
 import { reduceMotion } from './ui.js';
 import { sfx } from './sound.js';
-import { usPhoto, HER } from './usphoto.js';
+import { usPhoto, US, HER } from './usphoto.js';
 import { GALAXY } from './galaxy.js';
 
 // Сердечка (чи інший значок) розлітаються з середини елемента
@@ -945,7 +945,17 @@ const QUAKE = {
 };
 
 let fxCalm = 0;
-export function reactFx(el, glyph) {
+// Реакції з фото: на першому старті фото ще стягуються — чекаємо перше (не довше 2,5 с), інакше вийшла б галактика
+// чи звичайна полуниця. Сама реакція має бути синхронною (SLOW), тож чекаємо до неї
+function albumWait(el, glyph) {
+  const album = glyph === '🌌' ? US : glyph === '🍓' && fromHim(el) ? HER : null;
+  if (!album?.waiting()) return null;
+  return Promise.race([album.ready(), new Promise((ok) => { setTimeout(ok, 2500); })]);
+}
+
+export function reactFx(el, glyph, waited = false) {
+  const wait = !waited && albumWait(el, glyph);
+  if (wait) { wait.then(() => reactFx(el, glyph, true)); return; }
   if (glyph && el?.isConnected) sfx('react');
   if (reduceMotion || !el?.isConnected || !glyph) return;
   // Поки йде реакція, тло не їздить за нахилом (depth.js) — відеокарта зайнята лише смайликами
@@ -1012,9 +1022,9 @@ export function bellFx(incoming = true) {
 // Кілька реакцій прийшли разом — граємо по черзі, а не купою
 let fxQueue = Promise.resolve();
 export function reactFxQueued(el, glyph) {
-  fxQueue = fxQueue.then(() => {
+  fxQueue = fxQueue.then(() => albumWait(el, glyph)).then(() => {
     if (!el?.isConnected || reduceMotion) return undefined;
-    reactFx(el, glyph);
+    reactFx(el, glyph, true);
     return new Promise((ok) => { setTimeout(ok, (durOf(glyph, el) || 2200) * SLOW - 400); });
   });
 }

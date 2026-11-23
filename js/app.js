@@ -889,7 +889,7 @@ async function start() {
   setPartnerInstrument(instr(DATA.partnerInstrument, DATA.side === 'vin' ? 'vona' : 'vin'));
   prewarmWrite();
   // Фото для 🌌 і 🍓 — заздалегідь у памʼять, коли телефон вільний: анімація не чекає мережі
-  (self.requestIdleCallback || ((fn) => setTimeout(fn, 800)))(() => { US.sync(DATA.us); HER.sync(DATA.her); });
+  (self.requestIdleCallback || ((fn) => setTimeout(fn, 800)))(() => { US.sync(DATA.us); HER.sync(DATA.her); }, { timeout: 1500 });
   applySide();
   drawChip();
   loadWishes().then(markWishes).catch(() => {});
