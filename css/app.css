@@ -3341,8 +3341,9 @@ body.is-emoji .screen.is-chat { padding-bottom: calc(var(--plus-h, 0px) + 8px); 
   position: absolute; inset: 0; display: grid; place-items: center; font-size: 150px; line-height: 1;
   transition: transform .7s cubic-bezier(.3, .7, .3, 1), opacity .5s .4s;
 }
-.ck-l { clip-path: inset(0 50% 0 0); }
-.ck-r { clip-path: inset(0 0 0 50%); }
+/* Злам нерівний — та сама ламана в обох половинках; ліва заходить під праву на 1.5%, щоб у цілої не світився шов */
+.ck-l { clip-path: polygon(0 0, 53.5% 0, 50.5% 9%, 52.5% 17%, 47.5% 27%, 51.5% 36%, 49.5% 43%, 56.5% 52%, 52.5% 61%, 54.5% 70%, 48.5% 81%, 51.5% 91%, 49.5% 100%, 0 100%); }
+.ck-r { clip-path: polygon(52% 0, 100% 0, 100% 100%, 48% 100%, 50% 91%, 47% 81%, 53% 70%, 51% 61%, 55% 52%, 48% 43%, 50% 36%, 46% 27%, 51% 17%, 49% 9%); }
 .cookie-layer.is-open .ck-cookie { animation: none; cursor: default; }
 /* Половинки розʼїжджаються в різні боки й опускаються */
 .cookie-layer.is-open .ck-l { transform: translate(-70px, 40px) rotate(-28deg); opacity: .55; }
