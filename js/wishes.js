@@ -186,7 +186,7 @@ export function renderWishes(screen) {
     const came = data.mine.filter((w) => w.gifted).sort((a, b) => b.gifted - a.gifted);
     const gave = me.partner === 'она' ? 'подарила' : 'подарил';
     body = [
-      h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '＋ Хочу'),
+      h('button', { type: 'button', class: 'btn btn-primary want-add', onclick: () => editWish(screen, null) }, '+ Хочу'),
       live.length
         ? h('ul', { class: 'want-list' }, ...live.map((w) => mineCard(screen, w)))
         : h('p', { class: 'mk-wait' }, came.length ? 'Всё, что хотелось, сбылось ✨ Добавь новое.'

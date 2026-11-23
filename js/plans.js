@@ -234,7 +234,7 @@ function deckView(screen, me, pet) {
   }, `🎉 ${fresh.length > 1 ? `Новые совпадения: ${fresh.length}` : 'Новое совпадение'} — посмотреть`) : null;
   const tools = h('div', { class: 'plan-tools' },
     loveBtn(screen),
-    h('button', { type: 'button', class: 'btn', onclick: () => editIdea(screen) }, '＋ Своя идея'),
+    h('button', { type: 'button', class: 'btn', onclick: () => editIdea(screen) }, '+ Своя идея'),
     h('button', { type: 'button', class: 'btn btn-primary', onclick: () => askIdeas(screen) }, '✨ Подкинуть идеи'));
 
   if (!idea) {
