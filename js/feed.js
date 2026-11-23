@@ -897,7 +897,7 @@ function envBubble(l) {
   const festive = l.kind === 'date';
   const pet = courierOf(l);
   const she = DATA.mascots[pet]?.g === 'f';
-  const name = festive ? 'Праздничное письмо 🎉' : 'Тебе письмо 💌';
+  const name = festive ? 'Праздничное письмо 🎉' : 'Тебе письмо';
   return h('button', {
     type: 'button', class: `feed-bubble feed-env${festive ? ' is-festive' : ''}`,
     'aria-label': `${name}: открыть`,
