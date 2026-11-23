@@ -3892,6 +3892,53 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-shoot { z-index: 61; left: 0; top: 0; width: 110px; height: 3px; margin: -1.5px 0 0 -110px; border-radius: 3px; transform-origin: right center;
   background: linear-gradient(90deg, rgba(245, 184, 61, 0), #F5B83D 60%, #FFF3C4); box-shadow: 0 0 6px rgba(245, 184, 61, .8); }
 .fx-shoot::after { content: ''; position: absolute; right: -3px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px 3px rgba(255, 214, 110, .9); }
+/* 🌌 нічне небо й зорі, що складаються в серце */
+.fx-cosmos { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(58, 30, 92, .78), rgba(14, 10, 34, .9) 70%); }
+.fx-dot { z-index: 61; left: 0; top: 0; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(255, 220, 150, .85); }
+.fx-dot.is-big { width: 10px; height: 10px; box-shadow: 0 0 10px 3px rgba(255, 170, 210, .9); }
+.fx-dot.is-tiny { z-index: 59; width: 3px; height: 3px; box-shadow: 0 0 3px 1px rgba(255, 255, 255, .6); }
+/* Чумацький Шлях: смуга навскіс без blur — мʼякі краї дає сам градієнт */
+.fx-milky { z-index: 59; width: 240px; height: 170vh; transform: translate(-50%, -50%) rotate(40deg);
+  background: linear-gradient(90deg, rgba(142, 116, 224, 0), rgba(142, 116, 224, .26) 28%, rgba(247, 184, 210, .3) 44%, rgba(255, 231, 196, .34) 50%, rgba(247, 184, 210, .3) 56%, rgba(142, 116, 224, .26) 72%, rgba(142, 116, 224, 0)); }
+/* Нова зірка: ядро й промені навхрест */
+.fx-nova { z-index: 62; width: 60px; height: 60px; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 18%, rgba(255, 231, 168, .95) 30%, rgba(255, 184, 107, .5) 50%, rgba(255, 184, 107, 0) 70%); }
+.fx-nova::before, .fx-nova::after { content: ''; position: absolute; left: 50%; top: 50%; width: 220%; height: 3px; margin: -1.5px 0 0 -110%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff, rgba(255, 255, 255, 0)); }
+.fx-nova::after { transform: rotate(90deg); }
+/* Коло з фото пари (не вибрали — галактика) */
+.fx-us { z-index: 61; width: 196px; height: 196px; border-radius: 50%; background: #2A1E5C center / cover no-repeat;
+  box-shadow: 0 0 0 7px rgba(245, 199, 106, .16), 0 0 40px 10px rgba(255, 190, 230, .45); }
+.fx-us::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 18px 6px rgba(40, 14, 60, .5); }
+.fx-us svg { display: block; width: 100%; height: 100%; }
+.fx-us-ring { z-index: 62; width: 202px; height: 202px; border-radius: 50%; border: 3px solid #F5C76A; box-sizing: border-box; }
+.fx-us-ring::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; border: 1.2px solid rgba(245, 199, 106, .35); }
+.fx-cons { z-index: 60; line-height: 0; }
+.fx-cons svg, .fx-cos-arc svg { display: block; overflow: visible; }
+.fx-cons line { stroke: rgba(255, 231, 168, .4); stroke-width: 1; }
+.fx-cos-arc { z-index: 63; line-height: 0; filter: drop-shadow(0 0 6px rgba(255, 200, 120, .75)); }
+.fx-cos-arc text { font-family: var(--hand); font-weight: 700; }
+.fx-cos-t text { font-size: 25px; fill: #FFE7A8; letter-spacing: .5px; }
+.fx-cos-b text { font-size: 27px; fill: #FFF0F7; }
+/* Вікно «Наше фото»: те саме нічне небо, коло в золотому кільці, як у 🌌 */
+.us-sheet { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 20px 16px; background: radial-gradient(circle at 50% 40%, #3E1D63, #0B0820 75%); color: #FFF0F7; text-align: center; }
+.us-title { margin: 0; font: 700 2rem var(--hand); color: #FFE7A8; text-shadow: 0 0 10px rgba(255, 200, 120, .6); }
+.us-view { --v: 260px; position: relative; flex: none; width: var(--v); height: var(--v); border-radius: 50%; overflow: hidden; touch-action: none; cursor: grab;
+  background: #2A1E5C; box-shadow: 0 0 0 3px #F5C76A, 0 0 0 9px rgba(245, 199, 106, .18), 0 0 40px 10px rgba(255, 190, 230, .4); }
+.us-view img { position: absolute; left: 50%; top: 50%; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.us-view.is-still { cursor: default; }
+.us-view.is-still img { left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+.us-zoom { width: min(260px, 80vw); accent-color: #F5C76A; }
+.us-note { margin: 0; max-width: 300px; font-size: .9rem; line-height: 1.35; opacity: .82; }
+.us-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.us-btn { min-height: 44px; padding: 0 18px; border: 1px solid rgba(255, 231, 168, .5); border-radius: 999px; background: none; color: #FFF0F7; font: 600 1rem var(--ui); cursor: pointer; }
+.us-btn.is-main { border-color: #F5C76A; background: #F5C76A; color: #2A1730; }
+.us-btn:disabled { opacity: .6; }
+.us-sheet :focus-visible { outline: 2px solid #FFE7A8; outline-offset: 3px; }
+/* Значок реакції 🌌 у рядку, на кнопці й під повідомленням — розміром зі смайлик */
+.rx-face { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.2em; line-height: 0; }
+.rx-face svg { display: block; width: 100%; height: 100%; }
 /* 🛡️ купол-сяйво */
 .fx-dome { z-index: 61; width: 230px; height: 230px; border-radius: 50%; border: 2px solid rgba(140, 196, 255, .8);
   background: radial-gradient(circle, rgba(140, 196, 255, .05) 40%, rgba(140, 196, 255, .35)); box-shadow: 0 0 24px rgba(140, 196, 255, .55); }

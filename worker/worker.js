@@ -63,7 +63,7 @@ const FILES_PER_DAY = 60;
 const FILES_BYTES_PER_DAY = 1024 ** 3;
 const DAY_MS = 24 * 3600 * 1000;
 // Реакції на лист і фото (ставить отримувач; старі 😂 і ❤️ мемчиків — серед них)
-const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏', '😎', '🫡', '🤯', '🤷', '🔥', '😴', '🤗', '😢', '🙃', '🍀', '💯', '😘', '🫶', '👏', '🎉', '💪', '🙈', '👀', '😱', '🤔', '🌹', '☕', '😇', '👍', '☀️', '🌙', '🍷', '🍕', '🥶', '🥵', '🤒', '🌈', '😏', '🪐', '🏹', '🐾', '🧸', '🤣', '🫣', '🌸', '⭐', '🎖️', '🛡️', '🚀', '🍿', '💊', '🤮'];
+const REACTIONS = ['❤️', '😍', '😂', '🥺', '🍓', '🫦', '🙏', '😎', '🫡', '🤯', '🤷', '🔥', '😴', '🤗', '😢', '🙃', '🍀', '💯', '😘', '🫶', '👏', '🎉', '💪', '🙈', '👀', '😱', '🤔', '🌹', '☕', '😇', '👍', '☀️', '🌙', '🍷', '🍕', '🥶', '🥵', '🤒', '🌈', '😏', '🪐', '🏹', '🐾', '🧸', '🤣', '🫣', '🌸', '⭐', '🎖️', '🛡️', '🚀', '🍿', '💊', '🤮', '🌌'];
 // stock — «в запас»: без дати; утром, коли листа на сьогодні нема, cron робить із найстарішого «На утро»
 const LETTER_KINDS = ['now', 'morning', 'env', 'date', 'stock'];
 // Ранок як у «На утро» на телефоні (js/write.js MORNING_HOUR); пояс — якщо отримувач ще не дав сповіщень
@@ -287,13 +287,16 @@ async function route(req, env, ctx, info = {}) {
       partnerInstrument: theirs?.instrument || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
       imgs: await imgVersions(env.DB, mascots),
+      // «Наше фото» для 🌌 — час заливки (null — не вибрали): та сама версія — з кешу телефону
+      us: (await getDoc(env.DB, 'us-photo'))?.at || null,
       memes,
     });
   }
 
   if (m === 'GET' && path === 'letter') {
-    const [letter, checkins] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side)]);
-    return json({ letter, checkins });
+    const [letter, checkins, us] = await Promise.all([dayLetter(env.DB, side), checkinsOf(env.DB, side), getDoc(env.DB, 'us-photo')]);
+    // us — час «Нашого фото»: телефон, що повернувся з фону, дотягне нове без повного boot
+    return json({ letter, checkins, us: us?.at || null });
   }
   if (path === 'seal/todo' || path === 'seal' || path === 'seal-img') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
@@ -315,6 +318,7 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'plans' || path.startsWith('plans/')) return plansRoute(req, env.DB, side, path.slice(6), notify);
   if (m === 'POST' && path === 'plan-ideas') return planIdeas(req, env, side);
   if (m === 'POST' && path === 'files') return postFile(req, env, side, notify);
+  if (path === 'us-photo') return usPhotoRoute(req, env, side);
   if (path === 'memes' || path.startsWith('memes/')) return memesRoute(req, env.DB, side, path.slice(6), notify, env.FILES);
   if (m === 'POST' && path === 'meme-ideas') return memeIdeas(req, env, side);
   if (m === 'POST' && path === 'letter-ideas') return letterIdeas(req, env, side);
@@ -668,6 +672,35 @@ async function fileQuota(db, side, len, hard) {
       await putDoc(db, key, { from: q.from, n: q.n + 1, b: q.b + b });
     },
   };
+}
+
+// «Наше фото» для реакції 🌌: одне на пару, лише зашифроване (RAD1) — сервер його не бачить і відкрите не прийме.
+// R2 us-photo поза чисткою файлів: та стирає тільки f-/l- за рядками бази. Час заливки — у doc us-photo (для boot)
+const US_MAX = 600 * 1024;
+async function usPhotoRoute(req, env, side) {
+  if (!env.FILES) throw fail(503, 'files');
+  const m = req.method;
+  if (m === 'GET') {
+    const obj = await env.FILES.get('us-photo');
+    if (!obj) throw fail(404, 'not found');
+    return new Response(obj.body, { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, no-store' } });
+  }
+  if (m === 'PUT') {
+    if (Number(req.headers.get('content-length')) > US_MAX) throw fail(413, 'size');
+    const buf = new Uint8Array(await req.arrayBuffer());
+    if (!buf.byteLength || buf.byteLength > US_MAX) throw fail(413, 'size');
+    if (buf[0] !== 0x52 || buf[1] !== 0x41 || buf[2] !== 0x44 || buf[3] !== 0x31) throw fail(400, 'sealed');
+    await env.FILES.put('us-photo', buf);
+    const v = { at: Date.now(), by: side };
+    await putDoc(env.DB, 'us-photo', v);
+    return json(v);
+  }
+  if (m === 'DELETE') {
+    await env.FILES.delete('us-photo');
+    await env.DB.prepare('DELETE FROM docs WHERE k = ?').bind('us-photo').run();
+    return json({ at: null });
+  }
+  throw fail(405, 'method');
 }
 
 async function postFile(req, env, side, notify) {

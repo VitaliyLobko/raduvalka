@@ -6,6 +6,7 @@ import { forgetSecret, hasSecret, seal, sealBlob } from './seal.js';
 import { VERSION, NEWS } from './version.js';
 import { mascotImg, petName, petFor, petLine, loadPets, firstPose, letterPose } from './icons.js';
 import { openWrite, prewarmWrite } from './write.js';
+import { syncUsPhoto } from './usphoto.js';
 import { composeBar, composeReply, composeFocus, composeLeave } from './compose.js';
 import { letterFeed, chatTitle, refreshFeed, invalidateFeed, feedFresh, findLetter, feedLoaded, redrawFeed, feedToLatest, autoOpen, setAutoOpen } from './feed.js';
 import { renderWishes, loadWishes, wishFromShare, linkIn, markWishes, forgetFreshWishes } from './wishes.js';
@@ -104,7 +105,9 @@ function markLetter() {
 // Push ще нема: свіжий лист і мемчики дотягуємо при поверненні в застосунок
 async function refreshLetter() {
   try {
-    const { letter, checkins } = await get('letter');
+    const { letter, checkins, us } = await get('letter');
+    // «Наше фото» змінили, поки застосунок був у фоні (старий воркер us не віддає — тоді не чіпаємо)
+    if (us !== undefined && us !== (DATA.us || null)) { DATA.us = us; syncUsPhoto(us); }
     if (checkins && JSON.stringify(checkins) !== JSON.stringify(DATA.checkins)) {
       DATA.checkins = checkins;
       paintCheckin();
@@ -551,7 +554,7 @@ function noteUpdated() {
 
 // Свої файли, які завантажила ця сторінка: скрипти, стилі, шрифти
 // LAZY — модулі, що вантажаться лише за потреби (import()): кладемо в оболонку завжди, щоб версії не розійшлись
-const LAZY = ['./photoedit.js', './gifedit.js', './files.js', './festive.js', './debug.js', './emoji.js', './envattach.js', './picker.js', './envtpl.js', './playlist.js', './colorpick.js', './capstyle.js',
+const LAZY = ['./photoedit.js', './usphoto-edit.js', './gifedit.js', './files.js', './festive.js', './debug.js', './emoji.js', './envattach.js', './picker.js', './envtpl.js', './playlist.js', './colorpick.js', './capstyle.js',
   // Шрифти підписів (кирилиця): підпис гифки малюється в браузері отримувача — шрифт має бути й без мережі
   ...['lobster', 'marck', 'bubbles', 'comfortaa', 'russo', 'playfair', 'press'].map((f) => `../fonts/${f}-cyrillic.woff2`)]
   .map((p) => new URL(p, import.meta.url).href);
@@ -590,9 +593,16 @@ function updateShell(v) {
 }
 
 // Перший запуск під service worker'ом (чи кеш оболонки порожній) — кладемо в нього поточну версію
-function primeShell() {
+async function primeShell() {
   // Уже качається нова версія (checkUpdate) — вона й ляже
-  if (navigator.serviceWorker?.controller && shellMark() !== VERSION && !shellUpdate) updateShell(VERSION);
+  if (!navigator.serviceWorker?.controller || shellUpdate) return;
+  if (shellMark() !== VERSION) { updateShell(VERSION); return; }
+  // Оболонку нової версії качала стара — за своїм списком файлів: модулів, яких вона не знала, у кеші нема,
+  // і без мережі застосунок не стартував би. Бракує хоч одного — перекачати всю
+  try {
+    const miss = await Promise.all(ownFiles().map((u) => caches.match(u).then((r) => !r)));
+    if (miss.some(Boolean)) updateShell(VERSION);
+  } catch { /* немає Cache API — нічого */ }
 }
 
 async function hardReload(v) {
@@ -877,6 +887,8 @@ async function start() {
   setMyInstrument(instr(DATA.mine?.instrument, DATA.side));
   setPartnerInstrument(instr(DATA.partnerInstrument, DATA.side === 'vin' ? 'vona' : 'vin'));
   prewarmWrite();
+  // «Наше фото» для 🌌 — заздалегідь у памʼять, коли телефон вільний: анімація не чекає мережі
+  (self.requestIdleCallback || ((fn) => setTimeout(fn, 800)))(() => syncUsPhoto(DATA.us));
   applySide();
   drawChip();
   loadWishes().then(markWishes).catch(() => {});

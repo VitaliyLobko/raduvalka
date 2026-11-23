@@ -4,7 +4,7 @@
 import { DATA, who } from './data.js';
 import { get, send, save } from './api.js';
 import { h, toast, cap, reduceMotion, hhmm, dayMonth, dayMonthYear, dayWord } from './ui.js';
-import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, freeStyle, gifOver, stickParse, stickImg } from './memes.js';
+import { media, memeUrl, REACTIONS, REACT_GROUPS, REACT_TOP, reactFace, freeStyle, gifOver, stickParse, stickImg } from './memes.js';
 import { learned, learn, nudge, hintBar } from './swipehint.js';
 import { mascotImg, petFor, petName, firstPose, letterPose } from './icons.js';
 import { flyOut, collapse, burst, petRun, loveRain, captainSalute, reactFx, reactFxQueued, openFx } from './fx.js';
@@ -273,7 +273,7 @@ function paintReactJump() {
   reactJump.hidden = !el;
   if (!el) return;
   const up = el.getBoundingClientRect().top < box.getBoundingClientRect().top;
-  reactJump.textContent = `${el.dataset.reactGlyph} на твоё сообщение ${up ? '↑' : '↓'}`;
+  reactJump.replaceChildren(reactFace(el.dataset.reactGlyph), ` на твоё сообщение ${up ? '↑' : '↓'}`);
 }
 function toReaction() {
   const el = waitingReact();
@@ -451,7 +451,13 @@ function chatMenu(t) {
       type: 'button', class: 'chat-menu-act', role: 'menuitem',
       onclick: (e) => { e.stopPropagation(); close(); clearChat(!on); },
     }, on ? '↩️ Вернуть историю' : '🧹 Очистить чат'),
-    h('p', { class: 'chat-menu-note' }, on ? 'Снова покажу всю переписку' : 'Только в твоём чате, письма не удаляются'));
+    h('p', { class: 'chat-menu-note' }, on ? 'Снова покажу всю переписку' : 'Только в твоём чате, письма не удаляются'),
+    // Вікно вибору фото — окремим модулем, лише коли натиснули
+    h('button', {
+      type: 'button', class: 'chat-menu-act', role: 'menuitem',
+      onclick: async (e) => { e.stopPropagation(); close(); (await import('./usphoto-edit.js')).openUsPhoto(); },
+    }, reactFace('🌌'), ' Наше фото'),
+    h('p', { class: 'chat-menu-note' }, 'Для реакции «Вселенная нас любит»'));
   const opened = Date.now();
   const layer = h('div', { class: 'react-layer', onclick: () => { if (Date.now() - opened > 500) close(); } }, menu);
   document.body.append(layer);
@@ -624,7 +630,7 @@ function openReactions(bubble, it) {
   const opt = (e) => h('button', {
     type: 'button', role: 'menuitem', class: `react-opt${e === cur ? ' is-on' : ''}`, 'aria-label': e,
     onclick: (ev) => { ev.stopPropagation(); close(); if (e !== cur) countReaction(e); setReaction(it, e === cur ? null : e, bubble); },
-  }, e);
+  }, reactFace(e));
   // Спершу — ряд частих і «⌄»; розгорнули — усі реакції групами
   const more = h('button', {
     type: 'button', class: 'react-opt react-more', 'aria-label': 'Все реакции', 'aria-expanded': 'false',
@@ -700,7 +706,7 @@ function row(it) {
   // Свій смайлик на чужому — прямо на кнопці 🤍 (тап — змінити), окремого рядка не треба
   const heart = reaction && !closed && canReact(it) ? bubble.querySelector('.feed-acts .feed-act[aria-label="Сердечко"]') : null;
   if (heart) {
-    heart.textContent = reaction;
+    heart.replaceChildren(reactFace(reaction));
     heart.classList.add('is-reacted');
     heart.setAttribute('aria-label', `Реакция: ${reaction}. Тап — поменять`);
   } else if (reaction) {
@@ -709,7 +715,7 @@ function row(it) {
     bubble.append(h('span', {
       class: `feed-react${own ? ' is-tap' : ''}`, 'aria-label': `Реакция: ${reaction}`,
       onclick: own ? (e) => { e.stopPropagation(); openReactions(bubble, it); } : null,
-    }, reaction));
+    }, reactFace(reaction)));
   }
   if (!closed && canReact(it)) holdToReact(bubble, it);
   const li = h('li', { class: `feed-row ${mine ? 'is-mine' : 'is-theirs'}${it.type === 'meme' ? ' is-meme' : ''}${closed ? ' is-sealed' : ''}`, 'data-key': it.key }, bubble);

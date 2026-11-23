@@ -2,6 +2,8 @@
 // Web Animations API — без класів у CSS для кожного руху; «менше руху» в телефоні — нічого не рухаємо
 import { reduceMotion } from './ui.js';
 import { sfx } from './sound.js';
+import { usPhoto } from './usphoto.js';
+import { GALAXY } from './galaxy.js';
 
 // Сердечка (чи інший значок) розлітаються з середини елемента
 export function burst(el, glyph = '❤️', n = 9) {
@@ -227,7 +229,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '🧸': 2800, '🤣': 2700, '🫣': 2800, '🌸': 3000, '⭐': 3200, '🎖️': 3400, '🛡️': 3000, '🚀': 3000, '🍿': 2900, '💊': 3600, '🤮': 3300, '🌈': 3200, '😏': 2400, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
+const DUR = { '🌌': 4600, '🧸': 2800, '🤣': 2700, '🫣': 2800, '🌸': 3000, '⭐': 3200, '🎖️': 3400, '🛡️': 3000, '🚀': 3000, '🍿': 2900, '💊': 3600, '🤮': 3300, '🌈': 3200, '😏': 2400, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 2800, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -1567,6 +1569,81 @@ REACT_FX['⭐'] = (el, x, y) => {
     twinkle('✨', x + Math.cos(t) * 70, y - 10 + Math.sin(t) * 60, '1.2rem', 1600 + i * 110);
   }
   say('Загадай желание', x, y + 74, '1.6rem', 1700, 1300);
+};
+
+// «Вселенная нас любит» 🌌: ніч і навскіс Чумацький Шлях; у центрі народжується зірка — спалах розкривається
+// колом із нашим фото (не вибрали — своя галактика), золоте кільце прокреслює світло; довкола сузірʼя, написи по дузі.
+// Сцена — по центру екрана, не над повідомленням: вона на весь екран
+REACT_FX['🌌'] = () => {
+  const D = 4600;
+  const cx = innerWidth / 2;
+  const cy = clamp(innerHeight * 0.46, 250, innerHeight - 250);
+  const R = 98;
+  const RS = 146;
+  const live = (s, frames, o) => gone(s)(s.animate(frames, { fill: 'backwards', ...o }));
+  const fade = [{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }];
+  veil('fx-cosmos', fade, D, 0, cx, cy);
+  live(shape('fx-milky', cx, cy), fade, { duration: D });
+  // Зоряний пил уздовж смуги (вона під 40° — знизу зліва вгору направо)
+  const a = (-50 * Math.PI) / 180;
+  for (let i = 0; i < 26; i += 1) {
+    const along = (Math.random() - 0.5) * innerHeight * 1.1;
+    const off = (Math.random() + Math.random() - 1) * 70;
+    const s = shape('fx-dot is-tiny', cx + Math.cos(a) * along - Math.sin(a) * off, cy + Math.sin(a) * along + Math.cos(a) * off);
+    live(s, [{ transform: `${C} scale(.3)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.2 }, { transform: C, opacity: 0.35, offset: 0.5 },
+      { transform: C, opacity: 1, offset: 0.75 }, { transform: C, opacity: 0 }], { duration: D * 0.9, delay: Math.random() * 600 });
+  }
+  // Народження зірки: точка набирає світла, спалахує — і з неї розкривається коло
+  live(shape('fx-nova', cx, cy), [
+    { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(.45)`, opacity: 1, offset: 0.35 },
+    { transform: `${C} scale(.3)`, offset: 0.5 }, { transform: `${C} scale(4.5)`, opacity: 0.9, offset: 0.8 }, { transform: `${C} scale(6)`, opacity: 0 },
+  ], { duration: 1300, delay: 300, easing: 'ease-out' });
+  const us = usPhoto();
+  const disc = shape(`fx-us${us ? '' : ' is-galaxy'}`, cx, cy, us ? '' : GALAXY);
+  if (us) disc.style.backgroundImage = `url("${us}")`;
+  else disc.firstElementChild.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-140deg)' }], { duration: D, easing: 'linear' });
+  live(disc, [
+    { transform: `${C} scale(.05)`, opacity: 0 }, { transform: `${C} scale(1.06)`, opacity: 1, offset: 0.12 }, { transform: `${C} scale(1)`, offset: 0.18 },
+    { transform: `${C} scale(1.035)`, offset: 0.45 }, { transform: `${C} scale(1)`, offset: 0.55 }, { transform: `${C} scale(1.035)`, offset: 0.65 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.92)`, opacity: 0 },
+  ], { duration: D - 900, delay: 900, easing: 'ease-in-out' });
+  // Золоте кільце проявляється за зіркою, що біжить по колу від верху. Рамкою, не штрихом SVG:
+  // stroke-dashoffset рахує процесор кожен кадр, а прозорість і масштаб — відеокарта
+  live(shape('fx-us-ring', cx, cy), [
+    { transform: `${C} scale(1.12)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.22 }, { transform: C, opacity: 1, offset: 0.9 }, { transform: C, opacity: 0 },
+  ], { duration: D - 1000, delay: 1000, easing: 'ease-out' });
+  live(shape('fx-dot is-big', cx, cy), [
+    { transform: `${C} rotate(0) translateY(-${R + 2}px)`, opacity: 1 }, { transform: `${C} rotate(360deg) translateY(-${R + 2}px)`, opacity: 1, offset: 0.9 },
+    { transform: `${C} rotate(380deg) translateY(-${R + 2}px) scale(2)`, opacity: 0 },
+  ], { duration: 880, delay: 1000, easing: 'ease-in-out' });
+  // Сузірʼя: зорі запалюються по колу, потім проступають лінії між ними
+  const pts = [];
+  for (let i = 0; i < 18; i += 1) {
+    const t = (i / 18) * Math.PI * 2 - Math.PI / 2 + 0.08;
+    const rr = RS + [8, -6, 2][i % 3];
+    pts.push([Math.cos(t) * rr, Math.sin(t) * rr]);
+  }
+  const lines = pts.map(([x1, y1], i) => { const [x2, y2] = pts[(i + 1) % 18]; return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`; }).join('');
+  const box = RS + 20;
+  live(shape('fx-cons', cx, cy, `<svg viewBox="${-box} ${-box} ${box * 2} ${box * 2}" width="${box * 2}" height="${box * 2}">${lines}</svg>`),
+    [{ transform: `${C} scale(.96)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.15 }, { transform: C, opacity: 1, offset: 0.85 }, { transform: C, opacity: 0 }],
+    { duration: D - 2300, delay: 2200 });
+  pts.forEach(([px, py], i) => live(shape(`fx-dot${i % 4 ? '' : ' is-big'}`, cx + px, cy + py), [
+    { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(1.8)`, opacity: 1, offset: 0.06 }, { transform: C, offset: 0.12 },
+    { transform: `${C} scale(${i % 2 ? 0.7 : 1.2})`, offset: 0.5 }, { transform: C, opacity: 1, offset: 0.88 }, { transform: `${C} scale(0)`, opacity: 0 },
+  ], { duration: D - 1500 - i * 55, delay: 1500 + i * 55, easing: 'ease-out' }));
+  // Написи по дузі: зверху — над сузірʼям, знизу — під ним, літерами назовні
+  const rt = RS + 32;
+  const rb = RS + 40;
+  const arc = (cls, d, text, base) => `<svg class="${cls}" viewBox="${-rb - 40} ${-rb - 40} ${(rb + 40) * 2} ${(rb + 40) * 2}" width="${(rb + 40) * 2}" height="${(rb + 40) * 2}">`
+    + `<path id="${cls}-p" d="${d}" fill="none"/><text><textPath href="#${cls}-p" startOffset="50%" text-anchor="middle"${base}>${text}</textPath></text></svg>`;
+  const arcIn = [{ transform: C, opacity: 0 }, { transform: C, opacity: 1, offset: 0.14 }, { transform: C, opacity: 1, offset: 0.86 }, { transform: C, opacity: 0 }];
+  live(shape('fx-cos-arc', cx, cy, arc('fx-cos-t', `M ${-rt} 0 A ${rt} ${rt} 0 0 1 ${rt} 0`, 'Вселенная нас любит', '')), arcIn, { duration: D - 2000, delay: 1900 });
+  live(shape('fx-cos-arc', cx, cy, arc('fx-cos-b', `M ${-rb} 0 A ${rb} ${rb} 0 0 0 ${rb} 0`, 'Вместе, долго и счастливо!', ' dominant-baseline="hanging"')), arcIn, { duration: D - 2500, delay: 2400 });
+  for (let i = 0; i < 4; i += 1) {
+    const t = Math.PI * (0.2 + i * 0.5);
+    twinkle('✨', cx + Math.cos(t) * (R + 4), cy + Math.sin(t) * (R + 4), '1.2rem', 2700 + i * 260);
+  }
 };
 
 // «Медаль» 🎖️: на стрічці спускається згори й чіпляється до кута повідомлення, яке на мить світиться золотом
