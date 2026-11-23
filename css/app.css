@@ -1137,6 +1137,8 @@ html.is-covered :is(.sheet, .reader, .tour) :is(.sky i, .spin-e, .spin-c, .spin-
   stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 .wm-ico .wm-core { fill: currentColor; stroke: none; }
 .wm-ico .wm-ring { fill: none; }
+.wm-ico .wm-ball { fill: color-mix(in srgb, currentColor 16%, var(--night)); }
+.wm-ico .wm-gap { fill: none; stroke: var(--night); stroke-width: 3.8; stroke-linecap: butt; }
 .wm-ico .wm-star { fill: var(--star); stroke: none; }
 .wm-planet, [data-side="vin"] .wm-sakura { display: none; }
 [data-side="vin"] .wm-planet { display: block; }
@@ -4315,6 +4317,7 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-stickers { flex: 1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
 .ph-stickers::-webkit-scrollbar { display: none; }
 .ph-sticker { flex: none; width: 54px; height: 54px; padding: 0; border: 0; background: none; font-size: 2.3rem; line-height: 1; cursor: pointer; }
+.ph-stick-sep { flex: none; align-self: center; width: 2px; height: 32px; margin: 0 4px; border-radius: 1px; background: color-mix(in srgb, currentColor 22%, transparent); }
 .ph-sel {
   position: absolute; top: 6px; left: 50%; z-index: 2; transform: translateX(-50%); display: flex; gap: 6px; padding: 4px;
   border-radius: 999px; background: color-mix(in srgb, var(--paper) 85%, transparent); box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .5);

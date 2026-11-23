@@ -18,6 +18,14 @@ export const EMOJI_STICKERS = [
 export const HANDLE_PATH = 'M8 16L16 8M16 8h-5M16 8v5M8 16v-5M8 16h5M4.6 10.2A7.6 7.6 0 0 1 10.2 4.6M19.4 13.8a7.6 7.6 0 0 1-5.6 5.6';
 const PET_KEY = 'radovalka:sticker-pet';
 const EMOJI = 'emoji';
+// Останні 3 смайлики-наклейки — на цьому телефоні, спільні для фото й гифки
+const RECENT_KEY = 'radovalka:recent-stickers';
+const recentEmoji = () => {
+  try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(v) ? v.filter((s) => typeof s === 'string').slice(0, 3) : []; } catch { return []; }
+};
+const rememberEmoji = (s) => {
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([s, ...recentEmoji().filter((x) => x !== s)].slice(0, 3))); } catch { /* приватне вікно */ }
+};
 
 // onPet(key, i, src) — тап по позі; emojis + onEmoji(s) — смайлики (без них — лише улюбленці)
 export function stickerRow({ onPet, emojis = [], onEmoji = null }) {
@@ -34,7 +42,18 @@ export function stickerRow({ onPet, emojis = [], onEmoji = null }) {
     return h('button', { type: 'button', class: 'ph-sticker ph-sticker-pet', 'aria-label': `Наклейка: ${petName(key)}`, onclick: () => onPet(key, i, src) },
       h('img', { src, alt: '', width: 56, height: 56, draggable: 'false', loading: 'lazy' }));
   };
-  const emojiBtn = (s) => h('button', { type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}`, onclick: () => onEmoji(s) }, s);
+  // Недавні смайлики — окремо на початку стрічки; новий вибір запамʼятовуємо одразу, а стрічку перебудовуємо лише
+  // на наступному відкритті, щоб нічого не з'їжджало з-під пальця
+  const emojiBtn = (s, recentOne = false) => h('button', {
+    type: 'button', class: 'ph-sticker', 'aria-label': `Наклейка ${s}${recentOne ? ' (недавняя)' : ''}`,
+    onclick: () => { rememberEmoji(s); onEmoji(s); },
+  }, s);
+  const emojiRow = () => {
+    const rec = recentEmoji().filter((s) => emojis.includes(s));
+    return rec.length
+      ? [...rec.map((s) => emojiBtn(s, true)), h('span', { class: 'ph-stick-sep', 'aria-hidden': 'true' }), ...emojis.map((s) => emojiBtn(s))]
+      : emojis.map((s) => emojiBtn(s));
+  };
   const menu = h('div', { class: 'ph-pet-menu', role: 'listbox', 'aria-label': 'Какие наклейки', hidden: true });
   const pick = h('button', {
     type: 'button', class: 'ph-pet-pick', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
@@ -54,7 +73,7 @@ export function stickerRow({ onPet, emojis = [], onEmoji = null }) {
         paint();
       },
     }, face(key))));
-    poses.replaceChildren(...(now === EMOJI ? emojis.map(emojiBtn) : petFiles(now).map((f, i) => poseBtn(now, f, i)).filter(Boolean)));
+    poses.replaceChildren(...(now === EMOJI ? emojiRow() : petFiles(now).map((f, i) => poseBtn(now, f, i)).filter(Boolean)));
     poses.scrollLeft = 0;
   };
   if (!kinds.length) return { el: null };
