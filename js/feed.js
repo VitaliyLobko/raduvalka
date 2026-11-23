@@ -115,7 +115,8 @@ export function redrawFeed() { draw(); }
 document.addEventListener('radovalka:duel-seen', () => draw());
 
 // Запечатаний: справжній лист чи привітальний, ще не відкритий
-const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind));
+// Лист лише зі смайлів приходить як є, без конверта (див. bareLetter)
+const sealed = (l) => !l.opened && (l.tpl || ['now', 'morning', 'date'].includes(l.kind)) && !(l.kind === 'now' && bareLetter(l));
 
 // Час, за яким рядок стоїть у чаті, — так само рахує сервер для меж сторінок
 const tIn = (l) => l.at;
@@ -809,13 +810,15 @@ function emojiOnly(t) {
   return g.length <= 3 && g.every((x) => PICTO.test(x)) ? g.length : 0;
 }
 const textClass = (t) => { const n = emojiOnly(t); return n ? `feed-text is-emoji is-emoji-${n}` : 'feed-text'; };
+// Лише смайли (чи наклейка) і нічого поруч — без пузиря, як є; з цитатою, вкладенням чи відповіддю — звичайний пузир
+const bareLetter = (l) => !!emojiOnly(l.text) && !l.quote && !l.media && !l.reply;
 
 function inBubble(l) {
   const me = who();
   const it = { type: 'in', key: l.tpl ? welcomeKey(l) : `l:${l.id}`, l };
   const text = h('p', { class: textClass(l.text) }, l.text || '');
   const full = unfolded.has(it.key);
-  const bubble = h('div', { class: `feed-bubble${l.opened ? '' : ' is-new'}${full ? ' is-full' : ''}` });
+  const bubble = h('div', { class: `feed-bubble${l.opened ? '' : ' is-new'}${full ? ' is-full' : ''}${bareLetter(l) ? ' is-bare' : ''}` });
   const body = h('button', {
     type: 'button', class: 'feed-body', 'aria-expanded': String(full),
     onclick: () => {
@@ -829,15 +832,7 @@ function inBubble(l) {
       const open = bubble.classList.toggle('is-open');
       body.setAttribute('aria-expanded', String(open));
       // Відкрив тут — прочитано; лише за тапом, не за показом
-      if (open && !l.opened) {
-        sfx('open');
-        l.opened = true;
-        bubble.classList.remove('is-new');
-        bubble.querySelector('.inbox-new')?.remove();
-        send(`letters/${l.id}`, 'PUT', { opened: true }).catch(() => {});
-        fresh();
-        openFx(bubble, l.text);
-      }
+      if (open && !l.opened) { sfx('open'); markRead(); }
     },
   },
   h('span', { class: 'feed-meta' },
@@ -874,6 +869,23 @@ function inBubble(l) {
   bubble.append(...[body, att,
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
     h('div', { class: 'feed-acts' }, like, replyBtn(it))].filter(Boolean));
+  function markRead() {
+    l.opened = true;
+    bubble.classList.remove('is-new');
+    bubble.querySelector('.inbox-new')?.remove();
+    send(`letters/${l.id}`, 'PUT', { opened: true }).catch(() => {});
+    fresh();
+    openFx(bubble, l.text);
+  }
+  // Смайли без пузиря нема що розкривати: прочитано, щойно показались на відкритому екрані (і ефект — тоді ж)
+  if (!l.opened && !l.tpl && bareLetter(l)) {
+    const seen = () => {
+      if (l.opened || !bubble.isConnected) return;
+      if (document.visibilityState === 'visible') markRead();
+      else document.addEventListener('visibilitychange', seen, { once: true });
+    };
+    requestAnimationFrame(seen);
+  }
   return bubble;
 }
 
@@ -944,7 +956,7 @@ function outBubble(l, later) {
   else if (l.opened) state = `${me.partnerOpened} ✓${l.liked ? ' · ❤️' : ''}`;
   else state = l.kind === 'env' ? 'лежит в конверте' : `ещё не ${me.partnerOpened}`;
 
-  const bubble = h('div', { class: 'feed-bubble' });
+  const bubble = h('div', { class: `feed-bubble${l.kind !== 'env' && bareLetter(l) ? ' is-bare' : ''}` });
   const take = l.opened ? null : h('button', {
     type: 'button', class: 'sent-take',
     onclick: async (ev) => {
@@ -1026,7 +1038,8 @@ function memeBubble(m) {
     ? h('p', { class: `sent-reply${m.mine && isNew ? ' is-fresh' : ''}`, 'data-replied': m.replied || 0 },
       h('b', {}, m.mine ? `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: ` : 'Твой ответ: '), m.reply, newMark(m.mine && isNew))
     : null;
-  return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}`, 'data-created': m.created },
+  const bare = sticker && !m.quote && !m.reply && !m.caption;
+  return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}${bare ? ' is-bare' : ''}`, 'data-created': m.created },
     quoteLine(m.quote, m.created),
     pic,
     m.caption && !m.style ? h('p', { class: 'meme-cap' }, m.caption) : null,

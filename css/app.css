@@ -2969,6 +2969,19 @@ body.is-chat-page { height: 100dvh; overflow-y: auto; }
 .screen.is-chat .feed-row.is-mine .feed-bubble > .feed-acts { grid-column: 2; padding-top: 4px; }
 .screen.is-chat .feed-acts { padding-top: 4px; }
 .screen.is-chat .feed-act { min-height: 34px; }
+/* Лише смайли чи наклейка — без пузиря, просто на тлі чату; час і кнопки — дрібно під ними */
+.screen .feed-row .feed-bubble.feed-bubble.is-bare {
+  width: auto; min-width: 0; max-width: 84%; padding-bottom: 0; overflow: visible;
+  border-radius: 0; background: none; box-shadow: none;
+}
+.feed-bubble.is-bare .feed-body { padding: 0 4px; }
+.feed-bubble.is-bare .feed-body > .feed-meta { order: 2; }
+.feed-row.is-mine .feed-bubble.is-bare .feed-text { text-align: right; }
+.feed-bubble.is-bare > .feed-text { margin: 0 4px; }
+.feed-bubble.is-bare > .feed-meta { margin: 0 4px; }
+.feed-bubble.is-bare .feed-acts { padding: 2px 2px 0; }
+.feed-bubble.is-bare .meme-sticker { padding: 0; }
+.screen.is-chat .feed-bubble.is-bare .feed-act { min-width: 34px; min-height: 30px; padding: 0 6px; }
 
 /* Запечатаний лист у чаті — пузир-конверт: міні-конверт із печаттю, назва, «Открыть»; тап — шторка на весь екран */
 .feed-env {
