@@ -235,3 +235,13 @@
   src: url('kurale-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
+/* Смайлики-наклейки редактора фото: векторні (Noto Color Emoji COLRv1, OFL), лише 58 знаків набору — чіткі на будь-якому розмірі */
+@font-face {
+  font-family: 'Radovalka Emoji';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('emoji-stickers.woff2') format('woff2');
+  unicode-range: U+2600, U+2615, U+26c4, U+2708, U+2728, U+2744, U+2764, U+2b50, U+fe0f, U+1f1e6, U+1f1fa, U+1f319, U+1f337-1f339, U+1f34a, U+1f353, U+1f355, U+1f370, U+1f377, U+1f37f, U+1f384-1f385, U+1f389, U+1f3e0, U+1f431, U+1f436, U+1f43b, U+1f43e, U+1f451, U+1f48b-1f48d, U+1f490, U+1f4aa, U+1f4af, U+1f525, U+1f54a, U+1f602, U+1f607-1f608, U+1f60d-1f60e, U+1f618, U+1f61c, U+1f634, U+1f648, U+1f680, U+1f917, U+1f92a, U+1f92d, U+1f942, U+1f970, U+1f973, U+1f97a, U+1f98b, U+1f9e3, U+1f9f8, U+1fae1, U+1faf6;
+}

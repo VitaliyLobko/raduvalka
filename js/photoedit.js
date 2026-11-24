@@ -19,7 +19,8 @@ const FONTS = {
   bubble: (s) => `600 ${s}px Rubik, system-ui, sans-serif`,
   tape: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
   neon: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
-  emoji: (s) => `${s}px 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif`,
+  // Спершу свій векторний шрифт наклейок (fonts.css) — системні кольорові смайлики Android — картинки, при збільшенні миляться
+  emoji: (s) => `${s}px 'Radovalka Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif`,
 };
 const COLORS = ['#ffffff', '#ff4f8b', '#ffcb3d', '#6fd3ff', '#2a1730'];
 const COLOR_NAMES = ['белый', 'розовый', 'жёлтый', 'голубой', 'тёмный'];
@@ -487,6 +488,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     render(ctx, canvas.width / v.w, v, true);
   };
   const redraw = () => { if (!raf) raf = requestAnimationFrame(paint); };
+  // Шрифт наклейок вантажиться лише тут (50 КБ); доїхав — перемальовуємо, щоб смайлики стали векторними
+  document.fonts?.load("40px 'Radovalka Emoji'", '😍').then(redraw, () => {});
   // Полотно — найбільше, що влазить у сцену з пропорціями кадру
   const fit = () => {
     const b = stage.getBoundingClientRect();
