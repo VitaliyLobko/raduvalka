@@ -314,7 +314,7 @@ function gifPanel(done) {
   more.addEventListener('click', () => { offset += 12; load(true); });
 
   return {
-    el: h('div', { class: 'mk-gif-panel' }, moods, aiRow, form, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY')),
+    el: h('div', { class: 'mk-gif-panel' }, moods, aiRow, form, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY и KLIPY')),
     start() { draw(); load(false); },
   };
 }

@@ -157,10 +157,10 @@ const MIGRATIONS = [
 // не відповіла — Llama 3.3, як було раніше. З ключем Claude — спершу він (див. aiRun)
 const AI_MODEL = '@cf/qwen/qwen3.8-27b';
 const AI_FALLBACK_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
+const GIF_URL = /^https:\/\/(?:media\d*\.giphy\.com|static\.klipy\.com)\/[\w./?=&-]+$/;
 // Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований);
 // колір — номер готового (0–4) або свій hex без «#»; шрифт і колір тексту на плашці (i_rrggbb) — необовʼязкові хвости
-const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}(?:\.(?:lobster|marck|bubbles|comfortaa|russo|playfair|press))?(?:\.i_[0-9a-f]{6})?$/;
+const MEME_FREE = /^(meme|hand|plate|bubble|tape|neon|note|cut)\.(?:[0-4]|[0-9a-f]{6})\.\d{1,4}\.\d{1,4}\.\d{1,3}\.-?\d{1,3}(?:\.(?:lobster|marck|bubbles|comfortaa|russo|playfair|press))?(?:\.i_[0-9a-f]{6})?$/;
 
 // Наклейки-улюбленці поверх гифки: 'ключ.поза.x.y.розмір.поворот.дзеркало' через «~», до 8 (x, y, розмір — тисячні кадру).
 // Фото улюбленців однакові на обох телефонах, тож досить ключа й номера пози
@@ -2140,25 +2140,41 @@ function draftOk(t, src) {
     && !(has(BANNED_WORD, t) && !has(BANNED_WORD, src));
 }
 
-// Пошук GIF через GIPHY: ключ лише тут, у Worker; «pg» — без 18+
+// Пошук GIF: GIPHY і (є ключ) KLIPY навпіл, через одну; ключі лише тут, у Worker. Обидва — без 18+.
+// Один не відповів — уся сторінка з другого
 async function gifSearch(url, env) {
-  if (!env.GIPHY_KEY) throw fail(503, 'nokey');
+  if (!env.GIPHY_KEY && !env.KLIPY_KEY) throw fail(503, 'nokey');
   const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
   const offset = Math.max(0, Math.min(200, Number(url.searchParams.get('offset')) || 0));
   const trending = url.searchParams.get('trending') === '1';
   // Суміш настрою просить по 4 з кількох пошуків; звичайна сторінка — 12
   const limit = Math.max(4, Math.min(12, Number(url.searchParams.get('limit')) || 12));
   if (!q && !trending) return json([]);
-  // Запит кирилицею GIPHY шукає російською, якщо сказати мову
+  const ask = { q, trending };
+  const one = env.GIPHY_KEY ? giphyPage : klipyPage;
+  if (!env.GIPHY_KEY || !env.KLIPY_KEY) return json(await one(env, { ...ask, limit, offset }));
+  const half = Math.ceil(limit / 2);
+  const part = { ...ask, offset: Math.floor(offset / 2) };
+  const [g, k] = await Promise.allSettled([giphyPage(env, { ...part, limit: half }), klipyPage(env, { ...part, limit: limit - half })]);
+  if (g.status === 'rejected' && k.status === 'rejected') throw g.reason;
+  if (g.status === 'rejected') return json(await klipyPage(env, { ...ask, limit, offset }));
+  if (k.status === 'rejected') return json(await giphyPage(env, { ...ask, limit, offset }));
+  const out = [];
+  for (let i = 0; i < Math.max(g.value.length, k.value.length); i += 1) out.push(...[g.value[i], k.value[i]].filter(Boolean));
+  return json(out);
+}
+const cyr = (q) => /[а-яёіїєґ]/i.test(q);
+async function giphyPage(env, { q, trending, limit, offset }) {
+  // Запит кирилицею GIPHY шукає російською, якщо сказати мову; «pg» — без 18+
   const api = new URL(`https://api.giphy.com/v1/gifs/${trending ? 'trending' : 'search'}`);
   api.search = new URLSearchParams({
     api_key: env.GIPHY_KEY, limit: String(limit), offset: String(offset), rating: 'pg',
-    ...(trending ? {} : { q, lang: /[а-яёіїєґ]/i.test(q) ? 'ru' : 'en' }),
+    ...(trending ? {} : { q, lang: cyr(q) ? 'ru' : 'en' }),
   });
   const res = await fetch(api);
   if (!res.ok) throw fail(502, 'giphy');
   const { data = [] } = await res.json();
-  return json(data.map((g) => {
+  return data.map((g) => {
     // MP4 оригіналу в 13–20 разів легший за GIF тієї ж якості; у сітці — проріджене webp-превʼю ~50 КБ
     const full = g.images?.original || {};
     const small = g.images?.preview_webp?.url ? { webp: g.images.preview_webp.url } : (g.images?.fixed_width_downsampled || g.images?.fixed_width || {});
@@ -2171,7 +2187,31 @@ async function gifSearch(url, env) {
       w: Number(full.width) || 0,
       h: Number(full.height) || 0,
     };
-  }).filter((g) => g.url && GIF_URL.test(g.url)));
+  }).filter((g) => g.url && GIF_URL.test(g.url));
+}
+// KLIPY: сторінки замість зсуву; content_filter high — найсуворіший; рекламні картки (type ≠ gif) не беремо
+async function klipyPage(env, { q, trending, limit, offset }) {
+  const api = new URL(`https://api.klipy.com/api/v1/${env.KLIPY_KEY}/gifs/${trending ? 'trending' : 'search'}`);
+  api.search = new URLSearchParams({
+    per_page: String(limit), page: String(Math.floor(offset / limit) + 1), customer_id: 'radovalka', content_filter: 'high',
+    ...(trending ? {} : { q, locale: cyr(q) ? 'ru' : 'en' }),
+  });
+  const res = await fetch(api);
+  if (!res.ok) throw fail(502, 'klipy');
+  const items = (await res.json())?.data?.data || [];
+  return items.filter((g) => g?.type === 'gif').map((g) => {
+    const f = g.file || {};
+    const big = f.hd?.mp4 || f.md?.mp4 || {};
+    const small = f.xs?.webp || f.sm?.webp || f.xs?.gif || {};
+    return {
+      id: `k${g.id}`,
+      preview: small.url,
+      title: String(g.title || '').trim().slice(0, 80),
+      url: big.url,
+      w: Number(big.width) || 0,
+      h: Number(big.height) || 0,
+    };
+  }).filter((g) => g.url && g.preview && GIF_URL.test(g.url) && GIF_URL.test(g.preview));
 }
 
 async function readJson(req, max = MAX_JSON) {
