@@ -415,7 +415,8 @@ const SHAPES = {
     p.roundRect(f.X(0.2), f.Y(0.04), f.L(0.6), f.L(0.92), f.L(0.28));
     return {
       clip: p,
-      line: { color: '#D5DAE2', w: 0.075 },
+      // Біла рама в ілюмінатора — звична світло-сіра
+      line: { color: f.color === '#ffffff' ? '#D5DAE2' : f.color, w: 0.075 },
       deco: (ctx) => {
         const q = f.path();
         q.roundRect(f.X(0.235), f.Y(0.075), f.L(0.53), f.L(0.85), f.L(0.245));
@@ -477,7 +478,7 @@ const SHAPES = {
   },
 };
 // Фігура в квадраті x, y, s — з полем під обводку й тінь
-function shapeOf(kind, x, y, s) {
+function shapeOf(kind, x, y, s, color = '#ffffff') {
   const m = s * 0.06;
   const k = s - m * 2;
   const X = (u) => x + m + u * k;
@@ -515,8 +516,8 @@ function shapeOf(kind, x, y, s) {
     list.forEach(([u, w, r]) => { circ(clip, u, w, r); circ(back, u, w, r + 0.024); });
     return { clip, back, line: null };
   };
-  const sh = SHAPES[kind]({ X, Y, L, path, circ, curves, round, union });
-  return { back: sh.clip, line: { color: '#fff', w: 0.024 }, ...sh };
+  const sh = SHAPES[kind]({ X, Y, L, path, circ, curves, round, union, color });
+  return { back: sh.clip, line: { color, w: 0.024 }, ...sh };
 }
 
 // blob — уже стиснуте фото (prepare); send(out, caption) — надіслати (кидає помилку — вікно лишається);
@@ -548,6 +549,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // a — його поворот у фото, радіани: на екрані фото під фігурою нахилене на −a
   let frame = '';
   let mask = null;
+  // Колір рамки-фігури: обводка й підкладка (у марки — папір, в ілюмінатора — рама)
+  let frameColor = COLORS[0];
   let hinted = false;
   // Віддзеркалення фото — у координатах уже повернутого фото, поверх повороту
   let flipX = false;
@@ -662,14 +665,14 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   function render(ctx, sc, v, preview = false, ox = 0, oy = 0) {
     // Фігура: біла підкладка з тінню, фото з лініями лише всередині, поверх — біла обводка; наклейки не обрізаються.
     // Фігура стоїть рівно, фото під нею — з поворотом кадру
-    const shape = shaped() && mode !== 'crop' ? shapeOf(frame, v.x, v.y, v.w) : null;
+    const shape = shaped() && mode !== 'crop' ? shapeOf(frame, v.x, v.y, v.w, frameColor) : null;
     ctx.setTransform(sc, 0, 0, sc, ox - v.x * sc, oy - v.y * sc);
     if (shape) {
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, .38)';
       ctx.shadowBlur = v.w * 0.03 * sc;
       ctx.shadowOffsetY = v.w * 0.012 * sc;
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = frameColor;
       ctx.fill(shape.back);
       ctx.restore();
       ctx.save();
@@ -918,7 +921,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       const hex = sampleColor(ctx, ((e.clientX - r.left) * canvas.width) / r.width, ((e.clientY - r.top) * canvas.height) / r.height);
       const k = pipette;
       pipette = null;
-      if (hex) ({ cap: setCapColor, ink: setCapInk, draw: setDrawColor })[k](hex); else paintTools();
+      if (hex) ({ cap: setCapColor, ink: setCapInk, draw: setDrawColor, frame: setFrameColor })[k](hex); else paintTools();
       return;
     }
     try { canvas.setPointerCapture(e.pointerId); } catch { /* синтетичний дотик */ }
@@ -1182,13 +1185,18 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       onclick: () => { const m = maskRect(); moveMask({ cx: m.x + m.w / 2, cy: m.y + m.h / 2, s: m.w, a: m.a - Math.PI / 2 }); redraw(); },
     }, '⟳'));
   const frameRow = h('div', { class: 'ph-frame-row', role: 'radiogroup', 'aria-label': 'Рамка' }, ...frameChips);
-  const framePanel = h('div', { class: 'ph-panel ph-panel-frame', hidden: true }, frameRow, maskTools);
+  // Колір рамки — ті самі кольори, свій і піпетка, що й у карандаша
+  const setFrameColor = (c) => { frameColor = c; paintTools(); redraw(); };
+  const frameOwn = ownColor({ label: 'Цвет рамки', onPick: setFrameColor, onPipette: () => armPipette('frame') });
+  const frameColors = h('span', { class: 'ph-swatches ph-frame-colors', role: 'radiogroup', 'aria-label': 'Цвет рамки' },
+    ...COLORS.map((c, i) => swatch(c, i, setFrameColor)), frameOwn.el);
+  const framePanel = h('div', { class: 'ph-panel ph-panel-frame', hidden: true }, frameRow, maskTools, frameColors);
   // ── Історія ↶ ↷: знімок — після кожної завершеної дії (палець відпущено, кнопку натиснуто).
   // Текст підпису не входить — його правлять клавіатурою; при відкаті береться поточний
   const snap = () => ({
     items: items.map((it) => ({ ...it, box: null, cap: it === capItem, ...(it === capItem ? { text: '' } : {}) })),
     strokes: strokes.map((s) => ({ ...s, pts: s.pts.slice() })),
-    crop: crop && { ...crop }, turns, flipX, flipY, frame, mask: mask && { ...mask }, look, color, capInk, font,
+    crop: crop && { ...crop }, turns, flipX, flipY, frame, frameColor, mask: mask && { ...mask }, look, color, capInk, font,
   });
   const snapKey = (s) => JSON.stringify(s, (k, v) => (k === 'img' ? undefined : v));
   const past = [];
@@ -1213,6 +1221,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     strokes.splice(0, strokes.length, ...s.strokes.map((x) => ({ ...x, pts: x.pts.slice() })));
     ({ turns, flipX, flipY, frame, look, color, font } = s);
     mask = s.mask && { ...s.mask };
+    frameColor = s.frameColor || COLORS[0];
     capInk = s.capInk || '';
     crop = s.crop && { ...s.crop };
     if (mode === 'crop') tmpCrop = crop ? { ...crop } : { x: 0, y: 0, w: rw(), h: rh() };
@@ -1332,6 +1341,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     for (const b of [tCrop, tDraw, tStick, tBlur, tFrame]) b.setAttribute('aria-pressed', String(b.dataset.m === mode));
     framePanel.hidden = mode !== 'frame';
     maskTools.hidden = !shaped();
+    frameColors.hidden = !shaped();
+    frameColors.querySelectorAll('.ph-swatch[data-v]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === frameColor)));
+    frameOwn.paint(frameColor, COLORS.includes(frameColor), pipette === 'frame');
     if (shaped()) paintZoom();
     frameChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === frame)));
     // Рамок більше, ніж влазить у рядок, — вибрана завжди видна

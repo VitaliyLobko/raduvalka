@@ -4536,6 +4536,7 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-frame-tools[hidden] { display: none; }
 .ph-frame-tools .mk-chip { flex: none; }
 .ph-zoom { flex: 1; min-width: 0; accent-color: var(--plum); }
+.ph-frame-colors { justify-content: center; }
 [data-side="vin"] .ph-zoom { accent-color: var(--star); }
 .ph-card-foot { display: none; }
 .ph-card.is-frame .ph-card-foot {
