@@ -404,8 +404,10 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   const maskRect = () => {
     const a = area();
     const lim = Math.min(a.w, a.h);
-    const s = Math.min(lim, Math.max(lim * 0.2, mask?.s || lim));
-    const cl = (c, lo, len) => Math.min(Math.max(c, lo + s / 2), lo + len - s / 2);
+    // Можна й трохи віддалити (до 0,6): фото менше за фігуру, довкола — біла підкладка
+    const s = Math.min(lim / 0.6, Math.max(lim * 0.2, mask?.s || lim));
+    // Квадрат менший за кадр — тримаємо всередині кадру; більший — кадр тримаємо всередині квадрата
+    const cl = (c, lo, len) => (s <= len ? Math.min(Math.max(c, lo + s / 2), lo + len - s / 2) : Math.min(Math.max(c, lo + len - s / 2), lo + s / 2));
     const cx = cl(mask ? mask.cx : a.x + a.w / 2, a.x, a.w);
     const cy = cl(mask ? mask.cy : a.y + a.h / 2, a.y, a.h);
     return { x: cx - s / 2, y: cy - s / 2, w: s, h: s, a: mask?.a || 0 };
@@ -515,6 +517,12 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       ctx.restore();
       ctx.save();
       ctx.clip(shape);
+      // Віддалили чи повернули — порожнє в фігурі заповнює розмита копія того ж фото, як у «Наших фото»
+      const bl = blurred();
+      const k = Math.max(v.w / rw(), v.h / rh()) * 1.15;
+      ctx.filter = 'brightness(.85)';
+      ctx.drawImage(bl, v.x + (v.w - rw() * k) / 2, v.y + (v.h - rh() * k) / 2, rw() * k, rh() * k);
+      ctx.filter = 'none';
     }
     ctx.setTransform(...xf(sc, v, ox, oy));
     drawBase(ctx);
@@ -522,6 +530,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     const H = rh();
     drawBlur(ctx, sc, v, ox, oy);
     strokes.forEach((s) => { if (!s.blur) drawStroke(ctx, s); });
+    // Наклейки «під рамкою» (under) — всередині фігури, під обводкою; решта — поверх неї
+    if (shape) items.forEach((it) => { if (it.under) drawItem(ctx, it); });
     if (shape) {
       ctx.restore();
       ctx.save();
@@ -532,7 +542,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       ctx.restore();
       ctx.setTransform(...xf(sc, v, ox, oy));
     }
-    items.forEach((it) => drawItem(ctx, it));
+    items.forEach((it) => { if (!shape || !it.under) drawItem(ctx, it); });
     if (!preview) return;
     if (sel && mode === 'move') {
       ctx.save();
@@ -997,7 +1007,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   }, name));
   // Під фігурою — як у «Наших фото»: повзунок розміру, ⇆ і ⟳ на чверть; наклейки лишаються на місцях у рамці
   const lim = () => { const a = area(); return Math.min(a.w, a.h); };
-  const zoom = h('input', { type: 'range', class: 'ph-zoom', min: '1', max: '5', step: '0.01', value: '1', 'aria-label': 'Размер фото в рамке' });
+  const zoom = h('input', { type: 'range', class: 'ph-zoom', min: '0.6', max: '5', step: '0.01', value: '1', 'aria-label': 'Размер фото в рамке' });
   const paintZoom = () => { zoom.value = String(lim() / maskRect().w); };
   zoom.addEventListener('input', () => {
     const m = maskRect();
@@ -1096,11 +1106,16 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     h('button', { type: 'button', class: 'mk-chip', onclick: () => { tmpCrop = { x: 0, y: 0, w: rw(), h: rh() }; redraw(); } }, 'Всё фото'),
     done());
   // Вибране: шар вище/нижче; наклейку ще й віддзеркалити. Панель висить над фото — сцена не стрибає
+  // З фігурою рамка — теж шар: «Ниже» під неї ховає наклейку всередину фігури, «Выше» виводить поверх обводки
+  const MASK = {};
+  const layers = () => (shaped() ? [...items.filter((it) => it.under), MASK, ...items.filter((it) => !it.under)] : items);
   const restack = (d) => {
-    const i = items.indexOf(sel);
+    const L = layers().slice();
+    const i = L.indexOf(sel);
     const j = i + d;
-    if (i < 0 || j < 0 || j >= items.length) return;
-    [items[i], items[j]] = [items[j], items[i]];
+    if (i < 0 || j < 0 || j >= L.length) return;
+    if (L[j] === MASK) sel.under = !sel.under; else [L[i], L[j]] = [L[j], L[i]];
+    items.splice(0, items.length, ...L.filter((x) => x !== MASK));
     paintTools();
     redraw();
   };
@@ -1165,10 +1180,11 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     stickPanel.hidden = mode !== 'stick';
     bottom.hidden = mode === 'draw' || mode === 'crop' || mode === 'blur';
     selPanel.hidden = !sel || mode !== 'move';
-    const idx = items.indexOf(sel);
-    upBtn.hidden = items.length < 2;
-    downBtn.hidden = items.length < 2;
-    upBtn.disabled = idx === items.length - 1;
+    const L = layers();
+    const idx = L.indexOf(sel);
+    upBtn.hidden = L.length < 2;
+    downBtn.hidden = L.length < 2;
+    upBtn.disabled = idx === L.length - 1;
     downBtn.disabled = idx <= 0;
     mirX.hidden = !mirrorable(sel);
     mirY.hidden = !mirrorable(sel);
