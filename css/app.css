@@ -5382,3 +5382,5 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .screen.is-chat .feed-row.is-meme .feed-bubble.is-bare.is-pic { width: 66%; max-width: 84%; }
 .feed-bubble.is-pic .meme-img { border-radius: 16px; overflow: hidden; background: none; }
 .feed-bubble.is-pic .meme-img:not(.is-loaded) { background: color-mix(in srgb, var(--lavender) 30%, transparent); }
+/* Фото з чату на весь екран — без білої підкладки: прозорість (рамка-фігура) видно, як у чаті */
+.photo-view.feed-full img { background: none; }
