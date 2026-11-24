@@ -5,7 +5,7 @@ import { h, toast } from './ui.js';
 import { newCid } from './outbox.js';
 import { ask } from './ask.js';
 
-const ICON = { photo: '📷 фото', gif: '🎞 гифка', voice: '🎤 голос', song: '🎵 песня', link: '🎵 песня по ссылке' };
+const ICON = { photo: '📷 фото', gif: '🎞️ гифка', voice: '🎤 голос', song: '🎵 песня', link: '🎵 песня по ссылке' };
 
 // env — { id, emoji, label } з DATA.partnerEnvelopes; changed() — щось доклали чи прибрали
 export async function openTemplates(env, changed) {
@@ -32,6 +32,7 @@ export async function openTemplates(env, changed) {
   const upload = async (note, a, row) => {
     row.classList.add('is-busy');
     const st = row.querySelector('.tpl-state');
+    st.parentElement.hidden = false;
     st.textContent = 'Отправляю…';
     try {
       const body = { kind: 'env', env: env.id, tpl: note.i, text: '', cid: newCid() };
@@ -103,22 +104,22 @@ export async function openTemplates(env, changed) {
       // Уже прикладене — значками (✕ прибирає все); поки не більше MAX_ATT — можна докласти ще
       const items = ea.attachItems(note.media);
       const more = items.length < ea.MAX_ATT;
-      const tools = note.read
-        ? h('span', { class: 'tpl-state' }, 'уже открыто')
-        : h('span', { class: 'tpl-tools' },
-          items.length
-            ? h('span', { class: 'tpl-state tpl-has' }, items.length === 1 ? ICON[items[0].k] || '📎 вложение' : items.map((x) => (ICON[x.k] || '📎').split(' ')[0]).join(''))
-            : h('span', { class: 'tpl-state' }),
-          items.length ? h('button', { type: 'button', class: 'mk-chip tpl-x', 'aria-label': 'Убрать все вложения', onclick: () => remove(note) }, '✕') : null,
-          more ? h('label', { class: 'mk-chip tpl-add', 'aria-label': 'Приложить фото' }, picker, '📷') : null,
-          more ? h('button', { type: 'button', class: 'mk-chip tpl-add', 'aria-label': 'Приложить гифку', onclick: () => ea.pickGif((a) => upload(note, a, row)) }, '🎞') : null,
-          more ? h('button', { type: 'button', class: 'mk-chip tpl-add', 'aria-label': 'Приложить музыку', onclick: () => ea.pickMusic((a) => upload(note, a, row)) }, '🎵') : null);
-      if (!note.read) {
-        tools.append(
-          h('button', { type: 'button', class: 'mk-chip tpl-add tpl-edit', 'aria-label': 'Поправить текст', onclick: () => edit(note, row) }, '✏️'),
-          h('button', { type: 'button', class: 'mk-chip tpl-add tpl-drop', 'aria-label': 'Убрать письмо', onclick: () => drop(note) }, '🗑'));
-      }
-      row.append(tools);
+      if (note.read) { row.append(h('span', { class: 'tpl-state' }, 'уже открыто')); return row; }
+      // Рядок стану: що вже прикладено (і ✕ — прибрати все); під час відправки тут же відсотки
+      const status = h('div', { class: 'tpl-status', hidden: !items.length },
+        h('span', { class: `tpl-state${items.length ? ' tpl-has' : ''}` },
+          !items.length ? '' : items.length === 1 ? ICON[items[0].k] || '📎 вложение' : items.map((x) => (ICON[x.k] || '📎').split(' ')[0]).join(' ')),
+        items.length ? h('button', { type: 'button', class: 'mk-chip tpl-x', 'aria-label': 'Убрать все вложения', onclick: () => remove(note) }, '✕') : null);
+      // Кнопки — однакові кружечки: зліва «приложить», справа «поправить» і «убрать»
+      const btn = (label, ic, onclick, cls = '') => h('button', { type: 'button', class: `mk-chip tpl-add${cls}`, 'aria-label': label, onclick }, ic);
+      const attach = more ? h('span', { class: 'tpl-group' },
+        h('label', { class: 'mk-chip tpl-add', 'aria-label': 'Приложить фото' }, picker, '📷'),
+        btn('Приложить гифку', '🎞️', () => ea.pickGif((a) => upload(note, a, row))),
+        btn('Приложить музыку', '🎵', () => ea.pickMusic((a) => upload(note, a, row)))) : null;
+      const fix = h('span', { class: 'tpl-group tpl-fix' },
+        btn('Поправить текст', '✏️', () => edit(note, row), ' tpl-edit'),
+        btn('Убрать письмо', '🗑️', () => drop(note), ' tpl-drop'));
+      row.append(status, h('div', { class: 'tpl-tools' }, attach, fix));
       return row;
     }));
   }

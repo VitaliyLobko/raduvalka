@@ -252,7 +252,7 @@ export function openWrite(preset = {}) {
         close(true);
         openGifs((gif) => composeGif(gif, memeSent, re));
       },
-    }, '🎞 Гифка'),
+    }, '🎞️ Гифка'),
     musicBtn,
     reply || festive ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openGames(); } }, '🎲 Игры'),
     helper);

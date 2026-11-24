@@ -5161,13 +5161,19 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .tpl-row { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--lavender) 20%, var(--paper)); }
 [data-side="vin"] .tpl-row { background: color-mix(in srgb, var(--star) 10%, transparent); }
 .tpl-row.is-read { opacity: .55; }
-.tpl-row.is-busy .tpl-tools > :not(.tpl-state) { pointer-events: none; opacity: .4; }
+.tpl-row.is-busy :is(.tpl-tools, .tpl-status) :is(button, label) { pointer-events: none; opacity: .4; }
 .tpl-text { margin: 0; font-size: .9375rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.tpl-tools { display: flex; align-items: center; gap: 6px; }
+/* Ряд кнопок під листом: зліва «приложить» (📷 🎞 🎵), справа «поправить» і «убрать»; над ним — що вже прикладено */
+.tpl-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tpl-group { display: flex; gap: 6px; }
+.tpl-fix { margin-left: auto; }
+.tpl-status { display: flex; align-items: center; gap: 8px; }
+.tpl-status[hidden] { display: none; }
 .tpl-state { flex: 1; font-size: .8125rem; color: var(--ink-soft); }
 .tpl-has { color: var(--wax); font-weight: 600; }
 [data-side="vin"] .tpl-has { color: var(--star); }
-.tpl-add, .tpl-x { flex: none; min-width: 44px; min-height: 40px; justify-content: center; font-size: 1.1rem; }
+.tpl-add, .tpl-x { flex: none; display: inline-grid; place-items: center; width: 44px; height: 44px; min-height: 0; padding: 0; font-size: 1.15rem; line-height: 1; cursor: pointer; }
+.tpl-x { width: 36px; height: 36px; font-size: .9rem; }
 .tpl-field {
   width: 100%; min-height: 96px; max-height: 40dvh; padding: 10px 12px; resize: vertical; box-sizing: border-box;
   border: 1.5px solid color-mix(in srgb, var(--wax) 45%, transparent); border-radius: 10px;
