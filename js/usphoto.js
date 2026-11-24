@@ -90,9 +90,17 @@ function makeAlbum(name) {
   return {
     size: () => urls.size,
     list: () => [...urls].map(([id, url]) => ({ id, url })),
-    // Випадкове, але не те саме, що минулого разу; щойно додане — першим
-    pick() {
+    // seed (реакція на повідомлення) — те саме фото на обох телефонах: ідентифікатори в однаковому порядку, вибір
+    // за хешем. Без seed — випадкове, але не те саме, що минулого разу; щойно додане — першим
+    pick(seed) {
       if (!urls.size) return null;
+      if (seed) {
+        const ids = [...urls.keys()].sort();
+        let hash = 0;
+        for (const ch of seed) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+        last = ids[hash % ids.length];
+        return urls.get(last);
+      }
       let id = next && urls.has(next) ? next : null;
       next = null;
       if (!id) {
@@ -146,6 +154,6 @@ export const HIS = makeAlbum('his');
 export const ALBUMS = { us: US, her: HER, his: HIS };
 
 // Для fx.js і старих тестів
-export const usPhoto = () => US.pick();
+export const usPhoto = (seed) => US.pick(seed);
 export const setUsPhoto = (blob) => US.set(blob);
 export const syncUsPhoto = (at) => US.sync(at);

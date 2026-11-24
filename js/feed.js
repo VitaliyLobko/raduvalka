@@ -686,7 +686,7 @@ async function setReaction(it, value, bubble) {
   live.reaction = value;
   // Спершу анімація (від старого пузиря — він на тому ж місці), а перемальовування стрічки — трохи згодом:
   // інакше перебудова всього чату в ту саму мить, коли рух стартує, давала ривки
-  if (value) { reactFx(bubble, value); setTimeout(draw, 350); } else draw();
+  if (value) { reactFx(bubble, value, false, `r:${it.key}:${value}`); setTimeout(draw, 350); } else draw();
   try {
     await send(it.type === 'meme' ? `memes/${live.id}` : `letters/${live.id}`, 'PUT', { reaction: value });
   } catch {
@@ -1180,7 +1180,7 @@ function watchFresh(els) {
       reactIo.unobserve(target);
       reactWait.delete(target);
       paintReactJump();
-      if (markLoveSeen(target.dataset.react)) setTimeout(() => reactFxQueued(target.firstElementChild, target.dataset.reactGlyph), 250);
+      if (markLoveSeen(target.dataset.react)) setTimeout(() => reactFxQueued(target.firstElementChild, target.dataset.reactGlyph, target.dataset.react), 250);
     }
   }, { threshold: [0, 0.2, 0.4, 0.6], rootMargin: '0px 0px -96px 0px' });
   const reacts = pick('.feed-row.has-their-react').filter((el) => !old.includes(el.dataset.react));

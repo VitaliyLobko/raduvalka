@@ -1016,9 +1016,11 @@ function albumWait(el, glyph) {
   return Promise.race([album.ready(), new Promise((ok) => { setTimeout(ok, 2500); })]);
 }
 
-export function reactFx(el, glyph, waited = false) {
+// Ключ реакції (r:<повідомлення>:<смайлик>) — для вибору фото з альбому, однакового в обох; рухи сцени синхронні
+let fxSeed = null;
+export function reactFx(el, glyph, waited = false, seed = null) {
   const wait = !waited && albumWait(el, glyph);
-  if (wait) { wait.then(() => reactFx(el, glyph, true)); return; }
+  if (wait) { wait.then(() => reactFx(el, glyph, true, seed)); return; }
   if (glyph && el?.isConnected) sfx('react');
   if (reduceMotion || !el?.isConnected || !glyph) return;
   release();
@@ -1037,6 +1039,7 @@ export function reactFx(el, glyph, waited = false) {
   Element.prototype.animate = function slowed(frames, o) {
     return animate.call(this, frames, typeof o === 'number' ? o * SLOW : { ...o, duration: (o?.duration || 0) * SLOW, delay: (o?.delay || 0) * SLOW });
   };
+  fxSeed = seed;
   try {
     QUAKE[glyph]?.(el);
     if (fx) fx(el, x, y, r);
@@ -1046,6 +1049,7 @@ export function reactFx(el, glyph, waited = false) {
     }
   } finally {
     Element.prototype.animate = animate;
+    fxSeed = null;
   }
 }
 
@@ -1085,10 +1089,10 @@ export function bellFx(incoming = true) {
 
 // Кілька реакцій прийшли разом — граємо по черзі, а не купою
 let fxQueue = Promise.resolve();
-export function reactFxQueued(el, glyph) {
+export function reactFxQueued(el, glyph, seed = null) {
   fxQueue = fxQueue.then(() => albumWait(el, glyph)).then(() => {
     if (!el?.isConnected || reduceMotion) return undefined;
-    reactFx(el, glyph, true);
+    reactFx(el, glyph, true, seed);
     // Фото з реакції чекає дотику — наступна йде, коли його прибрали
     return new Promise((ok) => { setTimeout(ok, (durOf(glyph, el) || 2200) * SLOW - 400); }).then(() => held?.done);
   });
@@ -1717,7 +1721,7 @@ REACT_FX['🌌'] = () => {
   const cy = clamp(innerHeight * 0.46, 250, innerHeight - 250);
   const R = 98;
   const RS = 146;
-  const us = usPhoto();
+  const us = usPhoto(fxSeed);
   const keep = us ? hold(D) : null;
   const live = (s, frames, o, k) => gone(s, k)(s.animate(k ? stay(frames) : frames, { ...o, fill: k ? 'both' : 'backwards' }));
   const fade = [{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }];
@@ -1847,7 +1851,7 @@ function berryHeart() {
   const ph = w.firstElementChild;
   ph.style.clipPath = `path('${HEART}')`;
   const photo = ph.firstElementChild;
-  photo.style.backgroundImage = `url("${HER.pick()}")`;
+  photo.style.backgroundImage = `url("${HER.pick(fxSeed)}")`;
   // Фото повільно наближається, поки серце на екрані
   photo.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }], { duration: D - BERRY_POP, delay: BERRY_POP, fill: 'both', easing: 'linear' });
   // Серце: виростає з полуниці, двічі подвійний «тук», наприкінці тане
@@ -1946,7 +1950,7 @@ function shieldPhoto() {
   const ph = w.firstElementChild;
   ph.style.clipPath = `path('${SHIELD}')`;
   const photo = ph.firstElementChild;
-  photo.style.backgroundImage = `url("${HIS.pick()}")`;
+  photo.style.backgroundImage = `url("${HIS.pick(fxSeed)}")`;
   photo.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }], { duration: D, fill: 'both', easing: 'linear' });
   // Щит виїжджає знизу, на кожен удар здригається, наприкінці тане
   const hits = [[-1, -0.35, 1100], [1, -0.05, 1650], [-1, 0.3, 2200]];
