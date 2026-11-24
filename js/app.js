@@ -983,6 +983,32 @@ async function start() {
   setTimeout(primeShell, 3000);
 }
 
+// Помилка, яку ніхто не зловив: інакше кнопка просто «нічого не робить». Нова оболонка вже в кеші, а сторінка ще
+// стара — модуль, що вантажиться пізно (редактор фото), просить у старих модулів у памʼяті те, чого там нема:
+// тоді перезапуск на нову версію (не частіше разу на хвилину). Решта — коротко на екран (лише в нього), щоб було що переказати
+const STALE_MODULE = /does not provide an export named|dynamically imported module|Importing a module script failed/i;
+const STALE_AT = 'radovalka:stale-reload';
+let shownError = 0;
+function uncaught(e) {
+  const err = e.reason ?? e.error;
+  const msg = String(err?.message || e.message || err || '').slice(0, 160);
+  if (!msg || err?.name === 'AbortError') return;
+  let last = 0;
+  try { last = Number(sessionStorage.getItem(STALE_AT)) || 0; } catch { /* приватне вікно */ }
+  if (STALE_MODULE.test(msg) && Date.now() - last > 60_000) {
+    try { sessionStorage.setItem(STALE_AT, String(Date.now())); } catch { /* приватне вікно */ }
+    toast('Приложение обновилось — перезапускаю…');
+    setTimeout(() => location.reload(), 900);
+    return;
+  }
+  // Текст помилки — лише йому (налагодження); у неї — тихо
+  if (document.documentElement.dataset.side !== 'vin' || Date.now() - shownError < 4000) return;
+  shownError = Date.now();
+  toast(`Ошибка: ${msg}`);
+}
+addEventListener('unhandledrejection', uncaught);
+addEventListener('error', (e) => { if (e.error || e.message) uncaught(e); });
+
 registerWorker();
 // Відкрили свою повну ссылку — замок на цьому телефоні знімається (так скидають забутий PIN)
 if (parseKey(location.hash)) clearPin();
