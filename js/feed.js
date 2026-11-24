@@ -1063,8 +1063,11 @@ function memeBubble(m) {
     ? h('p', { class: `sent-reply${m.mine && isNew ? ' is-fresh' : ''}`, 'data-replied': m.replied || 0 },
       h('b', {}, m.mine ? `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: ` : 'Твой ответ: '), m.reply, newMark(m.mine && isNew))
     : null;
-  const bare = sticker && !m.quote && !m.reply && !m.caption;
-  return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}${bare ? ' is-bare' : ''}`, 'data-created': m.created },
+  // Без підкладки повідомлення: наклейка, а також фото й гифка (рамка-фігура, прозорий фон — видно як є), якщо нема цитати,
+  // відповіді й підпису рядком під картинкою; файл і стерте фото — у звичайному пузирі
+  const isPic = !sticker && !m.file && !(m.gone && !m.url);
+  const bare = (sticker || isPic) && !m.quote && !m.reply && !(m.caption && !m.style);
+  return h('div', { class: `feed-bubble feed-meme${!m.mine && isNew ? ' is-fresh' : ''}${bare ? ' is-bare' : ''}${bare && isPic ? ' is-pic' : ''}`, 'data-created': m.created },
     quoteLine(m.quote, m.created),
     pic,
     m.caption && !m.style ? h('p', { class: 'meme-cap' }, m.caption) : null,
