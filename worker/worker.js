@@ -152,8 +152,10 @@ const MIGRATIONS = [
   'CREATE INDEX IF NOT EXISTS letters_env ON letters (dst, kind, created)',
 ];
 
-// ИИ для конструктора мемчиків: підписи й пошукові запити (з ключем Claude — див. aiRun)
-const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+// Текстовий ИИ (листи, мемчики, плани, бажання). Qwen 3.8 обрано порівнянням 24.11: природніша російська й 1–4 с;
+// не відповіла — Llama 3.3, як було раніше. З ключем Claude — спершу він (див. aiRun)
+const AI_MODEL = '@cf/qwen/qwen3.8-27b';
+const AI_FALLBACK_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 // Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований);
 // колір — номер готового (0–4) або свій hex без «#»; шрифт і колір тексту на плашці (i_rrggbb) — необовʼязкові хвости
@@ -1837,7 +1839,7 @@ async function memeIdeas(req, env, side) {
     .map((x) => ({ label: x.label.trim().slice(0, 40), q: x.q.trim().slice(0, 60) }))
     .filter((x) => x.q && x.label);
   if (b.kind === 'gif') return json({ queries: queries.slice(0, 6) });
-  // llama іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
+  // Модель іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
   const captions = [...new Set(list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)))];
   const want = [`Повод: ${situation}`, passionTone(level(b.passion)).trim()].filter(Boolean).join('. ');
   return json({ captions: await bestCaptions(env, captions, want) });
@@ -1851,7 +1853,7 @@ const replyText = (out) => (typeof out?.response === 'string' ? out.response
       || out?.output?.find?.((x) => x?.type === 'message')?.content?.find?.((c) => c?.text)?.text
       || '');
 
-// Claude замість Workers AI, коли задано секрет ANTHROPIC_KEY; помилка, відмова чи таймаут — далі Llama, як було
+// Claude замість Workers AI, коли задано секрет ANTHROPIC_KEY; помилка, відмова чи таймаут — далі Workers AI
 const CLAUDE_MODEL = 'claude-opus-5-5';
 const CLAUDE_TIMEOUT_MS = 45_000;
 
@@ -1860,10 +1862,17 @@ async function aiRun(env, model, input) {
     try {
       return { response: await claudeRun(env, input) };
     } catch (e) {
-      console.log('claude → llama:', String(e?.message || e).slice(0, 200));
+      console.log('claude → workers ai:', String(e?.message || e).slice(0, 200));
     }
   }
-  return env.AI.run(model, input);
+  if (model !== AI_MODEL) return env.AI.run(model, input);
+  try {
+    // Qwen без міркування: з ним 15–30 с і порожня відповідь, бо міркування з'їдає max_tokens
+    return await env.AI.run(model, { ...input, chat_template_kwargs: { enable_thinking: false } });
+  } catch (e) {
+    console.log('qwen → llama:', String(e?.message || e).slice(0, 200));
+    return env.AI.run(AI_FALLBACK_MODEL, input);
+  }
 }
 
 // Запит у форматі Workers AI (system серед messages, фото як data:-URL) → Messages API.
