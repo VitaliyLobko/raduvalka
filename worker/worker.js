@@ -152,7 +152,7 @@ const MIGRATIONS = [
   'CREATE INDEX IF NOT EXISTS letters_env ON letters (dst, kind, created)',
 ];
 
-// ИИ для конструктора мемчиків: підписи й пошукові запити
+// ИИ для конструктора мемчиків: підписи й пошукові запити (з ключем Claude — див. aiRun)
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const GIF_URL = /^https:\/\/media\d*\.giphy\.com\/[\w./?=&-]+$/;
 // Підпис поверх гифки, як у фото: 'вигляд.колір.x.y.розмір.поворот' (сам текст — у caption, зашифрований);
@@ -1756,7 +1756,7 @@ async function describePhoto(env, b64, type) {
   const ask = 'Опиши фото для автора подписи: кто или что на нём, что делает, выражение, одна смешная или трогательная деталь. '
     + '1–2 коротких предложения по-русски, без вступлений.';
   try {
-    const out = await env.AI.run(VISION_MODEL, {
+    const out = await aiRun(env, VISION_MODEL, {
       messages: [{ role: 'user', content: [{ type: 'text', text: ask }, { type: 'image_url', image_url: { url: `data:${type};base64,${b64}` } }] }],
       max_tokens: 160,
     });
@@ -1824,7 +1824,7 @@ async function memeIdeas(req, env, side) {
       + 'Длина каждой подписи: 3–10 слов, чтобы влезла на картинку. Эмодзи: не больше одного на подпись, можно без.';
   }
 
-  const out = await env.AI.run(AI_MODEL, {
+  const out = await aiRun(env, AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: b.kind === 'gif' ? 400 : 700,
     temperature: 0.9,
@@ -1851,9 +1851,61 @@ const replyText = (out) => (typeof out?.response === 'string' ? out.response
       || out?.output?.find?.((x) => x?.type === 'message')?.content?.find?.((c) => c?.text)?.text
       || '');
 
+// Claude замість Workers AI, коли задано секрет ANTHROPIC_KEY; помилка, відмова чи таймаут — далі Llama, як було
+const CLAUDE_MODEL = 'claude-opus-5-5';
+const CLAUDE_TIMEOUT_MS = 45_000;
+
+async function aiRun(env, model, input) {
+  if (env.ANTHROPIC_KEY) {
+    try {
+      return { response: await claudeRun(env, input) };
+    } catch (e) {
+      console.log('claude → llama:', String(e?.message || e).slice(0, 200));
+    }
+  }
+  return env.AI.run(model, input);
+}
+
+// Запит у форматі Workers AI (system серед messages, фото як data:-URL) → Messages API.
+// temperature не передаємо: Opus 5.5 її не приймає
+async function claudeRun(env, { messages, max_tokens: maxTokens }) {
+  const part = (c) => {
+    if (c.type !== 'image_url') return { type: 'text', text: c.text };
+    const [, type, data] = /^data:([^;]+);base64,(.+)$/s.exec(c.image_url?.url || '') || [];
+    return { type: 'image', source: { type: 'base64', media_type: type, data } };
+  };
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': env.ANTHROPIC_KEY,
+      'anthropic-version': '2026-10-21',
+      'anthropic-beta': 'server-side-fallback-2026-07-01',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      // Мислення в Opus 5.5 вимкнути не можна, і воно йде в max_tokens — тож запас; платиться лише написане
+      max_tokens: maxTokens + 8000,
+      output_config: { effort: 'low' },
+      // Відмова класифікатора — сервер сам повторює запит на запасній моделі
+      fallbacks: 'default',
+      system: messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n'),
+      messages: messages.filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(part) })),
+    }),
+    signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`claude ${res.status} ${(await res.text()).slice(0, 150)}`);
+  const out = await res.json();
+  if (out.stop_reason === 'refusal') throw new Error('claude refusal');
+  const text = (out.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+  if (!text) throw new Error(`claude empty (${out.stop_reason})`);
+  return text;
+}
+
 // Відповідь простим текстом (один лист): без JSON — абзаци-переноси всередині JSON-рядка ламали розбір
 async function askText(env, system, user, maxTokens, temperature = 0.9) {
-  const out = await env.AI.run(AI_MODEL, {
+  const out = await aiRun(env, AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: maxTokens,
     temperature,
@@ -1878,7 +1930,7 @@ function parseJsonReply(out) {
 async function bestCaptions(env, captions, situation) {
   if (captions.length <= 5) return captions;
   try {
-    const out = await env.AI.run(AI_MODEL, {
+    const out = await aiRun(env, AI_MODEL, {
       messages: [
         {
           role: 'system',
@@ -1903,7 +1955,7 @@ async function bestCaptions(env, captions, situation) {
 
 // Відповідь моделі: текст із response або choices, з нього — JSON-обʼєкт
 async function askAI(env, system, user, maxTokens, temperature = 0.9) {
-  const out = await env.AI.run(AI_MODEL, {
+  const out = await aiRun(env, AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: maxTokens,
     temperature,
