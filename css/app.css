@@ -4432,8 +4432,8 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
   border: 1.5px solid var(--lavender); border-radius: 50%; background: var(--paper); font-size: 1.25rem; line-height: 1; cursor: pointer;
 }
-.ph-tool[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); }
-[data-side="vin"] .ph-tool[aria-pressed="true"] { background: var(--star); border-color: var(--star); }
+.ph-tool[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
+[data-side="vin"] .ph-tool[aria-pressed="true"] { background: var(--star); border-color: var(--star); color: var(--night); }
 .ph-tool[hidden] { display: none; }
 .ph-hist { color: var(--ink); }
 .ph-hist:disabled { opacity: .35; cursor: default; }
@@ -4528,9 +4528,15 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 }
 .ph-card.is-frame .ph-canvas { border-radius: 0; box-shadow: none; }
 .ph-card.is-shape .ph-canvas { border-radius: 0; box-shadow: none; }
-.ph-panel-frame { justify-content: safe center; gap: 5px; overflow-x: auto; scrollbar-width: none; }
-.ph-panel-frame::-webkit-scrollbar { display: none; }
-.ph-panel-frame .mk-chip { padding-inline: 10px; font-size: .8125rem; }
+.ph-panel-frame { flex-direction: column; align-items: stretch; gap: 8px; }
+.ph-frame-row { display: flex; justify-content: safe center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.ph-frame-row::-webkit-scrollbar { display: none; }
+.ph-frame-row .mk-chip { flex: none; padding-inline: 8px; font-size: .8125rem; }
+.ph-frame-tools { display: flex; align-items: center; gap: 8px; }
+.ph-frame-tools[hidden] { display: none; }
+.ph-frame-tools .mk-chip { flex: none; }
+.ph-zoom { flex: 1; min-width: 0; accent-color: var(--plum); }
+[data-side="vin"] .ph-zoom { accent-color: var(--star); }
 .ph-card-foot { display: none; }
 .ph-card.is-frame .ph-card-foot {
   position: absolute; left: var(--fs); right: var(--fs); bottom: 0; height: var(--fb);
