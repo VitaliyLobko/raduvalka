@@ -1798,7 +1798,15 @@ async function memeIdeas(req, env, side) {
 
   let system;
   let user;
-  if (b.kind === 'gif') {
+  // Пошук гифки своїми словами: російською GIPHY шукає слабко — ті самі слова як 3 англійські запити
+  if (b.kind === 'gif-words') {
+    system = 'You turn a short Russian description of a GIF into GIPHY search queries. '
+      + 'GIPHY works best with short, concrete, visual English queries: an emotion or action plus a subject. '
+      + 'Keep the meaning of the words exactly; vary only the wording and the angle. '
+      + 'Reply ONLY with JSON {"queries": [{"label": "...", "q": "..."}, …3 items]}: "q" — English, 2-4 words; '
+      + '"label" — the same in Russian, 1-3 words. Nothing explicit.';
+    user = `Words: ${situation}`;
+  } else if (b.kind === 'gif') {
     system = 'You pick GIPHY search queries for a loving couple who live apart for a while and send each other GIFs. '
       + 'GIPHY works best with short, concrete, visual English queries: an emotion or action plus a subject '
       + '(e.g. "sleepy cat hug", "dog waiting door", "happy dance minions", "forehead kiss"). '
@@ -1840,8 +1848,8 @@ async function memeIdeas(req, env, side) {
 
   const out = await aiRun(env, AI_MODEL, {
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    max_tokens: b.kind === 'gif' ? 400 : 700,
-    temperature: 0.9,
+    max_tokens: b.kind === 'gif' || b.kind === 'gif-words' ? 400 : 700,
+    temperature: b.kind === 'gif-words' ? 0.4 : 0.9,
   });
   const parsed = parseJsonReply(out);
   const list = (a) => (Array.isArray(a) ? a : []).map((x) => String(x).trim()).filter(Boolean);
@@ -1851,6 +1859,7 @@ async function memeIdeas(req, env, side) {
     .map((x) => ({ label: x.label.trim().slice(0, 40), q: x.q.trim().slice(0, 60) }))
     .filter((x) => x.q && x.label);
   if (b.kind === 'gif') return json({ queries: queries.slice(0, 6) });
+  if (b.kind === 'gif-words') return json({ queries: queries.slice(0, 3) });
   // Модель іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
   const captions = [...new Set(list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)))];
   const want = [`Повод: ${situation}`, passionTone(level(b.passion)).trim(), genderRule(side === 'vin')].filter(Boolean).join(' ');

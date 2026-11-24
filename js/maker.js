@@ -219,11 +219,31 @@ function gifPanel(done) {
       chip('🔥 Популярное', { trending: true }),
     );
   };
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = input.value.trim();
-    if (q) { ask += 1; moodFor = null; words = q; pick({ q }); }
     input.blur();
+    if (!q) return;
+    const my = ++ask;
+    moodFor = null;
+    words = q;
+    // Російською GIPHY шукає слабко: спершу ШІ перекладає слова в 3 англійські запити, гифки — сумішшю, як у плитки.
+    // ШІ не відповів за 6 с — шукаємо як є
+    if (/[а-яёіїєґ]/i.test(q)) {
+      source = { q };
+      seq += 1;
+      draw();
+      more.hidden = true;
+      grid.replaceChildren(h('p', { class: 'mk-wait' }, 'Ищу гифки…'));
+      const qs = await Promise.race([
+        send('meme-ideas', 'POST', { kind: 'gif-words', situation: q })
+          .then((r) => (r?.queries || []).map((x) => x.q).filter(Boolean), () => []),
+        new Promise((ok) => { setTimeout(() => ok([]), 6000); }),
+      ]);
+      if (my !== ask) return;
+      if (qs.length) { pick({ q, qs }); return; }
+    }
+    pick({ q });
   });
   // ШІ: 6 інших запитів саме під обраний настрій (чи під пошук своїми словами)
   aiGo.addEventListener('click', async () => {
@@ -257,9 +277,9 @@ function gifPanel(done) {
     let full;
     try {
       if (source.recent) { list = offset ? [] : recentGifs(); full = false; }
-      else if (source.mood) {
+      else if (source.mood || source.qs) {
         // Один пошук не відповів — беремо інші; не відповів жоден — помилка, як і для звичайного пошуку
-        const got = await Promise.allSettled(source.mood.qs.map((q) => gifPage({ q, offset: offset / 3, limit: PER })));
+        const got = await Promise.allSettled((source.qs || source.mood.qs).map((q) => gifPage({ q, offset: offset / 3, limit: PER })));
         if (got.every((r) => r.status === 'rejected')) throw got[0].reason;
         const pages = got.map((r) => (r.status === 'fulfilled' ? r.value : []));
         list = mix(pages);
