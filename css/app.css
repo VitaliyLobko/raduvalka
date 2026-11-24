@@ -2111,26 +2111,35 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .mk-results .mk-group { margin-top: 8px; }
 .mk-results textarea { font-size: 1.2rem; }
 
-/* Помічник підпису: одразу варіанти ШІ стрічкою, під ними настрій стрічкою (тап — нові варіанти) */
-.cap-assist { display: grid; gap: 4px; margin-top: 8px; }
-.cap-assist .mk-label { margin: 4px 0 0; }
-.mk-capts:empty { display: none; }
-.mk-capts, .cap-moods { margin: 0 -16px; padding: 2px 16px 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-.cap-moods .mk-chip { flex: none; white-space: nowrap; min-height: 36px; padding: 0 12px; font-size: .875rem; }
-.mk-capts .mk-capt[aria-pressed="true"] { background: var(--plum); color: var(--on-plum); border-color: var(--plum); }
-.cap-more { flex: none; min-height: 0; padding: 6px 12px; white-space: nowrap; color: var(--wax); border-style: dashed; }
-.cap-own { margin-top: 4px; }
-.mk-capts .mk-capt {
-  flex: none;
-  max-width: 240px;
-  min-height: 0;
-  padding: 6px 14px;
-  border-radius: 16px;
-  white-space: normal;
-  text-align: left;
-  font: 1.15rem/1.15 var(--hand);
+/* Помічник підпису (фото й гифка): сітка настроїв 4×3 — тап одразу дає варіанти на її місці; «‹» — назад */
+.cap-assist { display: grid; gap: 4px; margin-top: 6px; }
+.cap-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cap-grid[hidden], .cap-res[hidden], .cap-res-title[hidden], .cap-own[hidden] { display: none; }
+.cap-tile {
+  display: grid; place-items: center; gap: 2px; min-width: 0; min-height: 44px; padding: 4px 2px;
+  border: 1px solid var(--rule); border-radius: 12px; background: var(--field); color: inherit;
+  font: 500 .75rem/1.1 var(--ui); letter-spacing: -.01em; cursor: pointer;
 }
-.mk-capts .mk-wait { margin: 4px 0; }
+.cap-tile-ic { font-size: 1.05rem; line-height: 1; }
+.cap-res { display: grid; gap: 6px; }
+.cap-res-head { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+.cap-back {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0 0 3px;
+  border: 1px solid var(--rule); border-radius: 50%; background: var(--field); color: inherit; font: 600 1.5rem/1 var(--ui); cursor: pointer;
+}
+.cap-res-title { flex: 1; min-width: 0; font: 600 .9375rem/1.2 var(--ui); }
+.cap-res-head .cap-own { flex: 1; min-width: 0; margin: 0; min-height: 40px; }
+.cap-again { flex: none; min-height: 40px; padding: 0 12px; }
+.cap-again:disabled { opacity: .5; }
+/* Варіанти — стовпчиком, рукописом як на картинці; не влазять — гортаються всередині, фото не стискають */
+.cap-list { display: grid; gap: 4px; max-height: 96px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.cap-capt {
+  min-height: 36px; padding: 5px 12px; border: 1px solid var(--rule); border-radius: 14px; background: var(--field);
+  color: inherit; text-align: left; font: 1.15rem/1.15 var(--hand); cursor: pointer;
+}
+.cap-capt[aria-pressed="true"] { background: var(--plum); color: var(--on-plum); border-color: var(--plum); }
+.cap-tile:focus-visible, .cap-back:focus-visible, .cap-capt:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }
+.cap-list .mk-wait { margin: 6px 0; }
 .sheet-maker .mk-ai { margin: 0 0 10px; }
 
 /* Його половина: перемикачі й порожні стани на нічному небі читаються, як у «Планах» */
@@ -4529,11 +4538,6 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-auto { display: grid; place-items: center; background: var(--paper); color: var(--ink); font: 700 .875rem/1 var(--ui); }
 .ph-auto[hidden] { display: none; }
 .ph-fonts .mk-chip { font-size: .95rem; }
-/* ✨ підписи й настрій — по рядку, без підписів-заголовків: фото лишається якомога більшим */
-.sheet-photo .cap-assist .mk-label { display: none; }
-.sheet-photo .cap-assist .mk-row { margin: 0; }
-.sheet-photo .cap-assist .mk-chip { min-height: 36px; }
-.sheet-photo .cap-assist .cap-moods { margin-top: 6px; }
 .ph-send-row { display: flex; align-items: center; gap: 8px; }
 .ph-send-row > .voice-wrap, .ph-send-row > .ph-caption { flex: 1; min-width: 0; }
 .ph-caption { width: 100%; min-height: 46px; box-sizing: border-box; border-radius: 23px; }
@@ -4545,9 +4549,11 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-send:disabled { opacity: .5; }
 [data-side="vin"] .ph-send { background: var(--star); color: var(--night); }
 [data-side="vin"] .ph-below { color: var(--star); }
-/* Клавіатура відкрита (вікно низьке) — без рядка настрою, фото поменшає: поле й ➤ лишаються на екрані */
+/* Клавіатура відкрита (вікно низьке) — без сітки настроїв, варіантів менше на виду, фото поменшає: поле й ➤ лишаються.
+   Рядок «Своё» не ховаємо: клавіатура відкривається саме для нього, і поле зникало просто під пальцем */
 @media (max-height: 520px) {
-  .sheet-photo .cap-assist .cap-moods, .sheet-photo .cap-assist .cap-own, .sheet-photo .ph-below { display: none; }
+  .sheet-photo .cap-assist .cap-grid, .sheet-photo .ph-below { display: none; }
+  .sheet-photo .cap-list { max-height: 80px; }
   .sheet-photo .ph-stage { min-height: 72px; }
   .sheet-photo .ph-top { min-height: 40px; }
   .sheet-photo .ph-tool, .sheet-photo .ph-close { width: 40px; height: 40px; }
@@ -5282,6 +5288,9 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .gif-sticks { position: absolute; inset: 0; pointer-events: none; }
 .gif-sticks img { position: absolute; aspect-ratio: 1; height: auto; border-radius: 50%; border: max(2px, .5cqw) solid #fff; object-fit: cover; box-shadow: 0 2px 8px rgba(0, 0, 0, .4); box-sizing: border-box; }
 .gif-sticks .stick-emo { position: absolute; display: grid; place-items: center; aspect-ratio: 1; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35)); -webkit-user-select: none; user-select: none; }
+/* Векторний шрифт наклейок усюди (як у редакторі фото): на гифці, окремою наклейкою в стрічці, у виборі наклейок.
+   Системний смайлик Android — картинка ~136 px і розпливається при збільшенні */
+.stick-emo, .ph-sticker, .ph-pet-emoji { font-family: 'Radovalka Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
 .gif-sticks.is-edit > * { pointer-events: auto; cursor: grab; touch-action: none; }
 .gif-sticks .is-sel { outline: 2px dashed var(--wax, #e0a93a); outline-offset: 3px; }
 /* Ручка розміру й повороту — біла кнопка в куті обраного, значок повертається разом з ним */

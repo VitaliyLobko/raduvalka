@@ -1774,6 +1774,12 @@ async function describePhoto(env, b64, type) {
   }
 }
 
+// Рід автора й отримувача — останнім рядком запиту: на початку довгої інструкції Qwen його часом губила
+// («Готова…» в його підписі). Без прикладів слів: приклад «я написал» модель вставляла дослівно
+const genderRule = (he) => (he
+  ? 'Род: пишет мужчина. О себе — только мужской род, к ней — только женский. Перед ответом проверь род каждого слова о себе.'
+  : 'Род: пишет женщина. О себе — только женский род, к нему — только мужской. Перед ответом проверь род каждого слова о себе.');
+
 // Пристрасть (флірт, «секси»): натяки й бажання, але без грубих і відвертих слів — інакше модель або відмовляє, або пошлить
 const passionTone = (p) => (p < 10 ? ''
   : p < 70 ? 'Флирт — обязательно в каждом варианте: заигрывай, сделай комплимент, намекни на поцелуи и объятия, '
@@ -1828,7 +1834,8 @@ async function memeIdeas(req, env, side) {
       + `Повод: ${situation}. `
       + `Тон: смешно на ${funny}% (0 — нежно-мило), дерзко на ${bold}% (0 — очень нежно). `
       + passionTone(level(b.passion))
-      + 'Длина каждой подписи: 3–10 слов, чтобы влезла на картинку. Эмодзи: не больше одного на подпись, можно без.';
+      + 'Длина каждой подписи: 3–10 слов, чтобы влезла на картинку. Эмодзи: не больше одного на подпись, можно без. '
+      + genderRule(side === 'vin');
   }
 
   const out = await aiRun(env, AI_MODEL, {
@@ -1846,7 +1853,7 @@ async function memeIdeas(req, env, side) {
   if (b.kind === 'gif') return json({ queries: queries.slice(0, 6) });
   // Модель іноді вставляє англійські слова посеред російської — такі підписи відкидаємо
   const captions = [...new Set(list(parsed.captions).map((c) => c.replace(/^["«]|["»]$/g, '')).filter((c) => !/[a-z]{3,}/i.test(c)))];
-  const want = [`Повод: ${situation}`, passionTone(level(b.passion)).trim()].filter(Boolean).join('. ');
+  const want = [`Повод: ${situation}`, passionTone(level(b.passion)).trim(), genderRule(side === 'vin')].filter(Boolean).join(' ');
   return json({ captions: await bestCaptions(env, captions, want) });
 }
 
@@ -1960,7 +1967,8 @@ async function bestCaptions(env, captions, situation) {
         {
           role: 'system',
           content: 'Ты строгий редактор мемов. Из пронумерованных подписей выбери 5 лучших: точно в заданном тоне, '
-            + 'неожиданных, грамматически чистых, без банальностей, без пересказа картинки и без повторов друг друга. Лучшую — первой. '
+            + 'неожиданных, грамматически чистых, без банальностей, без пересказа картинки и без повторов друг друга. '
+            + 'Подпись с ошибкой рода автора (правило — в запросе) не бери. Лучшую — первой. '
             + 'Ответь ТОЛЬКО JSON {"best": [номера]}.',
         },
         { role: 'user', content: `${situation}.\n${captions.map((c, i) => `${i + 1}. ${c}`).join('\n')}` },
@@ -2035,7 +2043,7 @@ async function letterIdeas(req, env, side) {
     for (let attempt = 0; attempt < 2; attempt++) {
       const out = await askAI(env, `Ты бережный редактор личных писем. ${who} ${rules} `
         + 'Сохрани смысл, факты и голос автора, ничего не выдумывай. Ответь ТОЛЬКО JSON {"text": "..."}.',
-      `Задача: ${how}.\nПисьмо:\n${text}`, 1200);
+      `Задача: ${how}.\nПисьмо:\n${text}\n${genderRule(he)}`, 1200);
       const fixed = clean(out.text);
       if (fixed && draftOk(fixed, text)) return json({ text: fixed });
     }
@@ -2084,7 +2092,7 @@ async function letterIdeas(req, env, side) {
   const user = `Задача: ${reason}. ${focus ? `Акцент: ${focus}. ` : ''}`
     + `${words ? `Что обязательно сказать (слова автора): ${words}. ` : ''}`
     + `Длина: ${sentences}. Тон: игриво на ${level(b.funny)}% (0 — нежно), `
-    + `поэтично на ${level(b.poetic)}% (0 — просто, как в переписке). ${passionTone(level(b.passion))}`.trim();
+    + `поэтично на ${level(b.poetic)}% (0 — просто, как в переписке). ${passionTone(level(b.passion))}${genderRule(he)}`;
   const one = async (i) => {
     const system = `Ты помогаешь написать короткое личное письмо. ${who} ${rules} `
       + `Напиши один вариант: ${OPENING[i]}; ${slot(i)}. Без подписи в конце. `
