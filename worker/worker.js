@@ -2140,7 +2140,8 @@ function draftOk(t, src) {
     && !(has(BANNED_WORD, t) && !has(BANNED_WORD, src));
 }
 
-// Пошук GIF: GIPHY і (є ключ) KLIPY навпіл, через одну; ключі лише тут, у Worker. Обидва — без 18+.
+// Пошук GIF: GIPHY і (є ключ) KLIPY навпіл, через одну; ключі лише тут, у Worker. Звичайно — без 18+;
+// adult=1 («Флирт», «Страсть») — GIPHY «r» (порно там нема взагалі), KLIPY — мʼякий фільтр
 // Один не відповів — уся сторінка з другого
 async function gifSearch(url, env) {
   if (!env.GIPHY_KEY && !env.KLIPY_KEY) throw fail(503, 'nokey');
@@ -2150,7 +2151,7 @@ async function gifSearch(url, env) {
   // Суміш настрою просить по 4 з кількох пошуків; звичайна сторінка — 12
   const limit = Math.max(4, Math.min(12, Number(url.searchParams.get('limit')) || 12));
   if (!q && !trending) return json([]);
-  const ask = { q, trending };
+  const ask = { q, trending, adult: url.searchParams.get('adult') === '1' };
   const one = env.GIPHY_KEY ? giphyPage : klipyPage;
   if (!env.GIPHY_KEY || !env.KLIPY_KEY) return json(await one(env, { ...ask, limit, offset }));
   const half = Math.ceil(limit / 2);
@@ -2164,11 +2165,11 @@ async function gifSearch(url, env) {
   return json(out);
 }
 const cyr = (q) => /[а-яёіїєґ]/i.test(q);
-async function giphyPage(env, { q, trending, limit, offset }) {
+async function giphyPage(env, { q, trending, adult, limit, offset }) {
   // Запит кирилицею GIPHY шукає російською, якщо сказати мову; «pg» — без 18+
   const api = new URL(`https://api.giphy.com/v1/gifs/${trending ? 'trending' : 'search'}`);
   api.search = new URLSearchParams({
-    api_key: env.GIPHY_KEY, limit: String(limit), offset: String(offset), rating: 'pg',
+    api_key: env.GIPHY_KEY, limit: String(limit), offset: String(offset), rating: adult ? 'r' : 'pg',
     ...(trending ? {} : { q, lang: cyr(q) ? 'ru' : 'en' }),
   });
   const res = await fetch(api);
@@ -2190,10 +2191,10 @@ async function giphyPage(env, { q, trending, limit, offset }) {
   }).filter((g) => g.url && GIF_URL.test(g.url));
 }
 // KLIPY: сторінки замість зсуву; content_filter high — найсуворіший; рекламні картки (type ≠ gif) не беремо
-async function klipyPage(env, { q, trending, limit, offset }) {
+async function klipyPage(env, { q, trending, adult, limit, offset }) {
   const api = new URL(`https://api.klipy.com/api/v1/${env.KLIPY_KEY}/gifs/${trending ? 'trending' : 'search'}`);
   api.search = new URLSearchParams({
-    per_page: String(limit), page: String(Math.floor(offset / limit) + 1), customer_id: 'radovalka', content_filter: 'high',
+    per_page: String(limit), page: String(Math.floor(offset / limit) + 1), customer_id: 'radovalka', content_filter: adult ? 'low' : 'high',
     ...(trending ? {} : { q, locale: cyr(q) ? 'ru' : 'en' }),
   });
   const res = await fetch(api);

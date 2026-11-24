@@ -184,6 +184,9 @@ function gifPanel(done) {
   let ask = 0;
   let offset = 0;
   let ai = [];
+  // 18+ (GIPHY «r», KLIPY мʼякий фільтр) — лише «Флирт» і «Страсть» та ідеї ШІ під них
+  let aiAdult = false;
+  const adultOf = (s) => ((s.mood?.passion || 0) >= 50 || s.adult ? { adult: 1 } : {});
   const grid = h('div', { class: 'mk-gifs' });
   const more = h('button', { type: 'button', class: 'btn mk-more', hidden: true }, 'Ещё гифки');
   const moods = h('div', { class: 'cap-grid mk-gif-moods', role: 'radiogroup', 'aria-label': 'Настроение' });
@@ -214,7 +217,7 @@ function gifPanel(done) {
     }, label);
     aiRow.replaceChildren(
       aiGo,
-      ...ai.map((x) => chip(x.label, { q: x.q, fromChip: true, ai: true }, 'mk-chip mk-ai-idea')),
+      ...ai.map((x) => chip(x.label, { q: x.q, fromChip: true, ai: true, adult: aiAdult }, 'mk-chip mk-ai-idea')),
       ...(recentGifs().length ? [chip('🕘 Недавние', { recent: true })] : []),
       chip('🔥 Популярное', { trending: true }),
     );
@@ -257,7 +260,8 @@ function gifPanel(done) {
       if (!queries?.length) throw new Error('empty');
       if (my === ask) {
         ai = queries.slice(0, 6);
-        pick({ q: ai[0].q, fromChip: true, ai: true });
+        aiAdult = (m?.passion || 0) >= 50;
+        pick({ q: ai[0].q, fromChip: true, ai: true, adult: aiAdult });
         aiRow.scrollLeft = 0;
       }
     } catch {
@@ -279,13 +283,13 @@ function gifPanel(done) {
       if (source.recent) { list = offset ? [] : recentGifs(); full = false; }
       else if (source.mood || source.qs) {
         // Один пошук не відповів — беремо інші; не відповів жоден — помилка, як і для звичайного пошуку
-        const got = await Promise.allSettled((source.qs || source.mood.qs).map((q) => gifPage({ q, offset: offset / 3, limit: PER })));
+        const got = await Promise.allSettled((source.qs || source.mood.qs).map((q) => gifPage({ q, offset: offset / 3, limit: PER, ...adultOf(source) })));
         if (got.every((r) => r.status === 'rejected')) throw got[0].reason;
         const pages = got.map((r) => (r.status === 'fulfilled' ? r.value : []));
         list = mix(pages);
         full = pages.some((p) => p.length >= PER);
       } else {
-        list = await gifPage(source.trending ? { trending: 1, offset } : { q: source.q, offset });
+        list = await gifPage(source.trending ? { trending: 1, offset } : { q: source.q, offset, ...adultOf(source) });
         full = list.length === 12;
       }
     } catch (e) {
