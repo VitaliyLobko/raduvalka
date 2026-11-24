@@ -2369,6 +2369,12 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .mk-moods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
 .mk-moods .mk-mood-tile { justify-content: center; min-height: 40px; padding: 4px 6px; font-size: .875rem; white-space: nowrap; }
 .mk-ai-go { flex: none; border-style: dashed; border-color: var(--wax); color: var(--wax); font-weight: 600; }
+.mk-gif-moods { margin-bottom: 8px; }
+.mk-gif-moods .cap-tile { min-height: 50px; }
+.mk-gif-moods .cap-tile-ic { font-size: 1.2rem; }
+.mk-gif-moods .cap-tile[aria-checked="true"] { background: var(--plum); border-color: var(--plum); color: var(--on-plum); }
+.mk-ai-row { margin-top: 0; margin-bottom: 8px; }
+.mk-ai-idea { border-color: var(--wax); }
 
 /* «Вместе»: дні народження — два поля в один рядок */
 .bday-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }

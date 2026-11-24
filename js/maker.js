@@ -19,22 +19,28 @@ export function rememberGif(g) {
 // Настрій підпису: повод і тон разом — тап по плитці, і одразу варіанти. Утро / Привет / Ночь — одна плитка за часом доби
 const timeMood = () => {
   const hr = new Date().getHours();
-  if (hr >= 5 && hr < 12) return { ic: '☀️', label: 'Утро', situation: 'доброе утро', funny: 45, bold: 15 };
-  if (hr >= 20 || hr < 5) return { ic: '🌙', label: 'Ночь', situation: 'спокойной ночи', funny: 20, bold: 5 };
-  return { ic: '👋', label: 'Привет', situation: 'просто привет посреди дня', funny: 45, bold: 20 };
+  if (hr >= 5 && hr < 12) return { ic: '☀️', label: 'Утро', situation: 'доброе утро', funny: 45, bold: 15, qs: ['good morning', 'sleepy cat wake up', 'coffee morning cute'] };
+  if (hr >= 20 || hr < 5) return { ic: '🌙', label: 'Ночь', situation: 'спокойной ночи', funny: 20, bold: 5, qs: ['good night', 'sleepy puppy', 'cat sleeping cute'] };
+  return { ic: '👋', label: 'Привет', situation: 'просто привет посреди дня', funny: 45, bold: 20, qs: ['hello wave cute', 'cat waving hi', 'happy dog hello'] };
 };
 const captionMoods = () => [
-  { ic: '🥰', label: 'Нежно', situation: 'сказать что-то нежное, просто порадовать', funny: 25, bold: 10 },
-  { ic: '😂', label: 'Смешно', situation: 'рассмешить', funny: 90, bold: 40 },
-  { ic: '😜', label: 'Дразнить', situation: 'подразнить', funny: 70, bold: 80 },
-  { ic: '🥺', label: 'Скучаю', situation: 'скучаю', funny: 25, bold: 10 },
-  { ic: '😏', label: 'Флирт', situation: 'пофлиртовать', funny: 55, bold: 70, passion: 60 },
-  { ic: '🔥', label: 'Страсть', situation: 'сказать, как хочется к тебе', funny: 15, bold: 60, passion: 90 },
-  { ic: '💪', label: 'Держись', situation: 'у получателя тяжёлый день — поддержать', funny: 35, bold: 15 },
+  { ic: '🥰', label: 'Нежно', situation: 'сказать что-то нежное, просто порадовать', funny: 25, bold: 10, qs: ['cute cat cuddle', 'puppy love', 'forehead kiss'] },
+  { ic: '😂', label: 'Смешно', situation: 'рассмешить', funny: 90, bold: 40, qs: ['funny cat fail', 'dog funny face', 'animal lol reaction'] },
+  { ic: '😜', label: 'Дразнить', situation: 'подразнить', funny: 70, bold: 80, qs: ['sassy cat', 'cheeky wink', 'dog side eye'] },
+  { ic: '🥺', label: 'Скучаю', situation: 'скучаю', funny: 25, bold: 10, qs: ['miss you', 'dog waiting door', 'sad cat window'] },
+  { ic: '😏', label: 'Флирт', situation: 'пофлиртовать', funny: 55, bold: 70, passion: 60, qs: ['flirty wink', 'blowing kiss', 'seductive cat'] },
+  { ic: '🔥', label: 'Страсть', situation: 'сказать, как хочется к тебе', funny: 15, bold: 60, passion: 90, qs: ['passionate kiss', 'come here i want you', 'kiss me'] },
+  { ic: '💪', label: 'Держись', situation: 'у получателя тяжёлый день — поддержать', funny: 35, bold: 15, qs: ['you got this', 'cheer up', 'dog high five'] },
   timeMood(),
-  { ic: '🙏', label: 'Мириться', situation: 'помириться после ссоры: мягко, с теплом и лёгким юмором, без упрёков', funny: 35, bold: 5 },
-  { ic: '🎉', label: 'Поздравить', situation: 'поздравить, порадоваться успеху получателя, сказать, что гордишься', funny: 50, bold: 25 },
+  { ic: '🙏', label: 'Мириться', situation: 'помириться после ссоры: мягко, с теплом и лёгким юмором, без упрёков', funny: 35, bold: 5, qs: ['sorry puppy eyes', 'im sorry cute', 'make up hug'] },
+  { ic: '🎉', label: 'Поздравить', situation: 'поздравить, порадоваться успеху получателя, сказать, что гордишься', funny: 50, bold: 25, qs: ['congratulations', 'happy dance', 'celebration confetti'] },
 ];
+// У гифок ще «Обнимаю» — обійми там найчастіші; разом зі «Своё» — рівно 12 плиток
+const gifMoods = () => {
+  const list = captionMoods();
+  list.splice(8, 0, { ic: '🤗', label: 'Обнимаю', situation: 'обнять на расстоянии', funny: 30, bold: 10, qs: ['hug', 'cat hug', 'bear hug cute'] });
+  return list;
+};
 
 // Помічник підпису (однаковий на фото й гифці): сітка настроїв, тап — одразу варіанти на місці сітки,
 // Поле підпису на фото й гифці: росте до 3 рядків, щоб довгий підпис було видно й можна було правити.
@@ -149,20 +155,6 @@ export function openGifs(onGif) {
   panel.start();
 }
 
-// Настрій → одразу суміш із трьох різних пошуків (без очікування ШІ); ШІ — лише за «✨ Ещё идеи»
-const MOODS = [
-  { key: 'laugh', label: '😂 Посмеяться', qs: ['funny cat fail', 'dog funny face', 'animal lol reaction'], funny: 90, bold: 40 },
-  { key: 'tender', label: '🥰 Нежность', qs: ['cute cat cuddle', 'puppy love', 'forehead kiss'], funny: 15, bold: 5 },
-  { key: 'miss', label: '🥺 Скучаю', qs: ['miss you', 'dog waiting door', 'sad cat window'], funny: 25, bold: 10 },
-  { key: 'hug', label: '🤗 Обнимаю', qs: ['hug', 'cat hug', 'bear hug cute'], funny: 30, bold: 10 },
-  { key: 'morning', label: '☀️ Утро', qs: ['good morning', 'sleepy cat wake up', 'coffee morning cute'], funny: 45, bold: 15 },
-  { key: 'night', label: '🌙 Ночь', qs: ['good night', 'sleepy puppy', 'cat sleeping cute'], funny: 20, bold: 5 },
-  { key: 'cheer', label: '💪 Держись', qs: ['you got this', 'cheer up', 'dog high five'], funny: 40, bold: 20 },
-  { key: 'flirt', label: '😏 Флирт', qs: ['flirty wink', 'blowing kiss', 'seductive cat'], funny: 50, bold: 70, passion: 55 },
-  { key: 'passion', label: '🔥 Страсть', qs: ['passionate kiss', 'come here i want you', 'kiss me'], funny: 10, bold: 60, passion: 90 },
-  { key: 'tease', label: '😜 Подразнить', qs: ['sassy cat', 'cheeky wink', 'dog side eye'], funny: 70, bold: 80 },
-  { key: 'yay', label: '🎉 Ура', qs: ['yay celebration', 'happy dance', 'excited dog'], funny: 65, bold: 30 },
-];
 const PER = 4; // з кожного пошуку суміші — по 4, разом 12
 const gifCache = new Map();
 async function gifPage(params) {
@@ -182,9 +174,11 @@ function mix(lists) {
 
 // Сітка гифок: настрої плиткою, пошук російською, недавні, популярне, ідеї ШІ під настрій
 function gifPanel(done) {
-  let source = { mood: MOODS[2] };
+  // Плитка настрою → одразу суміш із трьох різних пошуків (без очікування ШІ); ШІ — лише за «✨ Придумать»
+  const MOODS = gifMoods();
+  let source = { mood: MOODS[3] };
   // Під який настрій просити ШІ: останній обраний; пошук своїми словами — під ці слова
-  let moodFor = MOODS[2];
+  let moodFor = MOODS[3];
   let words = '';
   // Номер запиту до ШІ: інший настрій чи пошук, поки ШІ думав, — його відповідь уже не до речі
   let ask = 0;
@@ -192,14 +186,15 @@ function gifPanel(done) {
   let ai = [];
   const grid = h('div', { class: 'mk-gifs' });
   const more = h('button', { type: 'button', class: 'btn mk-more', hidden: true }, 'Ещё гифки');
-  const moods = h('div', { class: 'mk-moods', role: 'radiogroup', 'aria-label': 'Настроение' });
-  const chips = h('div', { class: 'mk-chips mk-gif-chips', role: 'radiogroup', 'aria-label': 'Ещё гифки' });
-  ribbon(chips);
+  const moods = h('div', { class: 'cap-grid mk-gif-moods', role: 'radiogroup', 'aria-label': 'Настроение' });
+  // Одразу під плитками один рядок: «✨ Придумать» та ідеї ШІ першими (щоб їх було видно), далі недавні й популярне
+  const aiRow = h('div', { class: 'mk-chips mk-gif-chips mk-ai-row', role: 'radiogroup', 'aria-label': 'Ещё гифки' });
+  ribbon(aiRow);
   const input = h('input', { type: 'search', maxlength: '80', placeholder: 'Найти своими словами', 'aria-label': 'Найти гифку', enterkeyhint: 'search' });
   const form = h('form', { class: 'mk-gif-search', role: 'search' }, input, h('button', { type: 'submit', class: 'btn', 'aria-label': 'Искать' }, '🔎'));
   const aiGo = h('button', { type: 'button', class: 'mk-chip mk-ai-go' }, '✨ Придумать');
 
-  const keyOf = (s) => (s.mood ? `m:${s.mood.key}` : s.recent ? 'recent' : s.trending ? 'trending' : `q:${s.q}`);
+  const keyOf = (s) => (s.mood ? `m:${s.mood.label}` : s.recent ? 'recent' : s.trending ? 'trending' : `q:${s.q}`);
   const pick = (src) => {
     source = src;
     offset = 0;
@@ -209,19 +204,20 @@ function gifPanel(done) {
   };
   const draw = () => {
     const now = keyOf(source);
-    moods.replaceChildren(...MOODS.map((m) => h('button', {
-      type: 'button', role: 'radio', class: 'mk-chip mk-mood-tile', 'aria-checked': String(now === `m:${m.key}`),
-      onclick: () => { ai = []; ask += 1; moodFor = m; aiGo.textContent = '✨ Придумать'; pick({ mood: m }); },
-    }, m.label)));
-    const list = [
-      ...(recentGifs().length ? [{ label: '🕘 Недавние', src: { recent: true } }] : []),
-      { label: '🔥 Популярное', src: { trending: true } },
-      ...ai.map((x) => ({ label: `✨ ${x.label}`, src: { q: x.q, fromChip: true, ai: true } })),
-    ];
-    chips.replaceChildren(...list.map((c) => h('button', {
-      type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(now === keyOf(c.src)),
-      onclick: () => pick(c.src),
-    }, c.label)), aiGo);
+    const tile = (ic, label, on, onclick) => h('button', { type: 'button', role: 'radio', class: 'cap-tile', 'aria-checked': String(on), onclick },
+      h('span', { class: 'cap-tile-ic', 'aria-hidden': 'true' }, ic), h('span', {}, label));
+    moods.replaceChildren(...MOODS.map((m) => tile(m.ic, m.label, now === `m:${m.label}`, () => {
+      ai = []; ask += 1; moodFor = m; aiGo.textContent = '✨ Придумать'; pick({ mood: m });
+    })), tile('✎', 'Своё', !!source.q && !source.ai, () => input.focus()));
+    const chip = (label, src, cls = 'mk-chip') => h('button', {
+      type: 'button', role: 'radio', class: cls, 'aria-checked': String(now === keyOf(src)), onclick: () => pick(src),
+    }, label);
+    aiRow.replaceChildren(
+      aiGo,
+      ...ai.map((x) => chip(x.label, { q: x.q, fromChip: true, ai: true }, 'mk-chip mk-ai-idea')),
+      ...(recentGifs().length ? [chip('🕘 Недавние', { recent: true })] : []),
+      chip('🔥 Популярное', { trending: true }),
+    );
   };
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -233,7 +229,7 @@ function gifPanel(done) {
   aiGo.addEventListener('click', async () => {
     const m = moodFor;
     const my = ++ask;
-    const situation = m ? m.label.replace(/^\S+\s/, '') : words || 'просто так, порадовать';
+    const situation = m ? m.situation : words || 'просто так, порадовать';
     aiGo.disabled = true;
     aiGo.textContent = 'Подбираю…';
     try {
@@ -242,13 +238,13 @@ function gifPanel(done) {
       if (my === ask) {
         ai = queries.slice(0, 6);
         pick({ q: ai[0].q, fromChip: true, ai: true });
-        chips.scrollLeft = 0;
+        aiRow.scrollLeft = 0;
       }
     } catch {
       toast('Не получилось подобрать — попробуй ещё раз');
     }
     aiGo.disabled = false;
-    aiGo.textContent = ai.length ? '🎲 Ещё варианты' : '✨ Придумать';
+    aiGo.textContent = ai.length ? '🎲 Ещё идеи' : '✨ Придумать';
   });
 
   let seq = 0;
@@ -298,7 +294,7 @@ function gifPanel(done) {
   more.addEventListener('click', () => { offset += 12; load(true); });
 
   return {
-    el: h('div', { class: 'mk-gif-panel' }, moods, form, chips, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY')),
+    el: h('div', { class: 'mk-gif-panel' }, moods, aiRow, form, grid, more, h('p', { class: 'mk-giphy' }, 'Powered by GIPHY')),
     start() { draw(); load(false); },
   };
 }
