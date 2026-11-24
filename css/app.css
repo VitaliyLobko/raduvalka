@@ -4527,6 +4527,10 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   box-shadow: 0 14px 30px -14px rgba(42, 23, 48, .6);
 }
 .ph-card.is-frame .ph-canvas { border-radius: 0; box-shadow: none; }
+.ph-card.is-shape .ph-canvas { border-radius: 0; box-shadow: none; }
+.ph-panel-frame { justify-content: safe center; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+.ph-panel-frame::-webkit-scrollbar { display: none; }
+.ph-panel-frame .mk-chip { padding-inline: 10px; font-size: .8125rem; }
 .ph-card-foot { display: none; }
 .ph-card.is-frame .ph-card-foot {
   position: absolute; left: var(--fs); right: var(--fs); bottom: 0; height: var(--fb);
