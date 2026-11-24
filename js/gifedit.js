@@ -2,7 +2,7 @@
 // двома — розмір і поворот. Гифку не перемальовуємо (canvas зʼїв би анімацію): підпис — шар поверх, на сервер іде
 // його текст (шифрується, як завжди) і код місця в style
 import { h, toast, ARROW, reduceMotion } from './ui.js';
-import { captionHelper } from './maker.js';
+import { captionHelper, captionField } from './maker.js';
 import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, stickLayer, paintSticks, stickCode, MAX_STICK, emojiKey } from './memes.js';
 import { stickerRow, EMOJI_STICKERS, HANDLE_PATH } from './stickpick.js';
 import { sampleColor } from './colorpick.js';
@@ -146,10 +146,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   stage.addEventListener('pointercancel', up);
 
   // ── Підпис, вигляд і колір ──
-  const caption = h('input', {
-    type: 'text', class: 'ph-caption', 'data-voice': true, maxlength: '300', enterkeyhint: 'send',
-    placeholder: 'Подпись (можно без)', 'aria-label': 'Подпись',
-  });
+  const caption = captionField();
   const style = capStyle({
     belowLabel: 'Под гифкой',
     onLook: (v) => { cap.look = v; sync(); },

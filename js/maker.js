@@ -37,6 +37,31 @@ const captionMoods = () => [
 ];
 
 // Помічник підпису (однаковий на фото й гифці): сітка настроїв, тап — одразу варіанти на місці сітки,
+// Поле підпису на фото й гифці: росте до 3 рядків, щоб довгий підпис було видно й можна було правити.
+// Підпис — один рядок: Enter надсилає (обробник у редакторі), переноси з вставленого тексту — пробілами
+const AREA_VALUE = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+export function captionField() {
+  const el = h('textarea', {
+    class: 'ph-caption', rows: '1', 'data-voice': true, maxlength: '300', enterkeyhint: 'send',
+    placeholder: 'Подпись (можно без)', 'aria-label': 'Подпись',
+  });
+  const grow = () => {
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  };
+  // Варіант з помічника чи ↶ ставлять value кодом — поле теж має підрости
+  Object.defineProperty(el, 'value', {
+    get: () => AREA_VALUE.get.call(el),
+    set: (v) => { AREA_VALUE.set.call(el, v); grow(); },
+  });
+  el.addEventListener('input', () => {
+    if (el.value.includes('\n')) el.value = el.value.replace(/\s*\n\s*/g, ' ');
+    grow();
+  });
+  el.addEventListener('focus', grow);
+  return el;
+}
+
 // «‹» — назад до настроїв, «🎲 Ещё» — нові. «✎ Своё» — свій повод у полі над варіантами.
 // about — що відомо про картинку (назва гифки); image() — зменшене фото { b64, type } для моделі із зором; onPick — підпис змінився
 export function captionHelper(field, { about = '', image = null, onPick }) {

@@ -4538,9 +4538,14 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .ph-auto { display: grid; place-items: center; background: var(--paper); color: var(--ink); font: 700 .875rem/1 var(--ui); }
 .ph-auto[hidden] { display: none; }
 .ph-fonts .mk-chip { font-size: .95rem; }
-.ph-send-row { display: flex; align-items: center; gap: 8px; }
+.ph-send-row { display: flex; align-items: flex-end; gap: 8px; }
 .ph-send-row > .voice-wrap, .ph-send-row > .ph-caption { flex: 1; min-width: 0; }
 .ph-caption { width: 100%; min-height: 46px; box-sizing: border-box; border-radius: 23px; }
+.sheet textarea.ph-caption {
+  display: block; min-height: 46px; max-height: calc(3.9em + 25px); resize: none; overflow-y: auto;
+  padding: 11px 50px 11px 16px; font: inherit; line-height: 1.3;
+}
+.ph-send-row .voice-wrap.is-area .voice-btn { top: auto; bottom: 4px; }
 .ph-send {
   flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%;
   background: var(--plum); color: var(--on-plum); box-shadow: 0 6px 14px -8px rgba(42, 23, 48, .6); cursor: pointer;

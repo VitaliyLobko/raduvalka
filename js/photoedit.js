@@ -2,7 +2,7 @@
 // розмиття пальцем, рамка «Полароид», обрізка й поворот. Усе впікається в саму картинку — сервер і стрічка про це не знають.
 // Без правок іде той самий файл, що й раніше; «Под фото» — звичайний підпис текстом під картинкою, як завжди
 import { h, toast, ARROW, reduceMotion } from './ui.js';
-import { captionHelper } from './maker.js';
+import { captionHelper, captionField } from './maker.js';
 import { stickerRow, EMOJI_STICKERS, HANDLE_PATH } from './stickpick.js';
 import { ownColor, sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
@@ -661,10 +661,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   stage.addEventListener('pointercancel', up);
 
   // ── Підпис ──
-  const caption = h('input', {
-    type: 'text', class: 'ph-caption', 'data-voice': true, maxlength: '300', enterkeyhint: 'send',
-    placeholder: 'Подпись (можно без)', 'aria-label': 'Подпись',
-  });
+  const caption = captionField();
   const v0 = () => view();
   const syncCaption = () => {
     const text = caption.value.trim();
