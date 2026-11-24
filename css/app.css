@@ -3938,9 +3938,9 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .fx-dot { z-index: 61; left: 0; top: 0; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(255, 220, 150, .85); }
 .fx-dot.is-big { width: 10px; height: 10px; box-shadow: 0 0 10px 3px rgba(255, 170, 210, .9); }
 .fx-dot.is-tiny { z-index: 59; width: 3px; height: 3px; box-shadow: 0 0 3px 1px rgba(255, 255, 255, .6); }
-/* Чумацький Шлях: смуга навскіс без blur — мʼякі краї дає сам градієнт */
-.fx-milky { z-index: 59; width: 240px; height: 170vh; transform: translate(-50%, -50%) rotate(40deg);
-  background: linear-gradient(90deg, rgba(142, 116, 224, 0), rgba(142, 116, 224, .26) 28%, rgba(247, 184, 210, .3) 44%, rgba(255, 231, 196, .34) 50%, rgba(247, 184, 210, .3) 56%, rgba(142, 116, 224, .26) 72%, rgba(142, 116, 224, 0)); }
+/* Чумацький Шлях — полотно на весь екран, малює milkyWay() у fx.js */
+.fx-milky { z-index: 59; overflow: hidden; }
+.fx-milky canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 /* Нова зірка: ядро й промені навхрест */
 .fx-nova { z-index: 62; width: 60px; height: 60px; border-radius: 50%;
   background: radial-gradient(circle, #fff 0 18%, rgba(255, 231, 168, .95) 30%, rgba(255, 184, 107, .5) 50%, rgba(255, 184, 107, 0) 70%); }

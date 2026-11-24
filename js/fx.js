@@ -1711,6 +1711,99 @@ REACT_FX['⭐'] = (el, x, y) => {
   say('Загадай желание', x, y + 74, '1.6rem', 1700, 1300);
 };
 
+// Чумацький Шлях — малюємо раз на сцену в canvas: дуга навскіс через центр, ширина гуляє, біля центру — вздуття;
+// хмари світла, темні пилові прожилки з розривами, густий зоряний пил уздовж і рідкі зорі по небу.
+// Два полотна: c — сяйво з пилом, s — зорі (мерехтять і пливуть окремо — глибина). at(t, off) — точка на смузі
+// (t 0…1 уздовж, off — пікселі вбік), wid(t) — її ширина
+function milkyWay(W, H, cx, cy) {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const layer = () => {
+    const el = document.createElement('canvas');
+    el.width = Math.round(W * dpr);
+    el.height = Math.round(H * dpr);
+    const g = el.getContext('2d');
+    g.scale(dpr, dpr);
+    return [el, g];
+  };
+  const [c, x] = layer();
+  const rnd = Math.random;
+  const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+  // Нахил щоразу інший: 35…65°, то знизу зліва вгору, то згори зліва вниз
+  const a = ((rnd() < 0.5 ? -1 : 1) * (35 + rnd() * 30) * Math.PI) / 180;
+  const L = Math.hypot(W, H) * 0.62;
+  const [dx, dy] = [Math.cos(a), Math.sin(a)];
+  const [nx, ny] = [-dy, dx];
+  const bow = (rnd() < 0.5 ? -1 : 1) * W * (0.14 + rnd() * 0.08);
+  const P0 = [cx - dx * L - nx * bow, cy - dy * L - ny * bow];
+  const P1 = [cx + nx * bow, cy + ny * bow];
+  const P2 = [cx + dx * L - nx * bow, cy + dy * L - ny * bow];
+  const at = (t, off = 0) => {
+    const u = 1 - t;
+    const tx = 2 * u * (P1[0] - P0[0]) + 2 * t * (P2[0] - P1[0]);
+    const ty = 2 * u * (P1[1] - P0[1]) + 2 * t * (P2[1] - P1[1]);
+    const l = Math.hypot(tx, ty) || 1;
+    return [u * u * P0[0] + 2 * u * t * P1[0] + t * t * P2[0] - (ty / l) * off, u * u * P0[1] + 2 * u * t * P1[1] + t * t * P2[1] + (tx / l) * off];
+  };
+  const ph = [rnd() * 6, rnd() * 6, rnd() * 6];
+  const core = (t) => Math.exp(-(((t - 0.5) / 0.13) ** 2));
+  const wid = (t) => 44 * (0.75 + 0.18 * Math.sin(t * 9 + ph[0]) + 0.22 * Math.sin(t * 23 + ph[1])) + 38 * core(t);
+  const blob = (px, py, r, rgb, al) => {
+    const g = x.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, `rgba(${rgb}, ${al})`);
+    g.addColorStop(1, `rgba(${rgb}, 0)`);
+    x.fillStyle = g;
+    x.fillRect(px - r, py - r, r * 2, r * 2);
+  };
+  x.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 170; i += 1) {
+    const t = rnd();
+    const w = wid(t);
+    const [px, py] = at(t, gauss() * w * 0.8);
+    const rgb = rnd() < core(t) * 0.8 ? '255, 226, 190' : rnd() < 0.45 ? '247, 184, 210' : '142, 116, 224';
+    blob(px, py, w * (0.5 + rnd() * 0.8), rgb, 0.05 + rnd() * 0.07);
+  }
+  for (let i = 0; i < 40; i += 1) {
+    const t = rnd();
+    const w = wid(t);
+    const [px, py] = at(t, gauss() * w * 0.5);
+    blob(px, py, w * (0.12 + rnd() * 0.2), '255, 240, 230', 0.1 + rnd() * 0.12);
+  }
+  // Пил — дві тонкі звивисті прожилки з розривами: багато дрібних слабких плям зливаються у волокно
+  x.globalCompositeOperation = 'destination-out';
+  // Плями витягнуті вздовж смуги й різної товщини — волокно, а не пунктир
+  for (const [k, shift] of [[11, 0.12], [7, -0.22]]) {
+    for (let i = 0; i < 360; i += 1) {
+      const t = rnd();
+      if (Math.sin(t * 17 + ph[2] + shift * 9) < -0.3) continue;
+      const w = wid(t);
+      const thick = 0.5 + 0.5 * Math.sin(t * 29 + ph[1] + k);
+      const [px, py] = at(t, w * (shift + 0.13 * Math.sin(t * k + ph[2]) + gauss() * 0.08));
+      const [qx, qy] = at(Math.min(1, t + 0.002), w * (shift + 0.13 * Math.sin((t + 0.002) * k + ph[2])));
+      x.save();
+      x.translate(px, py);
+      x.rotate(Math.atan2(qy - py, qx - px) + gauss() * 0.4);
+      x.scale(2.2 + rnd() * 1.6, 1);
+      blob(0, 0, w * (0.03 + thick * 0.08 + rnd() * 0.03), '0, 0, 0', 0.07 + rnd() * 0.12);
+      x.restore();
+    }
+  }
+  const [s, z] = layer();
+  z.globalCompositeOperation = 'lighter';
+  const dot = (px, py, r, al) => {
+    z.fillStyle = `rgba(255, ${235 + Math.floor(rnd() * 20)}, ${215 + Math.floor(rnd() * 40)}, ${al})`;
+    z.beginPath();
+    z.arc(px, py, r, 0, Math.PI * 2);
+    z.fill();
+  };
+  for (let i = 0; i < 520; i += 1) {
+    const t = rnd();
+    const [px, py] = at(t, gauss() * wid(t) * 1.1);
+    dot(px, py, rnd() < 0.08 ? 1.1 + rnd() * 0.6 : 0.35 + rnd() * 0.6, 0.35 + rnd() * 0.6);
+  }
+  for (let i = 0; i < 70; i += 1) dot(rnd() * W, rnd() * H, 0.3 + rnd() * 0.6, 0.2 + rnd() * 0.4);
+  return { c, s, at, wid };
+}
+
 // «Вселенная нас любит» 🌌: ніч і навскіс Чумацький Шлях; у центрі народжується зірка — спалах розкривається
 // колом із нашим фото (не вибрали — своя галактика), золоте кільце прокреслює світло; довкола сузірʼя, написи по дузі.
 // Сцена — по центру екрана, не над повідомленням: вона на весь екран
@@ -1726,13 +1819,23 @@ REACT_FX['🌌'] = () => {
   const live = (s, frames, o, k) => gone(s, k)(s.animate(k ? stay(frames) : frames, { ...o, fill: k ? 'both' : 'backwards' }));
   const fade = [{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }];
   veil('fx-cosmos', fade, D, 0, cx, cy, keep);
-  live(shape('fx-milky', cx, cy), fade, { duration: D }, keep);
-  // Зоряний пил уздовж смуги (вона під 40° — знизу зліва вгору направо)
-  const a = (-50 * Math.PI) / 180;
+  const mw = milkyWay(innerWidth, innerHeight, cx, cy);
+  const milky = shape('fx-milky', 0, 0);
+  milky.style.width = `${innerWidth}px`;
+  milky.style.height = `${innerHeight}px`;
+  milky.append(mw.c, mw.s);
+  live(milky, fade, { duration: D }, keep);
+  // Небо ледь повертається й наближається, зорі — швидше за сяйво й мерехтять: смуга не стоїть картинкою
+  if (!reduceMotion) {
+    mw.c.animate([{ transform: 'scale(1.06) rotate(-1.5deg)' }, { transform: 'scale(1) rotate(.8deg)' }], { duration: D, easing: 'ease-out', fill: 'forwards' });
+    mw.s.animate([{ transform: 'scale(1.12) rotate(-2.5deg)' }, { transform: 'scale(1) rotate(1.4deg)' }], { duration: D, easing: 'ease-out', fill: 'forwards' });
+    mw.s.animate([{ opacity: 1 }, { opacity: 0.55 }, { opacity: 1 }], { duration: 1400, iterations: Infinity, easing: 'ease-in-out' });
+  }
+  // Блискітки — на самій смузі
   for (let i = 0; i < 26; i += 1) {
-    const along = (Math.random() - 0.5) * innerHeight * 1.1;
-    const off = (Math.random() + Math.random() - 1) * 70;
-    const s = shape('fx-dot is-tiny', cx + Math.cos(a) * along - Math.sin(a) * off, cy + Math.sin(a) * along + Math.cos(a) * off);
+    const t = 0.08 + Math.random() * 0.84;
+    const [px, py] = mw.at(t, (Math.random() + Math.random() - 1) * mw.wid(t) * 0.8);
+    const s = shape('fx-dot is-tiny', px, py);
     live(s, [{ transform: `${C} scale(.3)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.2 }, { transform: C, opacity: 0.35, offset: 0.5 },
       { transform: C, opacity: 1, offset: 0.75 }, { transform: C, opacity: 0 }], { duration: D * 0.9, delay: Math.random() * 600 });
   }
