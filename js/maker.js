@@ -110,6 +110,15 @@ export function captionHelper(field, { about = '', image = null, onPick }) {
     h('span', { class: 'cap-tile-ic', 'aria-hidden': 'true' }, ic), h('span', {}, label));
   grid.append(...captionMoods().map((m) => tile(m.ic, m.label, () => open(m))), tile('✎', 'Своё', () => open(null)));
 
+  // Фото ШІ роздивляється один раз, у фоні, щойно відкрився редактор: опис іде в усі настрої, «Ещё» і «Своё».
+  // Не роздивився — як раніше, фото їде в кожному запиті
+  let seen = null;
+  const look = () => (seen ||= image
+    ? image().then((img) => (img ? send('meme-ideas', 'POST', { kind: 'photo-desc', image: img.b64, type: img.type }) : null))
+      .then((r) => String(r?.desc || '')).catch(() => '')
+    : Promise.resolve(''));
+  if (image) setTimeout(look, 300);
+
   async function ask() {
     const mine = own.value.trim();
     if (!mood && !mine) { own.focus(); return; }
@@ -118,9 +127,11 @@ export function captionHelper(field, { about = '', image = null, onPick }) {
     list.replaceChildren(h('p', { class: 'mk-wait' }, 'Придумываю подписи…'));
     again.disabled = true;
     try {
-      const img = image ? await image().catch(() => null) : null;
+      const desc = await look();
+      const img = !desc && image ? await image().catch(() => null) : null;
       const { captions } = await send('meme-ideas', 'POST', {
-        kind: 'photo', situation: mood ? m.situation : mine, funny: m.funny, bold: m.bold, passion: m.passion || 0, desc: about,
+        kind: 'photo', situation: mood ? m.situation : mine, funny: m.funny, bold: m.bold, passion: m.passion || 0,
+        desc: [desc, about].filter(Boolean).join('. '),
         ...(img ? { image: img.b64, type: img.type } : {}),
       });
       if (n !== seq) return;

@@ -2148,10 +2148,10 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .cap-again { flex: none; min-height: 40px; padding: 0 12px; }
 .cap-again:disabled { opacity: .5; }
 /* Варіанти — стовпчиком, рукописом як на картинці; не влазять — гортаються всередині, фото не стискають */
-.cap-list { display: grid; gap: 4px; max-height: 96px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.cap-list { display: grid; gap: 5px; max-height: 128px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .cap-capt {
-  min-height: 36px; padding: 5px 12px; border: 1px solid var(--rule); border-radius: 14px; background: var(--field);
-  color: inherit; text-align: left; font: 1.15rem/1.15 var(--hand); cursor: pointer;
+  min-height: 42px; padding: 6px 14px; border: 1px solid var(--rule); border-radius: 14px; background: var(--field);
+  color: inherit; text-align: left; font: 1.4rem/1.15 var(--hand); cursor: pointer;
 }
 .cap-capt[aria-pressed="true"] { background: var(--plum); color: var(--on-plum); border-color: var(--plum); }
 .cap-tile:focus-visible, .cap-back:focus-visible, .cap-capt:focus-visible { outline: 2px solid var(--wax); outline-offset: 2px; }

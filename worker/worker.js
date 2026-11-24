@@ -1791,6 +1791,12 @@ async function memeIdeas(req, env, side) {
   if (!env.AI) throw fail(503, 'ai');
   // Зменшене фото для моделі із зором — 60–80 КБ base64, більше за звичайний ліміт JSON
   const b = await readJson(req, MAX_VISION_B64 + 8192);
+  // Лише опис фото — телефон питає один раз, коли відкрився редактор, і далі шле його замість фото
+  if (b.kind === 'photo-desc') {
+    const img = String(b.image || '');
+    const ok = img && img.length <= MAX_VISION_B64 && /^[A-Za-z0-9+/]+=*$/.test(img);
+    return json({ desc: ok ? await describePhoto(env, img, MEME_TYPES.test(String(b.type || '')) ? String(b.type) : 'image/jpeg') : '' });
+  }
   const level = (v) => Math.max(0, Math.min(100, Number(v) || 0));
   const situation = String(b.situation || '').trim().slice(0, 200) || 'просто так, порадовать';
   const funny = level(b.funny);
