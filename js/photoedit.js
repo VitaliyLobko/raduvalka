@@ -336,30 +336,187 @@ function drawFoot(ctx, x0, y0, w, hh, text) {
 }
 
 // Рамки: «Полароид» — картка довкола фото; фігури — фото лише всередині, довкола прозоро
-const FRAMES = [['', 'Нет'], ['polaroid', 'Полароид'], ['circle', 'Круг'], ['heart', 'Сердце'], ['shield', 'Щит']];
-// Контури фігур у квадраті 0…1: пара — точка (перша — початок), шістка — крива Безьє
+const FRAMES = [['', 'Нет'], ['polaroid', 'Полароид'], ['circle', 'Круг'], ['heart', 'Сердце'], ['star', 'Звезда'], ['flower', 'Цветок'],
+  ['cloud', 'Облако'], ['moon', 'Луна'], ['cat', 'Котик'], ['shield', 'Щит'], ['porthole', 'Иллюминатор'], ['stamp', 'Марка']];
+// Контури в квадраті 0…1: пара — точка (перша — початок), шістка — крива Безьє
+const HEART = [[0.5, 0.97], [0.1, 0.68, 0, 0.45, 0, 0.3], [0, 0.12, 0.13, 0.02, 0.28, 0.02], [0.39, 0.02, 0.47, 0.09, 0.5, 0.19],
+  [0.53, 0.09, 0.61, 0.02, 0.72, 0.02], [0.87, 0.02, 1, 0.12, 1, 0.3], [1, 0.45, 0.9, 0.68, 0.5, 0.97]];
+const SHIELD = [[0.5, 0.02], [0.68, 0.11, 0.85, 0.12, 0.95, 0.1], [0.95, 0.48], [0.95, 0.74, 0.74, 0.9, 0.5, 0.98],
+  [0.26, 0.9, 0.05, 0.74, 0.05, 0.48], [0.05, 0.1], [0.15, 0.12, 0.32, 0.11, 0.5, 0.02]];
+// Облако й квітка — обʼєднання кіл (u, v, r)
+const CLOUD = [[0.27, 0.6, 0.2], [0.47, 0.42, 0.26], [0.7, 0.5, 0.22], [0.5, 0.68, 0.24], [0.8, 0.66, 0.15], [0.18, 0.72, 0.12]];
+const FLOWER = [[0.5, 0.5, 0.24], ...Array.from({ length: 8 }, (_, i) => {
+  const t = (i / 8) * Math.PI * 2;
+  return [0.5 + Math.cos(t) * 0.3, 0.5 + Math.sin(t) * 0.3, 0.18];
+})];
+const rad = (deg) => (deg * Math.PI) / 180;
+// Кожна фігура будує через f свої шляхи: clip — де фото; back — біла підкладка з тінню (нема — та сама clip);
+// line — обводка поверх ({ color, w — частка сторони }, null — без неї); deco(ctx) — прикраса поверх фото
 const SHAPES = {
-  circle: null,
-  heart: [[0.5, 0.97], [0.1, 0.68, 0, 0.45, 0, 0.3], [0, 0.12, 0.13, 0.02, 0.28, 0.02], [0.39, 0.02, 0.47, 0.09, 0.5, 0.19],
-    [0.53, 0.09, 0.61, 0.02, 0.72, 0.02], [0.87, 0.02, 1, 0.12, 1, 0.3], [1, 0.45, 0.9, 0.68, 0.5, 0.97]],
-  shield: [[0.5, 0.02], [0.68, 0.11, 0.85, 0.12, 0.95, 0.1], [0.95, 0.48], [0.95, 0.74, 0.74, 0.9, 0.5, 0.98],
-    [0.26, 0.9, 0.05, 0.74, 0.05, 0.48], [0.05, 0.1], [0.15, 0.12, 0.32, 0.11, 0.5, 0.02]],
+  circle: (f) => { const p = f.path(); f.circ(p, 0.5, 0.5, 0.5); return { clip: p }; },
+  heart: (f) => ({ clip: f.curves(HEART) }),
+  shield: (f) => ({ clip: f.curves(SHIELD) }),
+  star: (f) => ({
+    clip: f.round(Array.from({ length: 10 }, (_, i) => {
+      const t = rad(-90 + i * 36);
+      const r = i % 2 ? 0.3 : 0.5;
+      return [0.5 + Math.cos(t) * r, 0.53 + Math.sin(t) * r];
+    }), 0.2),
+  }),
+  flower: (f) => f.union(FLOWER),
+  cloud: (f) => f.union(CLOUD),
+  // Товстий місяць: коло, з якого вирізали менше коло вгорі праворуч
+  moon: (f) => {
+    const [a, b] = [[0.5, 0.5, 0.48], [0.8, 0.3, 0.3]];
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const l = (a[2] ** 2 - b[2] ** 2 + d ** 2) / (2 * d);
+    const hh = Math.sqrt(a[2] ** 2 - l ** 2);
+    const ex = (b[0] - a[0]) / d;
+    const ey = (b[1] - a[1]) / d;
+    const i1 = [a[0] + ex * l - ey * hh, a[1] + ey * l + ex * hh];
+    const i2 = [a[0] + ex * l + ey * hh, a[1] + ey * l - ex * hh];
+    const ang = (c, q) => Math.atan2(q[1] - c[1], q[0] - c[0]);
+    const norm = (x) => ((x % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const inCw = (from, to, dir) => norm(dir - from) < norm(to - from);
+    const p = f.path();
+    const [a1, a2] = [ang(a, i1), ang(a, i2)];
+    p.moveTo(f.X(i1[0]), f.Y(i1[1]));
+    p.arc(f.X(a[0]), f.Y(a[1]), f.L(a[2]), a1, a2, inCw(a1, a2, ang(a, b)));
+    const [b2, b1] = [ang(b, i2), ang(b, i1)];
+    p.arc(f.X(b[0]), f.Y(b[1]), f.L(b[2]), b2, b1, !inCw(b2, b1, ang(b, a)));
+    p.closePath();
+    return { clip: p };
+  },
+  // Котик: голова-коло і два вушка із заокругленими кінчиками
+  cat: (f) => {
+    const [cx, cy, r] = [0.5, 0.57, 0.41];
+    const at = (deg, k = 1) => [cx + Math.cos(rad(deg)) * r * k, cy + Math.sin(rad(deg)) * r * k];
+    const p = f.path();
+    const ear = (b1, tip, b2) => {
+      const [t, q] = [at(tip, 1.45), at(b2)];
+      const near = (o) => [t[0] + (o[0] - t[0]) * 0.22, t[1] + (o[1] - t[1]) * 0.22];
+      const [n1, n2] = [near(at(b1)), near(q)];
+      p.lineTo(f.X(n1[0]), f.Y(n1[1]));
+      p.quadraticCurveTo(f.X(t[0]), f.Y(t[1]), f.X(n2[0]), f.Y(n2[1]));
+      p.lineTo(f.X(q[0]), f.Y(q[1]));
+    };
+    const s0 = at(-112);
+    p.moveTo(f.X(s0[0]), f.Y(s0[1]));
+    p.arc(f.X(cx), f.Y(cy), f.L(r), rad(-112), rad(-68));
+    ear(-68, -48, -28);
+    p.arc(f.X(cx), f.Y(cy), f.L(r), rad(-28), rad(208));
+    ear(-152, -132, -112);
+    p.closePath();
+    return { clip: p };
+  },
+  // Віконце літака: товста світло-сіра рама, всередині тонка тінь
+  porthole: (f) => {
+    const p = f.path();
+    p.roundRect(f.X(0.2), f.Y(0.04), f.L(0.6), f.L(0.92), f.L(0.28));
+    return {
+      clip: p,
+      line: { color: '#D5DAE2', w: 0.075 },
+      deco: (ctx) => {
+        const q = f.path();
+        q.roundRect(f.X(0.235), f.Y(0.075), f.L(0.53), f.L(0.85), f.L(0.245));
+        ctx.lineWidth = f.L(0.014);
+        ctx.strokeStyle = 'rgba(30, 40, 60, .28)';
+        ctx.stroke(q);
+      },
+    };
+  },
+  // Поштова марка: папір із зубчиками, фото — віконцем усередині, у кутку штемпель з датою
+  stamp: (f) => {
+    const back = f.path();
+    const [x0, y0, x1, y1] = [0.03, 0.03, 0.97, 0.97];
+    const n = 11;
+    const st = (x1 - x0) / n;
+    const r = st * 0.3;
+    back.moveTo(f.X(x0), f.Y(y0));
+    for (let i = 0; i < n; i += 1) { const c = x0 + (i + 0.5) * st; back.lineTo(f.X(c - r), f.Y(y0)); back.arc(f.X(c), f.Y(y0), f.L(r), Math.PI, 0, true); }
+    back.lineTo(f.X(x1), f.Y(y0));
+    for (let i = 0; i < n; i += 1) { const c = y0 + (i + 0.5) * st; back.lineTo(f.X(x1), f.Y(c - r)); back.arc(f.X(x1), f.Y(c), f.L(r), -Math.PI / 2, Math.PI / 2, true); }
+    back.lineTo(f.X(x1), f.Y(y1));
+    for (let i = 0; i < n; i += 1) { const c = x1 - (i + 0.5) * st; back.lineTo(f.X(c + r), f.Y(y1)); back.arc(f.X(c), f.Y(y1), f.L(r), 0, Math.PI, true); }
+    back.lineTo(f.X(x0), f.Y(y1));
+    for (let i = 0; i < n; i += 1) { const c = y1 - (i + 0.5) * st; back.lineTo(f.X(x0), f.Y(c + r)); back.arc(f.X(x0), f.Y(c), f.L(r), Math.PI / 2, -Math.PI / 2, true); }
+    back.closePath();
+    const clip = f.path();
+    clip.rect(f.X(0.12), f.Y(0.12), f.L(0.76), f.L(0.76));
+    return {
+      clip,
+      back,
+      line: { color: 'rgba(60, 40, 70, .18)', w: 0.006 },
+      deco: (ctx) => {
+        const ink = 'rgba(46, 32, 72, .55)';
+        const [cx, cy, cr] = [f.X(0.77), f.Y(0.22), f.L(0.13)];
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = f.L(0.011);
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+        ctx.moveTo(cx + cr * 0.8, cy);
+        ctx.arc(cx, cy, cr * 0.8, 0, Math.PI * 2);
+        for (let i = 0; i < 4; i += 1) {
+          const y = cy + (i - 1.5) * f.L(0.045);
+          ctx.moveTo(cx - cr * 1.15, y);
+          for (let x = 0; x <= 3; x += 1) ctx.quadraticCurveTo(cx - cr * 1.15 - (x + 0.5) * f.L(0.05), y + (x % 2 ? -1 : 1) * f.L(0.016), cx - cr * 1.15 - (x + 1) * f.L(0.05), y);
+        }
+        ctx.stroke();
+        const d = new Date();
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(-0.25);
+        ctx.fillStyle = ink;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `700 ${f.L(0.055)}px Rubik, system-ui, sans-serif`;
+        ctx.fillText(`${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`, 0, 0);
+        ctx.restore();
+      },
+    };
+  },
 };
 // Фігура в квадраті x, y, s — з полем під обводку й тінь
-function shapePath(kind, x, y, s) {
+function shapeOf(kind, x, y, s) {
   const m = s * 0.06;
   const k = s - m * 2;
   const X = (u) => x + m + u * k;
   const Y = (u) => y + m + u * k;
-  const p = new Path2D();
-  if (!SHAPES[kind]) { p.arc(X(0.5), Y(0.5), k / 2, 0, Math.PI * 2); return p; }
-  SHAPES[kind].forEach((c, i) => {
-    if (c.length === 6) p.bezierCurveTo(X(c[0]), Y(c[1]), X(c[2]), Y(c[3]), X(c[4]), Y(c[5]));
-    else if (i) p.lineTo(X(c[0]), Y(c[1]));
-    else p.moveTo(X(c[0]), Y(c[1]));
-  });
-  p.closePath();
-  return p;
+  const L = (u) => u * k;
+  const path = () => new Path2D();
+  const circ = (p, u, w, r) => { p.moveTo(X(u) + L(r), Y(w)); p.arc(X(u), Y(w), L(r), 0, Math.PI * 2); };
+  const curves = (list) => {
+    const p = path();
+    list.forEach((c, i) => {
+      if (c.length === 6) p.bezierCurveTo(X(c[0]), Y(c[1]), X(c[2]), Y(c[3]), X(c[4]), Y(c[5]));
+      else if (i) p.lineTo(X(c[0]), Y(c[1]));
+      else p.moveTo(X(c[0]), Y(c[1]));
+    });
+    p.closePath();
+    return p;
+  };
+  // Многокутник із заокругленими кутами: t — яку частку сторони з'їдає заокруглення
+  const round = (pts, t) => {
+    const p = path();
+    pts.forEach((v, i) => {
+      const [a, b] = [pts[(i + pts.length - 1) % pts.length], pts[(i + 1) % pts.length]];
+      const A = [v[0] + (a[0] - v[0]) * t, v[1] + (a[1] - v[1]) * t];
+      const B = [v[0] + (b[0] - v[0]) * t, v[1] + (b[1] - v[1]) * t];
+      if (i) p.lineTo(X(A[0]), Y(A[1])); else p.moveTo(X(A[0]), Y(A[1]));
+      p.quadraticCurveTo(X(v[0]), Y(v[1]), X(B[0]), Y(B[1]));
+    });
+    p.closePath();
+    return p;
+  };
+  // Обʼєднання кіл: обводку дає підкладка з трохи більших кіл (штрих намалював би й внутрішні дуги)
+  const union = (list) => {
+    const clip = path();
+    const back = path();
+    list.forEach(([u, w, r]) => { circ(clip, u, w, r); circ(back, u, w, r + 0.024); });
+    return { clip, back, line: null };
+  };
+  const sh = SHAPES[kind]({ X, Y, L, path, circ, curves, round, union });
+  return { back: sh.clip, line: { color: '#fff', w: 0.024 }, ...sh };
 }
 
 // blob — уже стиснуте фото (prepare); send(out, caption) — надіслати (кидає помилку — вікно лишається);
@@ -505,7 +662,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   function render(ctx, sc, v, preview = false, ox = 0, oy = 0) {
     // Фігура: біла підкладка з тінню, фото з лініями лише всередині, поверх — біла обводка; наклейки не обрізаються.
     // Фігура стоїть рівно, фото під нею — з поворотом кадру
-    const shape = shaped() && mode !== 'crop' ? shapePath(frame, v.x, v.y, v.w) : null;
+    const shape = shaped() && mode !== 'crop' ? shapeOf(frame, v.x, v.y, v.w) : null;
     ctx.setTransform(sc, 0, 0, sc, ox - v.x * sc, oy - v.y * sc);
     if (shape) {
       ctx.save();
@@ -513,10 +670,10 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
       ctx.shadowBlur = v.w * 0.03 * sc;
       ctx.shadowOffsetY = v.w * 0.012 * sc;
       ctx.fillStyle = '#fff';
-      ctx.fill(shape);
+      ctx.fill(shape.back);
       ctx.restore();
       ctx.save();
-      ctx.clip(shape);
+      ctx.clip(shape.clip);
       // Віддалили чи повернули — порожнє в фігурі заповнює розмита копія того ж фото, як у «Наших фото»
       const bl = blurred();
       const k = Math.max(v.w / rw(), v.h / rh()) * 1.15;
@@ -535,10 +692,13 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     if (shape) {
       ctx.restore();
       ctx.save();
-      ctx.lineWidth = v.w * 0.024;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#fff';
-      ctx.stroke(shape);
+      if (shape.line) {
+        ctx.lineWidth = v.w * shape.line.w;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = shape.line.color;
+        ctx.stroke(shape.clip);
+      }
+      shape.deco?.(ctx);
       ctx.restore();
       ctx.setTransform(...xf(sc, v, ox, oy));
     }
@@ -1174,6 +1334,8 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
     maskTools.hidden = !shaped();
     if (shaped()) paintZoom();
     frameChips.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === frame)));
+    // Рамок більше, ніж влазить у рядок, — вибрана завжди видна
+    if (mode === 'frame') frameChips.find((b) => b.dataset.v === frame)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     drawPanel.hidden = mode !== 'draw';
     blurPanel.hidden = mode !== 'blur';
     cropPanel.hidden = mode !== 'crop';
