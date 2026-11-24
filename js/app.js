@@ -733,6 +733,45 @@ function instrumentPicker() {
     h('p', { class: 'instr-note' }, `${cap(p)} играет ${INSTRUMENTS[partnerInstrument()].on}: так звучат ${p === 'она' ? 'её' : 'его'} письма и ходы`));
 }
 
+// Який ИИ пише чернетки листів, підписи до мемів, ідеї планів (лише на його половині, діє на обох).
+// Не відповів — сервер сам бере наступний; Claude — лише коли задано ключ
+const AI_CHOICES = [
+  ['auto', 'Авто', 'Сначала бесплатные Qwen и Llama, кончился дневной лимит — Claude'],
+  ['qwen', 'Qwen', 'Бесплатно, отвечает за 1–4 секунды'],
+  ['llama', 'Llama', 'Бесплатно, как было раньше'],
+  ['claude', 'Claude', 'Лучшие тексты, около 2 центов за запрос'],
+];
+function aiPicker() {
+  const cur = h('small', {});
+  const note = h('p', { class: 'instr-note' });
+  const chips = AI_CHOICES.map(([k, name]) => h('button', {
+    type: 'button', class: 'instr-chip', role: 'radio', 'data-k': k, onclick: () => pick(k),
+    ...(k === 'claude' && !DATA.claude ? { disabled: true } : {}),
+  }, name));
+  const paint = () => {
+    const k = AI_CHOICES.some(([x]) => x === DATA.mine.ai) ? DATA.mine.ai : 'auto';
+    const [, name, about] = AI_CHOICES.find(([x]) => x === k);
+    cur.textContent = name;
+    note.textContent = DATA.claude || k === 'auto' ? about : `${about}. Claude появится, когда будет ключ`;
+    chips.forEach((c) => c.setAttribute('aria-checked', String(c.dataset.k === k)));
+  };
+  function pick(k) {
+    if (DATA.mine.ai === k) return;
+    DATA.mine.ai = k;
+    save('mine', { ai: k });
+    paint();
+  }
+  paint();
+  return h('details', { class: 'instr-pick' },
+    h('summary', { class: 'about-row' },
+      h('span', { class: 'about-row-ic', 'aria-hidden': 'true' }, '🤖'),
+      h('span', { class: 'about-row-label' }, 'ИИ-помощник', cur),
+      h('span', { class: 'about-row-go', 'aria-hidden': 'true' }, '›')),
+    h('div', { class: 'instr-fams' },
+      h('div', { class: 'instr-fam-row', role: 'radiogroup', 'aria-label': 'ИИ-помощник' }, ...chips),
+      note));
+}
+
 // Як приходять листи: конвертом, що відкриваєш сам (за замовчуванням), чи одразу відкритими. Свій для кожного телефона
 function autoOpenSwitch() {
   const btn = h('button', { type: 'button', class: 'about-row about-switch', role: 'switch' });
@@ -823,6 +862,7 @@ function openAbout(showNews) {
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
       // Лише на його половині: печеньки, ідеї, питання — окремою шторкою (модуль вантажиться за потреби)
       DATA.side === 'vin' ? aboutGroup('Только у тебя',
+        aiPicker(),
         aboutRow('🛠', 'Отладка', 'Печеньки, идеи для планов, вопросы «Совпадёт?»', async () => {
           close();
           try { (await import('./debug.js')).openDebug(); } catch { toast('Не открылось — обнови Радовалку'); }

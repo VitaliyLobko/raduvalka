@@ -37,7 +37,8 @@ const SIDES = ['vona', 'vin'];
 const TOGETHER_FIELDS = ['since', 'apartFrom', 'meet', 'phrase', 'bdayVona', 'bdayVin'];
 const DATE_FIELD = /^\d{4}-\d{2}-\d{2}$/;
 // stockFrom — 'YYYY-MM-DD', з якого дня запас підстраховує; нема — запас на паузі
-const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom', 'chatCleared', 'instrument'];
+const MINE_FIELDS = ['letter', 'seen', 'memesSeen', 'wishesSeen', 'repliesSeen', 'stockFrom', 'chatCleared', 'instrument', 'ai'];
+const AI_MODES = ['auto', 'qwen', 'llama', 'claude'];
 // Інструмент звуків (js/sound.js INSTRUMENTS): свій — у mine, другий телефон грає ним те, що прийшло від тебе
 const INSTRUMENT_KEYS = ['kalimba', 'harp', 'flute', 'violin', 'cello', 'bass', 'bells', 'musicbox', 'celesta', 'vibes',
   'marimba', 'piano', 'guitar', 'accordion', 'harmonica', 'ocarina', 'panflute', 'steeldrum', 'koto'];
@@ -283,6 +284,8 @@ async function route(req, env, ctx, info = {}) {
       files: !!env.FILES,
       // Набір питань «🔥 Совпадёт?» є в секретах — телефон показує плитку
       hot: !!hotBank(env),
+      // Ключ Claude задано — у його виборі ИИ пункт «Claude» активний
+      ...(side === 'vin' ? { claude: !!env.ANTHROPIC_KEY } : {}),
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
       partnerSign: (await getDoc(env.DB, 'signs'))?.[other(side)] || null,
       // Інструмент другого — ним звучить те, що прийшло від нього; з його mine — лише це поле
@@ -396,6 +399,8 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'PUT' && path === 'mine') {
     const patch = pick(await readJson(req), MINE_FIELDS);
     if ('instrument' in patch && !INSTRUMENT_KEYS.includes(patch.instrument)) throw fail(400, 'instrument');
+    // Вибір ИИ — лише на його половині
+    if ('ai' in patch && (side !== 'vin' || !AI_MODES.includes(patch.ai))) throw fail(400, 'ai');
     const next = { ...((await getDoc(env.DB, `mine:${side}`)) || {}), ...patch };
     await putDoc(env.DB, `mine:${side}`, next);
     return json(next);
@@ -1853,26 +1858,37 @@ const replyText = (out) => (typeof out?.response === 'string' ? out.response
       || out?.output?.find?.((x) => x?.type === 'message')?.content?.find?.((c) => c?.text)?.text
       || '');
 
-// Claude замість Workers AI, коли задано секрет ANTHROPIC_KEY; помилка, відмова чи таймаут — далі Workers AI
+// Який ИИ першим — обирає він у налаштуваннях (mine:vin.ai), діє на обох. Не відповів (помилка, денний ліміт
+// Workers AI, відмова, таймаут) — наступний у черзі; Claude лише з секретом ANTHROPIC_KEY.
+// «Авто» — спершу безкоштовні, Claude — коли вони не відповіли (скінчився денний ліміт)
 const CLAUDE_MODEL = 'claude-opus-5-5';
 const CLAUDE_TIMEOUT_MS = 45_000;
+const AI_ORDER = {
+  auto: ['qwen', 'llama', 'claude'],
+  qwen: ['qwen', 'llama', 'claude'],
+  llama: ['llama', 'qwen', 'claude'],
+  claude: ['claude', 'qwen', 'llama'],
+};
 
 async function aiRun(env, model, input) {
-  if (env.ANTHROPIC_KEY) {
+  const mode = (await getDoc(env.DB, 'mine:vin'))?.ai;
+  // Фото розглядає лише модель із зором: замість Qwen/Llama — сама VISION_MODEL
+  const steps = [...new Set((AI_ORDER[mode] || AI_ORDER.auto).map((s) => (model === AI_MODEL || s === 'claude' ? s : 'own')))];
+  let err = new Error('no ai');
+  for (const step of steps) {
+    if (step === 'claude' && !env.ANTHROPIC_KEY) continue;
     try {
-      return { response: await claudeRun(env, input) };
+      if (step === 'claude') return { response: await claudeRun(env, input) };
+      if (step === 'own') return await env.AI.run(model, input);
+      // Qwen без міркування: з ним 15–30 с і порожня відповідь, бо міркування з'їдає max_tokens
+      if (step === 'qwen') return await env.AI.run(AI_MODEL, { ...input, chat_template_kwargs: { enable_thinking: false } });
+      return await env.AI.run(AI_FALLBACK_MODEL, input);
     } catch (e) {
-      console.log('claude → workers ai:', String(e?.message || e).slice(0, 200));
+      err = e;
+      console.log(`ai ${step} failed:`, String(e?.message || e).slice(0, 200));
     }
   }
-  if (model !== AI_MODEL) return env.AI.run(model, input);
-  try {
-    // Qwen без міркування: з ним 15–30 с і порожня відповідь, бо міркування з'їдає max_tokens
-    return await env.AI.run(model, { ...input, chat_template_kwargs: { enable_thinking: false } });
-  } catch (e) {
-    console.log('qwen → llama:', String(e?.message || e).slice(0, 200));
-    return env.AI.run(AI_FALLBACK_MODEL, input);
-  }
+  throw err;
 }
 
 // Запит у форматі Workers AI (system серед messages, фото як data:-URL) → Messages API.
