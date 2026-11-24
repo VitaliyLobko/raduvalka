@@ -10,11 +10,11 @@ export const histButtons = (onUndo, onRedo) => [
   h('button', { type: 'button', class: 'ph-tool ph-hist', 'aria-label': 'Повторить', disabled: true, html: svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'), onclick: onRedo }),
 ];
 
-export const CAP_LOOKS =['meme', 'hand', 'plate', 'bubble', 'tape', 'neon'];
-const LOOK_NAMES = { meme: 'Мем', hand: 'Рукой', plate: 'Плашка', bubble: 'Облачко', tape: 'Скотч', neon: 'Неон' };
+export const CAP_LOOKS = ['meme', 'hand', 'plate', 'bubble', 'tape', 'note', 'cut', 'neon'];
+const LOOK_NAMES = { meme: 'Мем', hand: 'Рукой', plate: 'Плашка', bubble: 'Облачко', tape: 'Скотч', note: 'Записка', cut: 'Вырезки', neon: 'Неон' };
 
 // Види з тлом: колір — плашці, а тексту — окремий (за замовчуванням «Авто»: темний чи білий під тло)
-export const CAP_FILLED = new Set(['plate', 'bubble', 'tape']);
+export const CAP_FILLED = new Set(['plate', 'bubble', 'tape', 'note']);
 
 // belowLabel — назва «під картинкою»; onLook(v), onFont(v — '' це шрифт виду), onColor(i — номер кружка, або hex),
 // onInk(v — '' це «Авто», номер кружка або hex) — колір тексту на плашці; onPipette(target — 'fill' | 'text')

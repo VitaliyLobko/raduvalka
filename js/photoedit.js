@@ -6,12 +6,12 @@ import { captionHelper, captionField } from './maker.js';
 import { stickerRow, EMOJI_STICKERS, HANDLE_PATH, pawIcon } from './stickpick.js';
 import { ownColor, sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
-import { capFont, capFontCss, CAP_SIZE } from './memes.js';
+import { capFont, capFontCss, CAP_SIZE, cutLetter, CUT_FAMILIES } from './memes.js';
 
 const MAX_SIDE = 1280;
 const MAX_BYTES = 1.25 * 1024 * 1024;
 // Розмір шрифту — частка ширини кадру (для шрифту виду; свій шрифт — CAP_SIZE / f.k)
-const SIZE ={ meme: 0.075, hand: 0.1, plate: 0.06, bubble: 0.06, tape: 0.09, neon: 0.11, emoji: 0.17 };
+const SIZE = { meme: 0.075, hand: 0.1, plate: 0.06, bubble: 0.06, tape: 0.09, neon: 0.11, note: 0.085, cut: 0.065, emoji: 0.17 };
 const FONTS = {
   meme: (s) => `700 ${s}px Rubik, system-ui, sans-serif`,
   hand: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
@@ -19,6 +19,8 @@ const FONTS = {
   bubble: (s) => `600 ${s}px Rubik, system-ui, sans-serif`,
   tape: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
   neon: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
+  note: (s) => `400 ${s}px Caveat, 'Segoe Print', cursive`,
+  cut: (s) => `700 ${s}px Rubik, system-ui, sans-serif`,
   // Спершу свій векторний шрифт наклейок (fonts.css) — системні кольорові смайлики Android — картинки, при збільшенні миляться
   emoji: (s) => `${s}px 'Radovalka Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif`,
 };
@@ -39,8 +41,8 @@ const light = (hex) => lum(hex) > 0.6;
 const toBlob = (c, type, q) => new Promise((ok) => c.toBlob(ok, type, q));
 
 // Рукописні види — щільніші рядки; поля навколо тексту — частка розміру шрифту
-const SCRIPT = new Set(['hand', 'tape', 'neon']);
-const PAD = { plate: 0.45, bubble: 0.6, tape: 0.55 };
+const SCRIPT = new Set(['hand', 'tape', 'neon', 'note']);
+const PAD = { plate: 0.45, bubble: 0.6, tape: 0.55, note: 0.75 };
 const ink = (c) => (light(c) ? '#2a1730' : '#ffffff');
 const rrect = (ctx, x, y, w, h, r) => {
   ctx.beginPath();
@@ -64,16 +66,88 @@ function wrap(ctx, text, max) {
 // Підпис чи наклейка: розкладка рядків, розмір рамки (для влучання пальцем) і малювання в її власних координатах
 function layout(ctx, it) {
   if (it.look === 'pet') { it.box = { w: it.size, h: it.size }; return null; }
-  const f = it.look !== 'emoji' && capFont(it.font);
+  const f = it.look !== 'emoji' && it.look !== 'cut' && capFont(it.font);
   ctx.font = f ? capFontCss(f, `${it.size}px`) : FONTS[it.look](it.size);
   // Мем — великими, але прописи великими не читаються
   const caps = it.look === 'meme' && (!f || f.caps);
-  const lines = it.look === 'emoji' ? [it.text] : wrap(ctx, caps ? it.text.toUpperCase() : it.text, it.wrap);
-  const lh = it.size * (f ? f.lh : SCRIPT.has(it.look) ? 1.05 : 1.15);
-  const w = Math.max(...lines.map((l) => ctx.measureText(l).width), it.size * 0.6);
+  // Вирізки ширші за звичайний текст (клаптик навколо кожної літери) — ріжемо рядки коротше, міряємо самі клаптики
+  const cut = it.look === 'cut';
+  const lines = it.look === 'emoji' ? [it.text] : wrap(ctx, caps ? it.text.toUpperCase() : it.text, cut ? it.wrap / 1.45 : it.look === 'note' ? it.wrap * 0.6 : it.wrap);
+  const lh = it.size * (f ? f.lh : cut ? 1.4 : SCRIPT.has(it.look) ? 1.05 : 1.15);
+  const w = Math.max(...lines.map((l, i) => (cut ? cutLine(ctx, it, l, cutStart(lines, i)).w : ctx.measureText(l).width)), it.size * 0.6);
   const pad = it.size * (PAD[it.look] || 0);
   it.box = { w: w + pad * 2, h: lines.length * lh + pad * 1.2 };
   return { lines, lh, w, pad };
+}
+// Вирізки: номер першої літери рядка (без пробілів) і клаптики рядка — розміри під шрифт кожної літери
+const cutStart = (lines, i) => lines.slice(0, i).join('').replace(/\s/g, '').length;
+function cutLine(ctx, it, line, start) {
+  const out = [];
+  let n = start;
+  let w = 0;
+  for (const ch of line) {
+    if (/\s/.test(ch)) { out.push(null); w += it.size * 0.32; continue; }
+    const L = cutLetter(n, it.color);
+    n += 1;
+    const fs = it.size * L.k;
+    ctx.font = `${L.weight} ${fs}px '${L.family}', system-ui, sans-serif`;
+    const t = L.up ? ch.toUpperCase() : ch.toLowerCase();
+    const lw = ctx.measureText(t).width + fs * 0.26;
+    out.push({ L, t, fs, lw });
+    w += lw + it.size * 0.05;
+  }
+  return { out, w };
+}
+function drawCut(ctx, it, lines, y0, lh) {
+  lines.forEach((line, i) => {
+    const { out, w } = cutLine(ctx, it, line, cutStart(lines, i));
+    let x = -w / 2;
+    for (const p of out) {
+      if (!p) { x += it.size * 0.32; continue; }
+      const bh = p.fs * 1.12;
+      ctx.save();
+      ctx.translate(x + p.lw / 2, y0 + i * lh);
+      ctx.rotate((p.L.rot * Math.PI) / 180);
+      ctx.shadowColor = 'rgba(0, 0, 0, .4)';
+      ctx.shadowBlur = it.size * 0.12;
+      ctx.shadowOffsetY = it.size * 0.04;
+      ctx.fillStyle = p.L.paper;
+      ctx.fillRect(-p.lw / 2, -bh / 2, p.lw, bh);
+      ctx.shadowColor = 'transparent';
+      ctx.font = `${p.L.weight} ${p.fs}px '${p.L.family}', system-ui, sans-serif`;
+      ctx.fillStyle = p.L.ink;
+      ctx.fillText(p.t, 0, p.fs * 0.04);
+      ctx.restore();
+      x += p.lw + it.size * 0.05;
+    }
+  });
+}
+// Записка: квадратний папірець із загнутим кутом, трохи навскіс, з тінню
+const shade = (hex, k) => `#${[1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('')}`;
+function drawNote(ctx, it, bw, bh) {
+  const f = it.size * 0.7;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-bw / 2, -bh / 2);
+  ctx.lineTo(bw / 2, -bh / 2);
+  ctx.lineTo(bw / 2, bh / 2 - f);
+  ctx.lineTo(bw / 2 - f, bh / 2);
+  ctx.lineTo(-bw / 2, bh / 2);
+  ctx.closePath();
+  ctx.shadowColor = 'rgba(0, 0, 0, .35)';
+  ctx.shadowBlur = it.size * 0.3;
+  ctx.shadowOffsetY = it.size * 0.08;
+  ctx.fillStyle = it.color;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.beginPath();
+  ctx.moveTo(bw / 2, bh / 2 - f);
+  ctx.lineTo(bw / 2 - f, bh / 2);
+  ctx.lineTo(bw / 2 - f, bh / 2 - f);
+  ctx.closePath();
+  ctx.fillStyle = shade(it.color, 0.78);
+  ctx.fill();
+  ctx.restore();
 }
 // Улюбленець — кружечок з білою облямівкою і тінню
 function drawPet(ctx, it) {
@@ -187,6 +261,13 @@ function drawItem(ctx, it) {
     drawTape(ctx, it, bw, bh);
     ctx.fillStyle = it.ink || ink(it.color);
     text();
+  } else if (it.look === 'note') {
+    ctx.rotate(0.045);
+    drawNote(ctx, it, bw, bh);
+    ctx.fillStyle = it.ink || ink(it.color);
+    text();
+  } else if (it.look === 'cut') {
+    drawCut(ctx, it, lines, y0, lh);
   } else if (it.look === 'neon') {
     drawNeon(ctx, it, text, lines, y0, lh);
   } else if (it.look === 'plate') {
@@ -678,7 +759,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
         capItem = { x: v.x + v.w / 2, y: v.y + v.h * 0.8, k: 1, rot: 0, color, ink: capInk, wrap: v.w * 0.86 };
         items.push(capItem);
       }
-      const f = capFont(font);
+      const f = look !== 'cut' && capFont(font);
       Object.assign(capItem, { text, look, font, size: v.w * (f ? CAP_SIZE[look] / f.k : SIZE[look]) });
       capItem.box = null;
     }
@@ -688,8 +769,9 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // Свій шрифт canvas сам не довантажить — малював би запасним; вантажимо саме ті літери, що в підписі
   const loadFont = () => {
     const f = capFont(font);
-    if (!f || !document.fonts) return Promise.resolve();
-    return document.fonts.load(capFontCss(f, '40px'), caption.value.trim() || 'Аа')
+    const want = look === 'cut' ? CUT_FAMILIES : f ? [capFontCss(f, '40px')] : [];
+    if (!want.length || !document.fonts) return Promise.resolve();
+    return Promise.all(want.map((w) => document.fonts.load(w, caption.value.trim() || 'Аа')))
       .then(() => { if (capItem) capItem.box = null; redraw(); })
       .catch(() => {});
   };
@@ -722,7 +804,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   };
   const style = capStyle({
     belowLabel: 'Под фото',
-    onLook: (v) => { look = v; syncCaption(); },
+    onLook: (v) => { look = v; syncCaption(); loadFont(); },
     onFont: (v) => { font = v; syncCaption(); loadFont(); },
     onColor: (c) => setCapColor(typeof c === 'number' ? COLORS[c] : c),
     onInk: (c) => setCapInk(typeof c === 'number' ? COLORS[c] : c),

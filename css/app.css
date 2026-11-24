@@ -2077,6 +2077,22 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
   background: linear-gradient(rgba(255, 255, 255, .22) 0 30%, transparent 30%), color-mix(in srgb, var(--c) 82%, transparent);
   clip-path: polygon(0 0, 100% 0, calc(100% - .14em) 25%, 100% 50%, calc(100% - .14em) 75%, 100% 100%, 0 100%, .14em 75%, 0 50%, .14em 25%);
 }
+/* Записка: квадратний папірець навскіс, правий нижній кут загнутий (зрізаний фон + темніший трикутник) */
+.meme-free.is-note {
+  font: 400 8.5cqw/1.05 Caveat, 'Segoe Print', cursive; min-width: 3.4em; max-width: 52cqw; padding: .6em .75em .75em; color: var(--ink); rotate: 2.5deg;
+  background: linear-gradient(-45deg, transparent .5em, var(--c) .5em); filter: drop-shadow(0 .08em .22em rgba(0, 0, 0, .35));
+}
+.meme-free.is-note::after {
+  content: ''; position: absolute; right: 0; bottom: 0; width: .71em; height: .71em;
+  background: color-mix(in srgb, var(--c) 78%, #000); clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+/* Вирізки: кожна літера — свій клаптик (колір, шрифт, нахил задає cutLetter у memes.js) */
+.meme-free.is-cut { font: 700 6.5cqw/1.4 Rubik, system-ui, sans-serif; white-space: normal; }
+.meme-free .cut-word { display: inline-block; white-space: nowrap; }
+.meme-free .cut-l {
+  display: inline-block; margin: 0 .025em; padding: .06em .13em .04em; background: var(--p); color: var(--i);
+  rotate: var(--lr); box-shadow: 0 .04em .12em rgba(0, 0, 0, .4); line-height: 1;
+}
 .meme-free.is-neon {
   font: 400 11cqw/1.05 Caveat, 'Segoe Print', cursive; color: var(--core);
   text-shadow: 0 0 .04em var(--glow), 0 0 .1em var(--glow), 0 0 .35em var(--glow), 0 0 .8em var(--glow);

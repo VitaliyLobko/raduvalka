@@ -65,15 +65,27 @@ export const CAP_FONTS = [
 ];
 export const capFont = (v) => CAP_FONTS.find((f) => f.v === v) || null;
 // Розмір підпису з окремим шрифтом — частка ширини кадру для Rubik (рукописні види задумані під вужчий Caveat)
-export const CAP_SIZE = { meme: 0.075, plate: 0.06, bubble: 0.06, hand: 0.07, tape: 0.063, neon: 0.077 };
+export const CAP_SIZE = { meme: 0.075, plate: 0.06, bubble: 0.06, hand: 0.07, tape: 0.063, neon: 0.077, note: 0.06, cut: 0.065 };
 // Назви сімейств — у лапках: «Press Start 2P» без них ламає весь рядок шрифту
 export const capFontCss = (f, size) => `${f.weight} ${size} '${f.family}', system-ui, sans-serif`;
 // Колір — номер готового кружка (0–4) або свій: шість hex-цифр без «#»; шрифт — необовʼязковий хвіст
 // Хвости: шрифт і колір тексту на плашці (.i_rrggbb — підкреслення, щоб hex із самих літер не сплутався зі шрифтом)
-const FREE = /^(meme|hand|plate|bubble|tape|neon)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})(?:\.([a-z]{3,9}))?(?:\.i_([0-9a-f]{6}))?$/;
+const FREE = /^(meme|hand|plate|bubble|tape|neon|note|cut)\.([0-4]|[0-9a-f]{6})\.(\d{1,4})\.(\d{1,4})\.(\d{1,3})\.(-?\d{1,3})(?:\.([a-z]{3,9}))?(?:\.i_([0-9a-f]{6}))?$/;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // Види з фоном під текстом — на світлому фоні текст темно-сливовий
-const FILLED = new Set(['plate', 'bubble', 'tape']);
+const FILLED = new Set(['plate', 'bubble', 'tape', 'note']);
+// «Вырезки»: кожна літера — клаптик із журналу. Вигляд залежить лише від номера літери (без пробілів) — однаково
+// в редакторі, у другого й на готовому фото; кожна третя — кольору, обраного кружком
+const CUT_PAPER = ['#ffffff', '#1d1a1f', '#ffd84d', '#ff7aa8', '#9fd8ff', '#f3ead8'];
+const CUT_FONTS = [[700, 'Rubik', 1], [700, 'Playfair Display', 1], [400, 'Russo One', 0.92], [700, 'Comfortaa', 0.95], [400, 'Lobster', 1.05]];
+export const CUT_FAMILIES = CUT_FONTS.map((f) => `${f[0]} 40px '${f[1]}'`);
+export function cutLetter(i, color) {
+  const n = Math.imul(i + 7, 2654435761) >>> 0;
+  const paper = n % 3 === 0 && color ? color : CUT_PAPER[(n >>> 4) % CUT_PAPER.length];
+  const [weight, family, k] = CUT_FONTS[(n >>> 8) % CUT_FONTS.length];
+  const ink = capLight(paper) ? ((n >>> 12) % 4 === 0 ? '#c8102e' : '#1d1a1f') : '#ffffff';
+  return { paper, ink, weight, family, k: k * (0.9 + ((n >>> 14) % 5) * 0.06), rot: ((n >>> 18) % 13) - 6, up: (n >>> 22) % 3 === 0 };
+}
 export function freeStyle(code) {
   const m = FREE.exec(code || '');
   return m ? {
@@ -90,6 +102,21 @@ export function paintFree(el, c, text) {
   const color = (typeof c.color === 'string' && /^#[0-9a-f]{6}$/.test(c.color) ? c.color : CAP_COLORS[c.color]) || CAP_COLORS[0];
   el.className = `meme-free is-${c.look}`;
   el.textContent = text;
+  if (c.look === 'cut') {
+    el.textContent = '';
+    let i = 0;
+    for (const word of String(text).split(/\s+/).filter(Boolean)) {
+      const w = h('span', { class: 'cut-word' });
+      for (const ch of word) {
+        const L = cutLetter(i, color);
+        i += 1;
+        const s = h('span', { class: 'cut-l' }, L.up ? ch.toUpperCase() : ch.toLowerCase());
+        s.style.cssText = `--p:${L.paper};--i:${L.ink};--lr:${L.rot}deg;font:${L.weight} ${L.k}em/1 '${L.family}', system-ui, sans-serif`;
+        w.append(s);
+      }
+      el.append(w, ' ');
+    }
+  }
   // Обвідка облачка — завжди під тло (як на фото); свій колір — лише в тексту
   const edge = capLight(color) ? (FILLED.has(c.look) ? '#2a1730' : '#000') : '#fff';
   const ink = inkOf(c) || edge;
@@ -98,7 +125,7 @@ export function paintFree(el, c, text) {
   el.style.cssText = `--x:${c.x * 100}%;--y:${c.y * 100}%;--k:${c.k};--r:${c.r}deg;--c:${color};--ink:${ink};--edge:${edge};`
     + `--glow:${dark ? '#fff' : color};--core:${dark ? color : '#fff'}`;
   // Свій шрифт — поверх шрифту виду (inline сильніший за клас); прописи в мемі не перетворюємо на великі
-  const f = capFont(c.font);
+  const f = c.look !== 'cut' && capFont(c.font);
   if (f) {
     el.style.font = capFontCss(f, `${(CAP_SIZE[c.look] * 100) / f.k}cqw/${f.lh}`);
     if (!f.caps) el.style.textTransform = 'none';
