@@ -4,7 +4,7 @@
 import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper, captionField } from './maker.js';
 import { media, gifFrame, freeCap, paintFree, freeCode, CAP_COLORS, stickLayer, paintSticks, stickCode, MAX_STICK, emojiKey } from './memes.js';
-import { stickerRow, EMOJI_STICKERS, HANDLE_PATH } from './stickpick.js';
+import { stickerRow, EMOJI_STICKERS, HANDLE_PATH, pawIcon } from './stickpick.js';
 import { sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 
@@ -240,7 +240,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
     }
   });
 
-  // ── Наклейки-улюбленці: 😊 у шапці відкриває рядок вибору; обрана — 🗑 і ⇆ над гифкою
+  // ── Наклейки-улюбленці: 🐾 у шапці відкриває рядок вибору; обрана — 🗑 і ⇆ над гифкою
   const addStick = (key, i, k) => {
     if (sticks.length >= MAX_STICK) { toast(`На гифку — не больше ${MAX_STICK} наклеек`); return; }
     const n = sticks.length;
@@ -258,7 +258,7 @@ export function gifEditor(gif, { send, fail, label = 'Отправить' }) {
   const tStick = petRow ? h('button', {
     type: 'button', class: 'ph-tool', 'aria-label': 'Наклейка', 'aria-pressed': 'false',
     onclick: () => { stickPanel.hidden = !stickPanel.hidden; tStick.setAttribute('aria-pressed', String(!stickPanel.hidden)); requestAnimationFrame(fit); },
-  }, '😊') : null;
+  }, pawIcon()) : null;
   const selBar = h('div', { class: 'ph-sel', hidden: true },
     h('button', { type: 'button', class: 'mk-chip ph-icon ph-trash', 'aria-label': 'Убрать наклейку', onclick: () => { if (sel < 0) return; sticks.splice(sel, 1); sel = -1; commit(); redraw(); } }, '🗑'),
     h('button', { type: 'button', class: 'mk-chip ph-icon', 'aria-label': 'Отразить наклейку', onclick: () => { if (sel < 0) return; sticks[sel].fx = !sticks[sel].fx; commit(); redraw(); } }, '⇆'));

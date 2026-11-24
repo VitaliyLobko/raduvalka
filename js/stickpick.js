@@ -16,6 +16,14 @@ export const EMOJI_STICKERS = [
 ];
 // Ручка в куті обраної наклейки чи підпису (тягнеш одним пальцем — розмір і поворот): контур у квадраті 24
 export const HANDLE_PATH = 'M8 16L16 8M16 8h-5M16 8v5M8 16v-5M8 16h5M4.6 10.2A7.6 7.6 0 0 1 10.2 4.6M19.4 13.8a7.6 7.6 0 0 1-5.6 5.6';
+// Значок кнопки наклейок у шапці редакторів: лапка кольору теми (емодзі 🐾 — темна й зникає в нічній темі)
+export const pawIcon = () => h('span', {
+  class: 'ph-ic', 'aria-hidden': 'true',
+  html: '<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="5.6" cy="10.6" rx="2.1" ry="2.6" transform="rotate(-20 5.6 10.6)"/>'
+    + '<ellipse cx="9.5" cy="5.6" rx="2.1" ry="2.7" transform="rotate(-6 9.5 5.6)"/><ellipse cx="14.5" cy="5.6" rx="2.1" ry="2.7" transform="rotate(6 14.5 5.6)"/>'
+    + '<ellipse cx="18.4" cy="10.6" rx="2.1" ry="2.6" transform="rotate(20 18.4 10.6)"/>'
+    + '<path d="M12 11.4c-2.7 0-5.8 3.5-5.8 6.2 0 1.8 1.4 3 3.1 3 1 0 1.8-.5 2.7-.5s1.7.5 2.7.5c1.7 0 3.1-1.2 3.1-3 0-2.7-3.1-6.2-5.8-6.2z"/></svg>',
+});
 const PET_KEY = 'radovalka:sticker-pet';
 const EMOJI = 'emoji';
 // Останні 3 смайлики-наклейки — на цьому телефоні, спільні для фото й гифки

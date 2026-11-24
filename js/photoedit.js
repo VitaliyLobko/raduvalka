@@ -3,7 +3,7 @@
 // Без правок іде той самий файл, що й раніше; «Под фото» — звичайний підпис текстом під картинкою, як завжди
 import { h, toast, ARROW, reduceMotion } from './ui.js';
 import { captionHelper, captionField } from './maker.js';
-import { stickerRow, EMOJI_STICKERS, HANDLE_PATH } from './stickpick.js';
+import { stickerRow, EMOJI_STICKERS, HANDLE_PATH, pawIcon } from './stickpick.js';
 import { ownColor, sampleColor } from './colorpick.js';
 import { capStyle, histButtons } from './capstyle.js';
 import { capFont, capFontCss, CAP_SIZE } from './memes.js';
@@ -738,7 +738,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // Звичний значок обрізки (два кути рамки), а не ножиці — ті читались як «вирізати»
   const tCrop = tool(h('span', { class: 'ph-ic', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>' }), 'Обрезать и повернуть', 'crop');
   const tDraw = tool('✏️', 'Рисовать', 'draw');
-  const tStick = tool('😊', 'Наклейка', 'stick');
+  const tStick = tool(pawIcon(), 'Наклейка', 'stick');
   const tBlur = tool('💧', 'Размыть', 'blur');
   // Рамка — не режим, а перемикач: фото лишається редагованим
   const tFrame = h('button', {
