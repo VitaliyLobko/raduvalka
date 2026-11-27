@@ -1555,6 +1555,11 @@ html.is-winter[data-side="vona"] .env-slot .env-meta { width: fit-content; max-w
 }
 
 .toast.is-shown { opacity: 1; transform: translate(-50%, 0); }
+/* Тост із дією («Вернуть»): кнопку можна натиснути, поки тост видно */
+.toast.has-act { display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; white-space: nowrap; }
+.toast.has-act.is-shown { pointer-events: auto; }
+.toast-act { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .22); color: inherit; font-weight: 700; }
+[data-dark] .toast-act { background: rgba(0, 0, 0, .14); }
 
 /* «Есть новая версия» / «обновилась» — рядок у шапці під логотипом, нічого не перекриває */
 .top { flex-wrap: wrap; row-gap: 6px; }

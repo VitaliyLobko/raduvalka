@@ -12,11 +12,16 @@ export function h(tag, attrs = {}, ...children) {
 
 const toastEl = document.getElementById('toast');
 let toastTimer;
-export function toast(text) {
+// act — { label, run }: кнопка в тості (напр. «Вернуть»); такий тост висить довше й приймає натискання
+export function toast(text, act = null) {
   toastEl.textContent = text;
+  toastEl.classList.toggle('has-act', !!act);
+  if (act) {
+    toastEl.append(h('button', { type: 'button', class: 'toast-act', onclick: () => { toastEl.classList.remove('is-shown'); act.run(); } }, act.label));
+  }
   toastEl.classList.add('is-shown');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove('is-shown'), 2400);
+  toastTimer = setTimeout(() => toastEl.classList.remove('is-shown'), act ? 7000 : 2400);
 }
 
 export const cap = (s) => s[0].toUpperCase() + s.slice(1);

@@ -241,14 +241,15 @@ async function route(req, env, ctx, info = {}) {
   info.path = path;
 
   if (m === 'GET' && path === 'pulse') {
-    const [v, partnerPush, sos, bell] = await Promise.all([
+    const [v, partnerPush, sos, bell, swap] = await Promise.all([
       getDoc(env.DB, `pulse:${side}`),
       hasPush(env.DB, other(side)),
       // «Нужна помощь» — окрема мітка: телефон малює її одразу, навіть коли решта оновлення чекає
       env.DB.prepare("SELECT MAX(updated) u FROM docs WHERE k IN ('sos:vona', 'sos:vin')").first('u'),
       getDoc(env.DB, `bell:${side}`),
+      getDoc(env.DB, 'swap'),
     ]);
-    return json({ v: v || 0, partnerPush, sos: sos || 0, bell: bell?.at || 0 });
+    return json({ v: v || 0, partnerPush, sos: sos || 0, bell: bell?.at || 0, swap: liveSwap(swap) });
   }
 
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
@@ -282,6 +283,8 @@ async function route(req, env, ctx, info = {}) {
       mascots: mascots || {},
       // Чи дійде до другого push — від цього залежить, чи обіцяти «узнает»
       partnerPush: await hasPush(env.DB, other(side)),
+      // Розіграш «Поменяться темами»: { at, by } або null
+      swap: liveSwap(await getDoc(env.DB, 'swap')),
       // Сховище файлів підключене — телефон показує «📎 Файл»
       files: !!env.FILES,
       // Набір питань «🔥 Совпадёт?» є в секретах — телефон показує плитку
@@ -314,6 +317,7 @@ async function route(req, env, ctx, info = {}) {
   }
   if (path === 'seal/todo' || path === 'seal' || path === 'seal-img') return sealRoute(req, env.DB, side, path);
   if (m === 'POST' && path === 'checkin') return checkin(req, env.DB, side, notify);
+  if (m === 'POST' && path === 'swap') return swapThemes(req, env.DB, side);
   if (m === 'POST' && path === 'checkin/seen') return checkinSeen(req, env.DB, side);
   if (m === 'POST' && path === 'checkin/ask') return checkinAsk(req, env.DB, side, notify);
   if (path === 'sos' || path.startsWith('sos/')) return sosRoute(req, env.DB, side, path, notify);
@@ -4301,6 +4305,16 @@ async function diceRoute(req, env, side, rest, notify) {
     return json({ ok: true });
   }
   throw fail(404, 'not found');
+}
+
+// «Поменяться темами»: обмін діє добу від натискання або до «Вернуть» (будь-хто з двох)
+const SWAP_DAY = 864e5;
+const liveSwap = (d) => (d?.at && Date.now() - d.at < SWAP_DAY ? { at: d.at, by: d.by } : null);
+async function swapThemes(req, db, side) {
+  const b = await readJson(req);
+  const doc = b.on ? { at: Date.now(), by: side } : { at: 0, by: side, off: Date.now() };
+  await putDoc(db, 'swap', doc);
+  return json({ swap: liveSwap(doc) });
 }
 
 async function checkinSeen(req, db, side) {

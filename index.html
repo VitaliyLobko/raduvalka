@@ -15,6 +15,12 @@
         document.querySelector('meta[name="theme-color"]').content = '#0B384B';
         document.querySelector('link[rel="manifest"]').href = 'manifest-vin.webmanifest';
       }
+      // «Поменяться темами» діє (мітку кешує js/swap.js) — одразу вигляд другого
+      var swapAt = Number(localStorage.getItem('radovalka:swap')) || 0;
+      if (swapAt && Date.now() - swapAt < 864e5 && localStorage.getItem('radovalka:key')) {
+        document.documentElement.dataset.side = document.documentElement.dataset.side === 'vin' ? 'vona' : 'vin';
+        if (document.documentElement.dataset.side === 'vin') document.querySelector('meta[name="theme-color"]').content = '#0B384B';
+      }
       // Ніч — у нього завжди, у неї — як обрано (за замовчуванням як у телефоні); те саме робить js/theme.js
       var side = document.documentElement.dataset.side, mode = localStorage.getItem('radovalka:theme') || 'auto';
       // Схід і захід сонця над Києвом у хвилинах UTC (NOAA): «По времени» — ніч від заходу до сходу

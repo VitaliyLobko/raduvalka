@@ -444,7 +444,7 @@ let starLayer = null;
 const calm = () => document.hidden || document.documentElement.classList.contains('is-still')
   || document.documentElement.classList.contains('is-covered');
 export function fallingStar() {
-  if (!starLayer || DATA.side !== 'vin' || calm()) return;
+  if (!starLayer || document.documentElement.dataset.side !== 'vin' || calm()) return;
   const dir = Math.random() < 0.5 ? 1 : -1;
   const ang = -(16 + Math.random() * 30);
   const len = 100 + Math.round(Math.random() * 90);
@@ -509,8 +509,8 @@ export function startDepth() {
     const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
     const r = el?.getBoundingClientRect();
     if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) shootConstellation();
-    else if (DATA.side !== 'vin' && document.documentElement.classList.contains('is-winter')) snowWhirl(e.clientX, e.clientY);
-    else if (DATA.side !== 'vin' && document.documentElement.classList.contains('is-autumn')) leafGust(e.clientY);
+    else if (document.documentElement.dataset.side !== 'vin' && document.documentElement.classList.contains('is-winter')) snowWhirl(e.clientX, e.clientY);
+    else if (document.documentElement.dataset.side !== 'vin' && document.documentElement.classList.contains('is-autumn')) leafGust(e.clientY);
   });
   if (reduceMotion) return;
   rainLoop();

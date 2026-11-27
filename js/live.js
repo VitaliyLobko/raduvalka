@@ -4,6 +4,7 @@ import { DATA } from './data.js';
 import { get, isOffline } from './api.js';
 import { loadSos } from './sos.js';
 import { bellArrived } from './bell.js';
+import { setSwap } from './swap.js';
 
 const EVERY = 15000;
 // На вкладці «Письма» — частіше: реакція чи «Да, капитан!» від другого зʼявляються за кілька секунд
@@ -15,6 +16,7 @@ function tick() {
 }
 let seen = 0;
 let sosSeen = 0;
+let swapAt = 0;
 let busy = false;
 let waiting = false;
 let refresh = () => {};
@@ -36,7 +38,7 @@ export async function check() {
   last = Date.now();
   try {
     // Мітку питаємо й тоді, коли оновлення чекає, — інакше «Нужна помощь» не дійшла б, поки відкрито лист
-    const { v, partnerPush, sos, bell } = await get('pulse');
+    const { v, partnerPush, sos, bell, swap } = await get('pulse');
     if (partnerPush !== DATA.partnerPush) {
       DATA.partnerPush = partnerPush;
       document.dispatchEvent(new CustomEvent('radovalka:partner-push'));
@@ -45,6 +47,8 @@ export async function check() {
     if (sos && sos !== sosSeen) { sosSeen = sos; loadSos(); }
     // «🔔 Звоночек» — теж одразу
     if (bell) bellArrived(bell);
+    // «Поменяться темами» — теж одразу; старий сервер поля не має
+    if (swap !== undefined && (swap?.at || 0) !== swapAt) { swapAt = swap?.at || 0; setSwap(swap); }
     if (v && v !== seen) { seen = v; run(); } else if (waiting) run();
   } catch { /* старий сервер чи нема зв'язку — мовчки до наступного разу */ }
   busy = false;
@@ -54,6 +58,7 @@ export async function check() {
 export function startLive(onChange, since) {
   refresh = onChange;
   seen = since || 0;
+  swapAt = DATA.swap?.at || 0;
   waiting = false;
   // start() буває вдруге (вхід після замка, інша половина) — таймер один
   if (started) return;

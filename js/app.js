@@ -34,6 +34,7 @@ import { applyTheme, themePanel } from './theme.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck, sosSlider } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
+import { setSwap, swapRow } from './swap.js';
 import { maybeCookie } from './cookie.js';
 import { burst } from './fx.js';
 import { markFestive, writeDecor } from './depth.js';
@@ -860,7 +861,7 @@ function openAbout(showNews, warm) {
           try { (await import('./playlist.js')).openPlaylist(); } catch { toast('Не открылось — обнови Радовалку'); }
         })),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
-      aboutGroup('Оформление', themePanel(DATA.side), stillSwitch())));
+      aboutGroup('Оформление', themePanel(DATA.side), stillSwitch(), swapRow())));
   // Решта груп — нижче першого екрана: дописуємо по одній у наступних кадрах. Перше відкриття розкладає весь текст
   // меню вперше (браузер ще не знає форми слів) — разом це довга пауза перед появою шторки, а частинами її не видно
   const rest = [
@@ -1001,6 +1002,8 @@ async function start() {
   // Фото для 🌌, 🍓 і 🛡️ — заздалегідь у памʼять, коли телефон вільний: анімація не чекає мережі
   (self.requestIdleCallback || ((fn) => setTimeout(fn, 800)))(() => { US.sync(DATA.us); HER.sync(DATA.her); HIS.sync(DATA.his); }, { timeout: 1500 });
   applySide();
+  // Після своєї теми — обмін, якщо діє (і тост, якщо цей телефон його ще не бачив)
+  setSwap(DATA.swap);
   drawChip();
   loadWishes().then(markWishes).catch(() => {});
   loadPlans().then(markPlans).catch(() => {});
@@ -1060,7 +1063,7 @@ function uncaught(e) {
     return;
   }
   // Текст помилки — лише йому (налагодження); у неї — тихо
-  if (document.documentElement.dataset.side !== 'vin' || Date.now() - shownError < 4000) return;
+  if (DATA.side !== 'vin' || Date.now() - shownError < 4000) return;
   shownError = Date.now();
   toast(`Ошибка: ${msg}`);
 }
