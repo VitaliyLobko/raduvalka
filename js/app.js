@@ -857,10 +857,11 @@ function openAbout(showNews) {
           try { (await import('./playlist.js')).openPlaylist(); } catch { toast('Не открылось — обнови Радовалку'); }
         })),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
+      aboutGroup('Оформление', DATA.side === 'vin' ? null : themePanel(), stillSwitch()),
       aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
       aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
       // Свої для кожного телефона: сповіщення й рух фону (раптом від нього укачує)
-      aboutGroup('Этот телефон', DATA.side === 'vin' ? null : themePanel(), pushPanel(), stillSwitch()),
+      aboutGroup('Этот телефон', pushPanel()),
       // Замок на вхід (PIN або відбиток) і дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('Защита', pinPanel(aboutRow),
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),

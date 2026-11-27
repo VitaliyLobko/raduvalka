@@ -23,8 +23,12 @@
       }
       // Зима її фону: грудень–лютий за Києвом або «Зима» в «Оформлении»
       var season = localStorage.getItem('radovalka:season') || 'auto';
-      var month = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', month: 'numeric' }).format(new Date()));
-      if (season === 'winter' || (season === 'auto' && (month === 12 || month <= 2))) document.documentElement.classList.add('is-winter');
+      var md = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', month: 'numeric', day: 'numeric' }).formatToParts(new Date());
+      var month = 0, day = 0;
+      md.forEach(function (p) { if (p.type === 'month') month = Number(p.value); if (p.type === 'day') day = Number(p.value); });
+      if (season === 'auto') season = (month === 12 && day >= 25) || (month === 1 && day <= 14) ? 'newyear' : month === 12 || month <= 2 ? 'winter' : 'spring';
+      if (season === 'winter' || season === 'newyear') document.documentElement.classList.add('is-winter');
+      if (season === 'newyear') document.documentElement.classList.add('is-newyear');
     } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }
     // Сторож старту: за 12 с застосунок не піднявся (і це не замок чи PIN) — раз стираємо кеш оболонки
     // (у ньому могла лягти суміш версій) і перезавантажуємо, як Ctrl+Shift+R; удруге — напис і кнопка.

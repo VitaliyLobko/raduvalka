@@ -59,6 +59,8 @@ export function renderEnvelopes(screen) {
       type: 'button',
       class: `env-card${n ? '' : ' is-empty'}${isNew ? ' is-new' : ''}`,
       style: `--tint: var(${TINTS[i % TINTS.length]}); --tilt: ${TILTS[i % TILTS.length]}deg`,
+      // Номер відтінку — для ночі (CSS фарбує за ним, nth-child тут не годиться)
+      'data-tint': String(i % 3),
       'aria-label': `Открой, когда ${env.label}. ${n ? `Писем: ${n}` : 'Пусто'}${isNew ? '. Есть новое' : ''}`,
       onclick: () => {
         if (opening) return;
