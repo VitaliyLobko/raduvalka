@@ -5410,3 +5410,6 @@ html.is-still :is(.wm-sakura, .wm-planet > g, .wm-planet .wm-star), html.is-cove
 /* Реплика улюбленця в «Хотелках» — на всю ширину, нижча й ширша облачком */
 .want-courier { width: 100%; }
 .want-courier .bubble { flex: 1; min-width: 0; }
+/* І в «Планах» — та сама широка реплика */
+.plan-courier { width: 100%; }
+.plan-courier .bubble { flex: 1; min-width: 0; }
