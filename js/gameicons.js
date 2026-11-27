@@ -66,6 +66,11 @@ export const GAME_ICONS = {
     </g>
     <path class="gi-bubble" fill="#E0A93A" d="M50 4a10 10 0 1 1-4.6 18.9L40 25l1.6-5.2A10 10 0 0 1 50 4Z"/>
     <path class="gi-q" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" d="M46.6 11.4a3.5 3.5 0 1 1 5.1 3.1c-1.1.6-1.7 1.3-1.7 2.6M50 21h.01"/>`),
+  // Двері «Для двоих»: золоте серце із замковою щілиною і промінчики
+  adult: svg(`
+    <path class="gi-adult-heart" fill="#E8BE6E" d="M32 56C19 47 8 38 8 25.5 8 17.5 14 12 21 12c4.6 0 8.6 2.4 11 6.2C34.4 14.4 38.4 12 43 12c7 0 13 5.5 13 13.5C56 38 45 47 32 56Z"/>
+    <path class="gi-adult-hole" fill="#5A1030" d="M32 23a5 5 0 0 1 2.6 9.3L37 44H27l2.4-11.7A5 5 0 0 1 32 23Z"/>
+    <path class="gi-adult-ray" fill="none" stroke="#E8BE6E" stroke-width="2.2" stroke-linecap="round" d="M7 9l3.5 3.5M57 9l-3.5 3.5M32 3v4.5"/>`),
   // Два кубики: на передньому замість однієї точки — серце
   dice: svg(`
     <rect class="gi-die-back" fill="#E0A93A" x="30" y="8" width="26" height="26" rx="6" transform="rotate(14 43 21)"/>

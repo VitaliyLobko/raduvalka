@@ -4371,6 +4371,24 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .game-tile-text .game-tile-adult { display: inline-block; padding: 1px 7px; border-radius: 6px; border: 1.5px solid #e0245e;
   color: #e0245e; font: 800 .75rem/1.4 var(--ui); letter-spacing: .02em; }
 [data-side="vin"] .game-tile-text .game-tile-adult { border-color: #ff6b8f; color: #ff6b8f; }
+/* Меню 18+ «Для двоих»: вишневий оксамит і золота нитка — однаково в обох темах */
+.adult-door, .adult-sheet .game-tile {
+  position: relative; border: 1px solid rgba(232, 190, 110, .55); color: #FBE9D0;
+  background: radial-gradient(120% 140% at 0% 0%, #9A2450 0%, #6A1438 45%, #3E0A22 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, .18), 0 6px 16px rgba(62, 10, 34, .28);
+}
+[data-side="vin"] .adult-door, [data-side="vin"] .adult-sheet .game-tile { border-color: rgba(232, 190, 110, .6); background: radial-gradient(120% 140% at 0% 0%, #8E2048 0%, #5E1232 45%, #33081C 100%); }
+.adult-door .game-tile-text b, .adult-sheet .game-tile-text b { color: #F3CD85; }
+.adult-door .game-tile-text span, .adult-sheet .game-tile-text span { color: rgba(251, 233, 208, .82); }
+.adult-door .game-tile-text .game-tile-adult, [data-side="vin"] .adult-door .game-tile-text .game-tile-adult { border-color: #F3CD85; color: #F3CD85; }
+.adult-door-arrow { margin-left: auto; font-size: 2rem; line-height: 1; color: #F3CD85; }
+.adult-sheet .sheet-inner { color: #FBE9D0; }
+.adult-sheet { background: linear-gradient(180deg, #4A0D29 0%, #2A0617 100%); }
+.adult-sheet .duel-head h2 { color: #F3CD85; }
+.adult-sheet .sheet-close { background: rgba(255, 255, 255, .1); color: #FBE9D0; }
+.adult-note { margin: 0 0 4px; font-size: .9375rem; line-height: 1.4; color: rgba(251, 233, 208, .85); }
+.adult-sheet .game-tile .game-icon { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35)); }
+.adult-sheet .adult-back { color: #F3CD85; }
 [data-side="vin"] .game-tile-text .game-tile-live { background: rgba(255, 255, 255, .12); color: var(--ink); }
 [data-side="vin"] .game-tile-text .game-tile-live.is-me { background: var(--star); color: var(--night); }
 /* «💞 Совпадёт?» */
@@ -5588,3 +5606,14 @@ html.is-still :is(.wm-sakura, .wm-planet > g, .wm-planet .wm-star), html.is-cove
 [data-side="vin"] .dice-phrase { background: rgba(255, 255, 255, .08); }
 @media (prefers-reduced-motion: reduce) { .dice-block.is-rolling .dice-die, .dice-row-mini.is-rolling .dice-die, .dice-word.is-in { animation: none; } }
 .gwish-card .dice-row-mini { align-self: center; justify-self: center; margin: 2px auto 0; }
+/* Меню 18+: плитки більші, опис — у кілька рядків, плашки значків — вишневі із золотом */
+.games-sheet .adult-door .game-icon, .adult-sheet .game-tile .game-icon { background: linear-gradient(145deg, #7E1C44, #45091F); box-shadow: inset 0 0 0 1.5px rgba(243, 205, 133, .6), 0 6px 14px -8px rgba(0, 0, 0, .6); --gi-ink: #FBE9D0; --gi-soft: #C77A98; --gi-gold: #F3CD85; --gi-paper: #FBE9D0; }
+.games-sheet .adult-door .game-tile-text > span { white-space: normal; }
+.adult-sheet .game-tile { gap: 14px; padding: 16px 14px; }
+.adult-sheet .game-tile + .game-tile { margin-top: 12px; }
+.adult-sheet .game-tile .game-icon { width: 60px; height: 60px; border-radius: 18px; }
+.adult-sheet .game-tile .game-icon svg { width: 48px; height: 48px; }
+.adult-sheet .game-tile-text { gap: 4px; }
+.adult-sheet .game-tile-text b { font-size: 1.55rem; }
+.adult-sheet .game-tile-text > span { white-space: normal; font-size: .875rem; line-height: 1.35; }
+.adult-sheet .adult-back { margin-top: 8px; }
