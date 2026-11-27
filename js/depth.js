@@ -57,12 +57,14 @@ function bokeh(n, seed) {
     return b;
   });
 }
+// Восени замість пелюстки — кленовий листок (показує CSS за html.is-autumn)
+const LEAF = '<svg class="leaf" viewBox="-11 -11 22 22" aria-hidden="true"><path d="M0-9.5L1.7-5.4L4.4-6.7L3.8-2.7L8-3.8L6.5-1L9 .5L4.6 2.3L5.2 4.4L1 3.5L.6 6.6H-.6L-1 3.5L-5.2 4.4L-4.6 2.3L-9 .5L-6.5-1L-8-3.8L-3.8-2.7L-4.4-6.7L-1.7-5.4Z"/></svg>';
 // Падають повільно, кожна — своїм шляхом; сталі значення, щоб при перезапуску картина не стрибала
 function petals(n, seed, size) {
   let s = seed;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   return Array.from({ length: n }, () => {
-    const p = h('span', { class: 'petal', html: PETAL + FLAKE });
+    const p = h('span', { class: 'petal', html: PETAL + FLAKE + LEAF });
     const d = 14 + rnd() * 12;
     p.style.cssText = `left:${(rnd() * 100).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${(-rnd() * d).toFixed(1)}s;`
       + `--s:${(size * (0.75 + rnd() * 0.5)).toFixed(2)};--drift:${(-40 - rnd() * 80).toFixed(0)}px;--tone:${rnd() < 0.5 ? '#F7B8D2' : '#F2A7C8'}`;
@@ -86,6 +88,31 @@ function bees(n, seed) {
       + `--mx:${(90 + rnd() * 90).toFixed(0)}px;--bd:${(2.4 + rnd() * 1.8).toFixed(1)}s;--my:${(14 + rnd() * 26).toFixed(0)}px;--glow:${(1.8 + rnd() * 2.4).toFixed(1)}s`;
     return b;
   });
+}
+// Осінній дощ: похилі краплі різної швидкості — лише transform. Шар видно, лише коли html.is-raining
+function rain(n) {
+  let s = 17;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  return Array.from({ length: n }, () => {
+    const d = 0.7 + rnd() * 0.5;
+    const r = h('span');
+    r.style.cssText = `left:${(rnd() * 125).toFixed(1)}%;--d:${d.toFixed(2)}s;--delay:${(-rnd() * d).toFixed(2)}s;--o:${(0.35 + rnd() * 0.35).toFixed(2)}`;
+    return r;
+  });
+}
+// Раз на дві хвилини кидаємо жереб: у 35 % випадків іде дощ на 40–80 с, потім за 3 с плавно вщухає
+function rainLoop() {
+  const html = document.documentElement;
+  let on = false;
+  setInterval(() => {
+    if (on || document.hidden || !html.classList.contains('is-autumn') || html.classList.contains('is-still') || Math.random() > 0.35) return;
+    on = true;
+    html.classList.add('is-raining');
+    setTimeout(() => {
+      html.classList.add('is-rain-end');
+      setTimeout(() => { html.classList.remove('is-raining', 'is-rain-end'); on = false; }, 3000);
+    }, 40000 + Math.random() * 40000);
+  }, 120000);
 }
 const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
 
@@ -289,7 +316,8 @@ export function startDepth() {
     h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
     h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), h('span', { class: 'meteor meteor-vona' })),
-    h('i', { class: 'dv-garland' }, ...garland(14)));
+    h('i', { class: 'dv-garland' }, ...garland(14)),
+    h('i', { class: 'dv-rain' }, ...rain(52)));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
     h('i', { class: 'ds-chart', html: CHART }),
@@ -319,6 +347,7 @@ export function startDepth() {
     else if (DATA.side !== 'vin' && document.documentElement.classList.contains('is-winter')) snowWhirl(e.clientX, e.clientY);
   });
   if (reduceMotion) return;
+  rainLoop();
 
   let tx = 0; let ty = 0; let x = 0; let y = 0; let raf = 0;
   const idle = () => document.hidden || document.documentElement.classList.contains('is-covered') || document.documentElement.classList.contains('is-fx');
