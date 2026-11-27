@@ -857,7 +857,7 @@ function openAbout(showNews) {
           try { (await import('./playlist.js')).openPlaylist(); } catch { toast('Не открылось — обнови Радовалку'); }
         })),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
-      aboutGroup('Оформление', DATA.side === 'vin' ? null : themePanel(), stillSwitch()),
+      aboutGroup('Оформление', themePanel(DATA.side), stillSwitch()),
       aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
       aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
       // Свої для кожного телефона: сповіщення й рух фону (раптом від нього укачує)

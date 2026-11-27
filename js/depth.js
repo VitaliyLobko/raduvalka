@@ -230,6 +230,8 @@ export function startDepth() {
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
     h('i', { class: 'ds-chart', html: CHART }),
+    h('i', { class: 'ds-milky' }),
+    h('i', { class: 'ds-aurora' }, h('span'), h('span'), h('span')),
     h('i', { class: 'ds-far' }, sky(70, 21)),
     h('i', { class: 'ds-mid' }, sky(26, 3), constellation(false)),
     h('i', { class: 'ds-near' }, sky(9, 5), h('span', { class: 'meteor' })));

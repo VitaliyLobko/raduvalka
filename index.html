@@ -22,11 +22,14 @@
         if (side !== 'vin') document.querySelector('meta[name="theme-color"]').content = '#2A1730';
       }
       // Зима її фону: грудень–лютий за Києвом або «Зима» в «Оформлении»
-      var season = localStorage.getItem('radovalka:season') || 'auto';
+      var season = localStorage.getItem(side === 'vin' ? 'radovalka:season:vin' : 'radovalka:season') || 'auto';
       var md = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', month: 'numeric', day: 'numeric' }).formatToParts(new Date());
       var month = 0, day = 0;
       md.forEach(function (p) { if (p.type === 'month') month = Number(p.value); if (p.type === 'day') day = Number(p.value); });
+      // У нього взимку сяйво, влітку Чумацький Шлях
+      if (season === 'auto' && side === 'vin') season = month === 12 || month <= 2 ? 'aurora' : month >= 6 && month <= 8 ? 'milky' : 'stars';
       if (season === 'auto') season = (month === 12 && day >= 25) || (month === 1 && day <= 14) ? 'newyear' : month === 12 || month <= 2 ? 'winter' : 'spring';
+      if (season === 'aurora' || season === 'milky') document.documentElement.classList.add('is-' + season);
       if (season === 'winter' || season === 'newyear') document.documentElement.classList.add('is-winter');
       if (season === 'newyear') document.documentElement.classList.add('is-newyear');
     } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }

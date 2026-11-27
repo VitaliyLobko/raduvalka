@@ -5753,3 +5753,53 @@ html:is(.is-still, .is-covered) .wm-snow { animation-play-state: paused; }
 .theme-tile[aria-pressed="true"] { border-color: var(--wax); background: color-mix(in srgb, var(--powder) 38%, var(--field)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wax) 22%, transparent); }
 [data-dark] .theme-tile[aria-pressed="true"] { border-color: var(--star); background: color-mix(in srgb, var(--star) 20%, transparent); box-shadow: none; }
 .theme-note { margin: 0; font-size: .78rem; line-height: 1.35; color: var(--ink-soft); }
+/* Його небо взимку: північне сяйво — три розмиті стрічки світла, що повільно колишуться (лише transform і opacity) */
+.ds-aurora, .ds-milky { display: none; }
+html.is-aurora .ds-aurora, html.is-milky .ds-milky { display: block; }
+.ds-aurora { --k: 4px; overflow: hidden; mix-blend-mode: screen; }
+.ds-aurora span { position: absolute; left: -25%; width: 150%; height: 30%; border-radius: 50%; filter: blur(20px); animation: aurora var(--d, 18s) ease-in-out infinite alternate var(--delay, 0s); }
+.ds-aurora span:nth-child(1) { --r: -12deg; --d: 17s; top: 1%; background: linear-gradient(180deg, rgba(70, 255, 170, 0), rgba(70, 255, 170, .42) 45%, rgba(40, 205, 215, .16) 78%, rgba(40, 205, 215, 0)); }
+.ds-aurora span:nth-child(2) { --r: -4deg; --d: 22s; --delay: -7s; top: 9%; height: 26%; background: linear-gradient(180deg, rgba(150, 110, 255, 0), rgba(150, 110, 255, .22) 30%, rgba(60, 240, 190, .34) 60%, rgba(60, 240, 190, 0)); }
+.ds-aurora span:nth-child(3) { --r: -18deg; --d: 27s; --delay: -13s; top: 18%; height: 22%; background: linear-gradient(180deg, rgba(60, 230, 200, 0), rgba(60, 230, 200, .26) 50%, rgba(60, 230, 200, 0)); }
+@keyframes aurora {
+  0% { transform: translateX(-7%) rotate(var(--r)) scaleY(.8); opacity: .5; }
+  50% { opacity: .95; }
+  100% { transform: translateX(7%) rotate(var(--r)) scaleY(1.2); opacity: .6; }
+}
+/* Влітку: Чумацький Шлях — навскіс смуга мʼякого світла з темною пиловою прожилкою й густим дрібним зоряним пилом */
+.ds-milky { --k: 6px; overflow: hidden; }
+.ds-milky::before, .ds-milky::after { content: ''; position: absolute; left: -40%; right: -40%; top: 26%; height: 40%; transform: rotate(-32deg); }
+.ds-milky::before {
+  background:
+    linear-gradient(180deg, rgba(4, 20, 30, 0) 44%, rgba(4, 20, 30, .32) 50%, rgba(4, 20, 30, 0) 57%),
+    radial-gradient(ellipse 50% 42% at 50% 50%, rgba(255, 236, 210, .17), rgba(190, 215, 255, .06) 55%, rgba(190, 215, 255, 0) 76%);
+  filter: blur(5px);
+}
+.ds-milky::after {
+  background-image:
+    radial-gradient(1px 1px at 8% 22%, #fff 50%, transparent 55%), radial-gradient(1px 1px at 23% 64%, #fff 50%, transparent 55%),
+    radial-gradient(1.2px 1.2px at 37% 41%, #FFE9C7 50%, transparent 55%), radial-gradient(1px 1px at 52% 12%, #fff 50%, transparent 55%),
+    radial-gradient(1px 1px at 61% 77%, #fff 50%, transparent 55%), radial-gradient(1.4px 1.4px at 74% 33%, #fff 50%, transparent 55%),
+    radial-gradient(1px 1px at 86% 58%, #DCE8FF 50%, transparent 55%), radial-gradient(1px 1px at 95% 18%, #fff 50%, transparent 55%),
+    radial-gradient(1px 1px at 15% 88%, #fff 50%, transparent 55%), radial-gradient(1px 1px at 46% 92%, #fff 50%, transparent 55%);
+  background-size: 70px 52px;
+  -webkit-mask-image: radial-gradient(ellipse 50% 46% at 50% 50%, #000 25%, transparent 74%);
+  mask-image: radial-gradient(ellipse 50% 46% at 50% 50%, #000 25%, transparent 74%);
+  opacity: .75;
+}
+@media (prefers-reduced-motion: reduce) { .ds-aurora span { animation: none; } }
+html:is(.is-still, .is-covered) .ds-aurora span { animation-play-state: paused; }
+/* Глибина в нього, другий прохід: картки світліші вгорі, ніж унизу, — лежать над небом */
+[data-side="vin"] .duel-card { background: linear-gradient(180deg, #1C5B74, #113A4C); }
+[data-side="vin"] :is(.feed-bubble, .game-tile, .want, .inbox-item, .sent-item) { background-image: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 60%); }
+/* Сяйво й Чумацький Шлях яскравіше: у стрічок — вертикальні промені-«фіранки» (маска поверх розмиття) */
+.ds-aurora span { filter: blur(14px); -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 10px, rgba(0, 0, 0, .74) 10px 19px, #000 19px 25px, rgba(0, 0, 0, .82) 25px 36px); mask-image: repeating-linear-gradient(90deg, #000 0 10px, rgba(0, 0, 0, .74) 10px 19px, #000 19px 25px, rgba(0, 0, 0, .82) 25px 36px); }
+.ds-aurora span:nth-child(1) { top: -2%; height: 36%; background: linear-gradient(180deg, rgba(70, 255, 170, 0), rgba(70, 255, 170, .5) 50%, rgba(40, 215, 215, .2) 80%, rgba(40, 215, 215, 0)); }
+.ds-aurora span:nth-child(2) { top: 8%; height: 30%; background: linear-gradient(180deg, rgba(170, 120, 255, 0), rgba(170, 120, 255, .28) 28%, rgba(70, 245, 190, .42) 62%, rgba(70, 245, 190, 0)); }
+.ds-aurora span:nth-child(3) { top: 20%; height: 24%; background: linear-gradient(180deg, rgba(70, 235, 205, 0), rgba(70, 235, 205, .3) 50%, rgba(70, 235, 205, 0)); }
+.ds-milky::before {
+  background:
+    linear-gradient(180deg, rgba(4, 20, 30, 0) 43%, rgba(4, 20, 30, .45) 50%, rgba(4, 20, 30, 0) 58%),
+    radial-gradient(ellipse 50% 42% at 50% 50%, rgba(255, 236, 210, .32), rgba(190, 215, 255, .12) 55%, rgba(190, 215, 255, 0) 78%);
+}
+.ds-milky::after { opacity: 1; background-size: 46px 38px; }
