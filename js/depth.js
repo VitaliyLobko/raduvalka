@@ -144,29 +144,33 @@ function rain(n) {
 }
 // Порив вітру: оберемок кленового листя пролітає екраном зліва направо, крутиться й трохи падає (WAAPI, лише transform/opacity)
 const GUST = ['#F2B13C', '#F08A2E', '#E5562E', '#FFCB52', '#D9462E'];
+// Пелюстки сакури навесні — від блідо-рожевого до малинового
+const SAKURA = ['#FFD3E2', '#FFB7CF', '#FF9DC0', '#F7C6DA', '#FF86B0'];
 let gusting = false;
 function leafGust(y0 = innerHeight * (0.22 + Math.random() * 0.4)) {
   const html = document.documentElement;
   if (reduceMotion || gusting || document.hidden || html.classList.contains('is-still') || html.classList.contains('is-covered')) return;
   gusting = true;
-  // Узимку замість листя — сніжинки: їх більше, вони дрібніші й крутяться повільніше (стиль — як у вихора)
+  // Узимку замість листя — сніжинки: їх більше, вони дрібніші й крутяться повільніше (стиль — як у вихора);
+  // навесні — пелюстки сакури: легкі, їх багато, пливуть повільніше й хвилею
   const snow = html.classList.contains('is-winter');
-  const box = h('div', { class: snow ? 'snow-whirl' : 'leaf-gust', 'aria-hidden': 'true' });
+  const spring = !snow && html.classList.contains('is-spring');
+  const box = h('div', { class: snow ? 'snow-whirl' : spring ? 'leaf-gust petal-gust' : 'leaf-gust', 'aria-hidden': 'true' });
   const W = innerWidth;
-  for (let i = 0; i < (snow ? 26 : 16); i += 1) {
-    const s = h('span', { html: snow ? FLAKE : LEAF });
-    if (!snow) s.style.setProperty('--leaf', GUST[i % GUST.length]);
+  for (let i = 0; i < (snow ? 26 : spring ? 24 : 16); i += 1) {
+    const s = h('span', { html: snow ? FLAKE : spring ? PETAL : LEAF });
+    if (!snow) s.style.setProperty('--leaf', (spring ? SAKURA : GUST)[i % (spring ? SAKURA : GUST).length]);
     box.append(s);
     const y = y0 + (Math.random() - 0.5) * (snow ? 190 : 150);
     const dy = 30 + Math.random() * 120;
-    const sc = (snow ? 0.45 + Math.random() * 0.75 : 0.7 + Math.random() * 0.9).toFixed(2);
-    const spin = snow ? 90 + Math.random() * 200 : 300 + Math.random() * 600;
+    const sc = (snow ? 0.45 + Math.random() * 0.75 : spring ? 0.5 + Math.random() * 0.7 : 0.7 + Math.random() * 0.9).toFixed(2);
+    const spin = snow ? 90 + Math.random() * 200 : spring ? 200 + Math.random() * 360 : 300 + Math.random() * 600;
     s.animate([
       { transform: `translate(-40px, ${y.toFixed(0)}px) rotate(0deg) scale(${sc})`, opacity: 0 },
       { opacity: 1, offset: 0.08 },
       { transform: `translate(${(W * 0.5).toFixed(0)}px, ${(y - 30 + dy * 0.3).toFixed(0)}px) rotate(${(spin * 0.5).toFixed(0)}deg) scale(${sc})`, offset: 0.5 },
       { transform: `translate(${W + 40}px, ${(y + dy).toFixed(0)}px) rotate(${spin.toFixed(0)}deg) scale(${sc})`, opacity: 0.85 },
-    ], { duration: 2600 + Math.random() * 1300, delay: Math.random() * 800, easing: 'cubic-bezier(.35,.1,.6,.95)', fill: 'both' });
+    ], { duration: (spring ? 3400 : 2600) + Math.random() * 1300, delay: Math.random() * (spring ? 1100 : 800), easing: 'cubic-bezier(.35,.1,.6,.95)', fill: 'both' });
   }
   document.body.append(box);
   setTimeout(() => { box.remove(); gusting = false; }, 5000);
@@ -174,7 +178,7 @@ function leafGust(y0 = innerHeight * (0.22 + Math.random() * 0.4)) {
 // Восени й узимку порив — раз на півтори хвилини з імовірністю 45 %, перший невдовзі після відкриття
 function gustLoop() {
   const html = document.documentElement;
-  const maybe = () => { if (html.dataset.side === 'vona' && (html.classList.contains('is-autumn') || html.classList.contains('is-winter')) && Math.random() < 0.45) leafGust(); };
+  const maybe = () => { if (html.dataset.side === 'vona' && (html.classList.contains('is-autumn') || html.classList.contains('is-winter') || html.classList.contains('is-spring')) && Math.random() < 0.45) leafGust(); };
   setTimeout(maybe, 15000);
   setInterval(maybe, 90000);
 }
@@ -510,7 +514,7 @@ export function startDepth() {
     const r = el?.getBoundingClientRect();
     if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) shootConstellation();
     else if (document.documentElement.dataset.side !== 'vin' && document.documentElement.classList.contains('is-winter')) snowWhirl(e.clientX, e.clientY);
-    else if (document.documentElement.dataset.side !== 'vin' && document.documentElement.classList.contains('is-autumn')) leafGust(e.clientY);
+    else if (document.documentElement.dataset.side !== 'vin' && (document.documentElement.classList.contains('is-autumn') || document.documentElement.classList.contains('is-spring'))) leafGust(e.clientY);
   });
   if (reduceMotion) return;
   rainLoop();

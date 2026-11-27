@@ -55,6 +55,7 @@ export function applyTheme(side = document.documentElement.dataset.side) {
   root.classList.toggle('is-newyear', p === 'newyear');
   root.classList.toggle('is-summer', p === 'summer');
   root.classList.toggle('is-autumn', p === 'autumn');
+  root.classList.toggle('is-spring', p === 'spring');
   // 31 жовтня — Хелловін: гарбузик у купці листя стає Джеком-ліхтарем
   root.classList.toggle('is-halloween', p === 'autumn' && new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(new Date()).slice(5) === '10-31');
   root.classList.toggle('is-aurora', p === 'aurora');

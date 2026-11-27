@@ -68,7 +68,7 @@ function herLook(look) {
   const was = { side: root.dataset.side, dark: root.hasAttribute('data-dark'), cls: root.className };
   root.dataset.side = 'vona';
   root.toggleAttribute('data-dark', look === 'dark');
-  root.classList.remove('is-aurora', 'is-milky', 'is-summer', 'is-autumn', 'is-raining', 'is-rain-end');
+  root.classList.remove('is-aurora', 'is-milky', 'is-summer', 'is-autumn', 'is-spring', 'is-raining', 'is-rain-end');
   root.classList.add('is-winter', 'is-newyear');
   return () => { root.dataset.side = was.side; root.toggleAttribute('data-dark', was.dark); root.className = was.cls; };
 }
