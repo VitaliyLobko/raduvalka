@@ -809,8 +809,9 @@ function stillSwitch() {
   return btn;
 }
 
-// Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні. showNews — з плашки «обновилась»: одразу розгорнуте «Что нового»
-function openAbout(showNews) {
+// Тап по «Радовалка»: версія, що нового, вийти на цьому телефоні. showNews — з плашки «обновилась»: одразу розгорнуте «Что нового».
+// warm — лише прогріти (див. warmAbout нижче)
+function openAbout(showNews, warm) {
   const btn = document.getElementById('about-btn');
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const close = () => {
@@ -859,36 +860,84 @@ function openAbout(showNews) {
           try { (await import('./playlist.js')).openPlaylist(); } catch { toast('Не открылось — обнови Радовалку'); }
         })),
       // Спершу налаштування — по них сюди й заходять; довідкове — нижче, вихід — дрібно в самому низу
-      aboutGroup('Оформление', themePanel(DATA.side), stillSwitch()),
-      aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
-      aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
-      // Свої для кожного телефона: сповіщення й рух фону (раптом від нього укачує)
-      aboutGroup('Этот телефон', pushPanel()),
-      // Замок на вхід (PIN або відбиток) і дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
-      aboutGroup('Защита', pinPanel(aboutRow),
-        aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
-      // Лише на його половині: печеньки, ідеї, питання — окремою шторкою (модуль вантажиться за потреби)
-      DATA.side === 'vin' ? aboutGroup('Только у тебя',
-        aiPicker(),
-        aboutRow('🛠', 'Отладка', 'Печеньки, идеи для планов, вопросы «Совпадёт?»', async () => {
-          close();
-          try { (await import('./debug.js')).openDebug(); } catch { toast('Не открылось — обнови Радовалку'); }
-        })) : null,
-      aboutGroup('Ещё',
-        // Тур живе на «Письмах» — туди й повертаємось
-        aboutRow('🐾', 'Показать подсказки заново', 'Питомцы покажут, где что', () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
-        news),
-      h('div', { class: 'about-foot' },
-        h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне')),
-      // Ліцензія записів інструментів (CC BY 3.0) вимагає назвати автора
-      h('p', { class: 'about-credit' }, 'Записи инструментов: FluidR3 GM, Frank Wen, лицензия CC BY 3.0. Шорохи и стуки: Kenney, CC0')));
+      aboutGroup('Оформление', themePanel(DATA.side), stillSwitch())));
+  // Решта груп — нижче першого екрана: дописуємо по одній у наступних кадрах. Перше відкриття розкладає весь текст
+  // меню вперше (браузер ще не знає форми слів) — разом це довга пауза перед появою шторки, а частинами її не видно
+  const rest = [
+    aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
+    aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
+    // Свої для кожного телефона: сповіщення й рух фону (раптом від нього укачує)
+    aboutGroup('Этот телефон', pushPanel()),
+    // Замок на вхід (PIN або відбиток) і дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
+    aboutGroup('Защита', pinPanel(aboutRow),
+      aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
+    // Лише на його половині: печеньки, ідеї, питання — окремою шторкою (модуль вантажиться за потреби)
+    DATA.side === 'vin' ? aboutGroup('Только у тебя',
+      aiPicker(),
+      aboutRow('🛠', 'Отладка', 'Печеньки, идеи для планов, вопросы «Совпадёт?»', async () => {
+        close();
+        try { (await import('./debug.js')).openDebug(); } catch { toast('Не открылось — обнови Радовалку'); }
+      })) : null,
+    aboutGroup('Ещё',
+      // Тур живе на «Письмах» — туди й повертаємось
+      aboutRow('🐾', 'Показать подсказки заново', 'Питомцы покажут, где что', () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
+      news),
+    h('div', { class: 'about-foot' },
+      h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне')),
+    // Ліцензія записів інструментів (CC BY 3.0) вимагає назвати автора
+    h('p', { class: 'about-credit' }, 'Записи инструментов: FluidR3 GM, Frank Wen, лицензия CC BY 3.0. Шорохи и стуки: Kenney, CC0')].filter(Boolean);
+  const inner = sheet.querySelector('.sheet-inner');
+  if (warm) {
+    // Прогрів: розкласти невидимо частинами — по групі за раз, коли телефон вільний, — і прибрати. Обгортка, а не сама
+    // шторка в body — інакше фон став би на паузу (is-covered)
+    const box = h('div', { 'aria-hidden': 'true', inert: '' }, sheet);
+    box.style.cssText = 'position:fixed;left:0;top:0;width:100%;visibility:hidden;pointer-events:none;contain:strict;height:100%';
+    warmBox = box;
+    // Верх меню теж частинами: найдорожча — перша (шрифти ще холодні), тож що менша, то краще
+    rest.unshift(...inner.children);
+    inner.replaceChildren();
+    document.body.append(box);
+    const next = () => {
+      // Меню відкрили по-справжньому — прогрів скасовано
+      if (warmBox !== box) return;
+      if (!rest.length) { box.remove(); warmBox = null; return; }
+      inner.append(rest.shift());
+      void sheet.offsetHeight;
+      whenIdle(next);
+    };
+    whenIdle(next);
+    return;
+  }
+  if (warmBox) { warmBox.remove(); warmBox = null; }
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey);
   // Клік по «Радовалка» передає подію — розгортаємо лише на явне true
   if (showNews === true) {
+    inner.append(...rest);
     news.open = true;
     requestAnimationFrame(() => news.scrollIntoView({ block: 'start' }));
+    return;
   }
+  // Поки дописуємо — шторка одразу на повну висоту (меню довше за екран), інакше вона б підростала вгору
+  sheet.style.height = '92dvh';
+  const more = () => {
+    if (!sheet.isConnected) return;
+    if (!rest.length) { sheet.style.height = ''; return; }
+    inner.append(rest.shift());
+    requestAnimationFrame(() => setTimeout(more));
+  };
+  requestAnimationFrame(() => setTimeout(more));
+}
+// Перше відкриття меню вперше розкладає весь його текст (шрифти, форми слів, запасний шрифт для значків) — на телефоні
+// це помітна пауза. Робимо це раз заздалегідь, коли телефон нічим не зайнятий, — і меню відкривається одразу
+let warmBox = null;
+const whenIdle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 60));
+function warmAbout() {
+  whenIdle(() => {
+    // Меню вже відкрите — прогрівати нема чого
+    if (document.querySelector('.sheet-about')) return;
+    try { openAbout(false, true); } catch { /* не вийшло — меню просто відкриється повільніше */ }
+  });
 }
 
 document.getElementById('about-btn').addEventListener('click', (e) => {
@@ -989,6 +1038,7 @@ async function start() {
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли
   setTimeout(restPets, 1500);
   setTimeout(primeShell, 3000);
+  setTimeout(warmAbout, 4000);
 }
 
 // Помилка, яку ніхто не зловив: інакше кнопка просто «нічого не робить». Нова оболонка вже в кеші, а сторінка ще

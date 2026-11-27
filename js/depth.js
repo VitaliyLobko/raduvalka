@@ -10,11 +10,13 @@ const MAX = 1;
 const STILL = 'radovalka:still';
 export function isStill() { try { return localStorage.getItem(STILL) === '1'; } catch { return false; } }
 let root = null;
+// Шари фону з їхньою глибиною: [елемент, k у px]; зсув пишемо прямо в transform кожного шару
+let layers = [];
+const shift = (x, y) => { for (const [el, k] of layers) el.style.transform = `translate3d(${(-x * k).toFixed(2)}px, ${(-y * k).toFixed(2)}px, 0)`; };
 export function setStill(on) {
   try { if (on) localStorage.setItem(STILL, '1'); else localStorage.removeItem(STILL); } catch { /* приватне вікно — до перезапуску */ }
   document.documentElement.classList.toggle('is-still', on);
-  root?.style.setProperty('--dx', '0');
-  root?.style.setProperty('--dy', '0');
+  shift(0, 0);
 }
 // Пелюстка сакури — та сама форма, що в гілочці на її фоні
 const PETAL = '<svg viewBox="-7 -13 14 14" aria-hidden="true"><path d="M0 0C-3.5-1-7.5-5-6.2-9.2C-5.3-12-2.4-12.6-.9-11.6L0-10.4L.9-11.6C2.4-12.6 5.3-12 6.2-9.2C7.5-5 3.5-1 0 0Z"/></svg>';
@@ -43,20 +45,6 @@ const CHART = '<svg viewBox="0 0 250 500" preserveAspectRatio="xMidYMid slice" a
   + '<line x1="125" y1="0" x2="125" y2="500"/><line x1="-40" y1="300" x2="290" y2="300"/><line x1="-30" y1="150" x2="280" y2="450"/></g>'
   + '<path d="M-10 360C70 300 160 230 270 180" fill="none" stroke="#EDB949" stroke-width=".9" stroke-dasharray="5 5" opacity="1.6"/></svg>';
 
-// Боке: мʼякі кружечки світла різного розміру, як вогні не у фокусі; кожен ледь пливе й дихає
-function bokeh(n, seed) {
-  let s = seed;
-  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  const tones = ['255, 255, 255', '233, 210, 255', '255, 205, 228', '214, 190, 250'];
-  return Array.from({ length: n }, () => {
-    const b = h('span', { class: 'bokeh' });
-    const size = 26 + rnd() * rnd() * 130;
-    b.style.cssText = `left:${(rnd() * 100).toFixed(1)}%;top:${(rnd() * 100).toFixed(1)}%;width:${size.toFixed(0)}px;height:${size.toFixed(0)}px;`
-      + `--c:${tones[Math.floor(rnd() * tones.length)]};--a:${(0.28 + rnd() * 0.35).toFixed(2)};`
-      + `--d:${(9 + rnd() * 10).toFixed(1)}s;--delay:${(-rnd() * 15).toFixed(1)}s;--mx:${(rnd() * 30 - 15).toFixed(0)}px;--my:${(rnd() * 24 - 12).toFixed(0)}px`;
-    return b;
-  });
-}
 // Восени замість пелюстки — кленовий листок (показує CSS за html.is-autumn)
 const LEAF = '<svg class="leaf" viewBox="-11 -11 22 22" aria-hidden="true"><path d="M0-9.5L1.7-5.4L4.4-6.7L3.8-2.7L8-3.8L6.5-1L9 .5L4.6 2.3L5.2 4.4L1 3.5L.6 6.6H-.6L-1 3.5L-5.2 4.4L-4.6 2.3L-9 .5L-6.5-1L-8-3.8L-3.8-2.7L-4.4-6.7L-1.7-5.4Z"/></svg>';
 // Падають повільно, кожна — своїм шляхом; сталі значення, щоб при перезапуску картина не стрибала
@@ -65,9 +53,10 @@ function petals(n, seed, size) {
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   return Array.from({ length: n }, () => {
     const p = h('span', { class: 'petal', html: PETAL + FLAKE + LEAF });
+    // Знесення — один із 4 готових варіантів: змінна в ключових кадрах коштувала б перерахунку стилю щокадру
     const d = 14 + rnd() * 12;
     p.style.cssText = `left:${(rnd() * 100).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${(-rnd() * d).toFixed(1)}s;`
-      + `--s:${(size * (0.75 + rnd() * 0.5)).toFixed(2)};--drift:${(-40 - rnd() * 80).toFixed(0)}px;--tone:${rnd() < 0.5 ? '#F7B8D2' : '#F2A7C8'}`;
+      + `--s:${(size * (0.75 + rnd() * 0.5)).toFixed(2)};animation-name:petal-fall-${Math.floor(rnd() * 4)};--tone:${rnd() < 0.5 ? '#F7B8D2' : '#F2A7C8'}`;
     return p;
   });
 }
@@ -101,7 +90,7 @@ const DRAGON = '<svg class="drag-b" viewBox="-8 -12 34 24" aria-hidden="true">'
 function dragons(n, seed) {
   let s = seed;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  const tones = ['#2FA8A0', '#4C7FD9', '#E0703A'];
+  const tones = ['#D98A2B', '#C2452D', '#C99A2E'];
   return Array.from({ length: n }, (_, i) => {
     const d = 11 + rnd() * 6;
     const el = h('span', { class: 'drag' }, h('span', { class: 'drag-turn', html: DRAGON }));
@@ -113,8 +102,8 @@ function dragons(n, seed) {
 function flies(n, seed) {
   let s = seed;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  // [крило, облямівка, світла пляма]: монарх, блакитний, лимонниця, рожевий
-  const wings = [['#F59A3A', '#5A2E1A', '#FFC46A'], ['#7FB0F2', '#2E4A8A', '#CFE2FF'], ['#F7D04A', '#7A5A1A', '#FFF0A8'], ['#F2A0C8', '#8A3A6A', '#FFD6EA']];
+  // [крило, облямівка, світла пляма]: монарх, адмірал, лимонниця, рожевий — лише теплі, як усе літо
+  const wings = [['#F59A3A', '#5A2E1A', '#FFC46A'], ['#EE6A4A', '#5A2418', '#FFC9A8'], ['#F7D04A', '#7A5A1A', '#FFF0A8'], ['#F2A0C8', '#8A3A6A', '#FFD6EA']];
   return Array.from({ length: n }, (_, i) => {
     const d = 14 + rnd() * 8;
     const f = h('span', { class: 'fly' }, h('span', { class: 'fly-bob', html: FLY }));
@@ -124,13 +113,19 @@ function flies(n, seed) {
   });
 }
 // Новий рік: вогники гірлянди на пів ялинки біля лівого краю. Координати вже перераховані
-// у .dv-front: [left, bottom] у px шару (ялинка — left 30px, bottom 112px, масштаб 1.2, як у CSS). Мерехтять хвилею (лише opacity)
+// у .dv-front: [left, bottom] у px шару (ялинка — left 30px, bottom 112px, масштаб 1.2, як у CSS). Мерехтять чотирма фазами:
+// анімація на обгортці фази, а не на кожному вогнику — кожна запущена анімація дорожчає кожен кадр інтерфейсу
 const FIR_LIGHTS = [[64,486],[76,474],[60,436],[65,441],[80,430],[95,424],[60,387],[66,394],[83,384],[100,378],[116,375],[60,338],[67,347],[85,339],[103,332],[120,327],[138,324],[60,288],[67,299],[86,292],[104,285],[124,280],[142,278],[161,275],[60,239],[68,251],[86,245],[106,238],[125,233],[144,230],[163,227],[182,226],[60,190],[68,203],[88,197],[107,191],[127,186],[146,183],[166,179],[185,178],[205,176]];
 function firLights() {
-  return FIR_LIGHTS.map(([x, y], i) => {
-    const s = h('span', { class: 'fir-light' });
-    s.style.cssText = `left:${x}px;bottom:${y}px;--c:${BULBS[i % BULBS.length]};--i:${i}`;
-    return s;
+  return [0, 1, 2, 3].map((ph) => {
+    const g = h('span', { class: 'fir-ph' }, ...FIR_LIGHTS.flatMap(([x, y], i) => {
+      if (i % 4 !== ph) return [];
+      const s = h('span', { class: 'fir-light' });
+      s.style.cssText = `left:${x}px;bottom:${y}px;--c:${BULBS[i % BULBS.length]}`;
+      return [s];
+    }));
+    g.style.cssText = `--i:${ph}`;
+    return g;
   });
 }
 // Осінній дощ: похилі краплі різної швидкості — лише transform. Шар видно, лише коли html.is-raining
@@ -151,16 +146,18 @@ function leafGust(y0 = innerHeight * (0.22 + Math.random() * 0.4)) {
   const html = document.documentElement;
   if (reduceMotion || gusting || document.hidden || html.classList.contains('is-still') || html.classList.contains('is-covered')) return;
   gusting = true;
-  const box = h('div', { class: 'leaf-gust', 'aria-hidden': 'true' });
+  // Узимку замість листя — сніжинки: їх більше, вони дрібніші й крутяться повільніше (стиль — як у вихора)
+  const snow = html.classList.contains('is-winter');
+  const box = h('div', { class: snow ? 'snow-whirl' : 'leaf-gust', 'aria-hidden': 'true' });
   const W = innerWidth;
-  for (let i = 0; i < 16; i += 1) {
-    const s = h('span', { html: LEAF });
-    s.style.setProperty('--leaf', GUST[i % GUST.length]);
+  for (let i = 0; i < (snow ? 26 : 16); i += 1) {
+    const s = h('span', { html: snow ? FLAKE : LEAF });
+    if (!snow) s.style.setProperty('--leaf', GUST[i % GUST.length]);
     box.append(s);
-    const y = y0 + (Math.random() - 0.5) * 150;
+    const y = y0 + (Math.random() - 0.5) * (snow ? 190 : 150);
     const dy = 30 + Math.random() * 120;
-    const sc = (0.7 + Math.random() * 0.9).toFixed(2);
-    const spin = 300 + Math.random() * 600;
+    const sc = (snow ? 0.45 + Math.random() * 0.75 : 0.7 + Math.random() * 0.9).toFixed(2);
+    const spin = snow ? 90 + Math.random() * 200 : 300 + Math.random() * 600;
     s.animate([
       { transform: `translate(-40px, ${y.toFixed(0)}px) rotate(0deg) scale(${sc})`, opacity: 0 },
       { opacity: 1, offset: 0.08 },
@@ -171,10 +168,10 @@ function leafGust(y0 = innerHeight * (0.22 + Math.random() * 0.4)) {
   document.body.append(box);
   setTimeout(() => { box.remove(); gusting = false; }, 5000);
 }
-// Восени порив — раз на півтори хвилини з імовірністю 45 %, перший невдовзі після відкриття
+// Восени й узимку порив — раз на півтори хвилини з імовірністю 45 %, перший невдовзі після відкриття
 function gustLoop() {
   const html = document.documentElement;
-  const maybe = () => { if (html.dataset.side === 'vona' && html.classList.contains('is-autumn') && Math.random() < 0.45) leafGust(); };
+  const maybe = () => { if (html.dataset.side === 'vona' && (html.classList.contains('is-autumn') || html.classList.contains('is-winter')) && Math.random() < 0.45) leafGust(); };
   setTimeout(maybe, 15000);
   setInterval(maybe, 90000);
 }
@@ -199,13 +196,18 @@ const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
 // Новий рік у неї: гірлянда вгорі — провід провисає трьома дугами, на ньому лампочки, що мигають по черзі (CSS)
 const BULBS = ['#FF5C7A', '#FFD24A', '#5CD6A0', '#6FA8FF', '#C98BFF'];
 function garland(n) {
-  return Array.from({ length: n }, (_, i) => {
-    const u = (i + 0.5) / n;
-    const k = (u * 3) % 1;
-    const b = h('span', { class: 'bulb' });
-    // Провід — квадратична дуга: y = 4 + 64·k·(1 − k) у межах однієї дуги
-    b.style.cssText = `left:${(u * 100).toFixed(2)}%;top:${(3 + 64 * k * (1 - k)).toFixed(1)}px;--c:${BULBS[i % BULBS.length]};--i:${i % 3}`;
-    return b;
+  // Три фази мерехтіння — три обгортки, у кожній кожна третя лампочка
+  return [0, 1, 2].map((ph) => {
+    const g = h('span', { class: 'bulb-ph' }, ...Array.from({ length: n }, (_, i) => i).filter((i) => i % 3 === ph).map((i) => {
+      const u = (i + 0.5) / n;
+      const k = (u * 3) % 1;
+      const b = h('span', { class: 'bulb' });
+      // Провід — квадратична дуга: y = 4 + 64·k·(1 − k) у межах однієї дуги
+      b.style.cssText = `left:${(u * 100).toFixed(2)}%;top:${(3 + 64 * k * (1 - k)).toFixed(1)}px;--c:${BULBS[i % BULBS.length]}`;
+      return b;
+    }));
+    g.style.cssText = `--i:${ph}`;
+    return g;
   });
 }
 let whirls = 0;
@@ -391,11 +393,9 @@ export function writeDecor() {
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
   const vona = h('div', { class: 'depth depth-vona' },
-    h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
     h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), ...flies(3, 23), ...dragons(2, 41), ...firLights(), h('span', { class: 'meteor meteor-vona' })),
     h('i', { class: 'dv-garland' }, ...garland(14)),
-    h('i', { class: 'dv-frost' }, h('span'), h('span'), h('span'), h('span')),
     h('i', { class: 'dv-rain' }, ...rain(52)));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
@@ -405,7 +405,8 @@ export function startDepth() {
     h('i', { class: 'ds-far' }, sky(70, 21)),
     h('i', { class: 'ds-mid' }, sky(26, 3), constellation(false)),
     h('i', { class: 'ds-near' }, sky(9, 5), h('span', { class: 'meteor' })));
-  // Обидві половини в одній обгортці: зсув (--dx/--dy) успадковують шари обох; показується — своя (CSS)
+  // Обидві половини в одній обгортці; показується — своя (CSS). Зсув — не змінною на обгортці
+  // (її успадковують сотні вузлів, і кожен кадр перераховував би їм стилі), а transform самих шарів
   const box = h('div', { class: 'depth-root', 'aria-hidden': 'true' }, vona, vin);
   root = box;
   // Будь-яке вікно поверх (шторка, читання, печенька, знайомство) — прикраси фону на паузу:
@@ -430,24 +431,25 @@ export function startDepth() {
   rainLoop();
   gustLoop();
 
-  let tx = 0; let ty = 0; let x = 0; let y = 0; let raf = 0;
+  // Без покадрового циклу: поки на сторінці крутиться requestAnimationFrame, браузер щокадру перераховує в головному
+  // потоці всі CSS-анімації фону (на телефоні датчик нахилу тримав би його завжди). Тому рідко (≤ 5 разів на секунду
+  // й лише на помітний нахил) ставимо шарам нову ціль, а пливуть вони CSS-переходом — його веде відеокарта
+  let tx = 0; let ty = 0; let sx = 0; let sy = 0; let timer = 0;
   const idle = () => document.hidden || document.documentElement.classList.contains('is-covered') || document.documentElement.classList.contains('is-fx');
-  const step = () => {
-    // Шторка чи реакція — стоїмо; наступний нахил після них знову запустить
-    if (idle()) { raf = 0; return; }
-    // Мʼяко доганяємо ціль — шари пливуть, а не смикаються
-    x += (tx - x) * 0.055;
-    y += (ty - y) * 0.055;
-    box.style.setProperty('--dx', x.toFixed(3));
-    box.style.setProperty('--dy', y.toFixed(3));
-    raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.002 ? requestAnimationFrame(step) : 0;
+  const send = () => {
+    timer = 0;
+    // Шторка чи реакція — стоїмо; наступний нахил після них знову зсуне
+    if (idle() || Math.abs(tx - sx) + Math.abs(ty - sy) < 0.04) return;
+    sx = tx; sy = ty;
+    if (!layers.length) layers = [...box.querySelectorAll('.depth > i')].map((el) => [el, parseFloat(getComputedStyle(el).getPropertyValue('--k')) || 0]);
+    shift(sx, sy);
   };
   const aim = (nx, ny) => {
     if (document.documentElement.classList.contains('is-still')) return;
     // Датчик тремтить — ціль теж згладжуємо
     tx = tx * 0.75 + clamp(nx) * 0.25;
     ty = ty * 0.75 + clamp(ny) * 0.25;
-    if (!raf && !idle()) raf = requestAnimationFrame(step);
+    if (!timer) timer = setTimeout(send, 220);
   };
 
   // Телефон: нахил відносно того, як його зараз тримають (база повільно підлаштовується) — тож у руці завжди «посередині»
