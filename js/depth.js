@@ -90,25 +90,42 @@ function bees(n, seed) {
   });
 }
 // Метелики (лише вдень): два крильця з плямками змахують, сам метелик петляє по екрану
-const FLY = '<svg class="fly-b" viewBox="-11 -10 22 20" aria-hidden="true">'
-  + '<g class="fly-w fly-l"><path d="M0-1C-3-8-10-10-10-4C-10 0-5 1 0-1ZM0 1C-3 2-8 5-6 8C-4 10-1 6 0 1Z"/><circle class="fly-spot" cx="-6" cy="-4" r="1.3"/></g>'
-  + '<g class="fly-w fly-r"><path d="M0-1C3-8 10-10 10-4C10 0 5 1 0-1ZM0 1C3 2 8 5 6 8C4 10 1 6 0 1Z"/><circle class="fly-spot" cx="6" cy="-4" r="1.3"/></g>'
-  + '<path class="fly-t" d="M0-4V6M0-4L-2-8M0-4L2-8"/></svg>';
+const FLY = '<svg class="fly-b" viewBox="-15 -14 30 28" aria-hidden="true"><g class="fly-w fly-l"><path class="fly-up" d="M-1 -1C-4 -10 -13 -12.5 -13.5 -6C-14 -1.5 -8 1 -1 0Z"/><path class="fly-lo" d="M-1 1C-6 1.5 -10.5 5.5 -8.5 9.5C-6 12 -2 8.5 -1 1Z"/><ellipse class="fly-in" cx="-6.5" cy="-4.5" rx="3.4" ry="2.2" transform="rotate(-25 -6.5 -4.5)"/><g class="fly-spot"><circle cx="-11" cy="-6.5" r="1"/><circle cx="-9" cy="-9.4" r=".8"/><circle cx="-12" cy="-3.4" r=".7"/><circle cx="-6.5" cy="7.2" r=".8"/></g></g><g class="fly-w fly-r"><path class="fly-up" d="M1 -1C4 -10 13 -12.5 13.5 -6C14 -1.5 8 1 1 0Z"/><path class="fly-lo" d="M1 1C6 1.5 10.5 5.5 8.5 9.5C6 12 2 8.5 1 1Z"/><ellipse class="fly-in" cx="6.5" cy="-4.5" rx="3.4" ry="2.2" transform="rotate(25 6.5 -4.5)"/><g class="fly-spot"><circle cx="11" cy="-6.5" r="1"/><circle cx="9" cy="-9.4" r=".8"/><circle cx="12" cy="-3.4" r=".7"/><circle cx="6.5" cy="7.2" r=".8"/></g></g><ellipse class="fly-body" cx="0" cy="1.5" rx="1.3" ry="6.5"/><circle class="fly-body" cx="0" cy="-5.6" r="1.7"/><path class="fly-t" d="M-.5-7Q-2-11-4-12.5M.5-7Q2-11 4-12.5"/><circle class="fly-body" cx="-4" cy="-12.6" r=".9"/><circle class="fly-body" cx="4" cy="-12.6" r=".9"/></svg>';
+// Стрекоза: довге тіло з сегментами, великі очі, дві пари прозорих крил із прожилкою
+const DRAGON = '<svg class="drag-b" viewBox="-8 -12 34 24" aria-hidden="true">'
+  + '<g class="drag-w"><ellipse cx="5" cy="-5.2" rx="9.5" ry="2.3" transform="rotate(-14 5 -5.2)"/><ellipse cx="5" cy="5.2" rx="9.5" ry="2.3" transform="rotate(14 5 5.2)"/>'
+  + '<ellipse cx="3" cy="-4" rx="8" ry="2" transform="rotate(-34 3 -4)"/><ellipse cx="3" cy="4" rx="8" ry="2" transform="rotate(34 3 4)"/>'
+  + '<path class="drag-v" d="M0-1L13-7.5M0 1L13 7.5M0-.6L9.5-8.6M0 .6L9.5 8.6"/></g>'
+  + '<path class="drag-body" d="M1-1.3H24Q25.5 0 24 1.3H1Z"/><path class="drag-seg" d="M6-1.3V1.3M10-1.3V1.3M14-1.3V1.3M18-1.3V1.3M22-1.3V1.3"/>'
+  + '<ellipse class="drag-body" cx="0" cy="0" rx="2.6" ry="2"/><circle class="drag-eye" cx="-3" cy="-1.6" r="1.9"/><circle class="drag-eye" cx="-3" cy="1.6" r="1.9"/></svg>';
+function dragons(n, seed) {
+  let s = seed;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const tones = ['#2FA8A0', '#4C7FD9', '#E0703A'];
+  return Array.from({ length: n }, (_, i) => {
+    const d = 11 + rnd() * 6;
+    const el = h('span', { class: 'drag' }, h('span', { class: 'drag-turn', html: DRAGON }));
+    el.style.cssText = `left:${(10 + rnd() * 45).toFixed(1)}%;top:${(22 + rnd() * 45).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${(-rnd() * d).toFixed(1)}s;`
+      + `--mx:${(90 + rnd() * 90).toFixed(0)}px;--my:${(30 + rnd() * 50).toFixed(0)}px;--dc:${tones[i % tones.length]}`;
+    return el;
+  });
+}
 function flies(n, seed) {
   let s = seed;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  const wings = ['#F29B4B', '#FFF4DC', '#8FB3F0', '#F2C94C'];
+  // [крило, облямівка, світла пляма]: монарх, блакитний, лимонниця, рожевий
+  const wings = [['#F59A3A', '#5A2E1A', '#FFC46A'], ['#7FB0F2', '#2E4A8A', '#CFE2FF'], ['#F7D04A', '#7A5A1A', '#FFF0A8'], ['#F2A0C8', '#8A3A6A', '#FFD6EA']];
   return Array.from({ length: n }, (_, i) => {
     const d = 14 + rnd() * 8;
     const f = h('span', { class: 'fly' }, h('span', { class: 'fly-bob', html: FLY }));
     f.style.cssText = `left:${(8 + rnd() * 50).toFixed(1)}%;top:${(18 + rnd() * 55).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${(-rnd() * d).toFixed(1)}s;`
-      + `--mx:${(80 + rnd() * 100).toFixed(0)}px;--my:${(40 + rnd() * 50).toFixed(0)}px;--w:${wings[i % wings.length]}`;
+      + `--mx:${(80 + rnd() * 100).toFixed(0)}px;--my:${(40 + rnd() * 50).toFixed(0)}px;--w:${wings[i % wings.length][0]};--w2:${wings[i % wings.length][1]};--w3:${wings[i % wings.length][2]}`;
     return f;
   });
 }
 // Новий рік: вогники гірлянди на пів ялинки біля лівого краю. Координати вже перераховані
 // у .dv-front: [left, bottom] у px шару (ялинка — left 30px, bottom 112px, масштаб 1.2, як у CSS). Мерехтять хвилею (лише opacity)
-const FIR_LIGHTS = [[64,486],[76,474],[65,441],[80,430],[95,424],[66,394],[83,384],[100,378],[116,375],[67,347],[85,339],[103,332],[120,327],[138,324],[67,299],[86,292],[104,285],[124,280],[142,278],[161,275],[68,251],[86,245],[106,238],[125,233],[144,230],[163,227],[182,226],[68,203],[88,197],[107,191],[127,186],[146,183],[166,179],[185,178],[205,176]];
+const FIR_LIGHTS = [[64,486],[76,474],[60,436],[65,441],[80,430],[95,424],[60,387],[66,394],[83,384],[100,378],[116,375],[60,338],[67,347],[85,339],[103,332],[120,327],[138,324],[60,288],[67,299],[86,292],[104,285],[124,280],[142,278],[161,275],[60,239],[68,251],[86,245],[106,238],[125,233],[144,230],[163,227],[182,226],[60,190],[68,203],[88,197],[107,191],[127,186],[146,183],[166,179],[185,178],[205,176]];
 function firLights() {
   return FIR_LIGHTS.map(([x, y], i) => {
     const s = h('span', { class: 'fir-light' });
@@ -127,12 +144,46 @@ function rain(n) {
     return r;
   });
 }
-// Раз на дві хвилини кидаємо жереб: у 35 % випадків іде дощ на 40–80 с, потім за 3 с плавно вщухає
+// Порив вітру: оберемок кленового листя пролітає екраном зліва направо, крутиться й трохи падає (WAAPI, лише transform/opacity)
+const GUST = ['#F2B13C', '#F08A2E', '#E5562E', '#FFCB52', '#D9462E'];
+let gusting = false;
+function leafGust(y0 = innerHeight * (0.22 + Math.random() * 0.4)) {
+  const html = document.documentElement;
+  if (reduceMotion || gusting || document.hidden || html.classList.contains('is-still') || html.classList.contains('is-covered')) return;
+  gusting = true;
+  const box = h('div', { class: 'leaf-gust', 'aria-hidden': 'true' });
+  const W = innerWidth;
+  for (let i = 0; i < 16; i += 1) {
+    const s = h('span', { html: LEAF });
+    s.style.setProperty('--leaf', GUST[i % GUST.length]);
+    box.append(s);
+    const y = y0 + (Math.random() - 0.5) * 150;
+    const dy = 30 + Math.random() * 120;
+    const sc = (0.7 + Math.random() * 0.9).toFixed(2);
+    const spin = 300 + Math.random() * 600;
+    s.animate([
+      { transform: `translate(-40px, ${y.toFixed(0)}px) rotate(0deg) scale(${sc})`, opacity: 0 },
+      { opacity: 1, offset: 0.08 },
+      { transform: `translate(${(W * 0.5).toFixed(0)}px, ${(y - 30 + dy * 0.3).toFixed(0)}px) rotate(${(spin * 0.5).toFixed(0)}deg) scale(${sc})`, offset: 0.5 },
+      { transform: `translate(${W + 40}px, ${(y + dy).toFixed(0)}px) rotate(${spin.toFixed(0)}deg) scale(${sc})`, opacity: 0.85 },
+    ], { duration: 2600 + Math.random() * 1300, delay: Math.random() * 800, easing: 'cubic-bezier(.35,.1,.6,.95)', fill: 'both' });
+  }
+  document.body.append(box);
+  setTimeout(() => { box.remove(); gusting = false; }, 5000);
+}
+// Восени порив — раз на півтори хвилини з імовірністю 45 %, перший невдовзі після відкриття
+function gustLoop() {
+  const html = document.documentElement;
+  const maybe = () => { if (html.dataset.side === 'vona' && html.classList.contains('is-autumn') && Math.random() < 0.45) leafGust(); };
+  setTimeout(maybe, 15000);
+  setInterval(maybe, 90000);
+}
+// Раз на дві хвилини кидаємо жереб: у 25 % випадків іде дощ на 40–80 с, потім за 3 с плавно вщухає
 function rainLoop() {
   const html = document.documentElement;
   let on = false;
   setInterval(() => {
-    if (on || document.hidden || !html.classList.contains('is-autumn') || html.classList.contains('is-still') || Math.random() > 0.35) return;
+    if (on || document.hidden || !html.classList.contains('is-autumn') || html.classList.contains('is-still') || Math.random() > 0.25) return;
     on = true;
     html.classList.add('is-raining');
     setTimeout(() => {
@@ -342,8 +393,9 @@ export function startDepth() {
   const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
-    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), ...flies(3, 23), ...firLights(), h('span', { class: 'meteor meteor-vona' })),
+    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), ...flies(3, 23), ...dragons(2, 41), ...firLights(), h('span', { class: 'meteor meteor-vona' })),
     h('i', { class: 'dv-garland' }, ...garland(14)),
+    h('i', { class: 'dv-frost' }, h('span'), h('span'), h('span'), h('span')),
     h('i', { class: 'dv-rain' }, ...rain(52)));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
@@ -372,9 +424,11 @@ export function startDepth() {
     const r = el?.getBoundingClientRect();
     if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) shootConstellation();
     else if (DATA.side !== 'vin' && document.documentElement.classList.contains('is-winter')) snowWhirl(e.clientX, e.clientY);
+    else if (DATA.side !== 'vin' && document.documentElement.classList.contains('is-autumn')) leafGust(e.clientY);
   });
   if (reduceMotion) return;
   rainLoop();
+  gustLoop();
 
   let tx = 0; let ty = 0; let x = 0; let y = 0; let raf = 0;
   const idle = () => document.hidden || document.documentElement.classList.contains('is-covered') || document.documentElement.classList.contains('is-fx');

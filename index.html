@@ -40,6 +40,7 @@
       if (season === 'auto' && side === 'vin') season = month === 12 || month <= 2 ? 'aurora' : month >= 6 && month <= 8 ? 'milky' : 'stars';
       if (season === 'auto') season = (month === 12 && day >= 25) || (month === 1 && day <= 14) ? 'newyear' : month === 12 || month <= 2 ? 'winter' : month >= 6 && month <= 8 ? 'summer' : month >= 9 && month <= 11 ? 'autumn' : 'spring';
       if (season === 'aurora' || season === 'milky' || season === 'summer' || season === 'autumn') document.documentElement.classList.add('is-' + season);
+      if (season === 'autumn' && month === 10 && day === 31) document.documentElement.classList.add('is-halloween');
       if (season === 'winter' || season === 'newyear') document.documentElement.classList.add('is-winter');
       if (season === 'newyear') document.documentElement.classList.add('is-newyear');
     } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }

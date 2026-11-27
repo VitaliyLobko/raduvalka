@@ -414,6 +414,20 @@ async function route(req, env, ctx, info = {}) {
     return json(next);
   }
 
+  // Новорічне побажання другому: пишуть заздалегідь, другий отримує його лише 1 січня (за Києвом) — у новорічній печеньці.
+  // Текст шифрує телефон (seal.js), тож сервер його не чистить, лише обмежує довжину шифротексту
+  if (path === 'ny-wish') {
+    if (m === 'PUT') {
+      const text = String((await readJson(req)).text || '').trim().slice(0, 2000);
+      await putDoc(env.DB, `ny-wish:${side}`, text ? { text, at: Date.now() } : null);
+      return json({ ok: true });
+    }
+    if (m === 'GET') {
+      const [mine, theirs] = await Promise.all([getDoc(env.DB, `ny-wish:${side}`), getDoc(env.DB, `ny-wish:${other(side)}`)]);
+      return json({ mine: mine?.text || null, theirs: kyivDay().slice(5) === '01-01' ? theirs?.text || null : null });
+    }
+  }
+
   // Поки писати листи й конверти в застосунку не можна — їх кладе він своїм ключем
   // Увесь запас ідей «Планов» — лише для нього (перегляд у меню «Отладка»)
   if (m === 'GET' && path === 'plan-pool') {
@@ -508,7 +522,7 @@ async function imgVersions(db, mascots) {
 // Мітка змін для живого оновлення: відкрита Радовалка раз на 15 с питає її й дотягує свіже, коли змінилась.
 // Ставиться після кожного запису й перед кожним push (так і cron). Підписка на push, ШІ-підказки й розбір
 // посилань нічого спільного не міняють — інакше два відкриті телефони будили б один одного без кінця
-const QUIET = /^(seal|seal-img|seal\/todo|push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image)$/;
+const QUIET = /^(seal|seal-img|seal\/todo|push|push-key|push-test|letter-ideas|meme-ideas|plan-ideas|wish-from-url|wish-image|ny-wish)$/;
 async function bumpPulse(db, sides) {
   const now = Date.now();
   await Promise.all(sides.map((s) => putDoc(db, `pulse:${s}`, now)));

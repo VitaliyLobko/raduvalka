@@ -2,7 +2,7 @@
 // прилітає поверх усього, тап — розламується, виїжджає папірець. Зрідка (≈ раз на місяць) — золота з особливими.
 // Без сервера: день, золота чи ні й текст — з хешу дати й половини; показана — позначка на цьому телефоні
 import { DATA, who } from './data.js';
-import { send } from './api.js';
+import { send, get } from './api.js';
 import { h, toast, reduceMotion } from './ui.js';
 import { petFor } from './icons.js';
 import { burst } from './fx.js';
@@ -159,14 +159,24 @@ export function maybeCookie({ force = false, gold: forceGold = null, now = false
   // Не поверх знайомства, привітання, відкритої шторки чи салюту — спробуємо трохи пізніше
   if (!now && document.querySelector('.tour, .welcome, .sheet, .reader, .ny-salute')) { setTimeout(() => maybeCookie({ force, gold: forceGold }), 4000); return; }
   markSeen(day);
+  // Новорічна: якщо другий написав своє побажання — воно замість фрази зі списку (чекаємо мережу не довше 4 с)
+  if (ny && forceGold === null) return nyWish().then((w) => show(day, 'ny', w, false, w ? fromPartner() : null));
   show(day, forceGold ?? (ny ? 'ny' : isGolden(day)));
+}
+const fromPartner = () => (who().partner === 'он' ? 'от него' : 'от неё');
+async function nyWish() {
+  try {
+    const r = await Promise.race([get('ny-wish'), new Promise((ok) => { setTimeout(() => ok(null), 4000); })]);
+    return typeof r?.theirs === 'string' && r.theirs.trim() ? r.theirs.trim() : null;
+  } catch { return null; }
 }
 
 // Перегляд для нього в меню: печенька з випадковим текстом — справжню печеньку дня не чіпає і нікуди не шле
-export function previewCookie(gold) {
+// text/from — показати саме цей текст із підписом (його побажання так, як побачить вона)
+export function previewCookie(gold, text = null, from = null) {
   const list = listOf(gold);
   document.querySelector('.cookie-layer')?.remove();
-  show(kyivDay(), gold, list[Math.floor(Math.random() * list.length)], true);
+  show(kyivDay(), gold, text || list[Math.floor(Math.random() * list.length)], true, text ? from : null);
 }
 export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN, newYear: NEW_YEAR });
 
@@ -238,7 +248,8 @@ function nySnow() {
 }
 
 // gold: false — звичайна, true — золота, 'ny' — новорічна (золота й ще чарівніша)
-function show(day, gold, preset = null, preview = false) {
+// from — побажання написав другий: підпис під текстом («от него»)
+function show(day, gold, preset = null, preview = false, from = null) {
   const ny = gold === 'ny';
   const me = who();
   const text = preset || fortuneFor(day, DATA.side, gold);
@@ -249,7 +260,8 @@ function show(day, gold, preset = null, preview = false) {
     onclick: async () => {
       shareBtn.disabled = true;
       try {
-        await send('letters', 'POST', { kind: 'now', text: `🥠 ${ny ? 'Мне выпала новогодняя печенька' : gold ? 'Мне выпала золотая печенька' : 'Мне выпало'}: «${text}»`, mascot: petFor('push') });
+        const lead = from ? 'Открыла твоё новогоднее пожелание' : ny ? 'Мне выпала новогодняя печенька' : gold ? 'Мне выпала золотая печенька' : 'Мне выпало';
+        await send('letters', 'POST', { kind: 'now', text: `🥠 ${from && me.partner !== 'он' ? 'Открыл твоё новогоднее пожелание' : lead}: «${text}»${from ? ' ❤️' : ''}`, mascot: petFor('push') });
         document.dispatchEvent(new CustomEvent('radovalka:sent'));
         toast(`Отправлено ${me.partner === 'она' ? 'ей' : 'ему'} 🥠`);
         close();
@@ -259,7 +271,7 @@ function show(day, gold, preset = null, preview = false) {
       }
     },
   }, me.partner === 'она' ? 'Отправить ей' : 'Отправить ему');
-  const paper = h('div', { class: 'ck-paper' }, h('p', {}, text));
+  const paper = h('div', { class: 'ck-paper' }, h('p', {}, text), from ? h('p', { class: 'ck-from' }, `— ${from}`) : null);
   const cookie = h('button', { type: 'button', class: 'ck-cookie', 'aria-label': 'Разломить печеньку', html: cookieHtml() });
   const closeBtn = h('button', { type: 'button', class: 'btn', onclick: close }, 'Закрыть');
   const acts = h('div', { class: 'actions ck-acts' }, closeBtn, shareBtn);

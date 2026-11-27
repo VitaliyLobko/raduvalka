@@ -1,6 +1,6 @@
 // «🛠 Отладка» — лише на його половині: печеньки, запас ідей, питання «Совпадёт?». Нічого звідси не йде до неї
 import { DATA } from './data.js';
-import { get } from './api.js';
+import { get, send } from './api.js';
 import { h, toast, aboutGroup, aboutRow } from './ui.js';
 import { previewCookie, allFortunes } from './cookie.js';
 import { previewNewYear } from './newyear.js';
@@ -35,6 +35,42 @@ function openFortunes() {
     ...section(`🎄 Новогодние · ${newYear.length}`, newYear.map((t) => h('li', {}, t))),
     ...section(`✨ Золотые · ${golden.length}`, golden.map((t) => h('li', {}, t))),
     ...section(`🥠 Обычные · ${regular.length}`, regular.map((t) => h('li', {}, t))));
+}
+
+// Проба Хелловіну: на 20 с його телефон бере її осінній вигляд із Джеком-ліхтарем, потім повертає свій
+function previewHalloween() {
+  const root = document.documentElement;
+  const was = { side: root.dataset.side, dark: root.hasAttribute('data-dark'), cls: root.className };
+  root.dataset.side = 'vona';
+  root.removeAttribute('data-dark');
+  root.classList.remove('is-aurora', 'is-milky', 'is-summer', 'is-winter', 'is-newyear');
+  root.classList.add('is-autumn', 'is-halloween');
+  toast('Хэллоуин у неё — 20 секунд 🎃');
+  setTimeout(() => { root.dataset.side = was.side; root.toggleAttribute('data-dark', was.dark); root.className = was.cls; }, 20000);
+}
+
+// Його новорічне побажання їй: до 200 знаків, зашифроване; вона отримає його в новорічній печеньці 1 січня
+async function openWish() {
+  let mine = '';
+  try { mine = (await get('ny-wish'))?.mine || ''; } catch { toast('Не загрузилось — нет связи'); return; }
+  const field = h('textarea', { class: 'tpl-field ny-wish-field', rows: 4, maxlength: 200, placeholder: 'Например: «Пусть этот год соберёт нас за одним столом…»', 'aria-label': 'Пожелание ей на Новый год' });
+  field.value = mine;
+  const save = async (text) => {
+    try {
+      await send('ny-wish', 'PUT', { text });
+      toast(text ? 'Сохранено — откроется у неё 1 января 🎄' : 'Убрано — будет фраза из списка');
+      close();
+      openDebug();
+    } catch { toast('Не сохранилось — нет связи'); }
+  };
+  const close = sheet('Пожелание на Новый год', 'debug-sub', openDebug,
+    h('h2', { class: 'title' }, 'Пожелание ей'),
+    h('p', { class: 'hint' }, 'В 00:00 1 января её новогодняя печенька покажет эти слова с подписью «от него» вместо фразы из списка. До этого она их не увидит'),
+    field,
+    h('div', { class: 'actions' },
+      mine ? h('button', { type: 'button', class: 'btn', onclick: () => save('') }, 'Убрать') : null,
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: () => save(field.value.trim()) }, 'Сохранить')));
+  field.focus();
 }
 
 // Запас ідей «Планов» — із сервера (їй сервер його не віддає)
@@ -111,16 +147,28 @@ export function openDebug() {
   if (DATA.side !== 'vin') return;
   const cookie = (gold) => () => { close(); setTimeout(() => previewCookie(gold), 300); };
   const sub = (open) => () => { close(); open(); };
+  // Пробний Новий рік; у її вигляді — з його побажанням (якщо написав)
+  const ny = (look) => async () => {
+    close();
+    let wish = null;
+    if (look) { try { wish = (await get('ny-wish'))?.mine || null; } catch { /* без мережі — фраза зі списку */ } }
+    setTimeout(() => previewNewYear({ look, wish }), 300);
+  };
   const count = SAME_TOPICS.reduce((n, [, , qs]) => n + Object.keys(qs).length, 0);
   const close = sheet('Отладка', 'debug-sheet', null,
     h('h2', { class: 'title' }, 'Отладка'),
-    h('p', { class: 'hint' }, 'Видно только тебе. Отсюда ничего не уходит'),
+    h('p', { class: 'hint' }, 'Видно только тебе. Отсюда ничего не уходит, кроме твоего новогоднего пожелания — его она увидит 1 января'),
     aboutGroup('Печеньки',
       aboutRow('🥠', 'Показать печеньку', 'Пробная: настоящую не тратит, отправить нельзя', cookie(false)),
       aboutRow('✨', 'Показать золотую', null, cookie(true)),
       aboutRow('🎄', 'Показать новогоднюю', 'Та, что выпадет 1 января', cookie('ny')),
       aboutRow('📜', 'Все предсказания', null, sub(openFortunes))),
-    aboutGroup('Новый год', aboutRow('🎆', 'Показать Новый год', 'Отсчёт 10 секунд, салют в полночь и новогодняя печенька — пробно', () => { close(); setTimeout(previewNewYear, 300); })),
+    aboutGroup('Новый год',
+      aboutRow('✍️', 'Моё пожелание ей', 'Откроется в её новогодней печеньке 1 января в 00:00', sub(openWish)),
+      aboutRow('🎆', 'Показать у меня', 'Отсчёт 10 секунд, печенька, салют — пробно', ny(null)),
+      aboutRow('🎄', 'Показать у неё — светлая', 'Как увидит она: ёлка, гирлянда, твоё пожелание', ny('light')),
+      aboutRow('🌙', 'Показать у неё — ночная', null, ny('dark'))),
+    aboutGroup('Хэллоуин', aboutRow('🎃', 'Показать Хэллоуин у неё', '31 октября тыква в листьях становится Джеком-фонарём — 20 секунд', () => { close(); setTimeout(previewHalloween, 300); })),
     aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),
     aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs)), bothRow()),
     aboutGroup('Звуки', aboutRow('🎻', 'Все звуки', 'Любой инструмент, любое событие', sub(openSounds))));

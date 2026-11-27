@@ -42,7 +42,7 @@ function bySeason(side) {
 }
 const pattern = (side) => { const s = readPattern(side); return s === 'auto' ? bySeason(side) : s; };
 // Колір смужки браузера — під тло: його ніч, її слива чи лаванда, улітку — бурштин чи мед, восени — каштан чи персик
-const BAR = { summer: ['#2A1C10', '#FFF3D2'], autumn: ['#2A1812', '#FBF0E4'] };
+const BAR = { summer: ['#2A1C10', '#FFF3D2'], autumn: ['#331D14', '#FFF6E8'] };
 const color = (side, dark, p) => (side === 'vin' ? '#0B384B' : BAR[p] ? BAR[p][dark ? 0 : 1] : dark ? '#2A1730' : '#EADFFB');
 
 export function applyTheme(side = document.documentElement.dataset.side) {
@@ -55,6 +55,8 @@ export function applyTheme(side = document.documentElement.dataset.side) {
   root.classList.toggle('is-newyear', p === 'newyear');
   root.classList.toggle('is-summer', p === 'summer');
   root.classList.toggle('is-autumn', p === 'autumn');
+  // 31 жовтня — Хелловін: гарбузик у купці листя стає Джеком-ліхтарем
+  root.classList.toggle('is-halloween', p === 'autumn' && new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(new Date()).slice(5) === '10-31');
   root.classList.toggle('is-aurora', p === 'aurora');
   root.classList.toggle('is-milky', p === 'milky');
   document.querySelector('meta[name="theme-color"]').content = color(side, dark, p);

@@ -20,7 +20,7 @@ let timer = 0;
 let row = null;
 export function checkNewYear() {
   const [m, d, sec, y] = kyiv();
-  if (m === 1 && d === 1 && sec < 3 * 3600 && !seen(y)) { markSeen(y); cookieThenSalute(() => maybeCookie({ now: true })); }
+  if (m === 1 && d === 1 && sec < 3 * 3600 && !seen(y)) { markSeen(y); cookieThenSalute(() => maybeCookie({ now: true }), null); }
   if (m !== 12 || d !== 31) { row?.remove(); row = null; return; }
   if (!row) {
     row = h('p', { class: 'ny-count', role: 'status' });
@@ -35,8 +35,11 @@ export function checkNewYear() {
   timer = setTimeout(checkNewYear, left <= 60 ? 1000 : 30000);
 }
 
-// Пробний Новий рік для нього в «Отладке»: 10 секунд відліку, салют і новорічна печенька (нікуди не шле)
-export function previewNewYear() {
+// Пробний Новий рік для нього в «Отладке»: 10 секунд відліку, новорічна печенька, салют (нікуди не шле).
+// look — 'light' / 'dark': на час проби його телефон бере її вигляд (її тло з ялинкою, її кольори), потім повертає свій;
+// wish — його побажання їй: у пробній печеньці так, як вона побачить
+export function previewNewYear({ look = null, wish = null } = {}) {
+  const back = look ? herLook(look) : null;
   document.querySelector('.ny-count')?.remove();
   const tmp = h('p', { class: 'ny-count', role: 'status' });
   document.querySelector('.top')?.append(tmp);
@@ -44,18 +47,30 @@ export function previewNewYear() {
   const tick = () => {
     if (left > 0) { tmp.textContent = `🎄 До Нового года ${left} с… (пробно)`; left -= 1; setTimeout(tick, 1000); return; }
     tmp.remove();
-    cookieThenSalute(() => previewCookie('ny'));
+    cookieThenSalute(() => previewCookie('ny', look ? wish : null, 'от него'), back);
   };
   tick();
 }
 
 // Спершу новорічна печенька (1 січня вона завжди новорічна — cookie.js), салют — коли її закрили чи відправили.
 // Печеньки немає (уже була сьогодні, або поверх шторка) — салют одразу
-function cookieThenSalute(open) {
-  open();
+// Печенька може чекати мережу (побажання другого) — тож спершу дочекаємось, поки вона відкриється
+async function cookieThenSalute(open, after) {
+  await open();
   const layer = document.querySelector('.cookie-layer');
-  if (!layer) { salute(); return; }
-  new MutationObserver((_, ob) => { if (!layer.isConnected) { ob.disconnect(); salute(); } }).observe(document.body, { childList: true });
+  if (!layer) { salute(after); return; }
+  new MutationObserver((_, ob) => { if (!layer.isConnected) { ob.disconnect(); salute(after); } }).observe(document.body, { childList: true });
+}
+
+// Її вигляд на його телефоні на час проби: її половина тла, Новий рік, світла чи нічна. Повертає «як було»
+function herLook(look) {
+  const root = document.documentElement;
+  const was = { side: root.dataset.side, dark: root.hasAttribute('data-dark'), cls: root.className };
+  root.dataset.side = 'vona';
+  root.toggleAttribute('data-dark', look === 'dark');
+  root.classList.remove('is-aurora', 'is-milky', 'is-summer', 'is-autumn', 'is-raining', 'is-rain-end');
+  root.classList.add('is-winter', 'is-newyear');
+  return () => { root.dataset.side = was.side; root.toggleAttribute('data-dark', was.dark); root.className = was.cls; };
 }
 
 // Салют: ракети злітають знизу й розсипаються кулями іскор, що осідають; посередині — напис
