@@ -5407,3 +5407,6 @@ html.is-still :is(.wm-sakura, .wm-planet > g, .wm-planet .wm-star), html.is-cove
 [data-side="vin"] .plan-cat[aria-checked="true"] { background: var(--star); color: var(--night); border-color: var(--star); }
 .file-card-play { min-width: 44px; font-size: 1.1rem; }
 .file-card + .ea-player { margin-top: 8px; }
+/* Реплика улюбленця в «Хотелках» — на всю ширину, нижча й ширша облачком */
+.want-courier { width: 100%; }
+.want-courier .bubble { flex: 1; min-width: 0; }

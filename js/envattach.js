@@ -100,7 +100,7 @@ function sheet(title, onClose) {
 export function pickVoice(onAtt) {
   let stopMic = null;
   const sh = sheet('🎤 Голосовое', () => stopMic?.());
-  stopMic = recorder(sh.body, (a) => { onAtt(a); sh.close(); }, () => sh.close(), 'Отправить');
+  stopMic = recorder(sh.body, (a) => { onAtt(a); sh.close(); }, () => sh.close(), 'Отправить', 300);
 }
 
 // «🎵 Музыка»: голос, посилання чи файл
@@ -147,14 +147,15 @@ function linkForm(body, done, back) {
 }
 
 // Запис голосу: велика кнопка, таймер до хвилини, прослухати, перезаписати, прикріпити. Повертає «вимкнути мікрофон»
-function recorder(body, done, back, takeLabel = LABEL) {
+// max — до скількох секунд: у листі хвилина (сервер тримає вкладення до 75 с), у чаті — 5 хвилин файлом
+function recorder(body, done, back, takeLabel = LABEL, max = VOICE_MAX) {
   let stream = null;
   let rec = null;
   let timer = 0;
   let t0 = 0;
   let got = null;
   let preview = null;
-  const time = h('p', { class: 'ea-rec-time', 'aria-live': 'polite' }, `0:00 из ${mmss(VOICE_MAX)}`);
+  const time = h('p', { class: 'ea-rec-time', 'aria-live': 'polite' }, `0:00 из ${mmss(max)}`);
   const big = h('button', { type: 'button', class: 'ea-rec', 'aria-label': 'Начать запись' }, h('span', { 'aria-hidden': 'true' }, '🎤'));
   const slot = h('div', { class: 'ea-rec-slot' });
   const take = h('button', { type: 'button', class: 'btn btn-primary', disabled: true }, takeLabel);
@@ -182,7 +183,7 @@ function recorder(body, done, back, takeLabel = LABEL) {
       mic();
       big.classList.remove('is-on');
       big.setAttribute('aria-label', 'Записать заново');
-      const d = Math.max(1, Math.min(VOICE_MAX, Math.round((Date.now() - t0) / 1000)));
+      const d = Math.max(1, Math.min(max, Math.round((Date.now() - t0) / 1000)));
       if (!parts.length || !body.isConnected) return;
       const blob = new Blob(parts, { type: (rec.mimeType || type || 'audio/webm').split(';')[0] });
       got = { k: 'voice', blob, t: blob.type, d };
@@ -197,8 +198,8 @@ function recorder(body, done, back, takeLabel = LABEL) {
     big.setAttribute('aria-label', 'Остановить запись');
     const tick = () => {
       const s = (Date.now() - t0) / 1000;
-      time.textContent = `● ${mmss(s)} из ${mmss(VOICE_MAX)}`;
-      if (s >= VOICE_MAX) stop();
+      time.textContent = `● ${mmss(s)} из ${mmss(max)}`;
+      if (s >= max) stop();
     };
     tick();
     timer = setInterval(tick, 250);
