@@ -2216,86 +2216,84 @@ function glint(r, delay) {
     { duration: 900, delay, easing: 'ease-in-out', fill: 'both' });
 }
 
-// «Крик» 😱 — як у Мунка: екран заливає закатне небо мазками, що пливуть кожен у своєму ритмі, фіорд і міст;
-// знизу виростає вигнута постать, обличчя витягується й кричить — від рота розходяться хвилі, екран здригається
-const MUNCH = '<svg viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
-  + '<rect width="360" height="640" fill="#E06A32"/>'
-  + '<g class="mu-sky" fill="none" stroke-linecap="round">'
-  + '<path d="M-60 24C20 -6 80 54 160 24S300 -6 420 34" stroke="#F3B342" stroke-width="38"/>'
-  + '<path d="M-60 62C30 34 90 94 180 64S310 34 420 74" stroke="#E8522E" stroke-width="26"/>'
-  + '<path d="M-60 98C20 70 100 128 190 96S320 70 420 106" stroke="#F08B3A" stroke-width="30"/>'
-  + '<path d="M-60 136C40 110 110 164 200 132S330 110 420 142" stroke="#F6CB5C" stroke-width="24"/>'
-  + '<path d="M-60 172C30 148 120 198 210 168S330 148 420 178" stroke="#C9382D" stroke-width="28"/>'
-  + '<path d="M-60 208C40 186 120 230 220 204S340 186 420 212" stroke="#EE9A3E" stroke-width="26"/>'
-  + '<path d="M-60 242C30 222 130 264 220 238S340 222 420 248" stroke="#D85A30" stroke-width="22"/>'
-  + '<path d="M-60 272C40 254 120 292 220 268S340 254 420 278" stroke="#F2B04A" stroke-width="22"/>'
-  + '<path d="M-40 42C40 18 100 70 170 44S290 18 400 52" stroke="#FFE7A0" stroke-width="3" opacity=".6"/>'
-  + '<path d="M-40 116C40 92 110 142 190 114S320 92 400 124" stroke="#FFE7A0" stroke-width="3" opacity=".55"/>'
-  + '<path d="M-40 188C40 166 120 212 210 186S330 166 400 196" stroke="#8E2A22" stroke-width="3" opacity=".5"/>'
-  + '<path d="M-40 256C40 238 130 276 220 252S330 238 400 262" stroke="#FFD27A" stroke-width="3" opacity=".6"/></g>'
-  + '<g class="mu-sea"><path d="M140 296C200 268 300 288 380 278V480C300 466 240 436 200 404 160 372 118 340 140 296Z" fill="#2E4C7C"/>'
-  + '<g fill="none" stroke-linecap="round"><path d="M164 316C222 296 290 312 380 302" stroke="#4A6EA3" stroke-width="12"/>'
-  + '<path d="M184 340C240 324 300 340 380 330" stroke="#1D3256" stroke-width="7"/>'
-  + '<path d="M196 362C246 348 306 364 380 354" stroke="#5B80B5" stroke-width="10"/>'
-  + '<path d="M222 392C262 380 322 396 380 388" stroke="#22395F" stroke-width="10"/>'
-  + '<path d="M250 420C290 412 330 424 380 418" stroke="#4A6EA3" stroke-width="8"/></g></g>'
-  + '<path d="M-20 276C60 266 120 298 150 330 172 360 204 402 262 442L-20 530Z" fill="#5B6A3A"/>'
-  + '<g fill="none" stroke-linecap="round"><path d="M-20 300C60 296 112 324 146 356" stroke="#7A8A4A" stroke-width="10"/>'
-  + '<path d="M-20 340C50 342 104 370 140 408" stroke="#46532C" stroke-width="8"/>'
-  + '<path d="M-20 380C40 384 96 410 130 446" stroke="#7A8A4A" stroke-width="7"/></g>'
-  + '<path d="M-20 398L380 598V660H-20Z" fill="#A9773F"/>'
-  + '<g fill="none" stroke-linecap="round"><path d="M-20 430L380 640" stroke="#C08A4E" stroke-width="6" opacity=".7"/>'
-  + '<path d="M-20 470L300 650" stroke="#8C5E2E" stroke-width="5" opacity=".7"/></g>'
-  + '<g stroke-linecap="round"><path d="M-20 384L380 584" stroke="#5E361A" stroke-width="12"/><path d="M-20 410L380 624" stroke="#7E4C26" stroke-width="5"/>'
-  + '<path d="M20 404v18M80 434v19M140 464v20M200 494v21M260 524v22M320 554v23" stroke="#5E361A" stroke-width="5"/></g>'
-  + '<g fill="#2A2233"><path d="M33 352h12l2 34H31Z"/><circle cx="39" cy="346" r="6"/><rect x="32" y="336" width="14" height="4" rx="1"/><rect x="35" y="327" width="8" height="10" rx="1"/>'
-  + '<path d="M51 359h12l2 34H49Z"/><circle cx="57" cy="353" r="6"/><rect x="50" y="343" width="14" height="4" rx="1"/><rect x="53" y="334" width="8" height="10" rx="1"/></g>'
-  + '<g class="mu-body"><path d="M168 462C156 482 148 504 154 528 160 552 138 578 130 602 124 622 120 642 118 660H244C236 632 224 606 216 586 206 562 216 540 212 516 208 492 200 474 194 462Z" fill="#2E2640"/>'
-  + '<path d="M180 482C172 522 168 562 148 650" stroke="#55466E" stroke-width="5" fill="none" stroke-linecap="round"/>'
-  + '<path d="M200 492C204 530 196 566 214 640" stroke="#1C1729" stroke-width="5" fill="none" stroke-linecap="round"/></g>'
-  + '</svg>';
-REACT_FX['😱'] = (el) => {
+// «Крик» 😱 — у манері Мунка, без його картини: з рота розходяться хвилясті кільця мазків (закат і темна вода),
+// кожне крутиться у свій бік, тож увесь екран «пливе»; обличчя витягується й кричить, на кожен «а-а-а» — хвиля й здриг
+const SCREAM_INK = [
+  ['#1D3256', '#4A6EA3'], ['#E8522E', '#FFD27A'], ['#F3B342', '#FFE7A0'], ['#2E4C7C', '#5B80B5'], ['#C9382D', '#F08B3A'],
+  ['#F08B3A', '#FFE7A0'], ['#22395F', '#4A6EA3'], ['#F6CB5C', '#FFF1C2'], ['#D85A30', '#8E2A22'], ['#EE9A3E', '#FFD27A'],
+  ['#8E2A22', '#E8522E'], ['#F2B04A', '#FFE7A0'], ['#4A6EA3', '#1D3256'], ['#E06A32', '#F6CB5C'],
+];
+// Нерівне кільце навколо (0, 0): радіус гуляє хвилею з 3–5 горбів і дрібним тремтінням руки, згладжено кривими
+function screamRing(i, r, rnd) {
+  const n = 26;
+  const lobes = 3 + (i % 3);
+  const ph = rnd() * 6.283;
+  const pts = [];
+  for (let j = 0; j < n; j++) {
+    const t = (j / n) * 6.283;
+    const rr = r * (1 + 0.08 * Math.sin(lobes * t + ph) + (rnd() - 0.5) * 0.04);
+    pts.push([rr * Math.cos(t), rr * Math.sin(t) * 1.18]);
+  }
+  const q = (v) => v.toFixed(1);
+  let d = 'M' + q(pts[0][0]) + ' ' + q(pts[0][1]);
+  for (let j = 0; j < n; j++) {
+    const [p0, p1, p2, p3] = [pts[(j + n - 1) % n], pts[j], pts[(j + 1) % n], pts[(j + 2) % n]];
+    d += 'C' + q(p1[0] + (p2[0] - p0[0]) / 6) + ' ' + q(p1[1] + (p2[1] - p0[1]) / 6) + ' '
+      + q(p2[0] - (p3[0] - p1[0]) / 6) + ' ' + q(p2[1] - (p3[1] - p1[1]) / 6) + ' ' + q(p2[0]) + ' ' + q(p2[1]);
+  }
+  return d + 'Z';
+}
+REACT_FX['😱'] = () => {
   const D = 3400;
-  const box = shape('fx-munch', 0, 0, MUNCH);
-  gone(box)(box.animate([{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }], { duration: D, fill: 'backwards' }));
-  // Кожен мазок неба гнеться у своєму ритмі — небо «пливе», як на полотні
-  box.querySelectorAll('.mu-sky path').forEach((p, i) => {
+  const W = innerWidth;
+  const H = innerHeight;
+  const hx = W / 2;
+  const hy = H * 0.47;
+  // Кільця — до найдальшого кута; крок 30 px, мазок ширший за крок, щоб між кільцями не світилося
+  const reach = Math.hypot(Math.max(hx, W - hx), Math.max(hy, H - hy) / 1.18) + 40;
+  const STEP = 30;
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  let rings = '';
+  for (let i = 0, r = 22; r < reach; i++, r += STEP) {
+    const [ink, hi] = SCREAM_INK[i % SCREAM_INK.length];
+    const d = screamRing(i, r, rnd);
+    rings += '<g class="ss-ring"><path d="' + d + '" stroke="' + ink + '" stroke-width="' + (STEP * 1.25) + '"/>'
+      + '<path d="' + d + '" stroke="' + hi + '" stroke-width="3" stroke-dasharray="' + (40 + i * 7) + ' ' + (26 + i * 3) + '" opacity=".55"/></g>';
+  }
+  const box = shape('fx-scream-sky', 0, 0, '<svg viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true"><rect width="' + W + '" height="' + H + '" fill="#D8602E"/>'
+    + '<g transform="translate(' + hx + ' ' + hy + ')" fill="none" stroke-linecap="round">' + rings + '</g></svg>');
+  gone(box)(box.animate([{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }], { duration: D, fill: 'backwards' }));
+  // Кільця виростають з рота одне за одним, далі гойдаються в різні боки й на кожен крик здуваються
+  box.querySelectorAll('.ss-ring').forEach((g, i) => {
     const k = i % 2 ? -1 : 1;
-    const a = 7 + (i % 3) * 5;
-    p.animate([
-      { transform: 'translateX(0) skewY(0)' }, { transform: `translateX(${-a * k}px) skewY(${1.2 * k}deg)`, offset: 0.33 },
-      { transform: `translateX(${a * k}px) skewY(${-1.2 * k}deg)`, offset: 0.68 }, { transform: 'translateX(0) skewY(0)' },
-    ], { duration: D, delay: (i % 4) * 60, easing: 'ease-in-out', fill: 'both' });
+    const a = (7 + (i % 3) * 4) * k;
+    const grown = Math.min(0.08 + i * 0.013, 0.28);
+    const kf = [{ offset: 0, transform: 'scale(.05) rotate(0deg)' }, { offset: grown, transform: 'scale(1) rotate(' + (a * 0.3) + 'deg)' }];
+    for (const o of [0.36, 0.5, 0.64]) {
+      if (o <= grown) continue;
+      kf.push({ offset: o, transform: 'scale(1.07) rotate(' + (a * (o < 0.5 ? 0.5 : -0.2)) + 'deg)' });
+      kf.push({ offset: o + 0.06, transform: 'scale(1) rotate(' + (a * (o < 0.5 ? 0.4 : -0.35)) + 'deg)' });
+    }
+    kf.push({ offset: 1, transform: 'scale(1.12) rotate(' + (-a) + 'deg)' });
+    g.animate(kf, { duration: D, easing: 'ease-in-out', fill: 'both' });
   });
-  box.querySelector('.mu-sea').animate([
-    { transform: 'translateX(0) skewY(0)' }, { transform: 'translateX(14px) skewY(-1.5deg)', offset: 0.3 },
-    { transform: 'translateX(-12px) skewY(1.5deg)', offset: 0.65 }, { transform: 'translateX(6px) skewY(-.8deg)' },
-  ], { duration: D, easing: 'ease-in-out', fill: 'both' });
-  box.querySelector('.mu-body').animate([
-    { transform: 'translateY(70%)' }, { transform: 'translateY(0) skewX(-6deg)', offset: 0.25 },
-    { transform: 'skewX(6deg) scaleY(1.05)', offset: 0.42 }, { transform: 'skewX(-5deg)', offset: 0.56 },
-    { transform: 'skewX(4deg) scaleY(1.03)', offset: 0.7 }, { transform: 'skewX(-2deg)', offset: 0.85 }, { transform: 'skewX(0)' },
-  ], { duration: D, easing: 'ease-in-out', fill: 'both' });
-  // Голова — над тілом постаті: координати з SVG (зріз по більшому боці, як preserveAspectRatio slice)
-  const k = Math.max(innerWidth / 360, innerHeight / 640);
-  const hx = innerWidth / 2 + (181 - 180) * k;
-  const hy = innerHeight / 2 + (432 - 320) * k;
   big('😱', hx, hy, [
-    { transform: 'translateY(170px) scale(.8)', opacity: 0 }, { transform: 'translateY(0) scale(1)', opacity: 1, offset: 0.25 },
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.22 },
     { transform: 'scale(.94, 1.26) rotate(-4deg)', offset: 0.38 }, { transform: 'scale(1, 1.14) rotate(4deg)', offset: 0.5 },
     { transform: 'scale(.94, 1.3) rotate(-3deg)', offset: 0.62 }, { transform: 'scale(1, 1.2) rotate(2deg)', opacity: 1, offset: 0.85 },
     { transform: 'scale(1)', opacity: 0 },
   ], D, '5.4rem');
-  // На кожен «а-а-а» — хвиля від рота і здриг усієї картини
+  // На кожен «а-а-а» — хвиля від рота і здриг усього екрана
   for (const o of [0.36, 0.5, 0.64]) {
     const w = shape('fx-scream', hx, hy + 12);
-    gone(w)(w.animate([{ transform: `${C} scale(.5)`, opacity: 0.9 }, { transform: `${C} scale(3.4, 3)`, opacity: 0 }],
+    gone(w)(w.animate([{ transform: C + ' scale(.5)', opacity: 0.9 }, { transform: C + ' scale(3.4, 3)', opacity: 0 }],
       { duration: 950, delay: D * o, easing: 'ease-out', fill: 'backwards' }));
     box.animate([
       { transform: 'none' }, { transform: 'translate(-3px, 1px) scale(1.02)' }, { transform: 'translate(3px, -1px) scale(1.02)' }, { transform: 'none' },
     ], { duration: 260, delay: D * o, easing: 'ease-in-out' });
   }
-  shout('А-а-а-а!', innerWidth / 2, innerHeight * 0.17, D * 0.36, D * 0.5, '2.4rem', 'fx-munch-say');
+  shout('А-а-а-а!', W / 2, H * 0.17, D * 0.36, D * 0.5, '2.4rem', 'fx-munch-say');
 };
 
 // Щенячі очі 🥺 — без сліз: довкола темніє, обличчя наближається й тремтить, в очах блищить

@@ -393,21 +393,103 @@ export function writeDecor() {
     : h('div', { class: 'write-decor', 'aria-hidden': 'true' }, h('i', { class: 'dv-mid' }), h('i', { class: 'dv-front' }));
 }
 
+// Луна за справжньою фазою: 0 — молодик, 0,5 — повня. Відлік від молодика 6.01.2000 18:14 UTC, синодичний місяць 29,53 доби
+const SYNODIC = 29.530588853;
+function moonPhase() {
+  try {
+    const t = parseFloat(localStorage.getItem('radovalka:moon-test'));
+    if (t >= 0 && t < 1) return t;
+  } catch { /* без сховища — справжня фаза */ }
+  const days = (Date.now() - Date.UTC(2000, 0, 6, 18, 14)) / 864e5;
+  return ((days / SYNODIC) % 1 + 1) % 1;
+}
+// Освітлена частина: півколо з освітленого боку (до повні — праворуч) і назад по еліпсу термінатора
+function moonSvg(p, id) {
+  const r = 16;
+  const rx = (r * Math.abs(Math.cos(2 * Math.PI * p))).toFixed(2);
+  const wax = p < 0.5;
+  const back = wax ? (p < 0.25 ? 0 : 1) : (p > 0.75 ? 1 : 0);
+  const lit = 'M0 ' + (-r) + 'A' + r + ' ' + r + ' 0 0 ' + (wax ? 1 : 0) + ' 0 ' + r + 'A' + rx + ' ' + r + ' 0 0 ' + back + ' 0 ' + (-r) + 'Z';
+  return '<svg viewBox="-20 -20 40 40" aria-hidden="true"><defs>'
+    + '<radialGradient id="' + id + '-g" cx=".42" cy=".38" r=".7"><stop offset="0" stop-color="#FFF8E2"/><stop offset="1" stop-color="#E6D29C"/></radialGradient>'
+    + '<clipPath id="' + id + '-c"><path d="' + lit + '"/></clipPath></defs>'
+    + '<circle class="moon-dark" r="' + r + '" fill-opacity=".6" stroke="#FFF0C8" stroke-opacity=".14" stroke-width=".8"/>'
+    + '<path d="' + lit + '" fill="url(#' + id + '-g)"/>'
+    + '<g clip-path="url(#' + id + '-c)" fill="#C9B47E" fill-opacity=".45"><circle cx="-5" cy="-6" r="3.6"/><circle cx="6" cy="3" r="2.6"/>'
+    + '<circle cx="-3" cy="7" r="2"/><circle cx="8" cy="-8" r="1.5"/><circle cx="-10" cy="2" r="1.8"/></g></svg>';
+}
+// id — свій для кожної Луни: градієнт за id із прихованої половини (display: none) не малюється
+function moon(id) {
+  const disc = h('span', { class: 'ds-moon-disc' });
+  const halo = h('span', { class: 'ds-moon-halo' }, h('span'));
+  const el = h('span', { class: 'ds-moon-box' }, halo, disc);
+  let shown = -1;
+  const paint = () => {
+    const p = moonPhase();
+    if (Math.abs(p - shown) < 0.004) return;
+    shown = p;
+    disc.innerHTML = moonSvg(p, id);
+    el.dataset.phase = p.toFixed(3);
+    // Ореол — за освітленою часткою: у повню сяє, у молодик майже зникає
+    halo.style.opacity = String(0.15 + 0.85 * (1 - Math.cos(2 * Math.PI * p)) / 2);
+  };
+  paint();
+  setInterval(paint, 30 * 60e3);
+  return el;
+}
+
+// Його падаючі зірки: щоразу в новому місці, під своїм кутом, вліво чи вправо, з довшим чи коротшим слідом;
+// раз на кілька разів — зорепад із 3–5 поспіль. Між ними 20–60 с; під вікном, без «Движения фона» і у фоні — пауза
+let starLayer = null;
+const calm = () => document.hidden || document.documentElement.classList.contains('is-still')
+  || document.documentElement.classList.contains('is-covered');
+export function fallingStar() {
+  if (!starLayer || DATA.side !== 'vin' || calm()) return;
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  const ang = -(16 + Math.random() * 30);
+  const len = 100 + Math.round(Math.random() * 90);
+  const m = h('span', { class: 'meteor meteor-fly' });
+  m.style.cssText = 'top:' + (8 + Math.random() * 48).toFixed(1) + '%;left:' + (dir > 0 ? 40 + Math.random() * 55 : 5 + Math.random() * 50).toFixed(1)
+    + '%;width:' + len + 'px';
+  m.style.setProperty('--a', ang + 'deg');
+  starLayer.append(m);
+  const go = 'scaleX(' + dir + ') rotate(' + ang + 'deg) translateX(';
+  const a = m.animate([
+    { opacity: 0, transform: go + '0)' }, { opacity: 1, offset: 0.2 }, { opacity: 0, transform: go + (-220 - Math.random() * 160).toFixed(0) + 'px)' },
+  ], { duration: 1500 + Math.random() * 900, easing: 'linear' });
+  a.onfinish = () => m.remove();
+  a.oncancel = () => m.remove();
+}
+function starLoop() {
+  setTimeout(() => {
+    if (!calm()) {
+      if (Math.random() < 0.15) {
+        const n = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0, t = 0; i < n; i++, t += 250 + Math.random() * 500) setTimeout(fallingStar, t);
+      } else fallingStar();
+    }
+    starLoop();
+  }, 20000 + Math.random() * 40000);
+}
+
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
   const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
     h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), ...flies(3, 23), ...dragons(2, 41), ...firLights(), h('span', { class: 'meteor meteor-vona' })),
+    h('i', { class: 'dv-moon' }, moon('dv-moon')),
     h('i', { class: 'dv-garland' }, ...garland(14)),
     h('i', { class: 'dv-rain' }, ...rain(52)));
-  // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
+  // Його космос (без туману): Луна, далекі дрібні зірки, середні, кілька близьких великих, що мерехтять; падаючі зірки — starLoop
+  const near = h('i', { class: 'ds-near' }, sky(9, 5));
   const vin = h('div', { class: 'depth depth-vin' },
     h('i', { class: 'ds-chart', html: CHART }),
+    h('i', { class: 'ds-moon' }, moon('ds-moon')),
     h('i', { class: 'ds-milky' }),
     h('i', { class: 'ds-aurora' }, h('span'), h('span'), h('span')),
     h('i', { class: 'ds-far' }, sky(70, 21)),
     h('i', { class: 'ds-mid' }, sky(26, 3), constellation(false)),
-    h('i', { class: 'ds-near' }, sky(9, 5), h('span', { class: 'meteor' })));
+    near);
   // Обидві половини в одній обгортці; показується — своя (CSS). Зсув — не змінною на обгортці
   // (її успадковують сотні вузлів, і кожен кадр перераховував би їм стилі), а transform самих шарів
   const box = h('div', { class: 'depth-root', 'aria-hidden': 'true' }, vona, vin);
@@ -433,6 +515,8 @@ export function startDepth() {
   if (reduceMotion) return;
   rainLoop();
   gustLoop();
+  starLayer = near;
+  starLoop();
 
   // Без покадрового циклу: поки на сторінці крутиться requestAnimationFrame, браузер щокадру перераховує в головному
   // потоці всі CSS-анімації фону (на телефоні датчик нахилу тримав би його завжди). Тому рідко (≤ 5 разів на секунду
