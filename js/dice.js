@@ -14,7 +14,8 @@ const LEVELS = [
   ['hot', '🔥', 'Горячо', 'Посмелее: масло, лёд, повязка на глаза'],
   ['fire', '🌶️', 'Огонь', 'Самые откровенные купоны'],
 ];
-const DICE = ['Что', 'Где', 'Как'];
+// Другий кубик — куди на тілі (місце в домі — серед «Как»)
+const DICE = ['Что', 'Куда', 'Как'];
 // Поки кубики котяться — мелькають нейтральні значки (справжні грані знає лише сервер)
 const BLUR = ['❤️', '✨', '💫', '💞', '🌙', '🔥', '💋', '🎲'];
 const blur = () => BLUR[Math.floor(Math.random() * BLUR.length)];
@@ -44,7 +45,7 @@ const msg = (text) => open.body.replaceChildren(h('p', { class: 'hint duel-hint'
 
 function levels() {
   open.body.replaceChildren(
-    h('p', { class: 'hint duel-hint dice-about' }, `Бросаешь ты — это твой подарок ${forThem()}: что, где и как. Не нравится кубик — тапни его, и он перебросится. Понравилось — подари купон, ${who().partner} предъявит его на встрече 😏`),
+    h('p', { class: 'hint duel-hint dice-about' }, `Бросаешь ты — это твой подарок ${forThem()}: что, куда и как. Не нравится кубик — тапни его, и он перебросится. Понравилось — подари купон, ${who().partner} предъявит его на встрече 😏`),
     h('div', { class: 'hot-levels' }, ...LEVELS.map(([level, icon, name, about]) => h('button', {
       type: 'button', class: `game-tile hot-level is-${level}`, onclick: () => roll({ level }),
     }, h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, icon), h('span', { class: 'game-tile-text' }, h('b', {}, name), h('span', {}, about))))));
@@ -59,13 +60,13 @@ function bigDie(icon, onTap = null) {
 }
 
 // Сцена кидка (у мене — з перекиданням, у неї — повтор): кубики котяться, стають по одному, тоді слова й фраза
-function stage(r, { canReroll = false, onReroll = null } = {}) {
+function stage(r, { canReroll = false, onReroll = null, lead = '' } = {}) {
   const [, icon, name] = levelOf(r.level);
   const texts = r.texts || [];
   const dies = r.icons.map((ic, i) => bigDie(ic, canReroll && r.left > 0 ? () => onReroll(i) : null));
   const words = texts.map((t) => h('span', { class: 'dice-word' }, t));
   const cols = dies.map((d, i) => h('div', { class: 'dice-col' }, h('span', { class: 'dice-label' }, DICE[i]), d.el, words[i]));
-  const phrase = h('p', { class: 'dice-phrase' }, texts.join(' · '));
+  const phrase = h('p', { class: 'dice-phrase' }, lead, texts.join(' · '));
   const box = h('section', { class: `dice-stage is-${r.level}` },
     h('p', { class: 'dice-level' }, `${icon} ${name}`),
     h('div', { class: 'dice-row' }, ...cols),
@@ -96,7 +97,7 @@ function stage(r, { canReroll = false, onReroll = null } = {}) {
 
 // Мій кидок: сцена, «Подарить купон», лічильник перекидань, інший рівень. which — що котиться (null — без анімації)
 function play(r, which = [0, 1, 2]) {
-  const s = stage(r, { canReroll: true, onReroll: (i) => roll({ id: r.id, die: i }, [i]) });
+  const s = stage(r, { canReroll: true, onReroll: (i) => roll({ id: r.id, die: i }, [i]), lead: 'Я подарю тебе: ' });
   open.body.replaceChildren(
     s.box,
     h('p', { class: 'dice-left' }, r.left > 0 ? `Тапни кубик, чтобы перебросить его · осталось ${r.left}` : 'Перебросы закончились — дари или выбери другой уровень'),
