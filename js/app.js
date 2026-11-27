@@ -1013,7 +1013,12 @@ async function start() {
   render();
   // Посилання з ?firstday — перший день наново на цьому пристрої (репетиція в обох): ключ і секрет уже збережені, тож
   // забуваємо слід першого дня й відкриваємось без параметра й без ключа в адресі
-  if (/[?&]firstday(?:[=&]|$)/.test(location.search)) {
+  // Або мітка з сервера (DATA.firstday) новіша за ту, що цей пристрій уже відпрацював, — так само, без посилання
+  let fdSeen = 0;
+  try { fdSeen = Number(localStorage.getItem('radovalka:firstday-seen')) || 0; } catch { /* приватне вікно */ }
+  const fdNew = (DATA.firstday || 0) > fdSeen;
+  if (fdNew) { try { localStorage.setItem('radovalka:firstday-seen', String(DATA.firstday)); } catch { /* приватне вікно */ } }
+  if (fdNew || /[?&]firstday(?:[=&]|$)/.test(location.search)) {
     import('./tour.js').then((t) => t.forgetFirstDay()).finally(() => location.replace(location.pathname));
     return;
   }

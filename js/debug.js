@@ -175,9 +175,8 @@ export function openDebug() {
       aboutRow('📜', 'Все предсказания', null, sub(openFortunes))),
     aboutGroup('Новый год',
       aboutRow('✍️', 'Моё пожелание ей', 'Откроется в её новогодней печеньке 1 января в 00:00', sub(openWish)),
-      aboutRow('🎆', 'Показать у меня', 'Отсчёт 10 секунд, печенька, салют — пробно', ny(null)),
-      aboutRow('🎄', 'Показать у неё — светлая', 'Как увидит она: ёлка, гирлянда, твоё пожелание', ny('light')),
-      aboutRow('🌙', 'Показать у неё — ночная', null, ny('dark'))),
+      // Пробний Новий рік — у тій темі, що зараз на екрані (обмін темами чи її половина — так само)
+      aboutRow('🎆', 'Показать Новый год', 'Отсчёт, печенька и салют — в текущей теме', ny(document.documentElement.dataset.side === 'vin' ? null : document.documentElement.hasAttribute('data-dark') ? 'dark' : 'light'))),
     aboutGroup('Первый день', aboutRow('🎬', 'Репетиция первого дня у неё', 'Открытка, тур с разрешениями, весна днём — как в первый раз. Письма и ключи остаются', () => { close(); rehearse(); })),
     aboutGroup('Хэллоуин', aboutRow('🎃', 'Показать Хэллоуин у неё', '31 октября тыква в листьях становится Джеком-фонарём — 20 секунд', () => { close(); setTimeout(previewHalloween, 300); })),
     aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),

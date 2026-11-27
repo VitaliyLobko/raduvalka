@@ -273,6 +273,8 @@ async function route(req, env, ctx, info = {}) {
     return json({
       side,
       pulse: (await getDoc(env.DB, `pulse:${side}`)) || 0,
+      // Репетиція першого дня: мітка часу — пристрій, що бачив давнішу, сам забуває слід першого дня (ставиться в базі вручну)
+      firstday: (await getDoc(env.DB, 'firstday'))?.at || 0,
       checkins,
       letter,
       // Привітальний лист-заготовка — першим повідомленням чату назавжди, а не лише поки нема справжніх
