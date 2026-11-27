@@ -40,7 +40,8 @@ function bySeason(side) {
   return winter ? 'winter' : [6, 7, 8].includes(m) ? 'summer' : 'spring';
 }
 const pattern = (side) => { const s = readPattern(side); return s === 'auto' ? bySeason(side) : s; };
-const color = (side, dark) => (side === 'vin' ? '#0B384B' : dark ? '#2A1730' : '#EADFFB');
+// Колір смужки браузера — під тло: його ніч, її слива чи лаванда, улітку — бурштин чи мед
+const color = (side, dark, p) => (side === 'vin' ? '#0B384B' : p === 'summer' ? (dark ? '#2A1C10' : '#FFF3D2') : dark ? '#2A1730' : '#EADFFB');
 
 export function applyTheme(side = document.documentElement.dataset.side) {
   const m = read();
@@ -53,7 +54,7 @@ export function applyTheme(side = document.documentElement.dataset.side) {
   root.classList.toggle('is-summer', p === 'summer');
   root.classList.toggle('is-aurora', p === 'aurora');
   root.classList.toggle('is-milky', p === 'milky');
-  document.querySelector('meta[name="theme-color"]').content = color(side, dark);
+  document.querySelector('meta[name="theme-color"]').content = color(side, dark, p);
 }
 mq.addEventListener?.('change', () => applyTheme());
 // «По времени»: раз на хвилину звіряємось із сонцем (і щойно застосунок знову на екрані) — тема міняється сама

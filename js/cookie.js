@@ -95,6 +95,25 @@ const GOLDEN = [
   'Эта печенька — напоминание: вас любят. Очень.',
 ];
 
+// Новорічна — лише 1 січня: побажання на рік, трохи чарівне
+const NEW_YEAR = [
+  'Пусть этот год соберёт вас вместе — и больше не разлучит.',
+  'Загадайте одно желание на двоих. Его уже услышали.',
+  'Пусть каждый день этого года будет поводом обняться.',
+  'Этот год закончит ожидание встречей.',
+  'Пусть дом будет тёплым, а дорога к нему — короткой.',
+  'В этом году «вместе» случится чаще, чем «скоро».',
+  'Звёзды этого года уже сложились в одну дорогу — домой.',
+  'Самое волшебное в новом году — что вы есть друг у друга.',
+  'Пусть сбудется то, о чём вы подумали прямо сейчас.',
+  'Новый год начинается с вас двоих. Остальное приложится.',
+  'Пусть в этом году будет много смеха, тишины вдвоём и рук, которые не отпускают.',
+  'Где-то в этом году уже ждёт день, который вы будете вспоминать всю жизнь.',
+  'Пусть этот год принесёт мир. И пусть все, кого вы любите, будут рядом — живы и здоровы.',
+  'Мирного неба над головой и всех родных рядом, живых и здоровых.',
+  'Пусть в этом году все близкие вернутся домой и сядут за один стол.',
+];
+
 // FNV-1a: однаковий результат на обох телефонах
 function hash(str) {
   let x = 2166136261;
@@ -118,7 +137,9 @@ export function isCookieDay(day) {
   }
 }
 export const isGolden = (day) => hash(`gold:${day}`) % 12 === 0;
-const fortuneFor = (day, side, gold) => { const list = gold ? GOLDEN : FORTUNES; return list[hash(`${day}:${side}`) % list.length]; };
+const listOf = (gold) => (gold === 'ny' ? NEW_YEAR : gold ? GOLDEN : FORTUNES);
+const fortuneFor = (day, side, gold) => { const list = listOf(gold); return list[hash(`${day}:${side}`) % list.length]; };
+const isNewYearDay = (day) => day.slice(5) === '01-01';
 
 const seenKey = () => `radovalka:cookie:${DATA.side}`;
 const seenToday = (day) => { try { return localStorage.getItem(seenKey()) === day; } catch { return true; } };
@@ -128,23 +149,26 @@ const markSeen = (day) => { try { localStorage.setItem(seenKey(), day); } catch 
 const cookieHtml = () => '<span class="ck-half ck-l">🥠</span><span class="ck-half ck-r">🥠</span>';
 
 // day — для перевірки вручну (?cookie у dev); force — показати навіть не в печенькин день
-export function maybeCookie({ force = false, gold: forceGold = null } = {}) {
+// now — не чекати, поки закриють шторку: новорічна опівночі має бути одразу, поверх усього
+export function maybeCookie({ force = false, gold: forceGold = null, now = false } = {}) {
   if (!DATA.side || document.querySelector('.cookie-layer')) return;
   const day = kyivDay();
-  if (!force && (!isCookieDay(day) || seenToday(day))) return;
-  // Не поверх знайомства, привітання чи відкритої шторки — спробуємо трохи пізніше
-  if (document.querySelector('.tour, .welcome, .sheet, .reader')) { setTimeout(() => maybeCookie({ force, gold: forceGold }), 4000); return; }
+  // 1 січня печенька є завжди — новорічна
+  const ny = isNewYearDay(day);
+  if (!force && ((!ny && !isCookieDay(day)) || seenToday(day))) return;
+  // Не поверх знайомства, привітання, відкритої шторки чи салюту — спробуємо трохи пізніше
+  if (!now && document.querySelector('.tour, .welcome, .sheet, .reader, .ny-salute')) { setTimeout(() => maybeCookie({ force, gold: forceGold }), 4000); return; }
   markSeen(day);
-  show(day, forceGold ?? isGolden(day));
+  show(day, forceGold ?? (ny ? 'ny' : isGolden(day)));
 }
 
 // Перегляд для нього в меню: печенька з випадковим текстом — справжню печеньку дня не чіпає і нікуди не шле
 export function previewCookie(gold) {
-  const list = gold ? GOLDEN : FORTUNES;
+  const list = listOf(gold);
   document.querySelector('.cookie-layer')?.remove();
   show(kyivDay(), gold, list[Math.floor(Math.random() * list.length)], true);
 }
-export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN });
+export const allFortunes = () => ({ regular: FORTUNES, golden: GOLDEN, newYear: NEW_YEAR });
 
 export const STAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z"/></svg>';
 const GOLDS = ['#FFE7A0', '#FFD45C', '#F5C543', '#FFF3C4', '#E0A93A'];
@@ -200,7 +224,22 @@ function goldBurst(layer, cookie) {
   setTimeout(() => fx.remove(), 1900);
 }
 
+// Новорічна: у шарі тихо падає сніг (лише transform), огники довкола — різнокольорові (CSS)
+function nySnow() {
+  const box = h('div', { class: 'ck-snow', 'aria-hidden': 'true' });
+  for (let i = 0; i < 22; i += 1) {
+    const s = h('i');
+    const d = 6 + Math.random() * 6;
+    s.style.cssText = `left:${(Math.random() * 100).toFixed(1)}%;--z:${(3 + Math.random() * 4).toFixed(1)}px;--d:${d.toFixed(1)}s;`
+      + `--delay:${(-Math.random() * d).toFixed(1)}s;--dx:${(Math.random() * 60 - 30).toFixed(0)}px`;
+    box.append(s);
+  }
+  return box;
+}
+
+// gold: false — звичайна, true — золота, 'ny' — новорічна (золота й ще чарівніша)
 function show(day, gold, preset = null, preview = false) {
+  const ny = gold === 'ny';
   const me = who();
   const text = preset || fortuneFor(day, DATA.side, gold);
   const close = () => { layer.classList.add('is-leaving'); setTimeout(() => layer.remove(), reduceMotion ? 0 : 300); };
@@ -210,7 +249,7 @@ function show(day, gold, preset = null, preview = false) {
     onclick: async () => {
       shareBtn.disabled = true;
       try {
-        await send('letters', 'POST', { kind: 'now', text: `🥠 ${gold ? 'Мне выпала золотая печенька' : 'Мне выпало'}: «${text}»`, mascot: petFor('push') });
+        await send('letters', 'POST', { kind: 'now', text: `🥠 ${ny ? 'Мне выпала новогодняя печенька' : gold ? 'Мне выпала золотая печенька' : 'Мне выпало'}: «${text}»`, mascot: petFor('push') });
         document.dispatchEvent(new CustomEvent('radovalka:sent'));
         toast(`Отправлено ${me.partner === 'она' ? 'ей' : 'ему'} 🥠`);
         close();
@@ -224,10 +263,11 @@ function show(day, gold, preset = null, preview = false) {
   const cookie = h('button', { type: 'button', class: 'ck-cookie', 'aria-label': 'Разломить печеньку', html: cookieHtml() });
   const closeBtn = h('button', { type: 'button', class: 'btn', onclick: close }, 'Закрыть');
   const acts = h('div', { class: 'actions ck-acts' }, closeBtn, shareBtn);
-  const title = h('p', { class: 'ck-title' }, gold ? 'Золотая печенька ✨' : 'Тебе печенька 🥠');
+  const title = h('p', { class: 'ck-title' }, ny ? 'Новогодняя печенька 🎄' : gold ? 'Золотая печенька ✨' : 'Тебе печенька 🥠');
   const hint = h('p', { class: 'ck-hint' }, preview ? 'Пробная — коснись, чтобы разломить' : 'Коснись, чтобы разломить');
   const layer = h('div', {
-    class: `cookie-layer${gold ? ' is-gold' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': gold ? 'Золотая печенька' : 'Печенька с предсказанием',
+    class: `cookie-layer${gold ? ' is-gold' : ''}${ny ? ' is-ny' : ''}`, role: 'dialog', 'aria-modal': 'true',
+    'aria-label': ny ? 'Новогодняя печенька' : gold ? 'Золотая печенька' : 'Печенька с предсказанием',
     onclick: (e) => { if (e.target === layer && layer.classList.contains('is-open')) close(); },
   }, h('div', { class: 'ck-box' }, title, gold ? h('div', { class: 'ck-stage' }, ...goldIdle(), cookie) : cookie, paper, hint, acts));
   cookie.addEventListener('click', () => {
@@ -239,9 +279,11 @@ function show(day, gold, preset = null, preview = false) {
     if (gold) {
       goldBurst(layer, cookie);
       setTimeout(() => burst(cookie, '✨', 14), 150);
+      if (ny) setTimeout(() => burst(cookie, '❄️', 12), 380);
     }
     setTimeout(() => (shareBtn || closeBtn).focus(), 700);
   });
+  if (ny) layer.prepend(nySnow());
   document.body.append(layer);
   cookie.focus();
   sfx(gold ? 'goldIn' : 'cookieIn', 150);

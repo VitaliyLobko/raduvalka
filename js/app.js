@@ -37,6 +37,7 @@ import { startDepth, isStill, setStill } from './depth.js';
 import { maybeCookie } from './cookie.js';
 import { burst } from './fx.js';
 import { markFestive, writeDecor } from './depth.js';
+import { checkNewYear } from './newyear.js';
 import { ask } from './ask.js';
 
 // Небо його половини — під усім, фіксоване; на її половині сховане стилем
@@ -637,6 +638,7 @@ let hiddenAt = 0;
 function refreshAll() {
   checkUpdate();
   markFestive();
+  checkNewYear();
   setTimeout(maybeCookie, 1500);
   refreshLetter();
   loadSos();
@@ -981,6 +983,7 @@ async function start() {
   noteUpdated();
   checkUpdate();
   markFestive();
+  checkNewYear();
   // У «печенькин день» — печенька з передбаченням, трохи згодом після входу
   setTimeout(maybeCookie, 1500);
   // Інші пози улюбленців і оболонка в кеш — коли перший екран уже показано і його запити пішли

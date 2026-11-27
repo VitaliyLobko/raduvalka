@@ -3,6 +3,7 @@ import { DATA } from './data.js';
 import { get } from './api.js';
 import { h, toast, aboutGroup, aboutRow } from './ui.js';
 import { previewCookie, allFortunes } from './cookie.js';
+import { previewNewYear } from './newyear.js';
 import { CATS } from './plans.js';
 import { SAME_TOPICS } from './same.js';
 import { INSTRUMENTS, SOUND_NAMES, myInstrument, playAs, soundOn, soundParts } from './sound.js';
@@ -28,9 +29,10 @@ function sheet(label, cls, back, ...kids) {
 const section = (title, items) => [h('h3', { class: 'about-group-title' }, title), h('ol', { class: 'fortune-list' }, ...items)];
 
 function openFortunes() {
-  const { regular, golden } = allFortunes();
+  const { regular, golden, newYear } = allFortunes();
   sheet('Все предсказания', 'debug-sub', openDebug,
     h('h2', { class: 'title' }, 'Предсказания'),
+    ...section(`🎄 Новогодние · ${newYear.length}`, newYear.map((t) => h('li', {}, t))),
     ...section(`✨ Золотые · ${golden.length}`, golden.map((t) => h('li', {}, t))),
     ...section(`🥠 Обычные · ${regular.length}`, regular.map((t) => h('li', {}, t))));
 }
@@ -116,7 +118,9 @@ export function openDebug() {
     aboutGroup('Печеньки',
       aboutRow('🥠', 'Показать печеньку', 'Пробная: настоящую не тратит, отправить нельзя', cookie(false)),
       aboutRow('✨', 'Показать золотую', null, cookie(true)),
+      aboutRow('🎄', 'Показать новогоднюю', 'Та, что выпадет 1 января', cookie('ny')),
       aboutRow('📜', 'Все предсказания', null, sub(openFortunes))),
+    aboutGroup('Новый год', aboutRow('🎆', 'Показать Новый год', 'Отсчёт 10 секунд, салют в полночь и новогодняя печенька — пробно', () => { close(); setTimeout(previewNewYear, 300); })),
     aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),
     aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs)), bothRow()),
     aboutGroup('Звуки', aboutRow('🎻', 'Все звуки', 'Любой инструмент, любое событие', sub(openSounds))));

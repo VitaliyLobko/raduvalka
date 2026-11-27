@@ -3,6 +3,7 @@
 // чи «уменьшить движение». Шари — у CSS (.depth > i, --k — наскільки далеко зсувається шар)
 import { h, reduceMotion, sky } from './ui.js';
 import { DATA } from './data.js';
+import { sfx } from './sound.js';
 
 const MAX = 1;
 // «Движение фона» вимикається в меню (раптом укачує): нахил, пелюстки, падаюча зірка, плями — стоять
@@ -87,6 +88,49 @@ function bees(n, seed) {
   });
 }
 const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
+
+// Зимою тап по фону в неї — вихор сніжинок: закручуються від пальця, розлітаються й осідають униз.
+// WAAPI, лише transform/opacity, ~16 елементів; одночасно не більше двох вихорів
+// Новий рік у неї: гірлянда вгорі — провід провисає трьома дугами, на ньому лампочки, що мигають по черзі (CSS)
+const BULBS = ['#FF5C7A', '#FFD24A', '#5CD6A0', '#6FA8FF', '#C98BFF'];
+function garland(n) {
+  return Array.from({ length: n }, (_, i) => {
+    const u = (i + 0.5) / n;
+    const k = (u * 3) % 1;
+    const b = h('span', { class: 'bulb' });
+    // Провід — квадратична дуга: y = 4 + 64·k·(1 − k) у межах однієї дуги
+    b.style.cssText = `left:${(u * 100).toFixed(2)}%;top:${(3 + 64 * k * (1 - k)).toFixed(1)}px;--c:${BULBS[i % BULBS.length]};--i:${i % 3}`;
+    return b;
+  });
+}
+let whirls = 0;
+function snowWhirl(x, y) {
+  if (reduceMotion || whirls > 1 || document.documentElement.classList.contains('is-still')) return;
+  whirls += 1;
+  const box = h('div', { class: 'snow-whirl', 'aria-hidden': 'true' });
+  document.body.append(box);
+  const N = 16;
+  const turn = Math.random() < 0.5 ? -1 : 1;
+  for (let i = 0; i < N; i += 1) {
+    const f = h('span', { html: FLAKE });
+    box.append(f);
+    const a = (i / N) * Math.PI * 2 + Math.random() * 0.4;
+    const d = 34 + Math.random() * 52;
+    const s = 0.55 + Math.random() * 0.8;
+    const spin = turn * (200 + Math.random() * 260);
+    // Точка на спіралі: кут повертається, радіус росте — виходить вихор, а не просто вибух
+    const at = (k, fall, sc, rot, opacity, offset) => {
+      const ang = a + turn * k * 1.4;
+      const px = x + Math.cos(ang) * d * k - 7;
+      const py = y + Math.sin(ang) * d * k - 7 + fall;
+      return { opacity, offset, transform: `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px) rotate(${rot.toFixed(0)}deg) scale(${sc.toFixed(2)})` };
+    };
+    f.animate([at(0, 0, 0.3, 0, 0, 0), at(0.55, 0, s, spin * 0.3, 1, 0.18), at(1, 10, s, spin * 0.6, 1, 0.5),
+      at(1.1, 80 + Math.random() * 70, s * 0.8, spin, 0, 1)], { duration: 1700 + Math.random() * 700, easing: 'cubic-bezier(.2,.7,.4,1)', fill: 'both' });
+  }
+  sfx('react');
+  setTimeout(() => { box.remove(); whirls -= 1; }, 2600);
+}
 
 // Сузірʼя спалахує зірка за зіркою (збіг у «Планах», тап по сузірʼю на фоні)
 export function flashConstellation() {
@@ -244,7 +288,8 @@ export function startDepth() {
   const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
-    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), h('span', { class: 'meteor meteor-vona' })));
+    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), h('span', { class: 'meteor meteor-vona' })),
+    h('i', { class: 'dv-garland' }, ...garland(14)));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
     h('i', { class: 'ds-chart', html: CHART }),
@@ -271,6 +316,7 @@ export function startDepth() {
     const el = document.querySelector('[data-side="vona"] .depth-vona .sgr, [data-side="vin"] .depth-vin .sgr');
     const r = el?.getBoundingClientRect();
     if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) shootConstellation();
+    else if (DATA.side !== 'vin' && document.documentElement.classList.contains('is-winter')) snowWhirl(e.clientX, e.clientY);
   });
   if (reduceMotion) return;
 
