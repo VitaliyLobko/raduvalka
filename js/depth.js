@@ -175,6 +175,13 @@ function leafGust(y0 = innerHeight * (0.22 + Math.random() * 0.4)) {
   document.body.append(box);
   setTimeout(() => { box.remove(); gusting = false; }, 5000);
 }
+// Порив за сезоном (звоночок): у неї навесні пелюстки, восени листя, взимку сніг; влітку й у нього — false (там свої зорі)
+export function seasonGust() {
+  const html = document.documentElement;
+  if (html.dataset.side !== 'vona' || !['is-autumn', 'is-winter', 'is-spring'].some((c) => html.classList.contains(c))) return false;
+  leafGust();
+  return true;
+}
 // Восени й узимку порив — раз на півтори хвилини з імовірністю 45 %, перший невдовзі після відкриття
 function gustLoop() {
   const html = document.documentElement;

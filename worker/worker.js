@@ -241,15 +241,17 @@ async function route(req, env, ctx, info = {}) {
   info.path = path;
 
   if (m === 'GET' && path === 'pulse') {
-    const [v, partnerPush, sos, bell, swap] = await Promise.all([
+    const [v, partnerPush, sos, bell, swap, bellAns] = await Promise.all([
       getDoc(env.DB, `pulse:${side}`),
       hasPush(env.DB, other(side)),
       // «Нужна помощь» — окрема мітка: телефон малює її одразу, навіть коли решта оновлення чекає
       env.DB.prepare("SELECT MAX(updated) u FROM docs WHERE k IN ('sos:vona', 'sos:vin')").first('u'),
       getDoc(env.DB, `bell:${side}`),
       getDoc(env.DB, 'swap'),
+      // Відповідь на мій дзвінок: { at, a: 'go' | 'later' }
+      getDoc(env.DB, `bellans:${side}`),
     ]);
-    return json({ v: v || 0, partnerPush, sos: sos || 0, bell: bell?.at || 0, swap: liveSwap(swap) });
+    return json({ v: v || 0, partnerPush, sos: sos || 0, bell: bell?.at || 0, swap: liveSwap(swap), bellAns: bellAns || null });
   }
 
   if (path === 'push-key' || path === 'push' || path === 'push-test') return pushRoute(req, env, side, path);
@@ -376,6 +378,20 @@ async function route(req, env, ctx, info = {}) {
     await addMark(env.DB, side, 'bell', now);
     if (reaches) notify.send(other(side), bellNote(side));
     return json({ reaches, sent: reaches && notify.on });
+  }
+  // Відповідь на дзвоночок: «🏃 Иду!» чи «⏳ Чуть позже» — тому, хто кликав: у pulse і push
+  if (m === 'POST' && path === 'bell/answer') {
+    const b = await readJson(req);
+    const a = b.a === 'go' || b.a === 'later' ? b.a : null;
+    if (!a) throw fail(400, 'answer');
+    const call = await getDoc(env.DB, `bell:${side}`);
+    const now = Date.now();
+    if (!call?.at || now - call.at > BELL_ANSWER_MS) throw fail(409, 'old');
+    if (call.answered) return json({ ok: true, again: true });
+    await putDoc(env.DB, `bell:${side}`, { ...call, answered: now });
+    await putDoc(env.DB, `bellans:${other(side)}`, { at: now, a, call: call.at });
+    if (await hasPush(env.DB, other(side))) notify.send(other(side), bellAnswerNote(side, a));
+    return json({ ok: true });
   }
   // «🫡 Да, капитан!» у відповідь на повідомлення другого: рядок у чаті в обох (цитата — у mood) і push другому
   if (m === 'POST' && path === 'captain') {
@@ -1657,6 +1673,8 @@ const FEED_PAGE = 40;
 const AI_BATCH = 30 * 60000;
 // «🔔 Звоночек» поспіль від того самого — один рядок із лічильником
 const BELL_EVERY = 60000;
+// Відповісти на дзвоночок можна пів години
+const BELL_ANSWER_MS = 30 * 60000;
 const BELL_BATCH = 10 * 60000;
 function bellBatches(rows) {
   const out = [];
@@ -4723,7 +4741,16 @@ function captainNote(from, quote) {
 
 // Сердечко з листівки «Вместе»: тап — одразу шторка, там воно прилетить
 function bellNote(from) {
-  return { title: '🔔 Звоночек', body: sender(from, 'Он потряс телефон — зовёт тебя, загляни 💛', 'Она потрясла телефон — зовёт тебя, загляни 💕'), tag: 'bell', go: 'letter', buzz: true };
+  const h = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: STOCK_TZ }).format(new Date()));
+  const night = h >= 23 || h < 8;
+  return { title: '🔔 Звоночек', body: sender(from, 'Он потряс телефон — зовёт тебя, загляни 💛', 'Она потрясла телефон — зовёт тебя, загляни 💕'), tag: 'bell', go: 'letter', buzz: !night };
+}
+function bellAnswerNote(from, a) {
+  return {
+    title: a === 'go' ? '🏃 Ответ на звоночек' : '⏳ Ответ на звоночек',
+    body: a === 'go' ? sender(from, 'Он уже идёт!', 'Она уже идёт!') : sender(from, 'Он подойдёт чуть позже', 'Она подойдёт чуть позже'),
+    tag: 'bell-answer', go: 'letter',
+  };
 }
 function heartNote(from) {
   return { title: '💞 Сердечко', body: sender(from, 'Он отправил тебе сердечко с Юпитера', 'Она отправила тебе сердечко с Земли'), tag: 'heart', go: 'together' };

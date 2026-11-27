@@ -6108,3 +6108,17 @@ html[data-side="vona"]:not(.is-winter):not(.is-summer):not(.is-autumn)[data-dark
 /* Весною порив несе пелюстки сакури: дрібніші за листя й мʼякші */
 .petal-gust span { width: 14px; height: 14px; }
 .petal-gust svg { opacity: .95; filter: drop-shadow(0 1px 1px rgba(160, 60, 110, .25)); }
+/* Звоночек: поки трусиш — дзвіночок угорі гойдається дедалі сильніше, «Ещё! 1 из 3» */
+.bell-shake { position: fixed; top: calc(env(safe-area-inset-top) + 64px); left: 50%; z-index: 70; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; background: var(--paper); color: var(--plum); font-weight: 700; box-shadow: 0 8px 20px -8px rgba(42, 23, 48, .45); transform: translateX(-50%); pointer-events: none; }
+.bell-shake-ic { display: inline-block; font-size: 1.6rem; transform-origin: 50% 10%; animation: bell-swing .32s ease-in-out infinite alternate; }
+.bell-shake[data-n="1"] .bell-shake-ic { --a: 14deg; }
+.bell-shake[data-n="2"] .bell-shake-ic { --a: 30deg; animation-duration: .2s; }
+@keyframes bell-swing { from { transform: rotate(calc(var(--a, 14deg) * -1)); } to { transform: rotate(var(--a, 14deg)); } }
+/* Тому, кого кличуть: картка над вкладками — «Иду!» і «Чуть позже» */
+.bell-card { position: fixed; left: 50%; bottom: calc(var(--tabs-h, 84px) + 14px); z-index: 70; width: min(92vw, 380px); padding: 14px 14px 12px; border-radius: 22px; background: var(--paper); color: var(--plum); box-shadow: 0 14px 34px -12px rgba(42, 23, 48, .55); transform: translateX(-50%); animation: rise .25s ease-out; }
+.bell-card-title { display: flex; align-items: center; gap: 10px; margin: 0 28px 10px 0; font: 1.6rem/1.2 var(--hand); }
+.bell-card-ic { display: inline-block; font-size: 2rem; transform-origin: 50% 10%; animation: bell-swing .3s ease-in-out 6 alternate; --a: 22deg; }
+.bell-card-acts { display: flex; gap: 8px; }
+.bell-card-acts .btn { flex: 1; }
+.bell-card-x { position: absolute; top: 8px; right: 8px; }
+@media (prefers-reduced-motion: reduce) { .bell-shake-ic, .bell-card-ic { animation: none; } }
