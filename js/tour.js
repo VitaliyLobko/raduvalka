@@ -1,34 +1,140 @@
-// Міні-тур при першому відкритті: улюбленці по черзі підсвічують головне на «Письмах».
-// Вкладок не перемикає — інакше з'їв би позначки «нове» в хотілках і планах
+// Знайомство від улюбленців. Перший день — тур: вітання, доступи одним тапом і головне на «Письмах».
+// Далі щодня один «секретик» (раз на добу за Києвом, не в день туру): улюбленець вибовкує фішку й підсвічує, де вона.
+// Розказані збираються в меню «Секретики питомцев». Ролі: push — собака-листоноша, memes — кіт, aside — лінива кішка.
+// Тексти без роду читача; рід другого — з who(). Про сюрпризи лише натякаємо; сезони, свята, Луну й «Её фото» не чіпаємо
 import { mascotImg, petName, petFor } from './icons.js';
-import { h, reduceMotion } from './ui.js';
-import { who } from './data.js';
+import { h, reduceMotion, toast } from './ui.js';
+import { DATA, who } from './data.js';
+import { turnOn } from './push.js';
 
 const KEY = 'radovalka:toured';
+const DAY_KEY = 'radovalka:toured-day';
+const SECRETS_KEY = 'radovalka:secrets';
 
-// sel — що підсвітити (перше видиме), who — роль улюбленця; кого немає на екрані — крок пропускаємо
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(new Date());
+const her = () => DATA.side !== 'vin';
+// «у него» / «у неё», «его» / «её» — про другого
+const gen = () => (her() ? 'него' : 'неё');
+const pet = (role) => petName(petFor(role)) || '';
+
+// sel — що підсвітити (перше видиме зі списку); без sel або коли цілі нема — картка посередині.
+// side — лише для цієї половини; perms — крок дозволів
 const STEPS = [
-  // Чат: у перший день там лише запечатаний привітальний конверт — про нього; далі — про свайпи
+  {
+    who: 'push',
+    text: () => `Радовалка — любовь в каждом пикселе! 💜 Я ${pet('push')}, ношу письма. ${pet('memes')} носит фото и гифки, `
+      + `${pet('aside')} в основном лежит. Покажем, что тут где. Быстро, быстрее, чем я бегу к миске.`,
+  },
+  {
+    who: 'memes',
+    perms: true,
+    text: 'Сначала формальности. Мне нужны три разрешения, и повторять я не люблю:',
+  },
   {
     sel: '.feed-row.is-sealed, .feed-row.is-theirs, .feed-box .mk-wait, .feed-box',
     who: 'push',
     text: () => (document.querySelector('.feed-row.is-sealed')
-      ? 'Это ваш чат: письма, ответы, фото и гифки, новое внизу. Письмо я приношу конвертом и стучу уведомлением. Тап по конверту, и оно откроется 🐾'
-      : document.querySelector('.feed-row')
-        ? 'Это ваш чат: новое внизу. Смахни сообщение вправо — ответить.'
-        : 'Это ваш чат. Письма, ответы, фото и гифки будут появляться здесь, новое внизу.'),
+      ? 'Это ваш чат. Письма приношу я, конвертом, и стучу уведомлением. Тап по конверту, и оно откроется. Сосиска за доставку не обязательна, но приветствуется 🌭'
+      : 'Это ваш чат: новое внизу. Смахни сообщение вправо, чтобы ответить. Тап по цитате вернёт к тому сообщению.'),
   },
-  { sel: '.checkin-row', who: 'push', text: () => `Тап по «Я в порядке», и ${who().partner} узнает, что всё хорошо. А если нужна помощь, проведи красный кружок вправо.` },
-  { sel: '.cbar-row', who: 'memes', text: 'А тут — написать: письмо, записку в конверт, фото или гифку. Фото и гифки ношу я 😹' },
-  { sel: '.tab[data-tab=envelopes]', who: 'push', text: 'Конверты «Открой, когда…»: тяжёлый день, скучаешь, не спится. Открывай подходящий.' },
-  { sel: '.tab[data-tab=plans]', who: 'memes', text: 'Планы: листай идеи, куда пойти. Совпало у вас обоих — значит, идём!' },
-  { sel: '.tab[data-tab=wish]', who: 'push', text: () => `Хотелки: пиши, чего хочется, и подглядывай, что хочется ${who().toWhom}.` },
-  { sel: '#about-btn', who: 'memes', text: 'Тап по «Радовалка» — меню: сколько вы вместе и сколько до встречи, размер букв, уведомления. Загляни, когда соскучишься 💞' },
+  {
+    sel: '.checkin-row, .top-heart',
+    who: 'push',
+    text: () => `Тап по «Я в порядке», и ${who().partner} узнает, что всё хорошо. Подержи ❤, чтобы добавить настроение, от «хочу обнимашек» до «злюсь». А «💬 Как ты?» спрашивает одним тапом.`,
+  },
+  {
+    sel: '.sos-slider, .top-sos',
+    who: 'aside',
+    text: () => `Красное — это серьёзно. Проведи кружок вправо (или 🆘 в шапке), и у ${gen()} громко зазвонит, даже без звука: с местом на карте и голосовым. Ради такого я даже встану.`,
+  },
+  {
+    sel: '.cbar-row, .cbar',
+    who: 'memes',
+    text: 'Здесь пишут. «＋» — фото, гифки, голос, файлы, наклейки, письмо ко времени и игры. Над строкой видно, кто понесёт: смахни мордочку, чтобы выбрать другого. Выбирай меня, я хотя бы не грызу конверты.',
+  },
+  {
+    sel: '.cbar-act, .cbar-row',
+    who: 'push',
+    text: 'Удерживай 🎤 и говори, отпусти — ушло. Вверх — замок, чтобы не держать. Влево — передумалось. Лаять в микрофон можно, я проверяла.',
+  },
+  {
+    sel: '.feed-row:not(.is-sealed), .feed-box',
+    who: 'memes',
+    text: 'Подержи палец на сообщении: реакции. У каждой своя анимация, некоторые очень драматичные. Только не ставь мне 🤮, я ранимый.',
+  },
+  {
+    who: 'push',
+    text: () => `🔔 Звоночек: потряси телефон с открытой Радовалкой, и у ${gen()} телефон забьётся сердцем, зазвенит и осыплет лепестками. Трясти надо телефон. Меня не надо.`,
+  },
+  {
+    sel: '.tab[data-tab=envelopes]',
+    who: 'aside',
+    text: 'Конверты «Открой, когда…»: тяжёлый день, скучаешь, не спится. Открывай подходящий, внутри записка. «Не спится» мой любимый: я его не открываю, я сразу сплю.',
+  },
+  {
+    sel: '.tab[data-tab=plans]',
+    who: 'memes',
+    text: () => `Планы: листай идеи, ❤️ или ✕. Совпало у обоих — значит, идёте. Наверху «Вместе»: сколько до встречи, а сердечко можно донести пальцем до ${her() ? 'его' : 'её'} планеты. Я давно знал, чем это кончится.`,
+  },
+  {
+    sel: '.tab[data-tab=wish]',
+    who: 'push',
+    text: () => `Хотелки: пиши, чего хочется, и подглядывай, что хочется ${who().toWhom}. Отметки «присмотрено» и «куплено» видны только тебе. Молчу как рыба. Ну, как собака.`,
+  },
+  {
+    sel: '#about-btn',
+    who: 'push',
+    side: 'vona',
+    text: 'В меню → «Фото и песни» есть альбом «Его фото». Положи туда его снимки: поставишь 🛡️ на его письмо, и он появится прямо в щите. Защитник на посту, как я у миски.',
+  },
+  {
+    sel: '#about-btn',
+    who: 'aside',
+    text: 'Тап по «Радовалка» — меню: буквы, звуки, оформление, замок. И каждый день кто-то из нас выболтает по секретику, их тут много. Рассказала бы всё сразу, но лень.',
+  },
 ];
 
-const toured = () => {
-  try { return localStorage.getItem(KEY) === '1'; } catch { return true; }
+// Секретики: по одному в день, у порядку. Перший вільний — той, що ще не розказано (лічильник на телефоні)
+const SECRETS = [
+  { who: 'memes', sel: '.cbar-row', text: 'Не знаешь, что написать? В «Написать…» есть «✨ Помочь»: выбери повод и настроение, и будут варианты. Я бы и сам помог, но у меня лапки.' },
+  { who: 'push', text: 'Раз в пару дней на экран прилетит печенька 🥠. Коснись, и она разломится. Что внутри, не скажу: я её не ела. Честно. Почти.' },
+  { who: 'aside', text: 'На фоне есть созвездие Стрельца. Тапни по нему. Что будет — не скажу: объяснять лень, а смотреть интересно.' },
+  { who: 'memes', sel: '.cbar-row', text: '«＋» → 🎲 Игры: крестики, «Четыре в ряд», морской бой, «Найди пару» с нами на карточках. Играть можно на желание или на посуду. Я за посуду, мне всё равно не мыть.' },
+  { who: 'push', text: 'В морском бое в кораблик можно спрятать записку. Её прочитают, только когда потопят. Топить корабли ради записки — это романтично, я считаю.' },
+  { who: 'aside', text: 'В «Играх» есть дверь «Для двоих» 🔒. Мы туда не заходим, мы воспитанные. Но иногда подслушиваем.' },
+  { who: 'memes', sel: '.cbar-row', text: 'В «＋» есть 🐾 Наклейка: можно отправить в чат кого-то из нас. Выбирай меня, у меня лучший профиль.' },
+  { who: 'push', sel: '.cbar-row', text: 'Фото перед отправкой можно украсить: подпись, наклейки, рамка-сердце или щит, полароид, карандаш. А 💧 замажет то, что видеть не надо. Например, мою миску.' },
+  { who: 'memes', sel: '.cbar-row', text: 'Гифки ищутся своими словами, по-русски: «обнимаю», «скучаю по тебе», «я злой кот». Последнее, кстати, про меня есть.' },
+  { who: 'push', sel: '.cbar-row', text: '«＋» → 🎉 Праздничное: золотой конверт, хлопушки, конфетти, и приносим его мы все вместе. Я в колпаке. Не смейся.' },
+  { who: 'aside', sel: '.cbar-row', text: '«＋» → 🕐 Ко времени: письмо придёт в нужный день и час. Можно написать сейчас, а отправить утром. Утром я сплю, но письмо донесут.' },
+  { who: 'memes', text: () => `В реакциях есть группа «Про нас»: 🪐 Юпитер, 🏹 стрела Стрельца, 🌌 «Вселенная нас любит». Для 🌌 положи ваши фото в меню → «Фото и песни» → «Наши фото».` },
+  { who: 'push', text: 'Среди реакций есть 🫡 «Да, капитан!». На сообщение падает пиратская треуголка. Я её ношу по выходным.' },
+  { who: 'aside', sel: '.tab[data-tab=envelopes]', text: () => `Конверт оказался пустым? ${who().partner === 'он' ? 'Он' : 'Она'} узнает и допишет. А под конвертом есть «перечитать», там все старые записки. Я их перечитываю. Перед сном. Вместо сна.` },
+  { who: 'memes', sel: '.tab[data-tab=plans]', text: 'В «Планах» у идеи три ответа: ❤️, ✕ и ⏳ «потом». Отложенные лежат внизу и ждут. Я тоже всё откладываю, это называется мудрость.' },
+  { who: 'push', sel: '.tab[data-tab=plans]', text: '🎰 «Наугад» в «Планах»: один зовёт крутить, второй жмёт «Готов», и барабан выбирает из ваших общих тем. Что выпало, то и решено. Спорить с барабаном бесполезно, я пробовала.' },
+  { who: 'aside', sel: '.tab[data-tab=plans]', text: 'В «Планах» есть кнопка 🍓. Что она делает, узнаешь, если нажать. Я отвернусь. Я и так всё время отвёрнута, я сплю.' },
+  { who: 'memes', sel: '.tab[data-tab=wish]', text: 'Вставь в «Хотелки» ссылку из магазина и нажми «✨ Заполнить»: название, цена и фото встанут сами. А «К дате» подскажет, к какому празднику.' },
+  { who: 'push', sel: '#about-btn', text: 'Меню → «Письма» → шрифт: Почерк, Открытка, Мягкий, Книжный. Там же «Открывать письма сразу», если конверты долго открывать. Мне не долго, я зубами.' },
+  { who: 'aside', sel: '#about-btn', text: 'Меню → «Звуки» → «Мой инструмент»: у каждого свой, письмо звучит инструментом того, кто прислал. Мой инструмент — храп.' },
+  { who: 'memes', sel: '#about-btn', text: () => `В «Оформлении» есть кнопка для розыгрыша. Нажмёшь, и ${who().partner} очень удивится. Подробностей не будет, я в этом не участвую. Наверное.` },
+  { who: 'push', sel: '#about-btn', text: 'В «Оформлении» тему можно сделать «По времени»: ночная включится на закате и выключится на рассвете. Как я: на закате лаю, на рассвете тоже.' },
+  { who: 'aside', text: 'Наклони телефон: фон уходит в глубину. Если укачивает, в меню → «Оформление» есть «Движение фона». Меня укачивает от любого движения.' },
+  { who: 'memes', sel: '#about-btn', text: 'Меню → «Замок»: PIN или отпечаток при входе. «Нужна помощь» работает и с замка. Я за безопасность, особенно моей миски.' },
+  { who: 'push', text: 'Фото из любой галереи можно отправить сюда через «Поделиться» → «Радовалка». Сразу откроется редактор. Я бы поделилась и сосиской, но не делюсь.' },
+  { who: 'memes', sel: '.feed-box', text: 'Тап по дате в чате («Вчера», «12 ноября») сворачивает весь день. А ⋯ рядом с «Письма» очистит чат, только у тебя, и вернёт обратно. Порядок я люблю.' },
+  { who: 'aside', sel: '#about-btn', text: 'Меню → «Фото и песни» → 🎵 Плейлист: все песни из ваших писем, можно слушать подряд. Под них отлично лежится.' },
+  { who: 'push', sel: '.feed-box', text: 'Голосовое можно слушать на скорости 1×–2×. На 2× я звучу как щенок. Не проверяй.' },
+  { who: 'memes', text: 'Нет связи? Радовалка покажет последнее и сама отправит, когда связь появится. А всё, что вы пишете, зашифровано: видите только вы двое. Даже я не читаю. Ну, почти не читаю.' },
+  { who: 'aside', text: 'Секретики кончились. Дальше сами. Мы рядом: носим письма. И спим.' },
+];
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* приватне вікно */ } },
 };
+const toured = () => store.get(KEY) === '1';
+const mine = (s) => !s.side || s.side === DATA.side;
+const readSecrets = () => { try { return JSON.parse(store.get(SECRETS_KEY)) || { n: 0, day: '' }; } catch { return { n: 0, day: '' }; } };
 
 export function maybeTour() {
   if (!toured()) startTour();
@@ -41,6 +147,7 @@ const visible = (el) => {
 };
 // Варіанти через кому — за пріоритетом, а не за порядком у документі (обгортка інакше завжди перша)
 const find = (sel) => {
+  if (!sel) return null;
   for (const one of sel.split(',')) {
     // У чаті свіже — внизу: беремо останній видимий, інакше тур прокрутив би стрічку до найстаршого
     const el = [...document.querySelectorAll(one)].findLast(visible);
@@ -49,41 +156,87 @@ const find = (sel) => {
   return null;
 };
 
-export function startTour() {
-  if (document.querySelector('.tour')) return;
-  const steps = STEPS.filter((s) => find(s.sel));
-  if (!steps.length) return;
+// Крок дозволів: сповіщення, місце (для «Нужна помощь»), мікрофон — одним тапом, кожен зі своєю галочкою
+const PERMS = [
+  ['push', '🔔', 'уведомления — чтобы письмо, ход в игре и звоночек не прошли мимо'],
+  ['geo', '📍', 'место — только для «Нужна помощь», в обычные дни никто не смотрит'],
+  ['mic', '🎙', 'микрофон — для голосовых'],
+];
+async function granted(kind) {
+  if (kind === 'push') return 'Notification' in window && Notification.permission === 'granted';
+  try { return (await navigator.permissions.query({ name: kind === 'geo' ? 'geolocation' : 'microphone' })).state === 'granted'; } catch { return false; }
+}
+async function ask(kind) {
+  if (kind === 'push') return turnOn();
+  if (kind === 'geo') {
+    return new Promise((done) => {
+      if (!navigator.geolocation) { done(false); return; }
+      navigator.geolocation.getCurrentPosition(() => done(true), () => done(false), { timeout: 20000, maximumAge: 600000 });
+    });
+  }
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.getTracks().forEach((t) => t.stop());
+    return true;
+  } catch { return false; }
+}
+function permsBlock(onDone) {
+  const rows = PERMS.map(([kind, icon, label]) => {
+    const mark = h('span', { class: 'tour-perm-mark', 'aria-hidden': 'true' }, '○');
+    const li = h('li', { class: 'tour-perm' }, mark, h('span', {}, `${icon} ${label}`));
+    granted(kind).then((ok) => { if (ok) { mark.textContent = '✓'; li.classList.add('is-ok'); } });
+    return { kind, mark, li };
+  });
+  const run = async () => {
+    // Сповіщення — першими, просто з цього тапу (браузер питає лише з дотику)
+    for (const r of rows) {
+      if (r.li.classList.contains('is-ok')) continue;
+      r.mark.textContent = '…';
+      const ok = await ask(r.kind);
+      r.mark.textContent = ok ? '✓' : '✕';
+      r.li.classList.toggle('is-ok', ok);
+      r.li.classList.toggle('is-no', !ok);
+    }
+    if (rows.some((r) => !r.li.classList.contains('is-ok'))) toast('Не всё разрешено — включить можно потом в настройках телефона');
+    onDone();
+  };
+  return { list: h('ul', { class: 'tour-perms' }, ...rows.map((r) => r.li)), run };
+}
+
+// Спільний шар: підсвітка цілі й картка з улюбленцем. steps — список кроків; secret — режим секретика
+function overlay(steps, { secret = false, onFinish = () => {} } = {}) {
   let i = -1;
-
   const hole = h('div', { class: 'tour-hole', 'aria-hidden': 'true' });
-  const pet = h('span', { class: 'mascot tour-pet', 'aria-hidden': 'true' });
-  const say = h('p', { class: 'bubble tour-say', 'aria-live': 'polite' });
-  const dots = h('span', { class: 'tour-dots', 'aria-hidden': 'true' }, ...steps.map(() => h('i')));
-  const next = h('button', { type: 'button', class: 'btn btn-primary tour-next', onclick: () => go(i + 1) }, 'Дальше');
-  const card = h('div', { class: 'tour-card' },
-    h('div', { class: 'tour-talk' }, pet, say),
-    h('div', { class: 'tour-foot' },
-      h('button', { type: 'button', class: 'btn tour-skip', onclick: () => finish() }, 'Пропустить'),
-      dots, next));
+  const petEl = h('span', { class: 'mascot tour-pet', 'aria-hidden': 'true' });
+  const say = h('div', { class: 'bubble tour-say', 'aria-live': 'polite' });
+  const dots = h('span', { class: 'tour-dots', 'aria-hidden': 'true' }, ...(secret ? [] : steps.map(() => h('i'))));
+  // Обробник — властивістю onclick (go ставить свій на кожен крок, а крок дозволів — «Разрешить»)
+  const next = h('button', { type: 'button', class: 'btn btn-primary tour-next' }, 'Дальше');
+  const skip = h('button', { type: 'button', class: 'btn tour-skip', onclick: () => (secret ? finish(openSecrets) : finish()) }, secret ? 'Все секретики' : 'Пропустить');
+  const card = h('div', { class: 'tour-card' }, h('div', { class: 'tour-talk' }, petEl, say), h('div', { class: 'tour-foot' }, skip, dots, next));
   // Шар ловить усі дотики: під час туру нічого під ним не натискається
-  const root = h('div', { class: 'tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Знакомство с Радовалкой' }, hole, card);
-
+  const root = h('div', { class: 'tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': secret ? 'Секретик от питомца' : 'Знакомство с Радовалкой' }, hole, card);
   const onKey = (e) => { if (e.key === 'Escape') finish(); };
-  const onResize = () => place(find(steps[i].sel));
+  const onResize = () => place(find(steps[i]?.sel));
 
-  function finish() {
-    try { localStorage.setItem(KEY, '1'); } catch { /* приватне вікно — покажемо ще раз, не страшно */ }
+  function finish(then) {
     document.removeEventListener('keydown', onKey);
     removeEventListener('resize', onResize);
     root.remove();
-    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
-    // Чат — знову на свіжому
-    const box = document.querySelector('.feed-box');
-    box?.scrollTo({ top: box.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
+    onFinish();
+    then?.();
   }
 
   function place(el) {
-    if (!el) return;
+    if (!el) {
+      // Без цілі — уся сторінка під завісою, картка посередині
+      Object.assign(hole.style, { top: '50%', left: '50%', width: '0px', height: '0px' });
+      card.classList.add('is-center');
+      card.style.top = '';
+      card.style.bottom = '';
+      return;
+    }
+    card.classList.remove('is-center');
     const r = el.getBoundingClientRect();
     const pad = 8;
     // Висока ціль (довга стрічка) — підсвічуємо лише верх, щоб картці лишилось місце
@@ -104,22 +257,30 @@ export function startTour() {
     i = n;
     const s = steps[i];
     const el = find(s.sel);
-    if (!el) { go(i + 1); return; }
     // Нижнє меню нерухоме; решту (і шапку — вона їде разом зі сторінкою) — у середину екрана
-    if (!el.closest('.tabs')) el.scrollIntoView({ block: 'center' });
+    if (el && !el.closest('.tabs')) el.scrollIntoView({ block: 'center' });
     place(el);
-    const who = petFor(s.who);
-    const name = petName(who);
-    pet.innerHTML = who ? mascotImg(who, i === steps.length - 1 ? 'festive' : 'main') : '';
-    pet.hidden = !who;
-    say.replaceChildren(...[name ? h('b', {}, `${name}: `) : null, typeof s.text === 'function' ? s.text() : s.text].filter(Boolean));
+    const key = petFor(s.who);
+    const name = petName(key);
+    const last = i === steps.length - 1;
+    petEl.innerHTML = key ? mascotImg(key, last || i === 0 ? 'festive' : 'main') : '';
+    petEl.hidden = !key;
+    const text = typeof s.text === 'function' ? s.text() : s.text;
+    say.replaceChildren(h('p', {}, ...[name ? h('b', {}, `${name}: `) : null, text].filter(Boolean)));
+    next.textContent = secret ? 'Понятно 🐾' : last ? 'Начнём 💜' : 'Дальше';
+    next.onclick = () => go(i + 1);
+    if (s.perms) {
+      const { list, run } = permsBlock(() => { next.textContent = 'Дальше'; next.disabled = false; next.onclick = () => go(i + 1); });
+      say.append(list);
+      next.textContent = 'Разрешить 🐾';
+      next.onclick = () => { next.disabled = true; run(); };
+    }
     // Улюбленці говорять по черзі з різних боків — і щоразу заново «застрибують»
     card.classList.toggle('is-right', i % 2 === 1);
-    pet.classList.remove('is-hop');
-    void pet.offsetWidth;
-    pet.classList.add('is-hop');
+    petEl.classList.remove('is-hop');
+    void petEl.offsetWidth;
+    petEl.classList.add('is-hop');
     [...dots.children].forEach((d, k) => d.classList.toggle('is-on', k === i));
-    next.textContent = i === steps.length - 1 ? 'Начнём 💜' : 'Дальше';
     next.focus({ preventScroll: true });
   }
 
@@ -127,4 +288,68 @@ export function startTour() {
   document.addEventListener('keydown', onKey);
   addEventListener('resize', onResize);
   go(0);
+}
+
+export function startTour() {
+  if (document.querySelector('.tour')) return;
+  overlay(STEPS.filter(mine), {
+    onFinish: () => {
+      store.set(KEY, '1');
+      // У день туру секретиків не буде — перший завтра
+      if (!store.get(DAY_KEY)) store.set(DAY_KEY, today());
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      // Чат — знову на свіжому
+      const box = document.querySelector('.feed-box');
+      box?.scrollTo({ top: box.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
+    },
+  });
+}
+
+// Секретик дня: лише після туру, не в його день, раз на добу, коли на екрані нічого не відкрито і видно «Письма»
+const BUSY = '.tour, .welcome, .backdrop, .reader, .cookie-layer, .sheet, .photo-view, .plan-match, .lock, .pin-keys';
+const mySecrets = () => SECRETS.filter(mine);
+export function maybeSecret() {
+  if (!toured() || document.visibilityState !== 'visible' || document.body.classList.contains('is-booting')) return;
+  const d = today();
+  const st = readSecrets();
+  if (store.get(DAY_KEY) === d || st.day === d || st.n >= mySecrets().length) return;
+  if (document.querySelector(BUSY) || !document.querySelector('.tab.is-active[data-tab="letter"]')) return;
+  const s = mySecrets()[st.n];
+  store.set(SECRETS_KEY, JSON.stringify({ n: st.n + 1, day: d }));
+  overlay([s], { secret: true });
+}
+// Старт, повернення в застосунок і хвилинна перевірка: зайняте зараз — спробуємо пізніше
+let secretTimer = 0;
+export function watchSecrets() {
+  const later = (ms) => { clearTimeout(secretTimer); secretTimer = setTimeout(maybeSecret, ms); };
+  later(6000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') later(4000); });
+  setInterval(maybeSecret, 60000);
+}
+
+// Меню → «Секретики питомцев»: уже розказані, решта — замочками
+export const secretsNote = () => {
+  const n = Math.min(readSecrets().n, mySecrets().length);
+  return n ? `Рассказано ${n} из ${mySecrets().length}` : 'Питомцы начнут выбалтывать со следующего дня';
+};
+export function openSecrets() {
+  const all = mySecrets();
+  const n = Math.min(readSecrets().n, all.length);
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { document.removeEventListener('keydown', onKey); box.remove(); backdrop.remove(); };
+  const items = all.slice(0, n).map((s) => {
+    const name = petName(petFor(s.who));
+    return h('li', { class: 'secret-item' }, name ? h('b', {}, `${name}: `) : null, typeof s.text === 'function' ? s.text() : s.text);
+  });
+  const rest = all.length - n;
+  const backdrop = h('div', { class: 'backdrop', onclick: close });
+  const box = h('div', { class: 'sheet sheet-together sheet-about sheet-secrets', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Секретики питомцев' },
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕'),
+    h('div', { class: 'sheet-inner' },
+      h('h2', { class: 'title' }, 'Секретики питомцев'),
+      h('p', { class: 'about-sub' }, secretsNote()),
+      items.length ? h('ol', { class: 'secret-list' }, ...items) : null,
+      rest ? h('p', { class: 'secret-rest' }, `🔒 Ещё ${rest} — по одному в день`) : null));
+  document.body.append(backdrop, box);
+  document.addEventListener('keydown', onKey);
 }

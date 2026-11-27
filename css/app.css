@@ -2800,17 +2800,31 @@ a.want-body:active { background: color-mix(in srgb, var(--lavender) 25%, transpa
 .tour-card.is-right .tour-talk { flex-direction: row-reverse; }
 .tour-pet { width: 76px; height: 76px; }
 .tour-say { flex: 1; margin: 0; font-size: 1rem; line-height: 1.4; }
+.tour-say p { margin: 0; }
+/* Без цілі — картка посередині екрана */
+.tour-card.is-center { top: 50%; transform: translate(-50%, -50%); }
+/* Крок дозволів: три рядки з галочками */
+.tour-perms { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: .9rem; line-height: 1.3; }
+.tour-perm { display: flex; gap: 8px; align-items: flex-start; }
+.tour-perm-mark { flex: none; width: 1.2em; text-align: center; font-weight: 700; color: var(--ink-soft); }
+.tour-perm.is-ok .tour-perm-mark { color: #3E9B5A; }
+.tour-perm.is-no .tour-perm-mark { color: #C2452D; }
+.tour-next:disabled { opacity: .6; }
+/* Меню → «Секретики питомцев» */
+.secret-list { margin: 0 0 14px; padding-left: 24px; display: grid; gap: 10px; font-size: .95rem; line-height: 1.4; }
+.secret-list li::marker { color: var(--ink-soft); }
+.secret-rest { margin: 0 0 14px; color: var(--ink-soft); }
 .tour-card.is-right .tour-say { border-radius: 16px 16px 4px 16px; }
 .tour-pet.is-hop { animation: tour-hop .55s cubic-bezier(.3, 1.5, .5, 1); }
 .tour-card.is-right .tour-pet.is-hop { animation-name: tour-hop-r; }
 @keyframes tour-hop { from { opacity: 0; transform: translate(-40px, 20px) scale(.6) rotate(-12deg); } }
 @keyframes tour-hop-r { from { opacity: 0; transform: translate(40px, 20px) scale(.6) rotate(12deg); } }
 .tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
-.tour-skip { min-height: 42px; border-color: transparent; background: none; color: #f4e6f0; }
-.tour-next { min-height: 42px; }
+.tour-skip { flex: none; min-height: 42px; padding-inline: 8px; border-color: transparent; background: none; color: #f4e6f0; }
+.tour-next { flex: none; min-height: 42px; }
 [data-dark] .tour-next { background: var(--star); border-color: var(--star); color: var(--night); }
-.tour-dots { display: flex; gap: 6px; }
-.tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .35); transition: background .3s, transform .3s; }
+.tour-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; min-width: 0; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .35); transition: background .3s, transform .3s; }
 .tour-dots i.is-on { background: #fff; transform: scale(1.3); }
 @media (prefers-reduced-motion: reduce) {
   .tour-hole, .tour-card { transition: none; animation: none; }

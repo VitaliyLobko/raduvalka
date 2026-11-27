@@ -16,7 +16,7 @@ import { renderTogether, chipLabel, chipFestive } from './together.js';
 import { loadPlans, markPlans, refreshPlans, renderPlans, showOurs, showWheel, showDeck } from './plans.js';
 import { composeMeme, reactFace } from './memes.js';
 import { maybeWelcome } from './welcome.js';
-import { startTour } from './tour.js';
+import { startTour, watchSecrets, openSecrets, secretsNote } from './tour.js';
 import { showLock } from './lock.js';
 import { pushAsk, pushPanel, syncPush, disablePush } from './push.js';
 import { startLive, check as checkLive } from './live.js';
@@ -882,6 +882,7 @@ function openAbout(showNews, warm) {
     aboutGroup('Ещё',
       // Тур живе на «Письмах» — туди й повертаємось
       aboutRow('🐾', 'Показать подсказки заново', 'Питомцы покажут, где что', () => { close(); selectTab('letter'); setTimeout(startTour, 400); }),
+      aboutRow('🤫', 'Секретики питомцев', secretsNote(), () => { close(); openSecrets(); }),
       news),
     h('div', { class: 'about-foot' },
       h('button', { type: 'button', class: 'about-link about-logout is-out', onclick: logout }, 'Выйти на этом телефоне')),
@@ -1011,6 +1012,7 @@ async function start() {
   markEnvelopes();
   render();
   maybeWelcome();
+  watchSecrets();
   takeShared();
   syncPush();
   startOutbox();
