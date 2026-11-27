@@ -66,4 +66,11 @@ export const GAME_ICONS = {
     </g>
     <path class="gi-bubble" fill="#E0A93A" d="M50 4a10 10 0 1 1-4.6 18.9L40 25l1.6-5.2A10 10 0 0 1 50 4Z"/>
     <path class="gi-q" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" d="M46.6 11.4a3.5 3.5 0 1 1 5.1 3.1c-1.1.6-1.7 1.3-1.7 2.6M50 21h.01"/>`),
+  // Два кубики: на передньому замість однієї точки — серце
+  dice: svg(`
+    <rect class="gi-die-back" fill="#E0A93A" x="30" y="8" width="26" height="26" rx="6" transform="rotate(14 43 21)"/>
+    <g class="gi-die-pip" fill="#fff" transform="rotate(14 43 21)"><circle cx="37" cy="15" r="2.4"/><circle cx="43" cy="21" r="2.4"/><circle cx="49" cy="27" r="2.4"/></g>
+    <rect class="gi-die" fill="#fff" stroke="#E0314F" stroke-width="2.4" x="8" y="24" width="32" height="32" rx="7" transform="rotate(-10 24 40)"/>
+    <g class="gi-die-pip2" fill="#E0314F" transform="rotate(-10 24 40)"><circle cx="15.5" cy="31.5" r="2.7"/><circle cx="32.5" cy="48.5" r="2.7"/></g>
+    ${heart(24, 41, 1.05, 'gi-heart')}`),
 };

@@ -288,6 +288,8 @@ async function route(req, env, ctx, info = {}) {
       hot: !!hotBank(env),
       // Набір «🍓 Клубнички» є в секретах — плитка гри
       berry: !!berryBank(env),
+      // Грані «🎲 Кубиков» є в секреті — плитка гри
+      dice: !!diceBank(env),
       // Ключ Claude задано — у його виборі ИИ пункт «Claude» активний
       ...(side === 'vin' ? { claude: !!env.ANTHROPIC_KEY } : {}),
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
@@ -386,6 +388,7 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'same' || path.startsWith('same/')) return sameRoute(req, env.DB, side, path.slice(4), notify);
   if (path === 'hot' || path.startsWith('hot/')) return hotRoute(req, env, side, path.slice(3), notify);
   if (path === 'berry' || path.startsWith('berry/')) return berryRoute(req, env, side, path.slice(5), notify);
+  if (path === 'dice' || path.startsWith('dice/')) return diceRoute(req, env, side, path.slice(4), notify);
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
@@ -3628,7 +3631,7 @@ async function gwishes(db) {
   return new Map(rows.map((r) => { const v = JSON.parse(r.mood); return [v.game, { ...v, by: r.side }]; }));
 }
 function gwishView(w, side) {
-  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}) } : null;
+  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}) } : null;
 }
 // Гра «на желание»: що загадано (чи ще ні) — у вигляді гри
 function withGwish(view, wishes, side) {
@@ -3721,7 +3724,7 @@ async function duelRoute(req, db, side, rest, notify) {
       if (!v.done) {
         v.done = now;
         await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), key).run();
-        if (reaches) notify.send(other(side), gwishNote(side, 'done'));
+        if (reaches) notify.send(other(side), gwishNote(side, 'done', v.src));
       }
     }
     return json({ wish: gwishView((await gwishes(db)).get(id), side) });
@@ -4217,6 +4220,75 @@ async function berryRoute(req, env, side, rest, notify) {
   throw fail(404, 'not found');
 }
 
+// ── «🎲 Кубики» на зустріч: три кубики (що · де · як) рівня 💗 / 🔥 / 🌶️. Кидаю для другого: до 3 перекидань,
+// «Сохранить купоном» — рядок marks kind gwish (src dice), той, кому подарували, відмічає «Исполнено ✓».
+// Кидає сервер; грані — у секреті DICE (JSON { soft|hot|fire: { act, part, how: [6 × [значок, текст]] } }), у репозиторії їх нема.
+// doc dice:<side> — мій кидок, що ще не збережений: { id, level, faces, left, at }
+const DICE_LEVELS = ['soft', 'hot', 'fire'];
+const DICE_SIDES = ['act', 'part', 'how'];
+const DICE_REROLLS = 3;
+let diceCache = null;
+function diceBank(env) {
+  if (diceCache === null) {
+    try {
+      const b = JSON.parse(env.DICE || 'null');
+      const ok = (f) => Array.isArray(f) && f.length === 2 && f.every((t) => typeof t === 'string' && t);
+      diceCache = b && DICE_LEVELS.every((l) => DICE_SIDES.every((d) => Array.isArray(b[l]?.[d]) && b[l][d].length === 6 && b[l][d].every(ok))) ? b : false;
+    } catch { diceCache = false; }
+  }
+  return diceCache || null;
+}
+const diceFaces = () => DICE_SIDES.map(() => Math.floor(Math.random() * 6));
+const diceFace = (bank, r, i) => bank[r.level][DICE_SIDES[i]][r.faces[i]];
+const diceView = (bank, r) => ({ id: r.id, level: r.level, faces: r.faces, icons: r.faces.map((_, i) => diceFace(bank, r, i)[0]), texts: r.faces.map((_, i) => diceFace(bank, r, i)[1]), left: r.left });
+
+async function diceRoute(req, env, side, rest, notify) {
+  const db = env.DB;
+  const bank = diceBank(env);
+  if (!bank) throw fail(503, 'dice');
+  const m = req.method;
+  const now = Date.now();
+  const key = `dice:${side}`;
+  if (m === 'GET' && !rest) {
+    const r = await getDoc(db, key);
+    return json({ roll: r?.id ? diceView(bank, r) : null });
+  }
+  if (m !== 'POST') throw fail(404, 'not found');
+  const b = await readJson(req);
+  const cur = await getDoc(db, key);
+  // Новий кидок (level) або перекидання того самого (id)
+  if (!rest) {
+    if (b.id) {
+      if (!cur?.id || cur.id !== String(b.id)) throw fail(409, 'gone');
+      if (cur.left <= 0) throw fail(409, 'rerolls');
+      const r = { ...cur, faces: diceFaces(), left: cur.left - 1, at: now };
+      await putDoc(db, key, r);
+      return json({ roll: diceView(bank, r) });
+    }
+    const level = String(b.level || '');
+    if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
+    const r = { id: newId(), level, faces: diceFaces(), left: DICE_REROLLS, at: now };
+    await putDoc(db, key, r);
+    return json({ roll: diceView(bank, r) }, 201);
+  }
+  // Зберегти купоном: текст граней — у рядок «желания», другому — сповіщення без тексту
+  if (rest === '/keep') {
+    if (!cur?.id || cur.id !== String(b.id || '')) throw fail(409, 'gone');
+    const v = diceView(bank, cur);
+    const text = v.texts.join(' · ');
+    const res = await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, done: null, src: 'dice' }), now).run();
+    await db.prepare('DELETE FROM docs WHERE k = ?').bind(key).run();
+    if (res.meta?.changes && await hasPush(db, other(side))) notify.send(other(side), diceNote(side));
+    return json({ wish: gwishView((await gwishes(db)).get(cur.id), side) });
+  }
+  if (rest === '/drop') {
+    await db.prepare('DELETE FROM docs WHERE k = ?').bind(key).run();
+    return json({ ok: true });
+  }
+  throw fail(404, 'not found');
+}
+
 async function checkinSeen(req, db, side) {
   const b = await readJson(req);
   const k = `checkin:${other(side)}`;
@@ -4588,7 +4660,8 @@ function duelNote(from, what, game, score) {
 }
 
 // «🎁 Желание»: загадали — тому, хто програв; виконано — переможцю
-function gwishNote(from, what) {
+function gwishNote(from, what, src) {
+  if (what === 'done' && src === 'dice') return { title: '🎲 Купон использован', body: sender(from, 'Он отметил купон: исполнено ✓', 'Она отметила купон: исполнено ✓'), tag: 'gwish', go: 'letter' };
   if (what === 'made') return { title: '🎁 Желание', body: sender(from, 'Он загадал желание — посмотри', 'Она загадала желание — посмотри'), tag: 'gwish', go: 'letter' };
   return { title: '🎁 Желание исполнено', body: sender(from, 'Он отметил: исполнено ✓', 'Она отметила: исполнено ✓'), tag: 'gwish', go: 'letter' };
 }
@@ -4598,6 +4671,10 @@ function sameNote(from, what) {
   const base = { tag: 'same', go: 'same', title: '💞 Совпадёт?' };
   if (what === 'start') return { ...base, body: sender(from, 'Он ответил на вопросы — теперь ты. Совпадёт?', 'Она ответила на вопросы — теперь ты. Совпадёт?') };
   return { ...base, body: 'Ответы открылись — посмотри, сколько совпало' };
+}
+// «🎲 Кубики»: подарований купон — без тексту граней
+function diceNote(from) {
+  return { tag: 'gwish', go: 'letter', title: '🎲 Купон на встречу', body: sender(from, 'Он выкинул тебе купон — посмотри', 'Она выкинула тебе купон — посмотри') };
 }
 // «🍓 Клубничка»: скромно — ні рівня, ні питань у сповіщенні
 function berryNote(from, what) {
