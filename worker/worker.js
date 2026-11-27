@@ -2990,6 +2990,8 @@ function pusher(req, env, ctx) {
     on,
     send(side, note) {
       if (!on) return;
+      // Локальна перевірка уведомлень (dev/local-api.mjs): записати, що пішло б, замість справжнього push
+      if (env.PUSH_SPY) { env.PUSH_SPY(side, note); return; }
       const job = pushSide(env, side, note);
       if (ctx?.waitUntil) ctx.waitUntil(job);
     },

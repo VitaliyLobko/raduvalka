@@ -1,6 +1,8 @@
 // «🛠 Отладка» — лише на його половині: печеньки, запас ідей, питання «Совпадёт?». Нічого звідси не йде до неї
 import { DATA } from './data.js';
-import { get, send } from './api.js';
+import { get, send, swapKeys } from './api.js';
+import { disablePush } from './push.js';
+import { ask } from './ask.js';
 import { h, toast, aboutGroup, aboutRow } from './ui.js';
 import { previewCookie, allFortunes } from './cookie.js';
 import { previewNewYear } from './newyear.js';
@@ -143,6 +145,19 @@ function bothRow() {
   return row;
 }
 
+// Що памʼятає перший день на телефоні: листівка, тур, секретики, оформлення й підказки. Ключ, секрет, ПІН, чернетки й черга лишаються
+const FIRST_DAY = ['welcomed', 'toured', 'toured-day', 'secrets', 'season', 'theme', 'letter-font', 'text-size', 'emoji-kind', 'sticker-pet',
+  'recent-stickers', 'recent-colors', 'push-ask', 'push-off', 'mood-tip', 'voice-hint', 'checkin-folded', 'auto-open', 'sound-off', 'still'];
+async function rehearse() {
+  const yes = await ask({ title: 'Репетиция первого дня у неё?', text: 'Сброшу на этом телефоне тур, оформление и подсказки, отключу уведомления — тур спросит их заново. Письма, конверты и ключи останутся. Откроется её половина', yes: 'Начать' });
+  if (!yes) return;
+  // Не довше 3 с: без сервіс-воркера (чи звʼязку) відписка може не відповісти зовсім — тур однаково спитає
+  try { await Promise.race([disablePush(), new Promise((ok) => { setTimeout(ok, 3000); })]); } catch { /* так само */ }
+  for (const k of FIRST_DAY) { try { localStorage.removeItem(`radovalka:${k}`); } catch { /* приватне вікно */ } }
+  swapKeys();
+  location.replace(location.pathname);
+}
+
 export function openDebug() {
   if (DATA.side !== 'vin') return;
   const cookie = (gold) => () => { close(); setTimeout(() => previewCookie(gold), 300); };
@@ -168,6 +183,7 @@ export function openDebug() {
       aboutRow('🎆', 'Показать у меня', 'Отсчёт 10 секунд, печенька, салют — пробно', ny(null)),
       aboutRow('🎄', 'Показать у неё — светлая', 'Как увидит она: ёлка, гирлянда, твоё пожелание', ny('light')),
       aboutRow('🌙', 'Показать у неё — ночная', null, ny('dark'))),
+    aboutGroup('Первый день', aboutRow('🎬', 'Репетиция первого дня у неё', 'Открытка, тур с разрешениями, весна днём — как в первый раз. Письма и ключи остаются', () => { close(); rehearse(); })),
     aboutGroup('Хэллоуин', aboutRow('🎃', 'Показать Хэллоуин у неё', '31 октября тыква в листьях становится Джеком-фонарём — 20 секунд', () => { close(); setTimeout(previewHalloween, 300); })),
     aboutGroup('Планы', aboutRow('💡', 'Все идеи', 'Запас для «Подкинуть идеи»', sub(openPool))),
     aboutGroup('Игры', aboutRow('💞', 'Вопросы «Совпадёт?»', `${count} штук по темам`, sub(openSameQs)), bothRow()),

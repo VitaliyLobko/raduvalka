@@ -5,7 +5,8 @@
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, reduceMotion, toast } from './ui.js';
 import { DATA, who } from './data.js';
-import { turnOn } from './push.js';
+import { turnOn, pushState, testPush } from './push.js';
+import { applyTheme } from './theme.js';
 
 const KEY = 'radovalka:toured';
 const DAY_KEY = 'radovalka:toured-day';
@@ -163,11 +164,19 @@ const PERMS = [
   ['mic', '🎙', 'микрофон — для голосовых'],
 ];
 async function granted(kind) {
-  if (kind === 'push') return 'Notification' in window && Notification.permission === 'granted';
+  // Дозволу мало: потрібна підписка на цьому телефоні (після перевстановлення дозвіл лишається, а підписки нема)
+  if (kind === 'push') return (await pushState()) === 'on';
   try { return (await navigator.permissions.query({ name: kind === 'geo' ? 'geolocation' : 'microphone' })).state === 'granted'; } catch { return false; }
 }
 async function ask(kind) {
-  if (kind === 'push') return turnOn();
+  if (kind === 'push') {
+    // iPhone дає сповіщення лише застосунку з екрана «Домой» — у Safari їх нема зовсім: кажемо, що зробити
+    if (!('Notification' in window)) {
+      toast(/iPhone|iPad/.test(navigator.userAgent) ? 'На iPhone уведомления работают, когда Радовалка на экране «Домой»: «Поделиться» → «На экран «Домой»», и открыть оттуда' : 'Этот браузер не умеет уведомления — открой Радовалку в Chrome');
+      return false;
+    }
+    return turnOn();
+  }
   if (kind === 'geo') {
     return new Promise((done) => {
       if (!navigator.geolocation) { done(false); return; }
@@ -188,7 +197,12 @@ function permsBlock(onDone) {
     return { kind, mark, li };
   });
   const run = async () => {
-    // Сповіщення — першими, просто з цього тапу (браузер питає лише з дотику)
+    // Дозвіл на сповіщення — прямо з тапу, до будь-якого запиту в мережу: iPhone інакше вікна не покаже, Android — покаже тихо.
+    // Підписка (ключ із сервера) — уже після, дозвіл тоді вже є
+    const pr = rows.find((r) => r.kind === 'push');
+    const pre = pr && !pr.li.classList.contains('is-ok') && 'Notification' in window && Notification.permission === 'default' ? Notification.requestPermission() : null;
+    if (pre) { pr.mark.textContent = '…'; await pre.catch(() => {}); }
+    // Далі по черзі: сповіщення (підписка), місце, мікрофон
     for (const r of rows) {
       if (r.li.classList.contains('is-ok')) continue;
       r.mark.textContent = '…';
@@ -197,6 +211,8 @@ function permsBlock(onDone) {
       r.li.classList.toggle('is-ok', ok);
       r.li.classList.toggle('is-no', !ok);
     }
+    // Сповіщення ввімкнулись — одразу справжнє пробне: прийшло на телефон, значить, працює
+    if (pr?.li.classList.contains('is-ok')) testPush().then(() => toast('🔔 Сейчас придёт проверочное уведомление — значит, всё работает')).catch(() => {});
     if (rows.some((r) => !r.li.classList.contains('is-ok'))) toast('Не всё разрешено — включить можно потом в настройках телефона');
     onDone();
   };
@@ -292,6 +308,14 @@ function overlay(steps, { secret = false, onFinish = () => {} } = {}) {
 
 export function startTour() {
   if (document.querySelector('.tour')) return;
+  // Перший день у неї — «Весна» й світла тема, якщо сама ще нічого не обирала (далі міняє в «Оформлении»)
+  if (her() && !toured()) {
+    try {
+      if (!localStorage.getItem('radovalka:season')) localStorage.setItem('radovalka:season', 'spring');
+      if (!localStorage.getItem('radovalka:theme')) localStorage.setItem('radovalka:theme', 'light');
+    } catch { /* приватне вікно */ }
+    applyTheme();
+  }
   overlay(STEPS.filter(mine), {
     onFinish: () => {
       store.set(KEY, '1');
