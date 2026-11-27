@@ -5,7 +5,7 @@
 import { mascotImg, petName, petFor } from './icons.js';
 import { h, reduceMotion, toast } from './ui.js';
 import { DATA, who } from './data.js';
-import { turnOn, pushState, testPush } from './push.js';
+import { turnOn, pushState, testPush, disablePush } from './push.js';
 import { applyTheme } from './theme.js';
 
 const KEY = 'radovalka:toured';
@@ -304,6 +304,16 @@ function overlay(steps, { secret = false, onFinish = () => {} } = {}) {
   document.addEventListener('keydown', onKey);
   addEventListener('resize', onResize);
   go(0);
+}
+
+// Перший день наново (репетиція): листівка, тур, секретики, оформлення й підказки, підписка на push.
+// Ключ, секрет, ПІН, чернетки й черга лишаються; дозволи браузера застосунок скинути не може — лише налаштування сайту
+const FIRST_DAY = ['welcomed', 'toured', 'toured-day', 'secrets', 'season', 'theme', 'letter-font', 'text-size', 'emoji-kind', 'sticker-pet',
+  'recent-stickers', 'recent-colors', 'push-ask', 'push-off', 'mood-tip', 'voice-hint', 'checkin-folded', 'auto-open', 'sound-off', 'still'];
+export async function forgetFirstDay() {
+  // Не довше 3 с: без сервіс-воркера (чи звʼязку) відписка може не відповісти зовсім — тур однаково спитає
+  try { await Promise.race([disablePush(), new Promise((ok) => { setTimeout(ok, 3000); })]); } catch { /* так само */ }
+  for (const k of FIRST_DAY) { try { localStorage.removeItem(`radovalka:${k}`); } catch { /* приватне вікно */ } }
 }
 
 export function startTour() {

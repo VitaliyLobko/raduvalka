@@ -1011,6 +1011,12 @@ async function start() {
   markLetter();
   markEnvelopes();
   render();
+  // Посилання з ?firstday — перший день наново на цьому пристрої (репетиція в обох): ключ і секрет уже збережені, тож
+  // забуваємо слід першого дня й відкриваємось без параметра й без ключа в адресі
+  if (/[?&]firstday(?:[=&]|$)/.test(location.search)) {
+    import('./tour.js').then((t) => t.forgetFirstDay()).finally(() => location.replace(location.pathname));
+    return;
+  }
   maybeWelcome();
   watchSecrets();
   takeShared();
