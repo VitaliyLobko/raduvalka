@@ -6192,3 +6192,82 @@ button.dice-die.is-big:active { transform: scale(.94); }
 .dice-row-mini .dice-face { font-size: 19px; line-height: 1; }
 @media (prefers-reduced-motion: reduce) { .dice-die.is-tumbling, .dice-die.is-landed { animation: none; } }
 .dice-show .dice-show-close { background: #e8c06a; color: #3a0a1f; border-color: #e8c06a; }
+
+/* Ігри 18+ (Кубики, «Совпадёт? 🔥», «🍓 Клубничка») — той самий вишневий оксамит із золотом, що й «Для двоих» */
+:is(.dice-sheet, .hot-sheet, .berry-sheet) {
+  --plum: #FBE9D0; --ink-soft: rgba(251, 233, 208, .72); --lavender: rgba(232, 192, 106, .35); --paper: #3A0A1F; --chip: rgba(255, 255, 255, .08);
+  background: radial-gradient(120% 70% at 50% 0%, #6B1236 0%, #3A0A1F 55%, #22050F 100%);
+}
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .sheet-inner { color: #FBE9D0; }
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .duel-head h2 { color: #F3CD85; }
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .sheet-close { background: rgba(255, 255, 255, .1); color: #FBE9D0; }
+:is(.dice-sheet, .hot-sheet, .berry-sheet) :is(.duel-block, .mk-chip, .same-row, .hot-level, .game-tile) {
+  background: rgba(255, 255, 255, .06); color: #FBE9D0; border-color: rgba(232, 192, 106, .45);
+}
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .game-tile-text b { color: #F3CD85; }
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .btn-primary { background: #E8C06A; color: #3A0A1F; border-color: #E8C06A; }
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .btn:not(.btn-primary) { background: rgba(255, 255, 255, .08); color: #FBE9D0; border-color: rgba(232, 192, 106, .45); }
+:is(.dice-sheet, .hot-sheet, .berry-sheet) .hint { color: rgba(251, 233, 208, .78); }
+
+/* Рівень «Без запретов»: ще темніше й червоніше; замкнений — приглушений */
+.dice-stage.is-xxx { --glow: #ff1744; background: radial-gradient(120% 90% at 50% 0%, #7a0a22 0%, #3d0512 55%, #1a0207 100%); }
+.hot-level.is-xxx { background: radial-gradient(120% 140% at 0% 0%, #9b1030 0%, #4d0716 60%, #24030a 100%) !important; }
+.hot-level.is-locked { opacity: .55; filter: grayscale(.4); }
+.dice-score { margin: 0 0 8px; text-align: center; font-weight: 700; color: #F3CD85; }
+.dice-consent { display: flex; align-items: flex-start; gap: 10px; margin: 12px 2px 4px; font-weight: 600; cursor: pointer; }
+.dice-consent input, .dice-lock input { width: 20px; height: 20px; margin-top: 2px; accent-color: #E8C06A; flex: none; }
+.dice-consent small { display: block; font-weight: 400; color: rgba(251, 233, 208, .72); }
+.dice-lock { display: flex; align-items: center; gap: 10px; margin: 8px 2px; font-size: .9rem; cursor: pointer; }
+.dice-coll { margin-top: 14px; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px rgba(232, 192, 106, .3); }
+.dice-coll summary { cursor: pointer; font-weight: 700; color: #F3CD85; }
+.dice-coll-row { margin: 8px 0 0; font-size: .9rem; line-height: 1.3; }
+.dice-coll-row > span { color: rgba(251, 233, 208, .6); font-size: .8rem; }
+.dice-coll-row.is-done { opacity: .75; }
+.dice-coll-row b { color: #ffb36b; white-space: nowrap; }
+/* «Было жарко»: 5 зірок у картці купона */
+.dice-stars { display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.dice-stars-label { margin-right: 6px; font-weight: 700; }
+.dice-star { width: 34px; height: 34px; padding: 0; border: 0; background: none; font-size: 1.5rem; line-height: 1; color: #E8C06A; cursor: pointer; transition: transform .15s; }
+.dice-star:hover, .dice-star:focus-visible { transform: scale(1.25); }
+.dice-show-back { width: min(100%, 440px); background: rgba(255, 255, 255, .1); color: #FBE9D0; border-color: rgba(232, 192, 106, .5); }
+
+/* Жар під час кидка: екран темніє, з боків колишеться червоний шовк, у такт серцю — легка пульсація */
+.dice-heat { position: fixed; inset: 0; z-index: 81; pointer-events: none; background: radial-gradient(70% 60% at 50% 50%, transparent 40%, rgba(30, 0, 8, .55) 100%); animation: heat-in .35s ease-out both, heat-beat .62s ease-in-out .35s infinite; }
+.dice-heat::before, .dice-heat::after {
+  content: ''; position: absolute; top: -10%; bottom: -10%; width: 28vw; filter: blur(14px); opacity: .75;
+  background: linear-gradient(180deg, #8b0a2a, #e0234e 30%, #6b0620 55%, #c2163f 80%, #5a0418);
+  animation: silk 2.4s ease-in-out infinite alternate;
+}
+.dice-heat::before { left: -14vw; border-radius: 0 60% 60% 0; }
+.dice-heat::after { right: -14vw; border-radius: 60% 0 0 60%; animation-delay: -1.2s; }
+.dice-heat.is-out { animation: heat-out .45s ease-in both; }
+@keyframes heat-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes heat-out { to { opacity: 0; } }
+@keyframes heat-beat { 0%, 100% { filter: brightness(1); } 25% { filter: brightness(1.25); } 40% { filter: brightness(1.05); } 55% { filter: brightness(1.18); } }
+@keyframes silk { from { transform: translateY(-3%) scaleX(.9) skewY(4deg); } to { transform: translateY(3%) scaleX(1.1) skewY(-4deg); } }
+.dice-stage.is-flash::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(255, 240, 220, .85), rgba(255, 120, 150, .25) 45%, transparent 70%); animation: dice-flash .7s ease-out forwards; }
+@keyframes dice-flash { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dice-heat, .dice-heat::before, .dice-heat::after { animation: none; } }
+/* «Наши планы»: купони з «Кубиков» — оксамитом із золотом, щоб видно одразу */
+.plan-coupons { margin: 0 0 14px; padding: 12px; border-radius: 20px; color: #FBE9D0; background: radial-gradient(120% 100% at 0% 0%, #6B1236 0%, #3A0A1F 60%, #22050F 100%); box-shadow: inset 0 0 0 1.5px rgba(232, 192, 106, .55), 0 12px 26px -16px rgba(34, 5, 15, .9); }
+.plan-coupons.is-folded { padding: 0; background: none; box-shadow: none; }
+.plan-coupons-show { padding: 6px 12px; border: 1px dashed rgba(160, 69, 126, .5); border-radius: 999px; background: none; color: var(--ink-soft); font-size: .85rem; cursor: pointer; }
+.plan-coupons-head { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; }
+.plan-coupons-head[aria-expanded="true"] { margin-bottom: 8px; }
+.plan-coupons-head b { font: 700 1.4rem/1.15 var(--hand); color: #F3CD85; }
+.plan-coupons-hide { padding: 2px 10px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .08); color: rgba(251, 233, 208, .75); font-size: .8rem; cursor: pointer; }
+.plan-coupon-list { display: grid; gap: 8px; }
+.plan-coupon { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 0; border-radius: 14px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(232, 192, 106, .3); color: inherit; text-align: left; cursor: pointer; }
+.plan-coupon.is-done { opacity: .7; }
+.plan-coupon-dice { display: flex; gap: 3px; }
+.plan-coupon-dice i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; font-style: normal; font-size: 17px; background: linear-gradient(145deg, #fff7ee, #f1d3dd); box-shadow: 0 0 0 1.5px #E8C06A; }
+.plan-coupon-text { display: grid; gap: 2px; font-size: .92rem; line-height: 1.25; }
+.plan-coupon-text small { color: rgba(251, 233, 208, .6); font-size: .75rem; }
+.plan-coupon-stars { color: #ffb36b; white-space: nowrap; }
+.plan-coupons .fold summary, .plan-coupons summary { color: #F3CD85; }
+.dice-show-stars { justify-content: center; }
+.dice-show-close { justify-content: center; text-align: center; }
+.dice-show-claim { width: min(100%, 440px); justify-content: center; }
+.plan-coupons .plan-wait { margin-top: 10px; }
+.plan-coupons .plan-wait > summary { color: #F3CD85 !important; opacity: 1; }
+.plan-coupons .plan-wait > summary::marker { color: #F3CD85; }

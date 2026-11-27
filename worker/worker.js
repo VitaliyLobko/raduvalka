@@ -3675,7 +3675,7 @@ async function gwishes(db) {
   return new Map(rows.map((r) => { const v = JSON.parse(r.mood); return [v.game, { ...v, by: r.side }]; }));
 }
 function gwishView(w, side) {
-  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}), ...(w.texts ? { texts: w.texts } : {}), ...(w.level ? { level: w.level } : {}) } : null;
+  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}), ...(w.texts ? { texts: w.texts } : {}), ...(w.level ? { level: w.level } : {}), ...(w.src === 'dice' ? { lock: !!w.lock, haggled: w.haggled ?? null, stars: w.stars || null, claimed: w.claimed || null, canHaggle: !w.lock && w.haggled == null && Array.isArray(w.faces) } : {}) } : null;
 }
 // Гра «на желание»: що загадано (чи ще ні) — у вигляді гри
 function withGwish(view, wishes, side) {
@@ -3767,6 +3767,7 @@ async function duelRoute(req, db, side, rest, notify) {
       const v = JSON.parse(w.mood);
       if (!v.done) {
         v.done = now;
+        if (v.src === 'dice' && Number.isInteger(b.stars) && b.stars >= 1 && b.stars <= 5) v.stars = b.stars;
         await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), key).run();
         if (reaches) notify.send(other(side), gwishNote(side, 'done', v.src));
       }
@@ -4268,7 +4269,8 @@ async function berryRoute(req, env, side, rest, notify) {
 // «Сохранить купоном» — рядок marks kind gwish (src dice), той, кому подарували, відмічає «Исполнено ✓».
 // Кидає сервер; грані — у секреті DICE (JSON { soft|hot|fire: { act, part, how: [6 × [значок, текст]] } }), у репозиторії їх нема.
 // doc dice:<side> — мій кидок, що ще не збережений: { id, level, faces, left, at }
-const DICE_LEVELS = ['soft', 'hot', 'fire'];
+// xxx — «Без запретов»: кидати можна, лише коли обоє ввімкнули згоду (doc dice-xxx)
+const DICE_LEVELS = ['soft', 'hot', 'fire', 'xxx'];
 const DICE_SIDES = ['act', 'part', 'how'];
 const DICE_REROLLS = 3;
 let diceCache = null;
@@ -4293,9 +4295,25 @@ async function diceRoute(req, env, side, rest, notify) {
   const m = req.method;
   const now = Date.now();
   const key = `dice:${side}`;
+  const consent = (await getDoc(db, 'dice-xxx')) || {};
   if (m === 'GET' && !rest) {
     const r = await getDoc(db, key);
-    return json({ roll: r?.id ? diceView(bank, r) : null });
+    const rows = (await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'gwish' AND json_extract(mood, '$.src') = 'dice' ORDER BY at DESC LIMIT 40").all()).results;
+    // Купон цілком — щоб відкрити його й з «Планов» (повтор кидка, торг, «Было жарко»)
+    const list = rows.map((x) => { const v = JSON.parse(x.mood); return { id: v.game, mine: x.side === side, text: v.text, icons: v.icons, texts: v.texts || null, level: v.level || null, done: v.done || null, stars: v.stars || null, lock: !!v.lock, haggled: v.haggled ?? null, canHaggle: !v.lock && v.haggled == null && Array.isArray(v.faces), claimed: v.claimed || null, at: x.at }; });
+    return json({
+      roll: r?.id ? diceView(bank, r) : null,
+      xxx: { me: !!consent[side], them: !!consent[other(side)] },
+      score: { mine: list.filter((x) => x.mine).length, theirs: list.filter((x) => !x.mine).length },
+      list,
+    });
+  }
+  // Згода на «Без запретов» — у кожного своя
+  if (m === 'POST' && rest === '/xxx') {
+    const b = await readJson(req);
+    const next = { ...consent, [side]: !!b.on };
+    await putDoc(db, 'dice-xxx', next);
+    return json({ xxx: { me: !!next[side], them: !!next[other(side)] } });
   }
   if (m !== 'POST') throw fail(404, 'not found');
   const b = await readJson(req);
@@ -4314,6 +4332,7 @@ async function diceRoute(req, env, side, rest, notify) {
     }
     const level = String(b.level || '');
     if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
+    if (level === 'xxx' && !(consent.vin && consent.vona)) throw fail(403, 'consent');
     const r = { id: newId(), level, faces: diceFaces(), left: DICE_REROLLS, at: now };
     await putDoc(db, key, r);
     return json({ roll: diceView(bank, r) }, 201);
@@ -4324,10 +4343,35 @@ async function diceRoute(req, env, side, rest, notify) {
     const v = diceView(bank, cur);
     const text = v.texts.join(' · ');
     const res = await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
-      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, texts: v.texts, level: cur.level, done: null, src: 'dice' }), now).run();
+      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, texts: v.texts, faces: cur.faces, level: cur.level, lock: !!b.lock, done: null, src: 'dice' }), now).run();
     await db.prepare('DELETE FROM docs WHERE k = ?').bind(key).run();
     if (res.meta?.changes && await hasPush(db, other(side))) notify.send(other(side), diceNote(side));
     return json({ wish: gwishView((await gwishes(db)).get(cur.id), side) });
+  }
+  if (rest === '/claim') {
+    const id = String(b.id || '');
+    const mk = await db.prepare("SELECT side, mood FROM marks WHERE id = ? AND kind = 'gwish'").bind(`gwish-${id}`).first();
+    if (!mk || mk.side === side) throw fail(409, 'gone');
+    const v = JSON.parse(mk.mood);
+    if (v.src !== 'dice' || v.done) throw fail(409, 'claim');
+    v.claimed = new Date().toISOString();
+    await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), `gwish-${id}`).run();
+    if (await hasPush(db, other(side))) notify.send(other(side), diceClaimNote(side));
+    return json({ wish: gwishView((await gwishes(db)).get(id), side) });
+  }
+  if (rest === '/haggle') {
+    const id = String(b.id || '');
+    const die = Number(b.die);
+    const mk = await db.prepare("SELECT side, mood FROM marks WHERE id = ? AND kind = 'gwish'").bind(`gwish-${id}`).first();
+    if (!mk || mk.side === side) throw fail(409, 'gone');
+    const v = JSON.parse(mk.mood);
+    if (v.src !== 'dice' || v.done || v.lock || v.haggled != null || !Array.isArray(v.faces) || !(die >= 0 && die < DICE_SIDES.length)) throw fail(409, 'haggle');
+    v.faces = v.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f));
+    const view = diceView(bank, { id, level: v.level || 'hot', faces: v.faces, left: 0 });
+    Object.assign(v, { icons: view.icons, texts: view.texts, text: view.texts.join(' · '), haggled: die });
+    await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), `gwish-${id}`).run();
+    if (await hasPush(db, other(side))) notify.send(other(side), diceHaggleNote(side));
+    return json({ wish: gwishView((await gwishes(db)).get(id), side) });
   }
   if (rest === '/drop') {
     await db.prepare('DELETE FROM docs WHERE k = ?').bind(key).run();
@@ -4730,6 +4774,12 @@ function sameNote(from, what) {
   return { ...base, body: 'Ответы открылись — посмотри, сколько совпало' };
 }
 // «🎲 Кубики»: подарований купон — без тексту граней
+function diceClaimNote(from) {
+  return { tag: 'gwish', go: 'letter', title: '📩 Купон предъявлен', body: sender(from, 'Он предъявляет тебе купон 😏 Пора исполнять', 'Она предъявляет тебе купон 😏 Пора исполнять') };
+}
+function diceHaggleNote(from) {
+  return { tag: 'gwish', go: 'letter', title: '🎲 Торг по купону', body: sender(from, 'Он перебросил один кубик в твоём купоне — посмотри', 'Она перебросила один кубик в твоём купоне — посмотри') };
+}
 function diceNote(from) {
   return { tag: 'gwish', go: 'letter', title: '🎲 Купон на встречу', body: sender(from, 'Он выкинул тебе купон — посмотри', 'Она выкинула тебе купон — посмотри') };
 }

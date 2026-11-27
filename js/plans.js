@@ -511,6 +511,40 @@ async function removeIdea(screen, p) {
 
 // ── Наши планы ────────────────────────────────────────────────────────────
 
+// Купони з «Кубиков» — плани на зустріч: невиконані зверху «Наших планов», виконані — у колекції. Вантажиться окремо;
+// тап по заголовку згортає блок (памʼятає цей телефон)
+const HIDE_COUPONS = 'radovalka:hide-coupons';
+function couponsBlock(screen) {
+  const box = h('section', { class: 'plan-coupons', hidden: true });
+  let hidden = false;
+  try { hidden = localStorage.getItem(HIDE_COUPONS) === '1'; } catch { /* приватне вікно */ }
+  const setHidden = (v) => { try { localStorage.setItem(HIDE_COUPONS, v ? '1' : '0'); } catch { /* приватне вікно */ } hidden = v; paint(); };
+  let paint = () => {};
+  get('dice').then((info) => {
+    const list = info?.list || [];
+    if (!list.length || !box.isConnected) return;
+    box.hidden = false;
+    const partner = who().partner;
+    const openOnes = list.filter((c) => !c.done);
+    const done = list.filter((c) => c.done);
+    const row = (c) => h('button', { type: 'button', class: `plan-coupon${c.done ? ' is-done' : ''}`, onclick: async () => {
+      const { diceShow } = await import('./dice.js');
+      diceShow(c, () => { if (alive(screen)) renderPlans(screen); }, { id: c.id });
+    } },
+      h('span', { class: 'plan-coupon-dice', 'aria-hidden': 'true' }, ...(c.icons || []).map((ic) => h('i', {}, ic))),
+      h('span', { class: 'plan-coupon-text' }, h('small', {}, c.mine ? `твой ${partner === 'она' ? 'ей' : 'ему'}` : `${partner === 'она' ? 'от неё' : 'от него'} тебе`), c.text),
+      c.done ? h('b', { class: 'plan-coupon-stars' }, c.stars ? `🔥${'★'.repeat(c.stars)}` : '✓') : c.claimed ? h('b', { class: 'plan-coupon-stars' }, '📩') : null);
+    paint = () => box.replaceChildren(
+      h('button', { type: 'button', class: 'plan-coupons-head', 'aria-expanded': String(!hidden), onclick: () => setHidden(!hidden) },
+        h('b', {}, `🎲 Купоны на встречу${openOnes.length ? ` · ${openOnes.length}` : ''}`), h('span', { class: 'plan-coupons-hide', 'aria-hidden': 'true' }, hidden ? '▾' : '▴')),
+      ...(hidden ? [] : [
+      openOnes.length ? h('div', { class: 'plan-coupon-list' }, ...openOnes.map(row)) : h('p', { class: 'hint' }, 'Все купоны исполнены 🔥 Бросай новые в «Играх» → «Для двоих» → «Кубики»'),
+      ...(done.length ? [fold('coupons-done', `💌 Наша коллекция · ${done.length}`, h('div', { class: 'plan-coupon-list' }, ...done.map(row)))] : [])]));
+    paint();
+  }).catch(() => {});
+  return box;
+}
+
 function oursView(screen, me, pet) {
   const fresh = new Set(freshMatches().map((p) => p.id));
   markSeen(data.ours.map((p) => p.id));
@@ -522,11 +556,13 @@ function oursView(screen, me, pet) {
     type: 'button', class: 'plan-done', 'aria-pressed': String(p.done), onclick: () => setDone(screen, p, !p.done),
   }, p.done ? 'вернуть' : 'сделали ✓');
 
+  const coupons = couponsBlock(screen);
   if (!data.ours.length) {
-    return [courier(pet, 'Пока совпадений нет. Отмечай идеи — когда вы оба ❤️ одно и то же, оно появится здесь.'),
+    return [coupons, courier(pet, 'Пока совпадений нет. Отмечай идеи — когда вы оба ❤️ одно и то же, оно появится здесь.'),
       h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'deck'; renderPlans(screen); } }, 'К идеям')];
   }
   return [
+    coupons,
     open.length >= 2 ? h('button', { type: 'button', class: 'btn btn-primary plan-wide', onclick: () => { view = 'wheel'; renderPlans(screen); } }, data.spin ? '🎰 Что выпало' : '🎰 Выбрать наугад') : null,
     open.length
       ? h('ul', { class: 'plan-list' }, ...open.map((p) => {

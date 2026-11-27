@@ -211,20 +211,25 @@ export function gwishCard(n) {
     : w.mine ? `${icon} Твоё желание${berry ? ' на встречу' : ''}` : `${icon} Желание${berry ? ' на встречу' : ''} ${from}`;
   const reveal = async () => {
     if (!dice) { shown = true; paint(); return; }
-    diceShow(w, () => { shown = true; paint(); });
+    diceShow(w, () => { shown = true; paint(); }, { id: n.game, onChange: (nw) => Object.assign(w, nw) });
   };
   const paint = () => card.replaceChildren(...[
     h('span', { class: 'duel-card-head' }, head),
     shown && dice && w.icons ? diceIcons(w.icons) : null,
     shown ? h('span', { class: 'duel-card-topic gwish-text' }, w.text)
       : h('button', { type: 'button', class: 'duel-card-topic gwish-reveal', onclick: reveal }, dice ? '🎲 Смотреть бросок' : 'Показать желание'),
-    h('span', { class: 'duel-card-foot' }, w.done ? h('span', { class: 'duel-card-state' }, 'Исполнено ✓')
+    dice && shown && w.haggled != null ? h('span', { class: 'duel-card-state' }, w.mine ? `🎲 ${cap(who().partner)} поторговалась — перебросила один кубик` : '🎲 Ты поторговалась ✓') : null,
+    h('span', { class: 'duel-card-foot' }, w.done ? h('span', { class: 'duel-card-state' }, dice ? `🔥 Было жарко${w.stars ? ` ${'★'.repeat(w.stars)}${'☆'.repeat(5 - w.stars)}` : ''}` : 'Исполнено ✓')
       : w.mine ? h('span', { class: 'duel-card-state' }, dice ? `${cap(who().partner)} предъявит на встрече 😏` : `Ждёт, когда ${who().partner} исполнит`)
-        : h('button', { type: 'button', class: 'duel-card-go gwish-done', onclick: done }, 'Исполнено ✓'))].filter(Boolean));
-  async function done(e) {
-    e.currentTarget.disabled = true;
-    const r = await wishDone(n.game);
-    if (!r) { e.currentTarget.disabled = false; return; }
+        : dice ? stars() : h('button', { type: 'button', class: 'duel-card-go gwish-done', onclick: done }, 'Исполнено ✓'))].filter(Boolean));
+  // «Было жарко»: тап по зірці — оцінка й «виконано» разом
+  const stars = () => h('span', { class: 'dice-stars', role: 'group', 'aria-label': 'Было жарко — оцени' },
+    h('span', { class: 'dice-stars-label' }, '🔥 Было жарко?'),
+    ...[1, 2, 3, 4, 5].map((k) => h('button', { type: 'button', class: 'dice-star', 'aria-label': `${k} из 5`, onclick: (e) => done(e, k) }, '★')));
+  async function done(e, starsN = null) {
+    const btn = e.currentTarget; btn.disabled = true;
+    const r = await wishDone(n.game, starsN);
+    if (!r) { btn.disabled = false; return; }
     Object.assign(w, r);
     card.className = 'duel-card gwish-card is-done';
     paint();
@@ -234,9 +239,9 @@ export function gwishCard(n) {
   return card;
 }
 
-async function wishDone(id) {
+async function wishDone(id, stars = null) {
   try {
-    const r = await dsend('duel/wish-done', 'POST', { id });
+    const r = await dsend('duel/wish-done', 'POST', { id, ...(stars ? { stars } : {}) });
     document.dispatchEvent(new CustomEvent('radovalka:marked'));
     toast(`Исполнено ✓ — ${who().partner} узнает`);
     return r.wish;
@@ -256,9 +261,9 @@ function wishBox(g) {
       box.replaceChildren(h('p', { class: 'duel-wish-text' }, `🎁 ${w.text}`),
         w.done ? state('Исполнено ✓') : w.mine ? state(`Ждёт, когда ${who().partner} исполнит`)
           : h('button', { type: 'button', class: 'btn btn-primary duel-go', onclick: async (e) => {
-            e.currentTarget.disabled = true;
+            const btn = e.currentTarget; btn.disabled = true;
             const r = await wishDone(g.id);
-            if (r) { g.wish = r; paint(r); burst(box, '🎁', 10); } else e.currentTarget.disabled = false;
+            if (r) { g.wish = r; paint(r); burst(box, '🎁', 10); } else btn.disabled = false;
           } }, 'Исполнено ✓'));
       return;
     }
