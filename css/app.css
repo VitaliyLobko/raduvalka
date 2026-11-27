@@ -6125,3 +6125,70 @@ html[data-side="vona"]:not(.is-winter):not(.is-summer):not(.is-autumn)[data-dark
 /* Тур: абзаци з невеликим відступом — читається легше */
 .tour-say p { margin: 0; }
 .tour-say p + p { margin-top: 8px; }
+
+/* «🎲 Кубики» 18+: вишневий оксамит із золотом, великі обʼємні кубики зі світінням рівня; кидок — котяться й стають по одному */
+.dice-stage {
+  --glow: #ff6a3d;
+  position: relative; display: grid; gap: 14px; padding: 16px 12px 14px; border-radius: 22px; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, #6b1236 0%, #3a0a1f 55%, #22050f 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(232, 192, 106, .55), 0 18px 34px -18px rgba(34, 5, 15, .9);
+  color: #fbe9d4;
+}
+.dice-stage.is-soft { --glow: #ff8fb8; }
+.dice-stage.is-hot { --glow: #ff6a3d; }
+.dice-stage.is-fire { --glow: #ff2d55; }
+.dice-stage::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background: radial-gradient(40% 30% at 20% 85%, var(--glow), transparent 70%), radial-gradient(35% 28% at 85% 90%, var(--glow), transparent 70%);
+}
+.dice-level { position: relative; margin: 0; text-align: center; font: 1.6rem/1.1 'Lobster', var(--hand); color: #e8c06a; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
+.dice-stage .dice-row { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-items: start; }
+.dice-stage .dice-col { display: grid; justify-items: center; gap: 8px; text-align: center; }
+.dice-stage .dice-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #e8c06a; opacity: .85; }
+.dice-die.is-big {
+  display: grid; place-items: center; width: min(26vw, 96px); aspect-ratio: 1; padding: 0; border: 0; border-radius: 22px; cursor: default;
+  background: linear-gradient(145deg, #fff7ee 0%, #f6dde6 55%, #e7bccb 100%);
+  box-shadow: inset 0 -6px 10px rgba(120, 20, 60, .25), inset 0 4px 6px rgba(255, 255, 255, .9), 0 0 0 2.5px #e8c06a, 0 0 22px -2px var(--glow), 0 10px 18px -8px rgba(0, 0, 0, .6);
+  transition: transform .2s ease-out;
+}
+button.dice-die.is-big { cursor: pointer; }
+button.dice-die.is-big:active { transform: scale(.94); }
+.dice-die.is-big .dice-face { font-size: min(13vw, 50px); line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .25)); }
+.dice-die.is-tumbling { animation: dice-tumble .32s linear infinite; }
+.dice-col:nth-child(2) .dice-die.is-tumbling { animation-delay: -.1s; }
+.dice-col:nth-child(3) .dice-die.is-tumbling { animation-delay: -.2s; }
+.dice-die.is-landed { animation: dice-land .4s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes dice-tumble {
+  0% { transform: translateY(-14px) rotate(0deg) scale(.94); }
+  25% { transform: translateY(4px) rotate(90deg) scale(1.02); }
+  50% { transform: translateY(-10px) rotate(180deg) scale(.96); }
+  75% { transform: translateY(3px) rotate(270deg) scale(1.03); }
+  100% { transform: translateY(-14px) rotate(360deg) scale(.94); }
+}
+@keyframes dice-land { 0% { transform: translateY(-18px) scale(1.15) rotate(-12deg); } 60% { transform: translateY(2px) scale(.97) rotate(3deg); } 100% { transform: none; } }
+.dice-stage .dice-word { min-height: 2.6em; font: 600 .9rem/1.2 var(--ui); color: #fbe9d4; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+.dice-stage .dice-word.is-in { opacity: 1; transform: none; }
+.dice-stage .dice-phrase {
+  position: relative; margin: 0; padding: 12px 14px; border-radius: 16px; text-align: center;
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(232, 192, 106, .35);
+  font: 1.35rem/1.25 'Lobster', var(--hand); color: #fff3e0;
+  opacity: 0; transform: scale(.96); transition: opacity .5s .1s, transform .5s .1s;
+}
+.dice-stage .dice-phrase.is-in { opacity: 1; transform: none; }
+.dice-left { margin: 10px 0 4px; text-align: center; font-size: .85rem; color: var(--ink-soft); }
+.dice-keep { margin-top: 6px; }
+/* Повтор кидка в неї: на весь екран, оксамитом */
+.dice-show {
+  position: fixed; inset: 0; z-index: 80; display: grid; align-content: center; gap: 14px; padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% 20%, rgba(107, 18, 54, .96), rgba(20, 3, 10, .97)); animation: rise .25s ease-out;
+}
+.dice-show > * { width: min(100%, 440px); margin-inline: auto; }
+.dice-show-head { margin: 0; text-align: center; font: 1.9rem/1.15 'Lobster', var(--hand); color: #e8c06a; }
+.dice-show-hint { margin: 0; text-align: center; color: #fbe9d4; font-weight: 600; }
+.dice-show-close { width: min(100%, 440px); }
+/* У чаті — маленькі значки того ж кубика */
+.dice-row-mini { display: inline-grid; grid-template-columns: repeat(3, 34px); gap: 8px; padding: 4px 0; }
+.dice-row-mini .dice-die { border: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(145deg, #fff7ee, #f1d3dd); box-shadow: 0 0 0 1.5px #e8c06a; }
+.dice-row-mini .dice-face { font-size: 19px; line-height: 1; }
+@media (prefers-reduced-motion: reduce) { .dice-die.is-tumbling, .dice-die.is-landed { animation: none; } }
+.dice-show .dice-show-close { background: #e8c06a; color: #3a0a1f; border-color: #e8c06a; }

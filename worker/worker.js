@@ -3675,7 +3675,7 @@ async function gwishes(db) {
   return new Map(rows.map((r) => { const v = JSON.parse(r.mood); return [v.game, { ...v, by: r.side }]; }));
 }
 function gwishView(w, side) {
-  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}) } : null;
+  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}), ...(w.texts ? { texts: w.texts } : {}), ...(w.level ? { level: w.level } : {}) } : null;
 }
 // Гра «на желание»: що загадано (чи ще ні) — у вигляді гри
 function withGwish(view, wishes, side) {
@@ -4305,7 +4305,10 @@ async function diceRoute(req, env, side, rest, notify) {
     if (b.id) {
       if (!cur?.id || cur.id !== String(b.id)) throw fail(409, 'gone');
       if (cur.left <= 0) throw fail(409, 'rerolls');
-      const r = { ...cur, faces: diceFaces(), left: cur.left - 1, at: now };
+      // Перекинути один кубик (die 0–2) — інша грань саме цього; без die — усі три, як раніше
+      const die = Number.isInteger(b.die) && b.die >= 0 && b.die < DICE_SIDES.length ? b.die : null;
+      const faces = die === null ? diceFaces() : cur.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f));
+      const r = { ...cur, faces, left: cur.left - 1, at: now };
       await putDoc(db, key, r);
       return json({ roll: diceView(bank, r) });
     }
@@ -4321,7 +4324,7 @@ async function diceRoute(req, env, side, rest, notify) {
     const v = diceView(bank, cur);
     const text = v.texts.join(' · ');
     const res = await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
-      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, done: null, src: 'dice' }), now).run();
+      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, texts: v.texts, level: cur.level, done: null, src: 'dice' }), now).run();
     await db.prepare('DELETE FROM docs WHERE k = ?').bind(key).run();
     if (res.meta?.changes && await hasPush(db, other(side))) notify.send(other(side), diceNote(side));
     return json({ wish: gwishView((await gwishes(db)).get(cur.id), side) });

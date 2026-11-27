@@ -6,7 +6,7 @@ import { h, toast, cap, reduceMotion } from './ui.js';
 import { burst, boardWin, boardLose, boardDraw } from './fx.js';
 import { sfx, swapInstruments } from './sound.js';
 import { mascotImg, petName, petLine, petFileImg } from './icons.js';
-import { diceTumble, diceIcons } from './dice.js';
+import { diceShow, diceIcons } from './dice.js';
 import { placer, seaEl, shipEl, miniShip, cellOf, markShot, markSunk, markAround, markLast, noteBadge, fxFly, fxShot, fxMiss, fxHit, fxSink, fxSwap, bsFinal, noteReveal, pause, SHOT, WORLD } from './battle.js';
 
 // Улюбленці «радять» на мій хід — шкідливо й смішно. Своя фраза улюбленця з бази — lines.gametip
@@ -202,31 +202,24 @@ export function gwishCard(n) {
   if (!w) return null;
   const card = h('div', { class: `duel-card gwish-card${w.done ? ' is-done' : !w.mine ? ' is-turn' : ''}` });
   const berry = w.src === 'berry';
-  // «🎲 Кубики»: купон на зустріч — текст за кнопкою, при відкритті котяться кубики
+  // «🎲 Кубики»: купон — подарунок того, хто кидав; за кнопкою — той самий кидок на весь екран, тоді текст тут
   const dice = w.src === 'dice';
   let shown = !berry && !dice;
-  let rolling = null;
   const icon = berry ? '🍓' : dice ? '🎲' : '🎁';
   const from = who().partner === 'она' ? 'от неё' : 'от него';
-  const head = dice ? (w.mine ? `🎲 Твой купон ${who().partner === 'она' ? 'для неё' : 'для него'}` : `🎲 Купон на встречу ${from}`)
+  const head = dice ? (w.mine ? `🎲 Твой купон ${who().partner === 'она' ? 'ей' : 'ему'}` : `🎲 ${who().partner === 'она' ? 'Она дарит' : 'Он дарит'} тебе купон`)
     : w.mine ? `${icon} Твоё желание${berry ? ' на встречу' : ''}` : `${icon} Желание${berry ? ' на встречу' : ''} ${from}`;
   const reveal = async () => {
     if (!dice) { shown = true; paint(); return; }
-    rolling = diceTumble();
-    paint();
-    await rolling.done;
-    rolling = null;
-    shown = true;
-    paint();
+    diceShow(w, () => { shown = true; paint(); });
   };
   const paint = () => card.replaceChildren(...[
     h('span', { class: 'duel-card-head' }, head),
     shown && dice && w.icons ? diceIcons(w.icons) : null,
     shown ? h('span', { class: 'duel-card-topic gwish-text' }, w.text)
-      : rolling ? rolling.row
-        : h('button', { type: 'button', class: 'duel-card-topic gwish-reveal', onclick: reveal }, dice ? (w.mine ? 'Показать купон' : '🎲 Бросить кубики') : 'Показать желание'),
+      : h('button', { type: 'button', class: 'duel-card-topic gwish-reveal', onclick: reveal }, dice ? '🎲 Смотреть бросок' : 'Показать желание'),
     h('span', { class: 'duel-card-foot' }, w.done ? h('span', { class: 'duel-card-state' }, 'Исполнено ✓')
-      : w.mine ? h('span', { class: 'duel-card-state' }, `Ждёт, когда ${who().partner} исполнит`)
+      : w.mine ? h('span', { class: 'duel-card-state' }, dice ? `${cap(who().partner)} предъявит на встрече 😏` : `Ждёт, когда ${who().partner} исполнит`)
         : h('button', { type: 'button', class: 'duel-card-go gwish-done', onclick: done }, 'Исполнено ✓'))].filter(Boolean));
   async function done(e) {
     e.currentTarget.disabled = true;
