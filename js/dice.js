@@ -189,6 +189,16 @@ async function drop() {
 
 // Повтор кидка на весь екран (купон у чаті): ті самі кубики котяться й стають на свої грані, тоді — текст.
 // w — купон { icons, texts?, text, level?, mine }; onDone — закрили
+// Чий зараз хід у купоні: хто кинув — дарує й виконує; хто отримав — торгується, предʼявляє, ставить зірки
+export function couponStep(w, canHaggle = false) {
+  const p = who().partner;
+  const P = p === 'она' ? 'Она' : 'Он';
+  if (w.done) return w.mine ? `✓ Исполнено — ${p} поставил${p === 'она' ? 'а' : ''} звёзды` : '✓ Исполнено — купон в нашей коллекции';
+  if (w.mine) return w.claimed ? `📩 ${P} предъявил${p === 'она' ? 'а' : ''} купон. Твой ход: исполни 😏` : `⏳ Ждём, когда ${p} предъявит. Исполняешь ты`;
+  if (w.claimed) return `📩 Предъявлено. Ждём, когда ${p} исполнит, потом поставь звёзды`;
+  return canHaggle ? 'Твой ход: предъяви купон. Не нравится кубик — тапни его, перебросить можно один раз' : 'Твой ход: предъяви купон здесь или на встрече 😏';
+}
+
 export function diceShow(w, onDone = () => {}, { id = null, onChange = null } = {}) {
   const texts = w.texts?.length === 3 ? w.texts : String(w.text || '').split(' · ');
   // Торг: раз перекинути один кубик купона, якщо дарувальник не поставив «без торгу»
@@ -203,14 +213,14 @@ export function diceShow(w, onDone = () => {}, { id = null, onChange = null } = 
         const fresh = make(w);
         s.box.replaceWith(fresh.box);
         s = fresh;
-        tip.textContent = 'Поторговалась ✓ — теперь это ваш купон';
+        tip.textContent = couponStep(w, false);
         stop = s.roll([i]);
       } catch (e) { toast(e?.status === 409 ? 'Торговаться уже нельзя' : 'Нет связи — попробуй ещё раз'); }
     } });
   s = make({ ...w, texts });
   const close = () => { stop(); layer.remove(); document.removeEventListener('keydown', onKey); onDone(); };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const tip = h('p', { class: 'dice-show-hint' }, haggle ? 'Не нравится кубик? Тапни его — один раз можно поторговаться 😏' : w.mine ? (w.claimed && !w.done ? `📩 ${who().partner === 'она' ? 'Она' : 'Он'} предъявляет купон — пора исполнять 😏` : 'Предъявит на встрече 😏') : 'Предъяви на встрече или отправь сейчас 😏');
+  const tip = h('p', { class: 'dice-show-hint dice-step' }, couponStep(w, haggle));
   const from = w.mine ? 'Твой купон' : `${who().partner === 'она' ? 'Она дарит' : 'Он дарит'} тебе купон`;
   const layer = h('div', { class: 'dice-show', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Купон на встречу' },
     h('p', { class: 'dice-show-head' }, `🎲 ${from}`),
@@ -239,6 +249,7 @@ export function diceShow(w, onDone = () => {}, { id = null, onChange = null } = 
         onChange?.(res.wish);
         toast(`📩 Отправлено — ${who().partner} получит уведомление`);
         burst(layer, '💌', 10);
+        tip.textContent = couponStep(w, false);
         btn.textContent = `📩 Напомнить ${who().partner === 'она' ? 'ей' : 'ему'}`;
       } catch { toast('Не отправилось — нет связи'); }
       btn.disabled = false;

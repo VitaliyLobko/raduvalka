@@ -532,7 +532,7 @@ function couponsBlock(screen) {
       diceShow(c, () => { if (alive(screen)) renderPlans(screen); }, { id: c.id });
     } },
       h('span', { class: 'plan-coupon-dice', 'aria-hidden': 'true' }, ...(c.icons || []).map((ic) => h('i', {}, ic))),
-      h('span', { class: 'plan-coupon-text' }, h('small', {}, c.mine ? `твой ${partner === 'она' ? 'ей' : 'ему'}` : `${partner === 'она' ? 'от неё' : 'от него'} тебе`), c.text),
+      h('span', { class: 'plan-coupon-text' }, h('small', {}, `${c.mine ? `твой ${partner === 'она' ? 'ей' : 'ему'}` : `${partner === 'она' ? 'от неё' : 'от него'} тебе`}${c.done ? '' : ` · ${c.mine ? (c.claimed ? 'твой ход: исполни' : 'ждём, когда предъявит') : (c.claimed ? 'ждём исполнения' : 'твой ход: предъяви')}`}`), c.text),
       c.done ? h('b', { class: 'plan-coupon-stars' }, c.stars ? `🔥${'★'.repeat(c.stars)}` : '✓') : c.claimed ? h('b', { class: 'plan-coupon-stars' }, '📩') : null);
     paint = () => box.replaceChildren(
       h('button', { type: 'button', class: 'plan-coupons-head', 'aria-expanded': String(!hidden), onclick: () => setHidden(!hidden) },
