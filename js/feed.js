@@ -233,7 +233,7 @@ const memeWord = (m, icon = false) => (isSticker(m) ? `${icon ? '🐾 ' : ''}Н�
 const memeSaid = (m) => m.caption || (isSticker(m) ? '🐾 наклейка' : m.url ? 'гифка' : m.file ? `📎 ${m.file.n || 'файл'}` : 'фото');
 const memeOn = (m) => (isSticker(m) ? 'sticker' : m.url ? 'gif' : m.file ? 'file' : 'photo');
 // Іконка файлу за типом
-const fileIcon = (t = '') => (/^image\//.test(t) ? '🖼' : /^video\//.test(t) ? '🎬' : /^audio\//.test(t) ? '🎵'
+const fileIcon = (t = '') => (/^image\//.test(t) ? '🖼' : /^video\//.test(t) ? '🎬' : /^audio\//.test(t) ? '🎤'
   : /pdf$/.test(t) ? '📕' : /zip|rar|7z|tar|gzip/.test(t) ? '🗜' : /sheet|excel|csv/.test(t) ? '📊' : /word|document|text/.test(t) ? '📄' : '📎');
 
 // «↓» — коли до низу далі за пів екрана і не висить «↓ Новое» (воно й так веде донизу)
@@ -1017,10 +1017,32 @@ function fileCard(m) {
     h('span', { class: 'file-card-text' },
       h('b', { class: 'file-card-name' }, f.n || 'Файл'),
       h('small', {}, m.gone ? 'Файл удалён, чтобы освободить место' : size)),
+    m.gone || !/^audio\//.test(f.t || '') ? null : h('button', {
+      type: 'button', class: 'file-card-get file-card-play', 'aria-label': `Слушать ${f.n || 'голосовое'}`,
+      onclick: (e) => { e.stopPropagation(); playFile(m, e.currentTarget.closest('.file-card')); },
+    }, '▶'),
     m.gone ? null : h('button', {
       type: 'button', class: 'file-card-get', 'aria-label': `Скачать ${f.n || 'файл'}`,
       onclick: async (e) => { e.stopPropagation(); (await import('./files.js')).downloadFile(m); },
-    }, '⬇ Скачать'));
+    }, /^audio\//.test(f.t || '') ? '⬇' : '⬇ Скачать'));
+}
+// Голосове чи пісня в чаті: тап ▶ — файл стягується й розшифровується, під карткою — програвач, одразу грає
+async function playFile(m, card) {
+  if (!card || card.nextElementSibling?.classList.contains('ea-player')) return;
+  const btn = card.querySelector('.file-card-play');
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const [{ fileBlob }, { player }] = await Promise.all([import('./files.js'), import('./envattach.js')]);
+    const p = player(await fileBlob(m), (m.file.n || '🎤 Голосовое').replace(/\.(webm|ogg|m4a|mp3)$/i, ''), 0);
+    card.after(p.el);
+    btn.remove();
+    p.play();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '▶';
+    toast(e?.status === 404 ? 'Файла уже нет' : 'Не загрузилось — нет связи');
+  }
 }
 
 // Картинка мемчика з підписом поверх: новий (стиль, місце, колір) — шаром у рамці кадру, старий — зверху чи знизу

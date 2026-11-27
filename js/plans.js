@@ -24,7 +24,19 @@ export const CATS = [
   ['dreams', '🌟', 'Мечты и цели'],
   ['pets', '🐾', 'С питомцами'],
   ['love', '🍓', 'Нежность'],
+  ['distance', '💌', 'На расстоянии'],
+  ['nature', '🌲', 'Природа'],
+  ['food', '🍝', 'Вкусное'],
+  ['craft', '🎨', 'Творчество'],
   ['other', '✨', 'Другое'],
+];
+// Теми групами — у виборі легше знайти потрібну; «Другое» — окремо внизу
+const CAT_GROUPS = [
+  ['Вдвоём', 'is-two', ['date', 'home', 'love', 'distance']],
+  ['Выбраться', 'is-out', ['culture', 'active', 'nature', 'trip', 'food']],
+  ['С кем-то', 'is-with', ['family', 'pets']],
+  ['Большое', 'is-big', ['holidays', 'dreams', 'craft']],
+  ['', 'is-else', ['other']],
 ];
 const catOf = (key) => CATS.find(([k]) => k === key) || CATS[CATS.length - 1];
 
@@ -799,11 +811,17 @@ function makeReel(slots) {
 // ── Шторки: своя ідея і «Подкинуть идеи» ───────────────────────────────────
 
 function catChips(current, choose) {
-  const box = h('div', { class: 'mk-chips plan-cats', role: 'radiogroup', 'aria-label': 'Тема' });
-  const draw = () => box.replaceChildren(...CATS.map(([k, emoji, label]) => h('button', {
-    type: 'button', role: 'radio', class: 'mk-chip', 'aria-checked': String(current() === k),
-    onclick: () => { choose(k); draw(); },
-  }, `${emoji} ${label}`)));
+  const box = h('div', { class: 'plan-cats', role: 'radiogroup', 'aria-label': 'Тема' });
+  const chip = (k) => {
+    const [, emoji, label] = catOf(k);
+    return h('button', {
+      type: 'button', role: 'radio', class: 'mk-chip plan-cat', 'aria-checked': String(current() === k),
+      onclick: () => { choose(k); draw(); },
+    }, h('span', { class: 'plan-cat-ic', 'aria-hidden': 'true' }, emoji), label);
+  };
+  const draw = () => box.replaceChildren(...CAT_GROUPS.map(([title, cls, keys]) => h('div', { class: `plan-cat-group ${cls}` },
+    title ? h('p', { class: 'plan-cat-title' }, title) : null,
+    h('div', { class: 'mk-chips' }, ...keys.map(chip)))));
   draw();
   return box;
 }

@@ -68,7 +68,19 @@ export function budgetSlider(prices, value, onInput) {
 }
 
 // «К дате»: свята за днем і місяцем — назвою, решта — датою; минула дата вже не показується
-const HOLIDAYS = { '12-31': 'Новому году', '01-01': 'Новому году', '02-14': '14 февраля', '03-08': '8 марта' };
+const HOLIDAYS = {
+  '12-31': 'Новому году', '01-01': 'Новому году', '02-14': '14 февраля', '03-08': '8 марта',
+  '12-06': 'Николаю', '12-25': 'Рождеству', '10-01': 'Дню защитников',
+};
+// Великдень (православний: юліанська пасхалія + 13 днів — так до 2099 року) — щороку інша дата
+function easterOf(y) {
+  const d = (19 * (y % 19) + 15) % 30;
+  const e = (2 * (y % 4) + 4 * (y % 7) - d + 34) % 7;
+  const m = Math.floor((d + e + 114) / 31);
+  const day = ((d + e + 114) % 31) + 1;
+  const g = new Date(y, m - 1, day + 13);
+  return `${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, '0')}-${String(g.getDate()).padStart(2, '0')}`;
+}
 const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 const daysTo = (due) => Math.round((new Date(`${due}T00:00:00`) - today()) / 864e5);
 // Дні народження й річниця — з «Вместе» (лише на сервері); { 'MM-DD': назва для «к …» } очима того, хто дивиться
@@ -86,7 +98,7 @@ export function dueText(due) {
   if (!due) return '';
   const days = daysTo(due);
   if (days < 0) return '';
-  const name = ourDays()[due.slice(5)] || HOLIDAYS[due.slice(5)]
+  const name = ourDays()[due.slice(5)] || HOLIDAYS[due.slice(5)] || (due === easterOf(+due.slice(0, 4)) ? 'Пасхе' : '')
     || new Date(`${due}T00:00:00`).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
   return `🎁 к ${name}${days > 1 ? ` · через ${days} дн.` : days === 1 ? ' · завтра' : ' · сегодня'}`;
 }
@@ -98,6 +110,10 @@ const nextDay = (mmdd) => {
   const d = onYear(y, mmdd);
   return daysTo(d) >= 0 ? d : onYear(y + 1, mmdd);
 };
+// Найближчий Великдень
+const nextEaster = () => { const y = today().getFullYear(); const e = easterOf(y); return daysTo(e) >= 0 ? e : easterOf(y + 1); };
+// Свято з датою, що щороку інша (Великдень), — повною датою; решта — «MM-DD»
+const dateOf = (md) => (md.length > 5 ? md : nextDay(md));
 
 let view = 'theirs';
 let budget = ANY_BUDGET;
@@ -393,9 +409,10 @@ function editWish(screen, w, sharedLink = '') {
     ...(myBday ? [[myBday.slice(5), '🎂', 'Мой ДР']] : []),
     ...(T.since ? [[T.since.slice(5), '💞', 'Годовщина']] : []),
     ['12-31', '🎄', 'Новый год'], ['02-14', '💘', '14 февраля'], ['03-08', '💐', '8 марта'],
+    ['12-06', '🎁', 'Святой Николай'], ['12-25', '🌟', 'Рождество'], [nextEaster(), '🐣', 'Пасха'], ['10-01', '🛡️', 'День защитников'],
   ].filter(([md], i, all) => all.findIndex(([x]) => x === md) === i) // той самий день — одна кнопка, свій ДР першим
     // Найближче свято — першим: так і видно, до чого встигнути
-    .sort(([a], [b]) => daysTo(nextDay(a)) - daysTo(nextDay(b)));
+    .sort(([a], [b]) => daysTo(dateOf(a)) - daysTo(dateOf(b)));
   // Картка дати: значок, назва, коли — «10 дек · через 22 дн.»
   const when = (d) => {
     const n = daysTo(d);
@@ -407,7 +424,7 @@ function editWish(screen, w, sharedLink = '') {
     h('span', { class: 'due-name' }, name),
     h('span', { class: 'due-when' }, sub)];
   const drawDue = () => {
-    const preset = due && PRESETS.find(([md]) => due.slice(5) === md);
+    const preset = due && PRESETS.find(([md]) => (md.length > 5 ? due === md : due.slice(5) === md));
     const own = !!due && !preset;
     dueIn.hidden = !own;
     if (own) dueIn.value = due;
@@ -423,8 +440,8 @@ function editWish(screen, w, sharedLink = '') {
       }, ...card('📅', own ? 'Своя дата' : 'Дата', own ? when(due) : 'выбрать')),
       ...PRESETS.map(([md, emoji, name]) => h('button', {
         type: 'button', role: 'radio', class: 'mk-chip due-card', 'aria-checked': String(preset?.[0] === md),
-        onclick: () => { due = preset?.[0] === md ? null : nextDay(md); drawDue(); },
-      }, ...card(emoji, name, when(nextDay(md))))));
+        onclick: () => { due = preset?.[0] === md ? null : dateOf(md); drawDue(); },
+      }, ...card(emoji, name, when(dateOf(md))))));
   };
   // Стрічка — спільна для всього застосунку (краї тануть, стрілки ‹ ›)
   ribbon(dueChips);

@@ -5384,3 +5384,26 @@ input.is-picker::-webkit-calendar-picker-indicator { opacity: .55; cursor: point
 .feed-bubble.is-pic .meme-img:not(.is-loaded) { background: color-mix(in srgb, var(--lavender) 30%, transparent); }
 /* Фото з чату на весь екран — без білої підкладки: прозорість (рамка-фігура) видно, як у чаті */
 .photo-view.feed-full img { background: none; }
+/* Значок біля «Радовалка»: у неї сакура дихає й раз на кілька секунд перекочується на пелюстку (5 пелюсток — 72° виглядає як той самий цвіт);
+   у нього планета гойдається на кільці, зірочка мерехтить */
+.wm-sakura { transform-origin: 50% 50%; animation: wm-bloom 7s cubic-bezier(.45, 0, .25, 1) infinite; }
+@keyframes wm-bloom { 0%, 70% { transform: rotate(0) scale(1); } 35% { transform: rotate(-6deg) scale(1.08); } 86% { transform: rotate(60deg) scale(.94); } 100% { transform: rotate(72deg) scale(1); } }
+.wm-planet > g { transform-box: view-box; transform-origin: 12px 14px; animation: wm-sway 6s ease-in-out infinite; }
+@keyframes wm-sway { 0%, 100% { transform: rotate(-22deg) translateY(0); } 50% { transform: rotate(-12deg) translateY(-0.8px); } }
+.wm-planet .wm-star { transform-box: fill-box; transform-origin: center; animation: wm-twinkle 3.2s ease-in-out infinite; }
+@keyframes wm-twinkle { 0%, 60%, 100% { transform: scale(.7) rotate(0); opacity: .65; } 72% { transform: scale(1.35) rotate(45deg); opacity: 1; } 84% { transform: scale(.9) rotate(90deg); opacity: .85; } }
+@media (prefers-reduced-motion: reduce) { .wm-sakura, .wm-planet > g, .wm-planet .wm-star { animation: none; } }
+html.is-still :is(.wm-sakura, .wm-planet > g, .wm-planet .wm-star), html.is-covered :is(.wm-sakura, .wm-planet > g, .wm-planet .wm-star) { animation-play-state: paused; }
+/* «Подкинуть идеи»: теми групами, у кожної групи — свій відтінок */
+.plan-cats { display: grid; gap: 10px; margin-bottom: 12px; }
+.plan-cat-group { --g: var(--lavender); padding: 8px 10px 10px; border-radius: 16px; background: color-mix(in srgb, var(--g) 16%, transparent); }
+.plan-cat-group.is-two { --g: #ff7aa8; } .plan-cat-group.is-out { --g: #5fbf8a; } .plan-cat-group.is-with { --g: #f2a541; } .plan-cat-group.is-big { --g: #8f7cf0; }
+.plan-cat-group.is-else { padding: 0; background: none; }
+.plan-cat-title { margin: 0 0 6px 4px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in srgb, var(--g) 70%, var(--plum)); }
+.plan-cat-group .mk-chips { gap: 6px; }
+.plan-cat { gap: 6px; }
+.plan-cat-ic { font-size: 1.15em; }
+.plan-cat[aria-checked="true"] { background: var(--plum); color: var(--on-plum); border-color: var(--plum); }
+[data-side="vin"] .plan-cat[aria-checked="true"] { background: var(--star); color: var(--night); border-color: var(--star); }
+.file-card-play { min-width: 44px; font-size: 1.1rem; }
+.file-card + .ea-player { margin-top: 8px; }

@@ -361,6 +361,16 @@ function openPlus() {
       fileTile(camera, '📷', 'Камера'),
       DATA.files ? fileTile(filePicker, '📎', 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
+      // Голосове: запис до хвилини — і файлом у чат (там його можна послухати ▶)
+      DATA.files ? tile('🎤', 'Голос', async () => {
+        closePlus();
+        const { pickVoice } = await import('./envattach.js');
+        pickVoice(async (a) => {
+          const ext = /ogg/.test(a.t) ? 'ogg' : /mp4|aac|m4a/.test(a.t) ? 'm4a' : 'webm';
+          const name = `Голосовое · ${Math.floor(a.d / 60)}:${String(a.d % 60).padStart(2, '0')}.${ext}`;
+          asFile(new File([a.blob], name, { type: a.t }));
+        });
+      }) : null,
       reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),

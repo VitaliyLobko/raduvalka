@@ -96,6 +96,13 @@ function sheet(title, onClose) {
   return { body, close };
 }
 
+// «🎤 Голос» у чаті: одразу запис (той самий, що в листі); onAtt({ k: 'voice', blob, t, d })
+export function pickVoice(onAtt) {
+  let stopMic = null;
+  const sh = sheet('🎤 Голосовое', () => stopMic?.());
+  stopMic = recorder(sh.body, (a) => { onAtt(a); sh.close(); }, () => sh.close(), 'Отправить');
+}
+
 // «🎵 Музыка»: голос, посилання чи файл
 export function pickMusic(onAtt) {
   let stopMic = null;
@@ -140,7 +147,7 @@ function linkForm(body, done, back) {
 }
 
 // Запис голосу: велика кнопка, таймер до хвилини, прослухати, перезаписати, прикріпити. Повертає «вимкнути мікрофон»
-function recorder(body, done, back) {
+function recorder(body, done, back, takeLabel = LABEL) {
   let stream = null;
   let rec = null;
   let timer = 0;
@@ -150,7 +157,7 @@ function recorder(body, done, back) {
   const time = h('p', { class: 'ea-rec-time', 'aria-live': 'polite' }, `0:00 из ${mmss(VOICE_MAX)}`);
   const big = h('button', { type: 'button', class: 'ea-rec', 'aria-label': 'Начать запись' }, h('span', { 'aria-hidden': 'true' }, '🎤'));
   const slot = h('div', { class: 'ea-rec-slot' });
-  const take = h('button', { type: 'button', class: 'btn btn-primary', disabled: true }, LABEL);
+  const take = h('button', { type: 'button', class: 'btn btn-primary', disabled: true }, takeLabel);
   const mic = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
   const stop = () => { clearInterval(timer); if (rec?.state === 'recording') rec.stop(); else mic(); };
   const start = async () => {

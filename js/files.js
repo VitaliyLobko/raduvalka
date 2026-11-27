@@ -93,15 +93,18 @@ export async function sendFile(file, done, re = null) {
 
 // «Скачать»: байти з R2 → розшифрувати → зберегти під справжньою назвою й типом
 const busy = new Set();
+// Сам файл (розшифрований) — для скачування й для програвача голосових у чаті
+export async function fileBlob(m) {
+  const res = await fetch(`${API}/api/memes/${m.id}/file`, { headers: { authorization: `Bearer ${getKey()}` }, cache: 'no-store' });
+  if (!res.ok) throw Object.assign(new Error(`api ${res.status}`), { status: res.status });
+  return new Blob([await openBlob(await res.blob())], { type: m.file.t || 'application/octet-stream' });
+}
 export async function downloadFile(m) {
   if (busy.has(m.id)) return;
   busy.add(m.id);
   toast('Скачиваю…');
   try {
-    const res = await fetch(`${API}/api/memes/${m.id}/file`, { headers: { authorization: `Bearer ${getKey()}` }, cache: 'no-store' });
-    if (!res.ok) throw Object.assign(new Error(`api ${res.status}`), { status: res.status });
-    const plain = await openBlob(await res.blob());
-    const url = URL.createObjectURL(new Blob([plain], { type: m.file.t || 'application/octet-stream' }));
+    const url = URL.createObjectURL(await fileBlob(m));
     const a = h('a', { href: url, download: m.file.n || 'файл', hidden: true });
     document.body.append(a);
     a.click();
