@@ -200,9 +200,13 @@ export function gwishCard(n) {
   const w = n.wish;
   if (!w) return null;
   const card = h('div', { class: `duel-card gwish-card${w.done ? ' is-done' : !w.mine ? ' is-turn' : ''}` });
+  const berry = w.src === 'berry';
+  let shown = !berry;
+  const icon = berry ? '🍓' : '🎁';
   const paint = () => card.replaceChildren(
-    h('span', { class: 'duel-card-head' }, w.mine ? '🎁 Твоё желание' : `🎁 Желание ${who().partner === 'она' ? 'от неё' : 'от него'}`),
-    h('span', { class: 'duel-card-topic gwish-text' }, w.text),
+    h('span', { class: 'duel-card-head' }, w.mine ? `${icon} Твоё желание${berry ? ' на встречу' : ''}` : `${icon} Желание${berry ? ' на встречу' : ''} ${who().partner === 'она' ? 'от неё' : 'от него'}`),
+    shown ? h('span', { class: 'duel-card-topic gwish-text' }, w.text)
+      : h('button', { type: 'button', class: 'duel-card-topic gwish-reveal', onclick: () => { shown = true; paint(); } }, 'Показать желание'),
     h('span', { class: 'duel-card-foot' }, w.done ? h('span', { class: 'duel-card-state' }, 'Исполнено ✓')
       : w.mine ? h('span', { class: 'duel-card-state' }, `Ждёт, когда ${who().partner} исполнит`)
         : h('button', { type: 'button', class: 'duel-card-go gwish-done', onclick: done }, 'Исполнено ✓')));

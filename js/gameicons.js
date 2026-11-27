@@ -57,4 +57,13 @@ export const GAME_ICONS = {
     <g class="gi-seed" fill="#FFE08A"><ellipse cx="25" cy="39" rx="1" ry="1.5"/><ellipse cx="32" cy="38" rx="1" ry="1.5"/><ellipse cx="39" cy="39" rx="1" ry="1.5"/><ellipse cx="28.5" cy="45" rx="1" ry="1.5"/><ellipse cx="35.5" cy="45" rx="1" ry="1.5"/><ellipse cx="23.5" cy="45.5" rx="1" ry="1.5"/><ellipse cx="40.5" cy="45.5" rx="1" ry="1.5"/><ellipse cx="32" cy="51" rx="1" ry="1.5"/><ellipse cx="28" cy="52.5" rx="1" ry="1.5"/><ellipse cx="36" cy="52.5" rx="1" ry="1.5"/></g>
     <path class="gi-leaf" fill="#3FAE5A" d="M32 35.5c-3.4-.4-7.6-.6-10.4-3 3.2-1.2 6-1.3 8.2-.7-1.5-1.9-2-4-1.4-6.4 2.2 1.3 3.3 3 3.6 5 .3-2 1.4-3.7 3.6-5 .6 2.4.1 4.5-1.4 6.4 2.2-.6 5-.5 8.2.7-2.8 2.4-7 2.6-10.4 3Z"/>
     <path class="gi-star" fill="#E0A93A" d="M52 8l1.4 3 3 1.4-3 1.4L52 17l-1.4-3.2-3-1.4 3-1.4z"/>`),
+  // Велика полуниця і золота хмаринка з «?» — «хто знає більше»
+  berry: svg(`
+    <g transform="translate(-13 -20) scale(1.25)">
+    <path class="gi-berry" fill="#E0314F" d="M32 60C24.5 57 17.5 47.5 18.5 38c.5-4.8 4.8-7.4 8.6-6.6 1.8.4 3.3 1 4.9 1s3.1-.6 4.9-1c3.8-.8 8.1 1.8 8.6 6.6 1 9.5-6 19-13.5 22Z"/>
+    <g class="gi-seed" fill="#FFE08A"><ellipse cx="25" cy="39" rx="1" ry="1.5"/><ellipse cx="32" cy="38" rx="1" ry="1.5"/><ellipse cx="39" cy="39" rx="1" ry="1.5"/><ellipse cx="28.5" cy="45" rx="1" ry="1.5"/><ellipse cx="35.5" cy="45" rx="1" ry="1.5"/><ellipse cx="23.5" cy="45.5" rx="1" ry="1.5"/><ellipse cx="40.5" cy="45.5" rx="1" ry="1.5"/><ellipse cx="32" cy="51" rx="1" ry="1.5"/><ellipse cx="28" cy="52.5" rx="1" ry="1.5"/><ellipse cx="36" cy="52.5" rx="1" ry="1.5"/></g>
+    <path class="gi-leaf" fill="#3FAE5A" d="M32 35.5c-3.4-.4-7.6-.6-10.4-3 3.2-1.2 6-1.3 8.2-.7-1.5-1.9-2-4-1.4-6.4 2.2 1.3 3.3 3 3.6 5 .3-2 1.4-3.7 3.6-5 .6 2.4.1 4.5-1.4 6.4 2.2-.6 5-.5 8.2.7-2.8 2.4-7 2.6-10.4 3Z"/>
+    </g>
+    <path class="gi-bubble" fill="#E0A93A" d="M50 4a10 10 0 1 1-4.6 18.9L40 25l1.6-5.2A10 10 0 0 1 50 4Z"/>
+    <path class="gi-q" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" d="M46.6 11.4a3.5 3.5 0 1 1 5.1 3.1c-1.1.6-1.7 1.3-1.7 2.6M50 21h.01"/>`),
 };

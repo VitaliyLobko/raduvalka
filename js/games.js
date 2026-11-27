@@ -5,6 +5,7 @@ import { get } from './api.js';
 import { DATA, who } from './data.js';
 import { openSame } from './same.js';
 import { openHot } from './hot.js';
+import { openBerry } from './berry.js';
 import { GAME_ICONS } from './gameicons.js';
 
 // Шторка гри: заголовок, ✕, тіло; Escape і тап по тлу закривають. onClose — прибрати таймери
@@ -59,5 +60,6 @@ export function openGames() {
     tile('💞', 'Совпадёт?', '10 вопросов: отвечаете каждый за себя, потом смотрите, где совпало', go(openSame)),
     // Набір питань живе на сервері: нема його — нема й плитки
     DATA.hot ? tile('🔥', 'Совпадёт? 🔥', 'Вопросы только для вас двоих: видно лишь то, что хочется обоим', go(() => openHot()), 'hot', true) : null,
+    DATA.berry ? tile('🍓', 'Клубничка', 'Викторина: кто знает больше, тот загадывает желание на встречу', go(() => openBerry()), 'berry', true) : null,
   ].filter(Boolean));
 }

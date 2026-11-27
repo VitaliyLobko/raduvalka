@@ -15,6 +15,7 @@ import { ask } from './ask.js';
 import { duelCard, duelSig, openDuel, gwishCard, duelKind } from './duel.js';
 import { sameCard, sameSig, openSame } from './same.js';
 import { hotCard, hotSig, openHot } from './hot.js';
+import { berryCard, berrySig, openBerry } from './berry.js';
 import { loveConstellation } from './depth.js';
 import { voiceCard, isVoice, voiceSecs, mmss, holdToRecord, canRecord } from './voicemsg.js';
 import { MIC } from './voice.js';
@@ -158,7 +159,7 @@ function merge(p, older = false) {
 
 function load() {
   if (!loading) {
-    loading = get('feed')
+    loading = get('feed?berry=1')
       .then((p) => {
         merge(p);
         stale = false;
@@ -175,7 +176,7 @@ async function showMore(btn, have) {
     btn.disabled = true;
     btn.textContent = 'Загружаю…';
     try {
-      merge(await get(`feed?before=${page.horizon}`), true);
+      merge(await get(`feed?before=${page.horizon}&berry=1`), true);
     } catch {
       btn.disabled = false;
       btn.textContent = 'Показать раньше';
@@ -492,7 +493,7 @@ function isFresh(it) {
 }
 function rowFor(it) {
   // Рядок спору залежить і від того, чи я вже бачив розкриття (localStorage), — текст рядка теж у підписі
-  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : it.n?.kind === 'same' ? sameSig(it.n.same) : it.n?.kind === 'hot' ? hotSig(it.n.hot) : null;
+  const duel = it.n?.kind === 'duel' ? duelSig(it.n.duel) : it.n?.kind === 'same' ? sameSig(it.n.same) : it.n?.kind === 'hot' ? hotSig(it.n.hot) : it.n?.kind === 'berry' ? berrySig(it.n.berry) : null;
   const sig = it.later ? null : JSON.stringify([it.type, it.l || it.m || it.n, unfolded.has(it.key), isFresh(it), around, duel, it.type === 'in' && autoOpen()]);
   const had = rows.get(it.key);
   if (had && sig && had.sig === sig) return had.el;
@@ -523,6 +524,7 @@ function newsRow(n) {
   // «💞 Совпадёт?»: картка — хто ще відповідає чи скільки збіглося; тап — сама гра
   if (n.kind === 'same') return gameRow(n, n.same, sameCard(n.same, () => openSame(n.same)), 'same/cancel');
   if (n.kind === 'hot') return gameRow(n, n.hot, hotCard(n.hot, () => openHot(n.hot)), 'hot/cancel');
+  if (n.kind === 'berry') return gameRow(n, n.berry, berryCard(n.berry, () => openBerry(n.berry)), 'berry/cancel');
   // «🎁 Желание» з гри «на желание»: висить, поки не відмітять «Исполнено ✓»
   if (n.kind === 'gwish') return h('li', { class: 'feed-news feed-duel', hidden: !n.wish }, n.wish ? gwishCard(n) : null);
   // «Подарено»: хто подарив і що; тап — у «Хотелки»
@@ -776,7 +778,7 @@ async function toQuoted(q, at) {
   // Не підвантажене — гортаємо історію з сервера, поки не знайдеться (не більше кількох сторінок)
   for (let i = 0; !found && page.more && i < 6; i += 1) {
     try {
-      merge(await get(`feed?before=${page.horizon}`), true);
+      merge(await get(`feed?before=${page.horizon}&berry=1`), true);
     } catch {
       toast('Не загрузилось — нет связи');
       return;

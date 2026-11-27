@@ -25,6 +25,7 @@ import { sfx, soundOn, setSound, INSTRUMENTS, INSTRUMENT_FAMILIES, instrumentKey
 import { openDuel } from './duel.js';
 import { openSame } from './same.js';
 import { openHot } from './hot.js';
+import { openBerry } from './berry.js';
 import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
@@ -431,6 +432,7 @@ function goTo(go) {
   // «💞 Совпадёт?» — так само
   if (go === 'same') { if (tab !== 'letter') selectTab('letter'); openSame(); return true; }
   if (go === 'hot') { if (tab !== 'letter') selectTab('letter'); openHot(); return true; }
+  if (go === 'berry') { if (tab !== 'letter') selectTab('letter'); openBerry(); return true; }
   if (go === 'wheel') { showWheel(); go = 'plans'; } else if (go === 'deck') { showDeck(); go = 'plans'; } else if (go === 'plans') showOurs();
   if (!GO_TABS.includes(go)) return false;
   if (tab !== go) selectTab(go);

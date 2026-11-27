@@ -286,6 +286,8 @@ async function route(req, env, ctx, info = {}) {
       files: !!env.FILES,
       // Набір питань «🔥 Совпадёт?» є в секретах — телефон показує плитку
       hot: !!hotBank(env),
+      // Набір «🍓 Клубнички» є в секретах — плитка гри
+      berry: !!berryBank(env),
       // Ключ Claude задано — у його виборі ИИ пункт «Claude» активний
       ...(side === 'vin' ? { claude: !!env.ANTHROPIC_KEY } : {}),
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
@@ -383,6 +385,7 @@ async function route(req, env, ctx, info = {}) {
   if (path === 'duel' || path.startsWith('duel/')) return duelRoute(req, env.DB, side, path.slice(4), notify);
   if (path === 'same' || path.startsWith('same/')) return sameRoute(req, env.DB, side, path.slice(4), notify);
   if (path === 'hot' || path.startsWith('hot/')) return hotRoute(req, env, side, path.slice(3), notify);
+  if (path === 'berry' || path.startsWith('berry/')) return berryRoute(req, env, side, path.slice(5), notify);
   if (m === 'PUT' && path === 'together') {
     const patch = pick(await readJson(req), TOGETHER_FIELDS);
     // Дні народження — лише дата або null (стерли)
@@ -1686,6 +1689,8 @@ async function feedPage(db, side, url) {
     db.prepare('SELECT id, title, created AS t FROM ideas WHERE author = ? AND ai = 1 AND created < ? ORDER BY created DESC LIMIT ?')
       .bind(other(side), before, take * 4).all(),
   ]);
+  const berryOk = url.searchParams.get('berry') === '1';
+  if (!berryOk) marks.results = marks.results.filter((r) => r.kind !== 'berry');
   // Колесо в чаті: запрошення від другого (поки чекає) і останнє обертання — в обох
   const wheel = [];
   const inv = await todayInvite(db);
@@ -1709,6 +1714,13 @@ async function feedPage(db, side, url) {
     const ans = await hotAnswers(db, hot.id);
     const t = Math.max(hot.at, ...Object.values(ans).map((a) => a.at));
     if (t < before) wheel.push({ id: `x${hot.id}`, hot: hotView(hot, ans, side), t });
+  }
+  // «🍓 Клубничка», що триває: лише чий поступ, без питань
+  const berry = berryOk ? await getDoc(db, 'berry') : null;
+  if (berry?.id) {
+    const ans = await berryAnswers(db, berry.id);
+    const t = Math.max(berry.at, ...Object.values(ans).map((a) => a.at || 0));
+    if (t < before) wheel.push({ id: `b${berry.id}`, berry: berryLive(berry, ans, side), t });
   }
   const spin = await getDoc(db, 'plan-spin');
   if (spin?.at && spin.at < before) {
@@ -1737,6 +1749,9 @@ async function feedPage(db, side, url) {
     news: of('news').map((r) => (r.duel ? { kind: 'duel', id: r.id, duel: r.duel, at: r.t }
       : r.same ? { kind: 'same', id: r.id, same: r.same, at: r.t }
       : r.hot ? { kind: 'hot', id: r.id, hot: r.hot, at: r.t }
+      : r.berry ? { kind: 'berry', id: r.id, berry: r.berry, at: r.t }
+      // Дограна «Клубничка» — лише рахунок (сирий mood з відповідями далі не йде)
+      : r.kind === 'berry' ? { kind: 'berry', id: r.id, berry: berryEnd({ ...JSON.parse(r.mood), at: r.t }, side), at: r.t }
       // Дограна — лише збіги (mood рядка далі не йде: гілка нижче віддала б його сирим)
       : r.kind === 'hot' ? { kind: 'hot', id: r.id, hot: hotView({ ...JSON.parse(r.mood), at: r.t }, null, side), at: r.t }
       : r.kind === 'same' ? { kind: 'same', id: r.id, same: sameMarkView(r, side), at: r.t }
@@ -3613,7 +3628,7 @@ async function gwishes(db) {
   return new Map(rows.map((r) => { const v = JSON.parse(r.mood); return [v.game, { ...v, by: r.side }]; }));
 }
 function gwishView(w, side) {
-  return w ? { text: w.text, done: w.done || null, mine: w.by === side } : null;
+  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}) } : null;
 }
 // Гра «на желание»: що загадано (чи ще ні) — у вигляді гри
 function withGwish(view, wishes, side) {
@@ -3690,7 +3705,7 @@ async function duelRoute(req, db, side, rest, notify) {
   if (m === 'POST' && (rest === '/wish' || rest === '/wish-done')) {
     const id = String(b.id || '');
     const row = await db.prepare("SELECT side, mood FROM marks WHERE id = ? AND kind = 'duel'").bind(`duel-${id}`).first();
-    if (!row || JSON.parse(row.mood).preset !== 'wish') throw fail(409, 'gone');
+    if (rest === '/wish' && (!row || JSON.parse(row.mood).preset !== 'wish')) throw fail(409, 'gone');
     const key = `gwish-${id}`;
     if (rest === '/wish') {
       if (row.side !== side) throw fail(403, 'forbidden');
@@ -3988,6 +4003,216 @@ async function hotRoute(req, env, side, rest, notify) {
   if (m === 'POST' && rest === '/cancel') {
     if (g?.id && g.id === b.id) await dropHot(db, g.id);
     return json({ ok: true });
+  }
+  throw fail(404, 'not found');
+}
+
+// ── «🍓 Клубничка»: вікторина 18+ на двох. 10 питань рівня (💗 / 🔥 / 🌶️), 4 варіанти, на кожне 30 секунд.
+// Питання сервер видає по одному і ставить час початку: відкрив заново — таймер не скидається, не встиг — без очка.
+// Чужих відповідей, правильних варіантів і пояснень не видно нікому, поки обидва не відповіли на всі 10.
+// Тексти — у секретах воркера (BERRY_SOFT_0…, BERRY_HOT_0…, BERRY_FIRE_0… — шматки JSON { ключ: [питання,
+// [4 варіанти], правильний, пояснення] }; BERRY_WISH_0… — шматки JSON [желание…]), у публічному репозиторії їх нема.
+// doc berry — гра { id, by, level, qs, perm, at }; docs berry:<side> — { id, picks, cur, t }; кінець — рядок marks
+// kind berry з усім; переможець загадує желание (рядок marks kind gwish, src berry), той, хто програв, відмічає «Исполнено»
+const BERRY_LEVELS = { soft: 'BERRY_SOFT', hot: 'BERRY_HOT', fire: 'BERRY_FIRE' };
+const BERRY_N = 10;
+const BERRY_T = 30000;
+// Запас на слабкий зв'язок: відповідь, що прийшла пізніше за 30 с, але в межах запасу, ще рахується
+const BERRY_GRACE = 12000;
+let berryCache = null;
+function berryChunks(env, name) {
+  const out = [];
+  for (let i = 0; env[`${name}_${i}`]; i += 1) out.push(JSON.parse(env[`${name}_${i}`]));
+  return out;
+}
+function berryBank(env) {
+  if (berryCache === null) {
+    try {
+      const out = {};
+      for (const [lvl, name] of Object.entries(BERRY_LEVELS)) out[lvl] = Object.assign({}, ...berryChunks(env, name));
+      out.wishes = berryChunks(env, 'BERRY_WISH').flat();
+      berryCache = Object.keys(BERRY_LEVELS).every((l) => Object.keys(out[l]).length >= BERRY_N) ? out : false;
+    } catch { berryCache = false; }
+  }
+  return berryCache || null;
+}
+// Тест на локальному: коротший таймер (env BERRY_T_MS)
+const berryT = (env) => Number(env.BERRY_T_MS) || BERRY_T;
+async function berryAnswers(db, id) {
+  const out = {};
+  for (const sd of SIDES) {
+    // eslint-disable-next-line no-await-in-loop
+    const a = await getDoc(db, `berry:${sd}`);
+    if (a?.id === id) out[sd] = a;
+  }
+  return out;
+}
+// Правильний варіант у тому порядку, як їх показали (perm[i] — які з 4 вихідних і в якому порядку)
+const berryRight = (bank, g, i) => g.perm[i].indexOf(bank[g.level][g.qs[i]][2]);
+const berryScore = (bank, g, picks) => picks.reduce((s, p, i) => s + (p >= 0 && p === berryRight(bank, g, i) ? 1 : 0), 0);
+// Поки йде гра: лише мій поступ і скільки відповів другий (без його відповідей)
+function berryLive(g, ans, side) {
+  const mine = ans?.[side];
+  const their = ans?.[other(side)];
+  return {
+    id: g.id, mine: g.by === side, at: g.at, level: g.level, n: g.qs.length, done: false,
+    me: mine?.picks?.length || 0, them: their?.picks?.length || 0,
+  };
+}
+// Дограна: рахунок; bank — ще й питання з поясненнями (у шторці; у стрічці лише рахунок)
+function berryEnd(row, side, bank = null) {
+  const g = row;
+  const me = g.picks[side];
+  const them = g.picks[other(side)];
+  const sc = g.score || {};
+  const view = {
+    id: g.id, mine: g.by === side, at: g.at, level: g.level, n: g.qs.length, done: true,
+    score: { me: sc[side] ?? 0, them: sc[other(side)] ?? 0 },
+  };
+  view.won = view.score.me > view.score.them;
+  view.tie = view.score.me === view.score.them;
+  if (bank) {
+    view.rows = g.qs.map((k, i) => {
+      const it = bank[g.level]?.[k];
+      if (!it) return null;
+      return { q: it[0], opts: g.perm[i].map((j) => it[1][j]), right: g.perm[i].indexOf(it[2]), fact: it[3] || '', me: me[i], them: them[i] };
+    });
+  }
+  return view;
+}
+async function lastBerry(db, side, bank = null) {
+  const row = await db.prepare("SELECT mood, at FROM marks WHERE kind = 'berry' ORDER BY at DESC LIMIT 1").first();
+  return row ? berryEnd({ ...JSON.parse(row.mood), at: row.at }, side, bank) : null;
+}
+async function dropBerry(db, id) {
+  await db.prepare("DELETE FROM docs WHERE k IN ('berry', 'berry:vona', 'berry:vin') AND v LIKE ?").bind(`%"id":"${id}"%`).run();
+}
+const shuffle = (a) => {
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+// 10 питань, яких ще не було на цьому рівні (doc berry-seen:<рівень>); скінчились — коло заново
+async function berryDeal(db, bank, level) {
+  const all = Object.keys(bank[level]);
+  const seenKey = `berry-seen:${level}`;
+  const seen = new Set(((await getDoc(db, seenKey))?.keys || []).filter((k) => Object.hasOwn(bank[level], k)));
+  const unseen = shuffle(all.filter((k) => !seen.has(k)));
+  let qs;
+  let next;
+  if (unseen.length >= BERRY_N) {
+    qs = unseen.slice(0, BERRY_N);
+    next = [...seen, ...qs];
+  } else {
+    // Невиданих замало — вони всі, решта з уже бачених; нове коло починається з цих
+    qs = shuffle([...unseen, ...shuffle([...seen]).slice(0, BERRY_N - unseen.length)]);
+    next = qs;
+  }
+  // Записуємо одразу при роздачі: скасував і роздав знову — ті самі питання не повернуться
+  await putDoc(db, seenKey, { keys: next });
+  return qs;
+}
+// Питання i для сторони: текст і варіанти в порядку гри, скільки секунд лишилось
+const berryQ = (bank, g, i, left) => {
+  const it = bank[g.level][g.qs[i]];
+  return { i, q: it[0], opts: g.perm[i].map((j) => it[1][j]), left: Math.max(0, Math.round(left / 1000)) };
+};
+
+// Мої відповіді змінились: обидва на всіх 10 — рахунок у marks, гра стерта; я щойно дійшов до 10 — черга другого
+async function berrySettle(db, bank, g, side, now, reaches, notify) {
+  const all = await berryAnswers(db, g.id);
+  if (!SIDES.every((sd) => all[sd]?.picks?.length >= BERRY_N)) {
+    if (all[side]?.picks?.length >= BERRY_N && reaches) notify.send(other(side), berryNote(side, 'start'));
+    return berryLive(g, all, side);
+  }
+  const picks = { vona: all.vona.picks, vin: all.vin.picks };
+  const score = { vona: berryScore(bank, g, picks.vona), vin: berryScore(bank, g, picks.vin) };
+  const end = { id: g.id, by: g.by, level: g.level, qs: g.qs, perm: g.perm, picks, score };
+  await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+    .bind(`berry-${g.id}`, g.by, 'berry', JSON.stringify(end), now).run();
+  await dropBerry(db, g.id);
+  if (reaches) notify.send(other(side), berryNote(side, 'done'));
+  return berryEnd({ ...end, at: now }, side, bank);
+}
+
+async function berryRoute(req, env, side, rest, notify) {
+  const db = env.DB;
+  const bank = berryBank(env);
+  if (!bank) throw fail(503, 'berry');
+  const m = req.method;
+  const now = Date.now();
+  const T = berryT(env);
+  if (m === 'GET' && !rest) {
+    const g = await getDoc(db, 'berry');
+    const last = await lastBerry(db, side, bank);
+    // Загадане переможцем желание — під рахунком
+    if (last) last.wish = gwishView((await gwishes(db)).get(last.id), side);
+    return json({ berry: g?.id ? berryLive(g, await berryAnswers(db, g.id), side) : null, last });
+  }
+  if (m === 'GET' && rest === '/wishes') return json({ wishes: bank.wishes });
+  const b = m === 'POST' ? await readJson(req) : {};
+  const reaches = await hasPush(db, other(side));
+  if (m === 'POST' && !rest) {
+    const level = String(b.level || '');
+    if (!BERRY_LEVELS[level]) throw fail(400, 'berry');
+    const prev = await getDoc(db, 'berry');
+    if (prev?.id && now - prev.at < SAME_STALE) throw fail(409, 'busy');
+    if (prev?.id) await dropBerry(db, prev.id);
+    const qs = await berryDeal(db, bank, level);
+    const g = { id: newId(), by: side, level, qs, perm: qs.map(() => shuffle([0, 1, 2, 3])), at: now };
+    await putDoc(db, 'berry', g);
+    return json({ berry: berryLive(g, {}, side) }, 201);
+  }
+  const g = await getDoc(db, 'berry');
+  if (m === 'POST' && rest === '/cancel') {
+    if (g?.id && g.id === b.id) await dropBerry(db, g.id);
+    return json({ ok: true });
+  }
+  // Желание переможця: раз, лише після гри; нічия — без желания
+  if (m === 'POST' && rest === '/wish') {
+    const id = String(b.id || '');
+    const row = await db.prepare("SELECT mood FROM marks WHERE id = ? AND kind = 'berry'").bind(`berry-${id}`).first();
+    if (!row) throw fail(409, 'gone');
+    const end = berryEnd(JSON.parse(row.mood), side);
+    if (!end.won) throw fail(403, 'forbidden');
+    const text = clip(b.text, 300);
+    if (!text) throw fail(400, 'wish');
+    const res = await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
+      .bind(`gwish-${id}`, side, 'gwish', JSON.stringify({ game: id, text, done: null, src: 'berry' }), now).run();
+    if (res.meta?.changes && reaches) notify.send(other(side), gwishNote(side, 'made'));
+    return json({ wish: gwishView((await gwishes(db)).get(id), side) });
+  }
+  if (!g?.id || g.id !== String(b.id || '')) throw fail(409, 'gone');
+  const st = await getDoc(db, `berry:${side}`);
+  const mine = st?.id === g.id ? st : { id: g.id, picks: [], cur: null, t: 0 };
+  const late = (st) => st.cur != null && now > st.t + T + BERRY_GRACE;
+  // Наступне питання: те саме, якщо вже відкрите (час іде від першого показу); прострочене — без очка, далі
+  if (m === 'POST' && rest === '/next') {
+    if (late(mine)) {
+      mine.picks.push(-1);
+      mine.cur = null;
+      await putDoc(db, `berry:${side}`, { ...mine, at: now });
+      // Останнє питання прострочене — гра могла скінчитись і тут, не лише в /pick
+      if (mine.picks.length >= BERRY_N) return json({ berry: await berrySettle(db, bank, g, side, now, reaches, notify), q: null });
+    }
+    if (mine.picks.length >= BERRY_N) return json({ berry: berryLive(g, await berryAnswers(db, g.id), side), q: null });
+    if (mine.cur == null) { mine.cur = mine.picks.length; mine.t = now; }
+    await putDoc(db, `berry:${side}`, { ...mine, at: now });
+    return json({ berry: berryLive(g, await berryAnswers(db, g.id), side), q: berryQ(bank, g, mine.cur, mine.t + T - now) });
+  }
+  // Відповідь на питання i: повтор того самого i (відповідь загубилась у дорозі) — як є, без помилки
+  if (m === 'POST' && rest === '/pick') {
+    const i = Number(b.i);
+    const pick = Number(b.pick);
+    if (!Number.isInteger(i) || i < 0 || i >= BERRY_N || ![-1, 0, 1, 2, 3].includes(pick)) throw fail(400, 'berry');
+    if (i < mine.picks.length) return json({ berry: berryLive(g, await berryAnswers(db, g.id), side) });
+    if (mine.cur !== i) throw fail(409, 'order');
+    mine.picks.push(late(mine) ? -1 : pick);
+    mine.cur = null;
+    await putDoc(db, `berry:${side}`, { ...mine, at: now });
+    return json({ berry: await berrySettle(db, bank, g, side, now, reaches, notify) });
   }
   throw fail(404, 'not found');
 }
@@ -4373,6 +4598,12 @@ function sameNote(from, what) {
   const base = { tag: 'same', go: 'same', title: '💞 Совпадёт?' };
   if (what === 'start') return { ...base, body: sender(from, 'Он ответил на вопросы — теперь ты. Совпадёт?', 'Она ответила на вопросы — теперь ты. Совпадёт?') };
   return { ...base, body: 'Ответы открылись — посмотри, сколько совпало' };
+}
+// «🍓 Клубничка»: скромно — ні рівня, ні питань у сповіщенні
+function berryNote(from, what) {
+  const base = { tag: 'berry', go: 'berry', title: '🍓 Клубничка' };
+  if (what === 'start') return { ...base, body: sender(from, 'Он ответил на вопросы — теперь ты', 'Она ответила на вопросы — теперь ты') };
+  return { ...base, body: 'Счёт открылся — посмотри, кто знает больше' };
 }
 // «🔥 Совпадёт?» для двох: скромно — ні рівня, ні питань у сповіщенні
 function hotNote(from, what) {
