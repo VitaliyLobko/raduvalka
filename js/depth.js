@@ -82,11 +82,38 @@ function bees(n, seed) {
   return Array.from({ length: n }, (_, i) => {
     const d = 9 + rnd() * 7;
     const delay = (-rnd() * d * 2).toFixed(1);
-    // Удень — три бджілки, уночі світлячків більше
-    const b = h('span', { class: i < 3 ? 'bee' : 'bee bee-extra' }, h('span', { class: 'bee-bob' }, h('span', { class: 'bee-turn', html: BEE })));
+    // Удень — чотири бджілки, уночі світлячків більше
+    const b = h('span', { class: i < 4 ? 'bee' : 'bee bee-extra' }, h('span', { class: 'bee-bob' }, h('span', { class: 'bee-turn', html: BEE })));
     b.style.cssText = `left:${(6 + rnd() * 55).toFixed(1)}%;top:${(14 + rnd() * 68).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${delay}s;`
       + `--mx:${(90 + rnd() * 90).toFixed(0)}px;--bd:${(2.4 + rnd() * 1.8).toFixed(1)}s;--my:${(14 + rnd() * 26).toFixed(0)}px;--glow:${(1.8 + rnd() * 2.4).toFixed(1)}s`;
     return b;
+  });
+}
+// Метелики (лише вдень): два крильця з плямками змахують, сам метелик петляє по екрану
+const FLY = '<svg class="fly-b" viewBox="-11 -10 22 20" aria-hidden="true">'
+  + '<g class="fly-w fly-l"><path d="M0-1C-3-8-10-10-10-4C-10 0-5 1 0-1ZM0 1C-3 2-8 5-6 8C-4 10-1 6 0 1Z"/><circle class="fly-spot" cx="-6" cy="-4" r="1.3"/></g>'
+  + '<g class="fly-w fly-r"><path d="M0-1C3-8 10-10 10-4C10 0 5 1 0-1ZM0 1C3 2 8 5 6 8C4 10 1 6 0 1Z"/><circle class="fly-spot" cx="6" cy="-4" r="1.3"/></g>'
+  + '<path class="fly-t" d="M0-4V6M0-4L-2-8M0-4L2-8"/></svg>';
+function flies(n, seed) {
+  let s = seed;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const wings = ['#F29B4B', '#FFF4DC', '#8FB3F0', '#F2C94C'];
+  return Array.from({ length: n }, (_, i) => {
+    const d = 14 + rnd() * 8;
+    const f = h('span', { class: 'fly' }, h('span', { class: 'fly-bob', html: FLY }));
+    f.style.cssText = `left:${(8 + rnd() * 50).toFixed(1)}%;top:${(18 + rnd() * 55).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${(-rnd() * d).toFixed(1)}s;`
+      + `--mx:${(80 + rnd() * 100).toFixed(0)}px;--my:${(40 + rnd() * 50).toFixed(0)}px;--w:${wings[i % wings.length]}`;
+    return f;
+  });
+}
+// Новий рік: вогники гірлянди на пів ялинки біля лівого краю. Координати вже перераховані
+// у .dv-front: [left, bottom] у px шару (ялинка — left 30px, bottom 112px, масштаб 1.2, як у CSS). Мерехтять хвилею (лише opacity)
+const FIR_LIGHTS = [[64,486],[76,474],[65,441],[80,430],[95,424],[66,394],[83,384],[100,378],[116,375],[67,347],[85,339],[103,332],[120,327],[138,324],[67,299],[86,292],[104,285],[124,280],[142,278],[161,275],[68,251],[86,245],[106,238],[125,233],[144,230],[163,227],[182,226],[68,203],[88,197],[107,191],[127,186],[146,183],[166,179],[185,178],[205,176]];
+function firLights() {
+  return FIR_LIGHTS.map(([x, y], i) => {
+    const s = h('span', { class: 'fir-light' });
+    s.style.cssText = `left:${x}px;bottom:${y}px;--c:${BULBS[i % BULBS.length]};--i:${i}`;
+    return s;
   });
 }
 // Осінній дощ: похилі краплі різної швидкості — лише transform. Шар видно, лише коли html.is-raining
@@ -315,7 +342,7 @@ export function startDepth() {
   const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
-    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), h('span', { class: 'meteor meteor-vona' })),
+    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), ...flies(3, 23), ...firLights(), h('span', { class: 'meteor meteor-vona' })),
     h('i', { class: 'dv-garland' }, ...garland(14)),
     h('i', { class: 'dv-rain' }, ...rain(52)));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
