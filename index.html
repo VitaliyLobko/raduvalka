@@ -15,6 +15,12 @@
         document.querySelector('meta[name="theme-color"]').content = '#0B384B';
         document.querySelector('link[rel="manifest"]').href = 'manifest-vin.webmanifest';
       }
+      // Ніч — у нього завжди, у неї — як обрано (за замовчуванням як у телефоні); те саме робить js/theme.js
+      var side = document.documentElement.dataset.side, mode = localStorage.getItem('radovalka:theme') || 'auto';
+      if (side === 'vin' || mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-dark', '');
+        if (side !== 'vin') document.querySelector('meta[name="theme-color"]').content = '#2A1730';
+      }
     } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }
     // Сторож старту: за 12 с застосунок не піднявся (і це не замок чи PIN) — раз стираємо кеш оболонки
     // (у ньому могла лягти суміш версій) і перезавантажуємо, як Ctrl+Shift+R; удруге — напис і кнопка.

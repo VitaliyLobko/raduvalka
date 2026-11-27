@@ -30,6 +30,7 @@ import { initBack, tabChanged, leave } from './back.js';
 import { initVoice } from './voice.js';
 import { deliver, startOutbox } from './outbox.js';
 import { applyTextSize, textSizePanel } from './textsize.js';
+import { applyTheme, themePanel } from './theme.js';
 import { checkinRow, checkIn, paint as paintCheckin } from './checkin.js';
 import { sosBox, loadSos, sosCheck, sosSlider } from './sos.js';
 import { startDepth, isStill, setStill } from './depth.js';
@@ -373,7 +374,8 @@ function render() {
 // Половину визначає ключ: її ключ — лаванда, його — космос
 function applySide() {
   document.documentElement.dataset.side = DATA.side;
-  document.querySelector('meta[name="theme-color"]').content = DATA.side === 'vin' ? '#0B384B' : '#EADFFB';
+  // Ніч: у нього завжди, у неї — як обрала в «О Радовалке»
+  applyTheme(DATA.side);
   // Встановлять застосунок у цій же сесії — заставка вже його кольору, не з першого завантаження
   document.querySelector('link[rel="manifest"]').href = DATA.side === 'vin' ? 'manifest-vin.webmanifest' : 'manifest.webmanifest';
   rememberSide(DATA.side);
@@ -858,7 +860,7 @@ function openAbout(showNews) {
       aboutGroup('Письма', autoOpenSwitch(), h('div', {}, h('p', { class: 'about-sub' }, 'Размер букв'), textSizePanel())),
       aboutGroup('Звуки', soundSwitch(), instrumentPicker()),
       // Свої для кожного телефона: сповіщення й рух фону (раптом від нього укачує)
-      aboutGroup('Этот телефон', pushPanel(), stillSwitch()),
+      aboutGroup('Этот телефон', DATA.side === 'vin' ? null : themePanel(), pushPanel(), stillSwitch()),
       // Замок на вхід (PIN або відбиток) і дозволи на місце й мікрофон наперед — щоб у біді «Нужна помощь» не питала
       aboutGroup('Защита', pinPanel(aboutRow),
         aboutRow('🆘', 'Проверить «Нужна помощь»', 'Разрешить место и микрофон заранее', sosCheck)),
