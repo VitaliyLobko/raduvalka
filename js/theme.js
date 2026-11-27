@@ -1,11 +1,25 @@
-// Тема: у нього завжди ніч; у неї — «Как в телефоне» (за темною темою телефона), «Светлая» чи «Ночная».
+// Тема: у нього завжди ніч; у неї — «Как в телефоне» (за темною темою телефона), «Светлая», «Ночная»
+// чи «По времени» (ніч від заходу до сходу сонця над Києвом).
 // Узор фону — у кожного свій: у неї 25.12–14.01 Новий рік, решта грудня–лютого зима, інакше сакура;
 // у нього взимку північне сяйво, влітку Чумацький Шлях, інакше зоряна карта. Або обраний вручну.
 // Пам'ятає цей телефон; ранній скрипт в index.html ставить те саме ще до першого кадру
 import { h } from './ui.js';
 
 const KEY = 'radovalka:theme';
-const MODES = [['auto', '📱', 'Как в телефоне'], ['light', '☀️', 'Светлая'], ['dark', '🌙', 'Ночная']];
+const MODES = [['auto', '📱', 'Как в телефоне'], ['time', '🌗', 'По времени'], ['light', '☀️', 'Светлая'], ['dark', '🌙', 'Ночная']];
+// Схід і захід сонця над Києвом, хвилини UTC (наближення NOAA, похибка — хвилина-дві); те саме в index.html
+export function sunTimes(d = new Date()) {
+  const g = (2 * Math.PI / 365) * (Math.floor((d - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5) - 1);
+  const k = Math.PI / 180;
+  const eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+  const de = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g)
+    - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+  const ha = Math.acos(Math.cos(90.833 * k) / (Math.cos(50.45 * k) * Math.cos(de)) - Math.tan(50.45 * k) * Math.tan(de)) / k;
+  return [720 - 4 * (30.52 + ha) - eq, 720 - 4 * (30.52 - ha) - eq];
+}
+const nightNow = (d = new Date()) => { const [rise, set] = sunTimes(d); const m = d.getUTCHours() * 60 + d.getUTCMinutes(); return m < rise || m >= set; };
+// Хвилини UTC → «16:05» за Києвом
+const hm = (min) => { const d = new Date(); d.setUTCHours(0, Math.round(min), 0, 0); return d.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Kyiv', hour: 'numeric', minute: '2-digit' }); };
 const mq = matchMedia('(prefers-color-scheme: dark)');
 const read = () => { try { return localStorage.getItem(KEY) || 'auto'; } catch { return 'auto'; } };
 const PATTERNS = {
@@ -30,7 +44,7 @@ const color = (side, dark) => (side === 'vin' ? '#0B384B' : dark ? '#2A1730' : '
 
 export function applyTheme(side = document.documentElement.dataset.side) {
   const m = read();
-  const dark = side === 'vin' || m === 'dark' || (m === 'auto' && mq.matches);
+  const dark = side === 'vin' || m === 'dark' || (m === 'auto' && mq.matches) || (m === 'time' && nightNow());
   const p = pattern(side);
   const root = document.documentElement;
   root.toggleAttribute('data-dark', dark);
@@ -41,6 +55,10 @@ export function applyTheme(side = document.documentElement.dataset.side) {
   document.querySelector('meta[name="theme-color"]').content = color(side, dark);
 }
 mq.addEventListener?.('change', () => applyTheme());
+// «По времени»: раз на хвилину звіряємось із сонцем (і щойно застосунок знову на екрані) — тема міняється сама
+const byTime = () => { if (read() === 'time' && !document.hidden) applyTheme(); };
+setInterval(byTime, 60000);
+document.addEventListener('visibilitychange', byTime);
 
 // Рядок плиток вибору: значок над підписом, натиснута — підсвічена
 function tiles(title, key, list, now, onPick) {
@@ -61,12 +79,20 @@ function tiles(title, key, list, now, onPick) {
 export function themePanel(side) {
   const P = PATTERNS[sideOf(side)];
   const note = h('p', { class: 'theme-note' });
+  const timeNote = h('p', { class: 'theme-note' });
+  const paintTime = () => {
+    const [rise, set] = sunTimes();
+    timeNote.hidden = read() !== 'time';
+    timeNote.textContent = `Ночная — с заката до рассвета: сегодня с ${hm(set)} до ${hm(rise)}`;
+  };
+  paintTime();
   const paint = () => {
     note.textContent = readPattern(side) === 'auto' ? `Сейчас — ${P.names[bySeason(side)]}. ${P.about}` : 'Узор выбран вручную — «По сезону» вернёт смену по календарю';
   };
   paint();
   return h('div', { class: 'theme-panel' },
-    sideOf(side) === 'vin' ? null : tiles('Тема', KEY, MODES, read()),
+    sideOf(side) === 'vin' ? null : tiles('Тема', KEY, MODES, read(), paintTime),
+    sideOf(side) === 'vin' ? null : timeNote,
     tiles('Узор фона', P.key, P.list, readPattern(side), paint),
     note);
 }
