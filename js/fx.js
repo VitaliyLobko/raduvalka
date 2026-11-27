@@ -275,7 +275,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '🌌': 4600, '🧸': 2800, '🤣': 2700, '🫣': 2800, '🌸': 3000, '⭐': 3200, '🎖️': 3400, '🛡️': 3000, '🚀': 3000, '🍿': 2900, '💊': 3600, '🤮': 3300, '🌈': 3200, '😏': 2400, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 2600, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 3300, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2600, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 2500, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
+const DUR = { '🌌': 4600, '🧸': 3000, '😉': 2600, '🍒': 2800, '🪖': 3200, '🎁': 3000, '🤣': 2700, '🫣': 2800, '🌸': 3000, '⭐': 3200, '🎖️': 3400, '🛡️': 3000, '🚀': 3000, '🍿': 2900, '💊': 3600, '🤮': 3300, '🌈': 3200, '😏': 2600, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 3000, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 3300, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2800, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 3400, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -344,28 +344,6 @@ const REACT_FX = {
     jolt(el, [{ transform: 'none' }, { transform: 'translateY(-10px)' }, { transform: 'none' }, { transform: 'translateY(-7px)' },
       { transform: 'none' }, { transform: 'translateY(-4px)' }, { transform: 'none' }], 1100, 200);
   },
-  // Щенячі очі: довкола темніє, обличчя повільно наближається й тремтить, в очах блищить, котяться сльози
-  '🥺': (el, x, y) => {
-    veil('fx-veil', [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], 2600, 0, x, y);
-    big('🥺', x, y, [
-      { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.3 },
-      { transform: 'scale(1.25) translateX(-2px)', offset: 0.45 }, { transform: 'scale(1.3) translateX(2px)', offset: 0.52 },
-      { transform: 'scale(1.33) translateX(-2px)', offset: 0.6 }, { transform: 'scale(1.36) translateX(2px)', offset: 0.68 },
-      { transform: 'scale(1.38) translateX(0)', opacity: 1, offset: 0.86 }, { transform: 'scale(1.4)', opacity: 0 },
-    ], 2600, '6.6rem');
-    twinkle('✨', x - 25, y - 12, '1.3rem', 900);
-    twinkle('✨', x + 25, y - 12, '1.3rem', 1080);
-    twinkle('✨', x - 25, y - 12, '1.3rem', 1700);
-    for (const dx of [-29, 29]) {
-      const t = glyphAt('💧', x + dx, y + 20, '1.6rem');
-      gone(t)(t.animate([
-        { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.2 },
-        { transform: `translate(calc(-50% + ${dx > 0 ? 4 : -4}px), calc(-50% + 50px)) scale(.95)`, opacity: 1, offset: 0.6 },
-        { transform: 'translate(-50%, calc(-50% + 100px)) scale(.8)', opacity: 0 },
-      ], { duration: 1100, delay: 1350 + (dx > 0 ? 180 : 0), easing: 'ease-in', fill: 'backwards' }));
-    }
-    jolt(el, [{ transform: 'none' }, { transform: 'scale(.97)', offset: 0.4 }, { transform: 'scale(1.01)', offset: 0.7 }, { transform: 'none' }], 1400, 600);
-  },
   // Полуничний дощ на повідомлення, а наостанок велика полуниця падає з плюхом і бризками
   '🍓': (el, x, y, r) => {
     const land = clamp(r.top + 6, 40, innerHeight - 120);
@@ -413,24 +391,6 @@ const REACT_FX = {
       ], { duration: 1600 - i * 200, delay: d, fill: 'backwards' }));
       jolt(el, [{ transform: 'none' }, { transform: `scale(.985) rotate(${rot > 0 ? 0.6 : -0.6}deg)` }, { transform: 'none' }], 220, d);
     });
-  },
-  // Долоньки підіймаються, за ними повільно обертається золоте сяйво, довкола блимають іскри
-  '🙏': (el, x, y) => {
-    const rays = shape('fx-rays', x, y);
-    gone(rays)(rays.animate([
-      { transform: `${C} scale(.3) rotate(0)`, opacity: 0 }, { transform: `${C} scale(1) rotate(25deg)`, opacity: 1, offset: 0.3 },
-      { transform: `${C} scale(1.1) rotate(60deg)`, opacity: 1, offset: 0.8 }, { transform: `${C} scale(1.2) rotate(75deg)`, opacity: 0 },
-    ], { duration: 2400, delay: 150, fill: 'backwards' }));
-    big('🙏', x, y, [
-      { transform: 'translateY(60px) scale(.4)', opacity: 0 }, { transform: 'translateY(0) scale(1.25)', opacity: 1, offset: 0.3 },
-      { transform: 'scale(1.1)', offset: 0.42 }, { transform: 'scale(1.25)', offset: 0.5 }, { transform: 'scale(1.1)', offset: 0.6 },
-      { transform: 'scale(1.2)', opacity: 1, offset: 0.86 }, { transform: 'translateY(-20px) scale(1)', opacity: 0 },
-    ], 2300, '6.6rem');
-    for (let i = 0; i < 7; i += 1) {
-      const a = Math.random() * Math.PI * 2;
-      const d = 88 + Math.random() * 72;
-      twinkle(i % 3 ? '✨' : '⭐', x + Math.cos(a) * d, y + Math.sin(a) * d, `${1.3 + Math.random() * 0.7}rem`, 500 + i * 170);
-    }
   },
   // Пушковий салют: треуголка сідає на голову, збоку викочується гармата, постріл, феєрверк, піратський прапор і сувій
   '🫡': (el, x, y) => {
@@ -900,20 +860,6 @@ REACT_FX['🌈'] = (el, x, y) => {
   ], { duration: D * 0.7, delay: D * 0.3, easing: 'ease-out', fill: 'backwards' }));
 };
 
-// «Хитренько» 😏: прищур і підморгування (стиск по вертикалі), брова вгору — нахил, поруч пробігає вогник
-REACT_FX['😏'] = (el, x, y) => {
-  big('😏', x, y, [
-    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.1) rotate(-6deg)', opacity: 1, offset: 0.18 },
-    { transform: 'scale(1) rotate(-8deg)', offset: 0.32 }, { transform: 'scale(1.05, .86) rotate(-8deg)', offset: 0.44 },
-    { transform: 'scale(1) rotate(6deg)', offset: 0.56 }, { transform: 'scale(1.02) rotate(4deg)', opacity: 1, offset: 0.86 }, { transform: 'scale(.6)', opacity: 0 },
-  ], 2400, '5.6rem');
-  const f = glyphAt('🔥', x - 110, y + 46, '1.6rem');
-  gone(f)(f.animate([
-    { transform: `${C} scale(.3)`, opacity: 0 }, { transform: 'translate(calc(-50% + 40px), calc(-50% - 6px)) scale(1)', opacity: 1, offset: 0.25 },
-    { transform: 'translate(calc(-50% + 150px), calc(-50% + 4px)) scale(1)', opacity: 1, offset: 0.75 }, { transform: 'translate(calc(-50% + 220px), -50%) scale(.4)', opacity: 0 },
-  ], { duration: 1300, delay: 700, easing: 'ease-in-out', fill: 'backwards' }));
-  twinkle('✨', x + 46, y - 40, '1.4rem', 1050);
-};
 
 // «Наш Юпітер» 🪐: Юпітер пропливає екраном по дузі, за ним летить сердечко — як у листівці «Вместе»
 REACT_FX['🪐'] = (el, x, y) => {
@@ -1119,19 +1065,6 @@ REACT_FX['😘'] = (el, x, y) => {
   spray(x + 44, y - 50, ['💕', '💗', '✨'], 8, { dist: 110, size: '1.3rem', delay: 1500 });
 };
 
-// «Оплески» 👏: долоні плескають чотири рази, на кожен хлопок — зірочки, а лист ледь здригається
-REACT_FX['👏'] = (el, x, y) => {
-  const D = 2500;
-  const claps = [0.18, 0.33, 0.48, 0.63];
-  const frames = [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.12 }];
-  for (const o of claps) frames.push({ transform: 'scale(1.18, .9) rotate(-4deg)', offset: o }, { transform: 'scale(1) rotate(3deg)', offset: o + 0.07 });
-  frames.push({ transform: 'scale(1)', opacity: 1, offset: 0.88 }, { transform: 'scale(.6)', opacity: 0 });
-  big('👏', x, y, frames, D, '5.8rem');
-  for (const o of claps) {
-    spray(x, y - 10, ['✨', '⭐', '🌟'], 6, { dist: 120, size: '1.2rem', delay: o * D, dur: 800 });
-    jolt(el, [{ transform: 'none' }, { transform: 'scale(1.02)' }, { transform: 'none' }], 180, o * D);
-  }
-};
 
 // «Хлопавка» 🎉: хлопавка бахкає, з неї віялом летить конфеті, а згори на весь екран сиплеться кольорове
 REACT_FX['🎉'] = (el, x, y) => {
@@ -1232,17 +1165,6 @@ REACT_FX['👀'] = (el, x, y, r) => {
   [[-26, -24], [28, -20], [-10, 30], [24, 26]].forEach(([dx, dy], i) => twinkle('✨', fx2 + dx, fy2 + dy, '1.3rem', 380 + dur * 0.9 + i * 70));
 };
 
-// «Ой-ой» 😱: крик — обличчя тремтить, навсібіч розлітаються «!», лист підскакує від переляку
-REACT_FX['😱'] = (el, x, y) => {
-  const frames = [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.25, 1.35)', opacity: 1, offset: 0.12 }];
-  for (let i = 0; i < 8; i += 1) frames.push({ transform: `scale(1.2, 1.3) rotate(${i % 2 ? 6 : -6}deg)`, offset: 0.16 + i * 0.05 });
-  frames.push({ transform: 'scale(1.05) rotate(0)', opacity: 1, offset: 0.86 }, { transform: 'scale(.7)', opacity: 0 });
-  big('😱', x, y, frames, 2500, '5.8rem');
-  ring(x, y, 250);
-  ring(x, y, 520);
-  spray(x, y, ['❗', '‼️', '⚡'], 12, { dist: 150, size: '1.6rem', delay: 300, fall: 0, dur: 1100 });
-  jolt(el, [{ transform: 'none' }, { transform: 'translateY(-14px)', offset: 0.35 }, { transform: 'translateY(3px)', offset: 0.7 }, { transform: 'none' }], 420, 260);
-};
 
 // «Хм» 🤔: задумливо гойдається, над головою спливають «?», а потім — дзинь! — загоряється 💡
 REACT_FX['🤔'] = (el, x, y) => {
@@ -1583,21 +1505,6 @@ function say(text, x, y, size, delay, dur, wrap = false) {
   ], { duration: dur, delay, fill: 'backwards' }));
 }
 
-// «Ведмедик» 🧸: плюхається згори на повідомлення й обіймає — лист двічі стискається, ведмедик гойдається, злітають сердечка
-REACT_FX['🧸'] = (el, x, y) => {
-  big('🧸', x, y - 10, [
-    { transform: `translateY(${-y - 60}px) rotate(-20deg)`, opacity: 1, easing: 'ease-in' },
-    { transform: 'translateY(0) rotate(0)', offset: 0.22 },
-    { transform: 'translateY(10px) scale(1.25, .8)', offset: 0.27 },
-    { transform: 'translateY(-6px) scale(.95, 1.08)', offset: 0.34 },
-    { transform: 'scale(1) rotate(-7deg)', offset: 0.48 }, { transform: 'scale(1.06) rotate(7deg)', offset: 0.62 },
-    { transform: 'scale(1) rotate(-4deg)', offset: 0.74 }, { transform: 'scale(1) rotate(0)', opacity: 1, offset: 0.88 },
-    { transform: 'scale(.7)', opacity: 0 },
-  ], 2700, '6rem');
-  jolt(el, [{ transform: 'none' }, { transform: 'scale(.95, .97)', offset: 0.3 }, { transform: 'none', offset: 0.5 },
-    { transform: 'scale(.96, .98)', offset: 0.75 }, { transform: 'none' }], 1300, 750);
-  rise(x, y - 30, ['💕', '🤎', '💗'], 8, { delay: 1100, up: 200, spread: 200, size: 1.1 });
-};
 
 // «Катаюсь від сміху» 🤣: смайлик викочується зліва, трясеться від реготу з бризками сліз і відкочується вправо
 REACT_FX['🤣'] = (el, x, y) => {
@@ -1615,48 +1522,6 @@ REACT_FX['🤣'] = (el, x, y) => {
   jolt(el, [{ transform: 'none' }, { transform: 'translateY(-8px) rotate(-1deg)' }, { transform: 'none' }, { transform: 'translateY(-5px) rotate(1deg)' }, { transform: 'none' }], 900, 850);
 };
 
-// «Підглядаю» 🫣: визирає з-за верхнього краю повідомлення, ховається й визирає ще раз — вище й нахилившись
-REACT_FX['🫣'] = (el, x, y, r) => {
-  // Підглядає з-за верхнього краю листа: визирнув, роззирнувся — помітив, що дивляться, «❗» і сховався (лист здригнувся);
-  // за мить визирає сміливіше, червоніє — сердечка й іскорка
-  const edge = clamp(r.top + 4, 150, innerHeight - 200);
-  const box = shape('fx-peek', x, edge);
-  const face = document.createElement('span');
-  face.textContent = '🫣';
-  box.append(face);
-  const D = 3000;
-  gone(box)(box.animate([{ opacity: 1 }, { opacity: 1, offset: 0.95 }, { opacity: 0 }], { duration: D, fill: 'backwards' }));
-  face.animate([
-    { transform: 'translateY(105%)' },
-    { transform: 'translateY(56%) rotate(0)', offset: 0.12 },
-    { transform: 'translateY(52%) translateX(-10%) rotate(-10deg)', offset: 0.2 },
-    { transform: 'translateY(52%) translateX(10%) rotate(10deg)', offset: 0.28 },
-    { transform: 'translateY(50%) rotate(0) scale(1.04)', offset: 0.33 },
-    { transform: 'translateY(108%) scale(.96)', offset: 0.38, easing: 'cubic-bezier(.3, 0, .2, 1)' },
-    { transform: 'translateY(108%)', offset: 0.5 },
-    { transform: 'translateY(30%) rotate(8deg)', offset: 0.6 },
-    { transform: 'translateY(8%) rotate(4deg) scale(1.08)', offset: 0.68 },
-    { transform: 'translateY(10%) rotate(-3deg) scale(1.06)', offset: 0.78 },
-    { transform: 'translateY(12%) rotate(2deg) scale(1.06)', offset: 0.86 },
-    { transform: 'translateY(108%)' },
-  ], { duration: D, easing: 'ease-in-out', fill: 'forwards' });
-  // «Ой!» — знак оклику вискакує над головою, лист здригається, коли ховається
-  const bang = glyphAt('❗', x + 44, edge - 64, '1.8rem');
-  gone(bang)(bang.animate([
-    { transform: `${C} scale(.2) rotate(-20deg)`, opacity: 0 }, { transform: `${C} scale(1.3) rotate(8deg)`, opacity: 1, offset: 0.3 },
-    { transform: `${C} scale(1) rotate(0)`, opacity: 1, offset: 0.7 }, { transform: 'translate(-50%, calc(-50% - 14px)) scale(.8)', opacity: 0 },
-  ], { duration: 600, delay: D * 0.31, easing: 'ease-out', fill: 'backwards' }));
-  jolt(el, [{ transform: 'none' }, { transform: 'translateY(4px)' }, { transform: 'translateY(-2px)' }, { transform: 'none' }], 360, D * 0.36);
-  // Вдруге — сміливіше: червоніє, сердечка спливають, іскорка біля ока
-  [[-40, 0], [36, 140], [-6, 280]].forEach(([dx, d]) => {
-    const hrt = glyphAt('💗', x + dx, edge - 40, '1.3rem');
-    gone(hrt)(hrt.animate([
-      { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1.1)`, opacity: 1, offset: 0.25 },
-      { transform: `translate(calc(-50% + ${dx / 4}px), calc(-50% - 60px)) scale(.9)`, opacity: 0 },
-    ], { duration: 1100, delay: D * 0.66 + d, easing: 'ease-out', fill: 'backwards' }));
-  });
-  twinkle('✨', x + 30, edge - 56, '1.3rem', D * 0.7);
-};
 
 // «Сакура» 🌸: квітка розпускається над повідомленням, потім налітає вітер і несе пелюстки через увесь екран
 REACT_FX['🌸'] = (el, x, y) => {
@@ -2320,3 +2185,372 @@ export function boardDraw(board, svgHe, svgShe) {
   ], { duration: 1900, delay: 500, easing: 'ease-out', fill: 'backwards' }));
   rise(x, y, ['💙', '❤️', '💜'], 10, { delay: 900, up: 200, spread: 200, size: 1.1 });
 }
+
+// ── Переділані й нові реакції (27.11) ─────────────
+// Напис над сценою («ну-ну», «Спасибо»): вискакує, тримається, спливає
+function shout(text, x, y, delay, dur = 1400, size = '1.5rem', cls = '') {
+  const s = glyphAt(text, x, y, size, `fx-ha${cls ? ` ${cls}` : ''}`);
+  gone(s)(s.animate([
+    { transform: `${C} scale(.3) rotate(-8deg)`, opacity: 0 }, { transform: `${C} scale(1.1) rotate(3deg)`, opacity: 1, offset: 0.2 },
+    { transform: `${C} scale(1) rotate(0)`, opacity: 1, offset: 0.8 }, { transform: 'translate(-50%, calc(-50% - 16px)) scale(.9)', opacity: 0 },
+  ], { duration: dur, delay, easing: 'ease-out', fill: 'backwards' }));
+}
+// Значок вискакує на місці й тане (для одиночних сердечок, підморгувань)
+function pop(g, x, y, size, delay, dur = 1100, cls = '') {
+  const s = glyphAt(g, x, y, size, cls);
+  gone(s)(s.animate([
+    { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(1.2)`, opacity: 1, offset: 0.25 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.75 }, { transform: 'translate(-50%, calc(-50% - 24px)) scale(.9)', opacity: 0 },
+  ], { duration: dur, delay, easing: 'ease-out', fill: 'backwards' }));
+  return s;
+}
+// Світлий блік пробігає по листу навскіс
+function glint(r, delay) {
+  const g = shape('fx-glint', r.left, Math.max(r.top, 0));
+  g.style.width = `${r.width}px`;
+  g.style.height = `${Math.min(r.height, innerHeight)}px`;
+  const band = document.createElement('i');
+  g.append(band);
+  gone(g)(g.animate([{ opacity: 1 }, { opacity: 1 }], { duration: 900, delay, fill: 'backwards' }));
+  band.animate([{ transform: 'translateX(-90px) skewX(-20deg)' }, { transform: `translateX(${r.width + 30}px) skewX(-20deg)` }],
+    { duration: 900, delay, easing: 'ease-in-out', fill: 'both' });
+}
+
+// «Крик» 😱 — як у Мунка: екран заливає закатне небо хвилями, фіорд і міст; знизу виростає постать, обличчя
+// витягується й кричить, усе колишеться
+const MUNCH = '<svg viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+  + '<rect width="360" height="640" fill="#E06A32"/>'
+  + '<g class="mu-sky" fill="none" stroke-linecap="round">'
+  + '<path d="M-60 30C20 0 80 60 160 30S300 0 420 40" stroke="#F3B342" stroke-width="34"/>'
+  + '<path d="M-60 80C30 50 90 110 180 80S310 50 420 90" stroke="#D8432B" stroke-width="30"/>'
+  + '<path d="M-60 128C20 100 100 158 190 126S320 100 420 136" stroke="#F08B3A" stroke-width="32"/>'
+  + '<path d="M-60 176C40 150 110 204 200 172S330 150 420 182" stroke="#F6CB5C" stroke-width="26"/>'
+  + '<path d="M-60 220C30 196 120 246 210 216S330 196 420 226" stroke="#C9382D" stroke-width="28"/>'
+  + '<path d="M-60 262C40 240 120 284 220 258S340 240 420 266" stroke="#EE9A3E" stroke-width="24"/></g>'
+  + '<g class="mu-sea"><path d="M140 296C200 268 300 288 380 278V480C300 466 240 436 200 404 160 372 118 340 140 296Z" fill="#2E4C7C"/>'
+  + '<g fill="none" stroke-linecap="round"><path d="M172 318C222 298 290 314 380 304" stroke="#4A6EA3" stroke-width="12"/>'
+  + '<path d="M192 352C242 336 302 352 380 342" stroke="#22395F" stroke-width="12"/>'
+  + '<path d="M222 390C262 378 322 394 380 386" stroke="#4A6EA3" stroke-width="10"/></g></g>'
+  + '<path d="M-20 276C60 266 120 298 150 330 172 360 204 402 262 442L-20 530Z" fill="#5B6A3A"/>'
+  + '<path d="M-20 318C60 318 110 348 150 390" stroke="#7A8A4A" stroke-width="10" fill="none" stroke-linecap="round"/>'
+  + '<path d="M-20 398L380 598V660H-20Z" fill="#A9773F"/>'
+  + '<g stroke-linecap="round"><path d="M-20 388L380 588" stroke="#6E4020" stroke-width="10"/><path d="M-20 412L380 626" stroke="#7E4C26" stroke-width="5"/>'
+  + '<path d="M40 418v12M120 458v13M200 498v14M280 538v15" stroke="#6E4020" stroke-width="5"/></g>'
+  + '<g fill="#2A2233"><rect x="34" y="350" width="10" height="36" rx="5"/><circle cx="39" cy="345" r="6"/>'
+  + '<rect x="52" y="357" width="10" height="36" rx="5"/><circle cx="57" cy="352" r="6"/></g>'
+  + '<path class="mu-body" d="M156 470C138 520 170 572 146 660H226C206 580 232 520 206 470 196 461 166 461 156 470Z" fill="#3D3452"/>'
+  + '</svg>';
+REACT_FX['😱'] = (el) => {
+  const D = 3400;
+  const box = shape('fx-munch', 0, 0, MUNCH);
+  gone(box)(box.animate([{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }], { duration: D, fill: 'backwards' }));
+  const wave = (sel, k) => box.querySelector(sel).animate([
+    { transform: 'translateX(0) skewY(0)' }, { transform: `translateX(${-16 * k}px) skewY(${1.5 * k}deg)`, offset: 0.3 },
+    { transform: `translateX(${12 * k}px) skewY(${-1.5 * k}deg)`, offset: 0.65 }, { transform: `translateX(${-6 * k}px) skewY(${0.8 * k}deg)` },
+  ], { duration: D, easing: 'ease-in-out', fill: 'both' });
+  wave('.mu-sky', 1);
+  wave('.mu-sea', -1);
+  box.querySelector('.mu-body').animate([
+    { transform: 'translateY(70%)' }, { transform: 'translateY(0) skewX(-5deg)', offset: 0.25 },
+    { transform: 'skewX(5deg) scaleY(1.04)', offset: 0.45 }, { transform: 'skewX(-4deg)', offset: 0.65 },
+    { transform: 'skewX(3deg)', offset: 0.85 }, { transform: 'skewX(0)' },
+  ], { duration: D, easing: 'ease-in-out', fill: 'both' });
+  // Голова — над тілом постаті: координати з SVG (зріз по більшому боці, як preserveAspectRatio slice)
+  const k = Math.max(innerWidth / 360, innerHeight / 640);
+  const hx = innerWidth / 2 + (181 - 180) * k;
+  const hy = innerHeight / 2 + (432 - 320) * k;
+  big('😱', hx, hy, [
+    { transform: 'translateY(170px) scale(.8)', opacity: 0 }, { transform: 'translateY(0) scale(1)', opacity: 1, offset: 0.25 },
+    { transform: 'scale(.94, 1.26) rotate(-4deg)', offset: 0.4 }, { transform: 'scale(1, 1.14) rotate(4deg)', offset: 0.52 },
+    { transform: 'scale(.94, 1.3) rotate(-3deg)', offset: 0.64 }, { transform: 'scale(1, 1.2) rotate(2deg)', opacity: 1, offset: 0.85 },
+    { transform: 'scale(1)', opacity: 0 },
+  ], D, '5.4rem');
+  shout('А-а-а-а!', innerWidth / 2, innerHeight * 0.17, D * 0.36, D * 0.5, '2.4rem', 'fx-munch-say');
+};
+
+// Щенячі очі 🥺 — без сліз: довкола темніє, обличчя наближається й тремтить, в очах блищить
+REACT_FX['🥺'] = (el, x, y) => {
+  veil('fx-veil', [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], 2600, 0, x, y);
+  big('🥺', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.3 },
+    { transform: 'scale(1.25) translateX(-2px)', offset: 0.45 }, { transform: 'scale(1.3) translateX(2px)', offset: 0.52 },
+    { transform: 'scale(1.33) translateX(-2px)', offset: 0.6 }, { transform: 'scale(1.36) translateX(2px)', offset: 0.68 },
+    { transform: 'scale(1.38) translateX(0)', opacity: 1, offset: 0.86 }, { transform: 'scale(1.4)', opacity: 0 },
+  ], 2600, '6.6rem');
+  twinkle('✨', x - 25, y - 12, '1.3rem', 900);
+  twinkle('✨', x + 25, y - 12, '1.3rem', 1080);
+  twinkle('✨', x - 25, y - 12, '1.3rem', 1700);
+  twinkle('✨', x + 25, y - 12, '1.3rem', 1880);
+  jolt(el, [{ transform: 'none' }, { transform: 'scale(.97)', offset: 0.4 }, { transform: 'scale(1.01)', offset: 0.7 }, { transform: 'none' }], 1400, 600);
+};
+
+// «Ведмедик» 🧸: плюхається на лист, міцно обіймає (двічі стискає) і випускає з лапок сердечко, що пливе вгору
+REACT_FX['🧸'] = (el, x, y) => {
+  const D = 3000;
+  big('🧸', x, y - 10, [
+    { transform: `translateY(${-y - 60}px) rotate(-20deg)`, opacity: 1, easing: 'ease-in' },
+    { transform: 'translateY(0) rotate(0)', offset: 0.18 },
+    { transform: 'translateY(10px) scale(1.25, .8)', offset: 0.23 },
+    { transform: 'translateY(-6px) scale(.95, 1.08)', offset: 0.3 }, { transform: 'scale(1)', offset: 0.36 },
+    { transform: 'scale(1.22, .9)', offset: 0.42 }, { transform: 'scale(1)', offset: 0.5 },
+    { transform: 'scale(1.22, .9)', offset: 0.56 }, { transform: 'scale(1.04)', offset: 0.64 },
+    { transform: 'scale(1) rotate(-5deg)', offset: 0.76 }, { transform: 'scale(1) rotate(4deg)', opacity: 1, offset: 0.88 },
+    { transform: 'scale(.7)', opacity: 0 },
+  ], D, '6.4rem');
+  for (const o of [0.38, 0.52]) jolt(el, [{ transform: 'none' }, { transform: 'scale(.94, .97)', offset: 0.5 }, { transform: 'none' }], 320, D * o);
+  const hrt = glyphAt('💗', x, y + 12, '3rem', 'fx-big');
+  gone(hrt)(hrt.animate([
+    { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(1.3)`, opacity: 1, offset: 0.2 },
+    { transform: `${C} scale(1)`, offset: 0.3 }, { transform: `${C} scale(1.15)`, offset: 0.4 }, { transform: `${C} scale(1)`, offset: 0.48 },
+    { transform: 'translate(-50%, calc(-50% - 150px)) scale(1.1)', opacity: 1, offset: 0.86 },
+    { transform: 'translate(-50%, calc(-50% - 190px)) scale(.8)', opacity: 0 },
+  ], { duration: 1500, delay: D * 0.64, easing: 'ease-out', fill: 'backwards' }));
+  ring(x, y + 12, D * 0.66);
+  rise(x, y - 20, ['💕', '🤎', '💗'], 6, { delay: D * 0.72, up: 180, spread: 200, size: 1 });
+};
+
+// «Хитренько» 😏: брова двічі підстрибує, смайлик косить на лист, а збоку підморгує 😉 «ну-ну»
+REACT_FX['😏'] = (el, x, y) => {
+  const D = 2600;
+  big('😏', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: 0.14 }, { transform: 'scale(1)', offset: 0.22 },
+    { transform: 'translateY(-10px) rotate(-6deg) scale(1.04, 1.08)', offset: 0.28 }, { transform: 'translateY(0) rotate(0)', offset: 0.34 },
+    { transform: 'translateY(-10px) rotate(-6deg) scale(1.04, 1.08)', offset: 0.4 }, { transform: 'translateY(0) rotate(0)', offset: 0.46 },
+    { transform: 'translate(-14px, 10px) rotate(-14deg)', offset: 0.58 },
+    { transform: 'translate(-14px, 10px) rotate(-14deg)', opacity: 1, offset: 0.86 },
+    { transform: 'translate(-14px, 10px) rotate(-14deg) scale(.6)', opacity: 0 },
+  ], D, '6rem');
+  twinkle('✨', x + 36, y - 42, '1.3rem', D * 0.28);
+  twinkle('✨', x + 36, y - 42, '1.3rem', D * 0.4);
+  const w = glyphAt('😉', x + 78, y - 50, '2.6rem');
+  gone(w)(w.animate([
+    { transform: `${C} scale(0) rotate(-30deg)`, opacity: 0 }, { transform: `${C} scale(1.15) rotate(6deg)`, opacity: 1, offset: 0.22 },
+    { transform: `${C} scale(1) rotate(0)`, offset: 0.34 }, { transform: `${C} scale(1.05, .8)`, offset: 0.5 }, { transform: `${C} scale(1)`, offset: 0.58 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.85 }, { transform: `${C} scale(.6)`, opacity: 0 },
+  ], { duration: 1300, delay: D * 0.5, easing: 'ease-out', fill: 'backwards' }));
+  shout('ну-ну', x + 74, y - 96, D * 0.56, 1150);
+};
+
+// «Підглядаю» 🫣: долоні на очах — пальці розсуваються, крізь щілинки визирають очі, ховаються й розсуваються ще ширше,
+// щоки червоніють, злітають сердечка
+const hand = (px, fx) => fx.map((f, i) => `<rect class="f f${i}" x="${f}" y="4" width="10" height="38" rx="5"/>`).join('')
+  + `<rect x="${px}" y="32" width="47" height="30" rx="14"/>`;
+const HANDS = '<svg viewBox="0 0 120 64" width="104" height="55" aria-hidden="true"><g fill="#FFC83D" stroke="#E39B1B" stroke-width="1.5">'
+  + hand(8, [10, 21, 32, 43]) + hand(65, [67, 78, 89, 100]) + '</g></svg>';
+REACT_FX['🫣'] = (el, x, y) => {
+  const D = 2800;
+  big('😳', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.05)', opacity: 1, offset: 0.12 }, { transform: 'scale(1)', offset: 0.2 },
+    { transform: 'scale(1.02) rotate(-3deg)', offset: 0.5 }, { transform: 'scale(1.04) rotate(3deg)', offset: 0.7 },
+    { transform: 'scale(1)', opacity: 1, offset: 0.88 }, { transform: 'scale(.6)', opacity: 0 },
+  ], D, '6.2rem');
+  const box = shape('fx-hands', x, y - 16, HANDS);
+  gone(box)(box.animate([
+    { transform: `${C} translateY(60px) scale(.4)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.14 },
+    { transform: `${C} scale(1)`, opacity: 1, offset: 0.88 }, { transform: `${C} translateY(30px) scale(.6)`, opacity: 0 },
+  ], { duration: D, easing: 'ease-out', fill: 'backwards' }));
+  // Пальці 0–1 відходять ліворуч, 2–3 праворуч — щілинка посередині кожної долоні
+  const spread = [-9, -16, 12, 7];
+  spread.forEach((deg, i) => {
+    for (const f of box.querySelectorAll(`.f${i}`)) {
+      f.animate([
+        { transform: 'rotate(0)' }, { transform: 'rotate(0)', offset: 0.24 },
+        { transform: `rotate(${deg * 0.7}deg)`, offset: 0.32 }, { transform: `rotate(${deg * 0.7}deg)`, offset: 0.4 },
+        { transform: 'rotate(0)', offset: 0.46 }, { transform: 'rotate(0)', offset: 0.54 },
+        { transform: `rotate(${deg * 1.25}deg)`, offset: 0.64 }, { transform: `rotate(${deg * 1.25}deg)`, offset: 0.82 },
+        { transform: 'rotate(0)' },
+      ], { duration: D, easing: 'ease-in-out', fill: 'both' });
+    }
+  });
+  for (const dx of [-36, 36]) {
+    const b = shape('fx-blush', x + dx, y + 22);
+    gone(b)(b.animate([
+      { transform: `${C} scale(.4)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.4 },
+      { transform: `${C} scale(1.1)`, opacity: 1, offset: 0.8 }, { transform: `${C} scale(1)`, opacity: 0 },
+    ], { duration: D * 0.62, delay: D * 0.3, fill: 'backwards' }));
+  }
+  jolt(el, [{ transform: 'none' }, { transform: 'translateY(3px)' }, { transform: 'none' }], 300, D * 0.42);
+  rise(x, y - 40, ['💗', '💕'], 5, { delay: D * 0.66, up: 160, spread: 180, size: 1 });
+};
+
+// «Оплески» 👏: великі долоні плескають чотири рази, на кожен хлопок спалах, а на останній — овація маленьких 👏
+REACT_FX['👏'] = (el, x, y) => {
+  const D = 2800;
+  const claps = [0.16, 0.3, 0.44, 0.58];
+  const frames = [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.1 }];
+  for (const o of claps) frames.push({ transform: 'scale(1.22, .88) rotate(-5deg)', offset: o }, { transform: 'scale(1) rotate(3deg)', offset: o + 0.07 });
+  frames.push({ transform: 'scale(1.05)', opacity: 1, offset: 0.88 }, { transform: 'scale(.6)', opacity: 0 });
+  big('👏', x, y, frames, D, '7.2rem');
+  for (const o of claps) {
+    const f = shape('fx-clap', x, y - 6);
+    gone(f)(f.animate([{ transform: `${C} scale(.3)`, opacity: 1 }, { transform: `${C} scale(2.2)`, opacity: 0 }],
+      { duration: 420, delay: o * D, easing: 'ease-out', fill: 'backwards' }));
+    spray(x, y - 10, ['✨', '⭐', '🌟'], 6, { dist: 130, size: '1.2rem', delay: o * D, dur: 800 });
+    jolt(el, [{ transform: 'none' }, { transform: 'scale(1.02)' }, { transform: 'none' }], 180, o * D);
+  }
+  // Овація: маленькі долоні вискакують довкола й плескають разом
+  for (let i = 0; i < 14; i += 1) {
+    const a = (i / 14) * Math.PI * 2 + Math.random() * 0.3;
+    const d = 100 + Math.random() * 70;
+    const s = glyphAt('👏', clamp(x + Math.cos(a) * d, 24, innerWidth - 24), clamp(y + Math.sin(a) * d * 0.9, 60, innerHeight - 60), `${1.3 + Math.random() * 0.8}rem`);
+    gone(s)(s.animate([
+      { transform: `${C} scale(0)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.15 },
+      { transform: `${C} scale(1.25, .82)`, offset: 0.3 }, { transform: `${C} scale(1)`, offset: 0.42 },
+      { transform: `${C} scale(1.25, .82)`, offset: 0.56 }, { transform: `${C} scale(1)`, offset: 0.68 },
+      { transform: `${C} scale(1.25, .82)`, offset: 0.8 }, { transform: `${C} scale(.8)`, opacity: 0 },
+    ], { duration: 1200, delay: D * 0.6 + i * 35, easing: 'ease-in-out', fill: 'backwards' }));
+  }
+  shout('Браво!', x, y - 92, D * 0.62, 1300, '1.9rem');
+};
+
+// «Дякую» 🙏: складені долоні, над ними розкривається сяйво з променями, згори падає зірочка — «Спасибо»
+REACT_FX['🙏'] = (el, x, y) => {
+  const D = 3000;
+  const rays = shape('fx-rays', x, y - 24);
+  gone(rays)(rays.animate([
+    { transform: `${C} scale(.2) rotate(0)`, opacity: 0 }, { transform: `${C} scale(1.1) rotate(30deg)`, opacity: 1, offset: 0.3 },
+    { transform: `${C} scale(1.25) rotate(70deg)`, opacity: 1, offset: 0.82 }, { transform: `${C} scale(1.35) rotate(85deg)`, opacity: 0 },
+  ], { duration: D * 0.9, delay: 150, fill: 'backwards' }));
+  big('🙏', x, y + 10, [
+    { transform: 'translateY(60px) scale(.4)', opacity: 0 }, { transform: 'translateY(0) scale(1.2)', opacity: 1, offset: 0.22 },
+    { transform: 'scale(1.1)', offset: 0.34 }, { transform: 'scale(1.2)', offset: 0.46 },
+    { transform: 'scale(1.05, .95) translateY(4px)', offset: 0.53 }, { transform: 'scale(1.2)', offset: 0.6 },
+    { transform: 'scale(1.15)', opacity: 1, offset: 0.88 }, { transform: 'translateY(-20px) scale(1)', opacity: 0 },
+  ], D, '6.6rem');
+  const land = D * 0.53;
+  const st = glyphAt('🌟', x, y - 58, '2.6rem', 'fx-big');
+  gone(st)(st.animate([
+    { transform: `translate(-50%, calc(-50% - ${y}px)) rotate(-200deg) scale(.7)`, opacity: 1, easing: 'ease-in' },
+    { transform: `${C} rotate(0) scale(1.25)`, offset: 0.5 }, { transform: `${C} scale(.92)`, offset: 0.6 },
+    { transform: `${C} scale(1.05)`, opacity: 1, offset: 0.88 }, { transform: 'translate(-50%, calc(-50% - 30px)) scale(.8)', opacity: 0 },
+  ], { duration: 1500, delay: land - 750, fill: 'backwards' }));
+  ring(x, y - 58, land, 'is-gold');
+  spray(x, y - 58, ['✨', '⭐'], 8, { dist: 110, size: '1.2rem', delay: land, dur: 900 });
+  shout('Спасибо', x, y - 120, land + 100, 1500, '1.9rem');
+  for (let i = 0; i < 5; i += 1) {
+    const a = Math.random() * Math.PI * 2;
+    const d = 90 + Math.random() * 60;
+    twinkle('✨', x + Math.cos(a) * d, y + Math.sin(a) * d, `${1.2 + Math.random() * 0.6}rem`, 400 + i * 220);
+  }
+};
+
+// «Підморгую» 😉: двічі підморгує, з вії злітає іскорка, по листу пробігає блік, поруч — сердечко
+REACT_FX['😉'] = (el, x, y, r) => {
+  const D = 2600;
+  big('😉', x, y, [
+    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.1)', opacity: 1, offset: 0.14 }, { transform: 'scale(1)', offset: 0.22 },
+    { transform: 'scale(1.06, .84) rotate(-6deg)', offset: 0.3 }, { transform: 'scale(1) rotate(0)', offset: 0.36 },
+    { transform: 'scale(1.06, .84) rotate(-6deg)', offset: 0.46 }, { transform: 'scale(1) rotate(3deg)', offset: 0.52 },
+    { transform: 'scale(1) rotate(3deg)', opacity: 1, offset: 0.86 }, { transform: 'scale(.6)', opacity: 0 },
+  ], D, '6rem');
+  const sp = glyphAt('✨', x + 22, y - 18, '1.7rem');
+  gone(sp)(sp.animate([
+    { transform: `${C} scale(.3)`, opacity: 0 }, { transform: 'translate(calc(-50% + 40px), calc(-50% - 50px)) scale(1.2) rotate(90deg)', opacity: 1, offset: 0.45 },
+    { transform: 'translate(calc(-50% + 96px), calc(-50% - 30px)) scale(.6) rotate(200deg)', opacity: 0 },
+  ], { duration: 950, delay: D * 0.46, easing: 'ease-out', fill: 'backwards' }));
+  glint(r, D * 0.5);
+  pop('💗', x - 74, y - 46, '2.2rem', D * 0.58, 1200);
+};
+
+// «Вишеньки» 🍒: дві вишеньки на гілочці спускаються над лист, розгойдуються й двічі «цілуються» — чмок, сердечка
+const CHERRIES = '<svg viewBox="0 0 140 150" width="150" height="161" aria-hidden="true">'
+  + '<path d="M70 12q8-12 26-8-8 14-26 8z" fill="#3FAE5A"/>'
+  + '<g class="ch-l"><path d="M70 12Q50 50 30 92" stroke="#5C7A2E" stroke-width="4" fill="none" stroke-linecap="round"/>'
+  + '<circle cx="30" cy="114" r="24" fill="#D7263D"/><ellipse cx="21" cy="104" rx="6" ry="9" fill="#fff" opacity=".55" transform="rotate(-25 21 104)"/></g>'
+  + '<g class="ch-r"><path d="M70 12Q90 50 110 92" stroke="#5C7A2E" stroke-width="4" fill="none" stroke-linecap="round"/>'
+  + '<circle cx="110" cy="114" r="24" fill="#C81D36"/><ellipse cx="101" cy="104" rx="6" ry="9" fill="#fff" opacity=".55" transform="rotate(-25 101 104)"/></g>'
+  + '</svg>';
+REACT_FX['🍒'] = (el, x, y) => {
+  const D = 2800;
+  const box = shape('fx-cherry', x, y - 10, CHERRIES);
+  gone(box)(box.animate([
+    { transform: `translate(-50%, calc(-50% - ${y + 120}px))`, opacity: 1, easing: 'cubic-bezier(.3, 0, .4, 1)' },
+    { transform: `${C} translateY(10px)`, offset: 0.2 }, { transform: `${C} translateY(-4px)`, offset: 0.26 }, { transform: `${C}`, offset: 0.3 },
+    { transform: `${C}`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.7)`, opacity: 0 },
+  ], { duration: D, fill: 'backwards' }));
+  // Обертання кожної вишеньки навколо верхівки гілочки: розходяться — сходяться (торкаються при ±9°)
+  const swing = (sign) => [
+    { transform: 'rotate(0)' }, { transform: 'rotate(0)', offset: 0.3 },
+    { transform: `rotate(${8 * sign}deg)`, offset: 0.38 }, { transform: `rotate(${-9 * sign}deg)`, offset: 0.47 },
+    { transform: `rotate(${-8 * sign}deg)`, offset: 0.5 }, { transform: `rotate(${7 * sign}deg)`, offset: 0.58 },
+    { transform: `rotate(${-9 * sign}deg)`, offset: 0.67 }, { transform: `rotate(${-8 * sign}deg)`, offset: 0.7 },
+    { transform: 'rotate(0)', offset: 0.8 }, { transform: 'rotate(0)' },
+  ];
+  box.querySelector('.ch-l').animate(swing(1), { duration: D, easing: 'ease-in-out', fill: 'both' });
+  box.querySelector('.ch-r').animate(swing(-1), { duration: D, easing: 'ease-in-out', fill: 'both' });
+  const ky = y - 10 + 42;
+  for (const o of [0.47, 0.67]) {
+    pop('💋', x, ky - 30, '1.8rem', D * o, 800);
+    spray(x, ky, ['💗', '💕'], 5, { dist: 70, size: '1rem', delay: D * o, from: 200, to: 340, fall: 0, dur: 700 });
+  }
+  spray(x, ky + 20, ['💗', '💦'], 8, { dist: 120, size: '1.2rem', delay: D * 0.74, fall: 50, dur: 900 });
+};
+
+// «Каска» 🪖: падає згори на лист і сідає набекрень — бум, пил; потім з каски проростає квіточка — «Думаю о тебе»
+REACT_FX['🪖'] = (el, x, y, r) => {
+  const D = 3200;
+  const hy = clamp(r.top - 20, 200, innerHeight - 190);
+  const hm = glyphAt('🪖', x, hy, '5.6rem', 'fx-big');
+  gone(hm)(hm.animate([
+    { transform: `translate(-50%, calc(-50% - ${hy + 80}px)) rotate(-30deg)`, opacity: 1, easing: 'ease-in' },
+    { transform: `${C} rotate(0)`, offset: 0.16 }, { transform: `${C} translateY(8px) scale(1.2, .8)`, offset: 0.2 },
+    { transform: `${C} translateY(-4px) scale(.96, 1.05) rotate(6deg)`, offset: 0.26 }, { transform: `${C} rotate(12deg)`, offset: 0.32 },
+    { transform: `${C} rotate(12deg)`, opacity: 1, offset: 0.9 }, { transform: `${C} rotate(12deg) scale(.8)`, opacity: 0 },
+  ], { duration: D, fill: 'backwards' }));
+  spray(x, hy + 34, ['💨'], 6, { dist: 90, size: '1.4rem', delay: D * 0.17, from: 160, to: 380, fall: -10, dur: 800 });
+  jolt(el, [{ transform: 'none' }, { transform: 'translateY(5px) scaleY(.97)' }, { transform: 'none' }], 320, D * 0.17);
+  const sx = x + 10;
+  const sy = hy - 30;
+  const stem = shape('fx-stem', sx, sy);
+  gone(stem)(stem.animate([
+    { transform: 'translate(-50%, -100%) scaleY(0)', opacity: 1 }, { transform: 'translate(-50%, -100%) scaleY(1)', opacity: 1, offset: 0.3 },
+    { transform: 'translate(-50%, -100%) scaleY(1) rotate(-4deg)', opacity: 1, offset: 0.9 }, { transform: 'translate(-50%, -100%) scaleY(1)', opacity: 0 },
+  ], { duration: D * 0.6, delay: D * 0.36, fill: 'backwards' }));
+  const fl = glyphAt('🌼', sx, sy - 52, '2.4rem', 'fx-big');
+  gone(fl)(fl.animate([
+    { transform: `${C} scale(0) rotate(-90deg)`, opacity: 0 }, { transform: `${C} scale(1.3) rotate(10deg)`, opacity: 1, offset: 0.3 },
+    { transform: `${C} scale(1) rotate(0)`, offset: 0.42 }, { transform: `${C} scale(1.05) rotate(-6deg)`, opacity: 1, offset: 0.9 },
+    { transform: `${C} scale(.8)`, opacity: 0 },
+  ], { duration: D * 0.46, delay: D * 0.5, easing: 'ease-out', fill: 'backwards' }));
+  shout('Думаю о тебе', x, sy - 104, D * 0.62, 1500, '1.7rem');
+  rise(sx, sy - 40, ['💛', '💙'], 6, { delay: D * 0.66, up: 160, spread: 180, size: 1 });
+};
+
+// «Подарунок» 🎁: коробка підстрибує й трясеться, бант розвʼязується, кришка відлітає — фонтан сердечок і 💝
+const GIFT = '<svg viewBox="0 0 120 130" width="128" height="139" aria-hidden="true">'
+  + '<g class="gf-box"><rect x="16" y="60" width="88" height="62" rx="6" fill="#E5486F"/><rect x="53" y="60" width="14" height="62" fill="#FFD36B"/>'
+  + '<rect x="16" y="60" width="88" height="8" fill="#000" opacity=".12"/></g>'
+  + '<g class="gf-lid"><rect x="10" y="44" width="100" height="20" rx="5" fill="#F0628A"/><rect x="53" y="44" width="14" height="20" fill="#FFD36B"/>'
+  + '<g class="gf-bow"><path d="M60 44C44 22 28 30 37 41c6 6 16 5 23 3z" fill="#FFC23D"/><path d="M60 44C76 22 92 30 83 41c-6 6-16 5-23 3z" fill="#FFC23D"/>'
+  + '<circle cx="60" cy="43" r="5" fill="#F2A900"/></g></g></svg>';
+REACT_FX['🎁'] = (el, x, y) => {
+  const D = 3000;
+  const box = shape('fx-gift', x, y, GIFT);
+  gone(box)(box.animate([
+    { transform: `${C} scale(.3)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.1 },
+    { transform: `${C} translateY(-26px)`, offset: 0.17 }, { transform: `${C} scale(1.08, .92)`, offset: 0.24 }, { transform: `${C}`, offset: 0.28 },
+    { transform: `${C} translateY(-26px)`, offset: 0.34 }, { transform: `${C} scale(1.08, .92)`, offset: 0.41 }, { transform: `${C}`, offset: 0.45 },
+    { transform: `${C} rotate(-7deg)`, offset: 0.48 }, { transform: `${C} rotate(7deg)`, offset: 0.51 }, { transform: `${C} rotate(-6deg)`, offset: 0.54 },
+    { transform: `${C} rotate(0)`, offset: 0.57 },
+    { transform: `${C}`, opacity: 1, offset: 0.9 }, { transform: `${C} scale(.8)`, opacity: 0 },
+  ], { duration: D, fill: 'backwards' }));
+  box.querySelector('.gf-bow').animate([
+    { transform: 'scale(1) rotate(0)', opacity: 1 }, { transform: 'scale(1) rotate(0)', opacity: 1, offset: 0.57 },
+    { transform: 'scale(1.3) rotate(18deg)', opacity: 1, offset: 0.61 }, { transform: 'scale(0) rotate(90deg)', opacity: 0, offset: 0.66 },
+    { transform: 'scale(0)', opacity: 0 },
+  ], { duration: D, fill: 'both' });
+  box.querySelector('.gf-lid').animate([
+    { transform: 'translate(0, 0) rotate(0)', opacity: 1 }, { transform: 'translate(0, 0) rotate(0)', opacity: 1, offset: 0.64 },
+    { transform: 'translate(34px, -130px) rotate(40deg)', opacity: 1, offset: 0.78 }, { transform: 'translate(50px, -170px) rotate(55deg)', opacity: 0, offset: 0.84 },
+    { transform: 'translate(50px, -170px)', opacity: 0 },
+  ], { duration: D, easing: 'ease-out', fill: 'both' });
+  const open = D * 0.66;
+  ring(x, y - 20, open);
+  rise(x, y - 20, ['💗', '💕', '💖'], 10, { delay: open, up: 230, spread: 200, size: 1.2 });
+  spray(x, y - 24, ['🎉', '✨', '🎊'], 10, { dist: 130, size: '1.3rem', delay: open, from: 200, to: 340, fall: 40, dur: 1000 });
+  const hrt = glyphAt('💝', x, y - 10, '3.4rem', 'fx-big');
+  gone(hrt)(hrt.animate([
+    { transform: `${C} scale(0)`, opacity: 0 }, { transform: 'translate(-50%, calc(-50% - 70px)) scale(1.25)', opacity: 1, offset: 0.35 },
+    { transform: 'translate(-50%, calc(-50% - 80px)) scale(1)', opacity: 1, offset: 0.8 }, { transform: 'translate(-50%, calc(-50% - 100px)) scale(.8)', opacity: 0 },
+  ], { duration: 1100, delay: open + 60, easing: 'ease-out', fill: 'backwards' }));
+};
