@@ -17,6 +17,8 @@ export function setStill(on) {
 }
 // Пелюстка сакури — та сама форма, що в гілочці на її фоні
 const PETAL = '<svg viewBox="-7 -13 14 14" aria-hidden="true"><path d="M0 0C-3.5-1-7.5-5-6.2-9.2C-5.3-12-2.4-12.6-.9-11.6L0-10.4L.9-11.6C2.4-12.6 5.3-12 6.2-9.2C7.5-5 3.5-1 0 0Z"/></svg>';
+// Зимою замість пелюстки — сніжинка (показує CSS за html.is-winter)
+const FLAKE = `<svg class="flake" viewBox="-7 -7 14 14" aria-hidden="true"><g stroke-width="1.1" stroke-linecap="round">${[0, 60, 120, 180, 240, 300].map((a) => `<path transform="rotate(${a})" d="M0 0V-6M0-3.4L-1.7-5M0-3.4L1.7-5"/>`).join('')}</g></svg>`;
 // Сузірʼя Стрільця — астеризм «чайник» (як на зоряних картах): зірки й лінії між ними; heart — зірки-сердечка (її)
 // Положення — зі справжніх координат зірок (схід ліворуч, північ угорі, як на зоряній карті): носик (γ) праворуч, ручка (σ, τ) ліворуч
 const SGR = { g: [167, 68], d: [128, 61], e: [120, 113], l: [111, 10], p: [66, 28], s: [42, 20], t: [12, 36], z: [23, 61] };
@@ -59,7 +61,7 @@ function petals(n, seed, size) {
   let s = seed;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   return Array.from({ length: n }, () => {
-    const p = h('span', { class: 'petal', html: PETAL });
+    const p = h('span', { class: 'petal', html: PETAL + FLAKE });
     const d = 14 + rnd() * 12;
     p.style.cssText = `left:${(rnd() * 100).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${(-rnd() * d).toFixed(1)}s;`
       + `--s:${(size * (0.75 + rnd() * 0.5)).toFixed(2)};--drift:${(-40 - rnd() * 80).toFixed(0)}px;--tone:${rnd() < 0.5 ? '#F7B8D2' : '#F2A7C8'}`;

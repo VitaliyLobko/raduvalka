@@ -1,4 +1,5 @@
 // Тема: у нього завжди ніч; у неї — «Как в телефоне» (за темною темою телефона), «Светлая» чи «Ночная».
+// Узор її фону: «По сезону» (грудень–лютий — зима, решта — сакура), «Сакура» чи «Зима».
 // Пам'ятає цей телефон; ранній скрипт в index.html ставить те саме ще до першого кадру
 import { h } from './ui.js';
 
@@ -6,26 +7,34 @@ const KEY = 'radovalka:theme';
 const MODES = [['auto', 'Как в телефоне'], ['light', 'Светлая'], ['dark', 'Ночная']];
 const mq = matchMedia('(prefers-color-scheme: dark)');
 const read = () => { try { return localStorage.getItem(KEY) || 'auto'; } catch { return 'auto'; } };
+const SEASON = 'radovalka:season';
+const SEASONS = [['auto', 'По сезону'], ['spring', 'Сакура'], ['winter', 'Зима']];
+const readSeason = () => { try { return localStorage.getItem(SEASON) || 'auto'; } catch { return 'auto'; } };
+const kyivMonth = () => Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', month: 'numeric' }).format(new Date()));
+export const isWinter = () => { const s = readSeason(); return s === 'winter' || (s === 'auto' && [12, 1, 2].includes(kyivMonth())); };
 const color = (side, dark) => (side === 'vin' ? '#0B384B' : dark ? '#2A1730' : '#EADFFB');
 
 export function applyTheme(side = document.documentElement.dataset.side) {
   const m = read();
   const dark = side === 'vin' || m === 'dark' || (m === 'auto' && mq.matches);
   document.documentElement.toggleAttribute('data-dark', dark);
+  document.documentElement.classList.toggle('is-winter', isWinter());
   document.querySelector('meta[name="theme-color"]').content = color(side, dark);
 }
 mq.addEventListener?.('change', () => applyTheme());
 
 // Вибір у «О Радовалке» — лише на її половині
 export function themePanel() {
-  const now = read();
-  const btns = MODES.map(([v, label]) => h('button', {
+  return h('div', {}, chips('Оформление', KEY, MODES, read()), chips('Узор', SEASON, SEASONS, readSeason()));
+}
+function chips(title, key, list, now) {
+  const btns = list.map(([v, label]) => h('button', {
     type: 'button', class: 'mk-chip', 'aria-pressed': String(v === now),
     onclick: () => {
-      try { localStorage.setItem(KEY, v); } catch { /* приватне вікно — до закриття */ }
+      try { localStorage.setItem(key, v); } catch { /* приватне вікно — до закриття */ }
       applyTheme();
-      btns.forEach((b, i) => b.setAttribute('aria-pressed', String(MODES[i][0] === v)));
+      btns.forEach((b, i) => b.setAttribute('aria-pressed', String(list[i][0] === v)));
     },
   }, label));
-  return h('div', {}, h('p', { class: 'about-sub' }, 'Оформление'), h('div', { class: 'text-fonts', role: 'group', 'aria-label': 'Оформление' }, ...btns));
+  return h('div', {}, h('p', { class: 'about-sub' }, title), h('div', { class: 'text-fonts', role: 'group', 'aria-label': title }, ...btns));
 }

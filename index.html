@@ -21,6 +21,10 @@
         document.documentElement.setAttribute('data-dark', '');
         if (side !== 'vin') document.querySelector('meta[name="theme-color"]').content = '#2A1730';
       }
+      // Зима її фону: грудень–лютий за Києвом або «Зима» в «Оформлении»
+      var season = localStorage.getItem('radovalka:season') || 'auto';
+      var month = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', month: 'numeric' }).format(new Date()));
+      if (season === 'winter' || (season === 'auto' && (month === 12 || month <= 2))) document.documentElement.classList.add('is-winter');
     } catch (e) { /* без сховища — як раніше, тема прийде з сервера */ }
     // Сторож старту: за 12 с застосунок не піднявся (і це не замок чи PIN) — раз стираємо кеш оболонки
     // (у ньому могла лягти суміш версій) і перезавантажуємо, як Ctrl+Shift+R; удруге — напис і кнопка.
@@ -94,7 +98,7 @@
 </head>
 <body class="is-booting">
   <header class="top">
-    <h1 class="wordmark"><button type="button" id="about-btn" aria-haspopup="dialog" aria-label="Радовалка: настройки, версия и что нового"><span class="wm-ico" aria-hidden="true"><svg class="wm-sakura" viewBox="0 0 24 24"><g id="wm-petal"><path d="M12 11.4C8.6 9 8.4 4.4 10.5 2.4L12 3.9l1.5-1.5c2.1 2 1.9 6.6-1.5 9z"/></g><use href="#wm-petal" transform="rotate(72 12 12)"/><use href="#wm-petal" transform="rotate(144 12 12)"/><use href="#wm-petal" transform="rotate(216 12 12)"/><use href="#wm-petal" transform="rotate(288 12 12)"/><circle class="wm-core" cx="12" cy="12" r="1.7"/></svg><svg class="wm-planet" viewBox="0 0 24 24"><g transform="rotate(-22 12 14)"><path class="wm-ring" d="M1.8 14A10.2 3.5 0 0 1 22.2 14"/><circle class="wm-ball" cx="12" cy="14" r="6.3"/><path class="wm-gap" d="M5.2 16.7A10.2 3.5 0 0 0 18.8 16.7"/><path class="wm-ring" d="M1.8 14A10.2 3.5 0 0 0 22.2 14"/></g><path class="wm-star" d="M20 1.2l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/></svg></span>Радовалка</button></h1>
+    <h1 class="wordmark"><button type="button" id="about-btn" aria-haspopup="dialog" aria-label="Радовалка: настройки, версия и что нового"><span class="wm-ico" aria-hidden="true"><svg class="wm-sakura" viewBox="0 0 24 24"><g id="wm-petal"><path d="M12 11.4C8.6 9 8.4 4.4 10.5 2.4L12 3.9l1.5-1.5c2.1 2 1.9 6.6-1.5 9z"/></g><use href="#wm-petal" transform="rotate(72 12 12)"/><use href="#wm-petal" transform="rotate(144 12 12)"/><use href="#wm-petal" transform="rotate(216 12 12)"/><use href="#wm-petal" transform="rotate(288 12 12)"/><circle class="wm-core" cx="12" cy="12" r="1.7"/></svg><svg class="wm-snow" viewBox="-12 -12 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M0-10V10M-8.7-5L8.7 5M-8.7 5L8.7-5"/><path d="M-2.4-8.2L0-6l2.4-2.2M-2.4 8.2L0 6l2.4 2.2M-8.3-2L-5.2-3l-1-3.1M8.3 2L5.2 3l1 3.1M-8.3 2L-5.2 3l-1 3.1M8.3-2L5.2-3l1-3.1"/></g></svg><svg class="wm-planet" viewBox="0 0 24 24"><g transform="rotate(-22 12 14)"><path class="wm-ring" d="M1.8 14A10.2 3.5 0 0 1 22.2 14"/><circle class="wm-ball" cx="12" cy="14" r="6.3"/><path class="wm-gap" d="M5.2 16.7A10.2 3.5 0 0 0 18.8 16.7"/><path class="wm-ring" d="M1.8 14A10.2 3.5 0 0 0 22.2 14"/></g><path class="wm-star" d="M20 1.2l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/></svg></span>Радовалка</button></h1>
     <div class="top-checkin" id="top-checkin"></div>
     <div class="top-status" id="top-status"></div>
     <button type="button" class="together-chip" id="together-chip" hidden aria-haspopup="dialog">
