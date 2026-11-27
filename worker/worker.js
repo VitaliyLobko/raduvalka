@@ -2968,7 +2968,7 @@ async function pushOne(env, sub, note) {
       'content-encoding': 'aes128gcm',
       'content-type': 'application/octet-stream',
       ttl: '86400',
-      urgency: note.urgent ? 'high' : 'normal',
+      urgency: note.urgent || HIGH_TAGS.test(note.tag || '') ? 'high' : 'normal',
     },
     body,
   });
@@ -2986,6 +2986,10 @@ async function pushSide(env, side, note) {
 }
 
 // Для маршрутів: send не чекає відповіді push-сервісу. Заголовок x-no-push (демо, живі тести) — нікого не будимо
+// Що треба отримати одразу — висока терміновість: Android у сплячому режимі не притримує такі push пачкою.
+// Листи, фото й гифки, відповіді, дзвоночок і відповідь на нього, «Как ты?», «Я в порядке», сердечко, «Да, капитан», ходи в іграх
+// (і 18+: кубики, «Клубничка», «Совпадёт? 🔥»). Хотілки, плани, ❤️ на лист і конверти — звичайні, не горять
+const HIGH_TAGS = /^(letter|meme|reply|bell|bell-answer|ask|checkin|heart|captain|duel|same|hot|berry|gwish)/;
 function pusher(req, env, ctx) {
   const on = !!env.VAPID_PRIVATE && req.headers.get('x-no-push') !== '1';
   return {

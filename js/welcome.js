@@ -2,7 +2,7 @@
 import { DATA } from './data.js';
 import { h, sky } from './ui.js';
 import { spaceCard, flyHeart } from './space.js';
-import { maybeTour, startTour } from './tour.js';
+import { maybeTour, startTour, firstDayLook } from './tour.js';
 
 const KEY = 'radovalka:welcomed';
 
@@ -20,6 +20,8 @@ export function maybeWelcome() {
 }
 
 function showWelcome() {
+  // У неї з першої ж листівки — «Весна» вдень (якщо сама ще нічого не обирала)
+  firstDayLook();
   const done = () => {
     try { localStorage.setItem(KEY, '1'); } catch { /* приватний режим */ }
     root.remove();

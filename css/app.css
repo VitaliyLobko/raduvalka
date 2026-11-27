@@ -6122,3 +6122,6 @@ html[data-side="vona"]:not(.is-winter):not(.is-summer):not(.is-autumn)[data-dark
 .bell-card-acts .btn { flex: 1; }
 .bell-card-x { position: absolute; top: 8px; right: 8px; }
 @media (prefers-reduced-motion: reduce) { .bell-shake-ic, .bell-card-ic { animation: none; } }
+/* Тур: абзаци з невеликим відступом — читається легше */
+.tour-say p { margin: 0; }
+.tour-say p + p { margin-top: 8px; }

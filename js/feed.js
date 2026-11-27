@@ -610,7 +610,8 @@ function holdToReact(bubble, it) {
   // І звичайний клік мишею — теж. Як раніше лишаються: кнопки, фото, цитата, ще не прочитаний лист,
   // згорнутий довгий текст (клік його розкриває) і вже розкритий (клік згортає)
   bubble.addEventListener('click', (e) => {
-    if (!MOUSE.matches || e.target.closest('.feed-acts, .feed-act, a, .feed-pic, .feed-react, .feed-quote')) return;
+    // Будь-яка кнопка чи повзунок усередині (▶ і швидкість голосового, ⬇ файла) — працює як кнопка, а не відкриває реакції
+    if (!MOUSE.matches || e.target.closest('.feed-acts, .feed-act, a, button, input, [role=slider], .feed-pic, .feed-react, .feed-quote')) return;
     if (bubble.classList.contains('is-open') || bubble.classList.contains('is-full')) return;
     const t = bubble.querySelector('.feed-text');
     if (t && t.scrollHeight > t.clientHeight + 2) return;
