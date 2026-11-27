@@ -68,6 +68,24 @@ function petals(n, seed, size) {
     return p;
   });
 }
+// Літо: бджілки ліниво літають (вкладені шари: хід уздовж, погойдування вгору-вниз, розворот) — лише transform;
+// уночі замість бджілок світлячки (CSS). Показує CSS за html.is-summer
+const BEE = '<svg class="bee-b" viewBox="-12 -11 24 20" aria-hidden="true"><g class="bee-w"><ellipse cx="-2" cy="-5.5" rx="3" ry="5" transform="rotate(-25 -2 -5.5)"/><ellipse cx="2.2" cy="-5" rx="2.5" ry="4.2" transform="rotate(22 2.2 -5)"/></g>'
+  + '<path class="bee-t" d="M-7 1.2l-2.6.5 2.6.9Z"/><ellipse class="bee-y" cx="0" cy="1" rx="7" ry="4.8"/><path class="bee-s" d="M-2.6-3.3v8.6M1.4-3.6v9.2"/>'
+  + '<circle class="bee-h" cx="7" cy="0" r="3.1"/><circle class="bee-e" cx="8.2" cy="-.6" r=".8"/><path class="bee-a" d="M7.6-2.8q.6-2.4 2.6-3.2M6-3q-.4-2.4 1-3.8"/></svg>';
+function bees(n, seed) {
+  let s = seed;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  return Array.from({ length: n }, (_, i) => {
+    const d = 9 + rnd() * 7;
+    const delay = (-rnd() * d * 2).toFixed(1);
+    // Удень — три бджілки, уночі світлячків більше
+    const b = h('span', { class: i < 3 ? 'bee' : 'bee bee-extra' }, h('span', { class: 'bee-bob' }, h('span', { class: 'bee-turn', html: BEE })));
+    b.style.cssText = `left:${(6 + rnd() * 55).toFixed(1)}%;top:${(14 + rnd() * 68).toFixed(1)}%;--d:${d.toFixed(1)}s;--delay:${delay}s;`
+      + `--mx:${(90 + rnd() * 90).toFixed(0)}px;--bd:${(2.4 + rnd() * 1.8).toFixed(1)}s;--my:${(14 + rnd() * 26).toFixed(0)}px;--glow:${(1.8 + rnd() * 2.4).toFixed(1)}s`;
+    return b;
+  });
+}
 const clamp = (v) => Math.max(-MAX, Math.min(MAX, v));
 
 // Сузірʼя спалахує зірка за зіркою (збіг у «Планах», тап по сузірʼю на фоні)
@@ -226,7 +244,7 @@ export function startDepth() {
   const vona = h('div', { class: 'depth depth-vona' },
     h('i', { class: 'dv-back' }, ...bokeh(14, 5)),
     h('i', { class: 'dv-mid' }, constellation(true), ...petals(5, 7, 0.75)),
-    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), h('span', { class: 'meteor meteor-vona' })));
+    h('i', { class: 'dv-front' }, ...petals(6, 3, 1.2), ...bees(5, 11), h('span', { class: 'meteor meteor-vona' })));
   // Його космос (без туману): далекі дрібні зірки, середні, кілька близьких великих, що мерехтять, і падаюча зірка
   const vin = h('div', { class: 'depth depth-vin' },
     h('i', { class: 'ds-chart', html: CHART }),

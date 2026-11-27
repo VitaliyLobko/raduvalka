@@ -1,6 +1,6 @@
 // Тема: у нього завжди ніч; у неї — «Как в телефоне» (за темною темою телефона), «Светлая», «Ночная»
 // чи «По времени» (ніч від заходу до сходу сонця над Києвом).
-// Узор фону — у кожного свій: у неї 25.12–14.01 Новий рік, решта грудня–лютого зима, інакше сакура;
+// Узор фону — у кожного свій: у неї 25.12–14.01 Новий рік, решта грудня–лютого зима, червень–серпень літо, інакше сакура;
 // у нього взимку північне сяйво, влітку Чумацький Шлях, інакше зоряна карта. Або обраний вручну.
 // Пам'ятає цей телефон; ранній скрипт в index.html ставить те саме ще до першого кадру
 import { h } from './ui.js';
@@ -23,8 +23,8 @@ const hm = (min) => { const d = new Date(); d.setUTCHours(0, Math.round(min), 0,
 const mq = matchMedia('(prefers-color-scheme: dark)');
 const read = () => { try { return localStorage.getItem(KEY) || 'auto'; } catch { return 'auto'; } };
 const PATTERNS = {
-  vona: { key: 'radovalka:season', list: [['auto', '🗓️', 'По сезону'], ['spring', '🌸', 'Сакура'], ['winter', '❄️', 'Зима'], ['newyear', '🎄', 'Новый год']],
-    names: { spring: 'сакура', winter: 'зима', newyear: 'Новый год' }, about: 'Зима с декабря по февраль, Новый год — с 25 декабря по 14 января' },
+  vona: { key: 'radovalka:season', list: [['auto', '🗓️', 'По сезону'], ['spring', '🌸', 'Сакура'], ['summer', '🌻', 'Лето'], ['winter', '❄️', 'Зима'], ['newyear', '🎄', 'Новый год']],
+    names: { spring: 'сакура', summer: 'лето', winter: 'зима', newyear: 'Новый год' }, about: 'Лето с июня по август, зима с декабря по февраль, Новый год — с 25 декабря по 14 января' },
   vin: { key: 'radovalka:season:vin', list: [['auto', '🗓️', 'По сезону'], ['stars', '✨', 'Звёзды'], ['aurora', '🌌', 'Сияние'], ['milky', '🌠', 'Млечный Путь']],
     names: { stars: 'звёздная карта', aurora: 'северное сияние', milky: 'Млечный Путь' }, about: 'Сияние с декабря по февраль, Млечный Путь — с июня по август' },
 };
@@ -37,7 +37,7 @@ function bySeason(side) {
   const winter = [12, 1, 2].includes(m);
   if (sideOf(side) === 'vin') return winter ? 'aurora' : [6, 7, 8].includes(m) ? 'milky' : 'stars';
   if ((m === 12 && d >= 25) || (m === 1 && d <= 14)) return 'newyear';
-  return winter ? 'winter' : 'spring';
+  return winter ? 'winter' : [6, 7, 8].includes(m) ? 'summer' : 'spring';
 }
 const pattern = (side) => { const s = readPattern(side); return s === 'auto' ? bySeason(side) : s; };
 const color = (side, dark) => (side === 'vin' ? '#0B384B' : dark ? '#2A1730' : '#EADFFB');
@@ -50,6 +50,7 @@ export function applyTheme(side = document.documentElement.dataset.side) {
   root.toggleAttribute('data-dark', dark);
   root.classList.toggle('is-winter', p === 'winter' || p === 'newyear');
   root.classList.toggle('is-newyear', p === 'newyear');
+  root.classList.toggle('is-summer', p === 'summer');
   root.classList.toggle('is-aurora', p === 'aurora');
   root.classList.toggle('is-milky', p === 'milky');
   document.querySelector('meta[name="theme-color"]').content = color(side, dark);
