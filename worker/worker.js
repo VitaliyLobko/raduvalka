@@ -61,6 +61,8 @@ const MIME = /^[\w.+-]{1,60}\/[\w.+-]{1,80}$/;
 // Захист від чужого, якщо ключ раптом витече: за добу з одного боку — не більше 60 файлів і 1 ГБ
 // (рахунок R2 тоді не виросте: межа зберігання й операцій безкоштовного плану недосяжна)
 const FILES_PER_DAY = 60;
+// Голосові — свій лік за добу: ними перемовляються, як у месенджері, і файлам вони не заважають
+const VOICE_PER_DAY = 200;
 const FILES_BYTES_PER_DAY = 1024 ** 3;
 const DAY_MS = 24 * 3600 * 1000;
 // Реакції на лист і фото (ставить отримувач; старі 😂 і ❤️ мемчиків — серед них)
@@ -667,12 +669,13 @@ async function memesRoute(req, db, side, rest, notify, files) {
 const storedFiles = async (db) => (await db.prepare(`SELECT IFNULL(SUM(json_extract(file, '$.s')), 0) AS n FROM memes WHERE file IS NOT NULL AND gone IS NULL`).first('n'))
   + (await db.prepare(`SELECT IFNULL(SUM(json_extract(media, '$.s')), 0) AS n ${LETTER_FILES}`).first('n'));
 // hard — інша жорстка межа (тест)
-async function fileQuota(db, side, len, hard) {
-  const key = `files-day:${side}`;
+async function fileQuota(db, side, len, hard, voice = false) {
+  const key = `${voice ? 'voice' : 'files'}-day:${side}`;
+  const cap = voice ? VOICE_PER_DAY : FILES_PER_DAY;
   const now = Date.now();
   const q0 = await getDoc(db, key);
   const q = q0 && now - q0.from < DAY_MS ? q0 : { from: now, n: 0, b: 0 };
-  const fits = (b) => q.n < FILES_PER_DAY && q.b + (b || 0) <= FILES_BYTES_PER_DAY;
+  const fits = (b) => q.n < cap && q.b + (b || 0) <= FILES_BYTES_PER_DAY;
   if (!fits(len)) throw fail(429, 'files-day');
   const stored = await storedFiles(db);
   const room = (b) => stored + (b || 0) <= (Number(hard) || FILES_HARD);
@@ -761,13 +764,15 @@ async function postFile(req, env, side, notify) {
   if (!env.FILES) throw fail(503, 'files');
   const len = Number(req.headers.get('content-length'));
   if (len > MAX_FILE) throw fail(413, 'size');
-  const quota = await fileQuota(env.DB, side, len, env.FILES_HARD_BYTES);
   let meta;
   try {
-    meta = JSON.parse(atob(String(req.headers.get('x-file-meta') || '').replace(/-/g, '+').replace(/_/g, '/')));
+    // Телефон кодує опис як UTF-8 — без TextDecoder відкрита кирилиця (назва, цитата без ключа) ставала «Ð¾Ð…»
+    const bin = atob(String(req.headers.get('x-file-meta') || '').replace(/-/g, '+').replace(/_/g, '/'));
+    meta = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
   } catch {
     throw fail(400, 'meta');
   }
+  const quota = await fileQuota(env.DB, side, len, env.FILES_HARD_BYTES, meta?.v === 1 && /^audio\//.test(String(meta?.t || '')));
   const buf = await req.arrayBuffer();
   if (!buf.byteLength || buf.byteLength > MAX_FILE) throw fail(413, 'size');
   const size = Math.round(Number(meta?.s));
@@ -776,6 +781,10 @@ async function postFile(req, env, side, notify) {
     t: MIME.test(String(meta?.t || '')) ? meta.t : 'application/octet-stream',
     s: size > 0 && size <= MAX_FILE ? size : buf.byteLength,
   };
+  // Голосове: тривалість у секундах і хвиля (телефон шифрує її, як і назву)
+  const secs = Math.round(Number(meta?.d));
+  const voice = meta?.v === 1 && /^audio\//.test(file.t) && secs >= 1 && secs <= 600;
+  if (voice) Object.assign(file, { v: 1, d: secs, w: clip(meta?.w, 400) || '' });
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
   const meme = {
     id, src: side, dst: other(side), img: '', url: null, caption: null, style: null,
@@ -787,7 +796,7 @@ async function postFile(req, env, side, notify) {
   await env.DB.prepare(
     'INSERT INTO memes (id, src, dst, img, url, caption, style, quote, created, reaction, file, mascot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ).bind(meme.id, meme.src, meme.dst, '', null, null, null, meme.quote, meme.created, null, meme.file, meme.mascot).run();
-  notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(meta), 'file') : fileNote(side));
+  notify.send(meme.dst, meme.quote ? replyNote(side, quoteOn(meta), voice ? 'voice' : 'file') : voice ? voiceNote(side) : fileNote(side));
   return json(view(meme, side), 201);
 }
 
@@ -2952,6 +2961,9 @@ function stickerNote(from) {
 function fileNote(from) {
   return { title: 'Тебе файл 📎', body: sender(from, 'Он прислал — открой', 'Она прислала — открой'), tag: 'meme' };
 }
+function voiceNote(from) {
+  return { title: '🎤 Голосовое', body: sender(from, 'Он прислал голосовое — послушай', 'Она прислала голосовое — послушай'), tag: 'meme' };
+}
 // go — куди відкрити застосунок за тапом
 // Тап — «Написать» одразу в цей конверт
 function envEmptyNote(from, e) {
@@ -4401,8 +4413,8 @@ function likeNote(from, kind) {
 
 // as — чим відповіли, якщо не словами: 'gif' | 'photo'
 function replyNote(from, on, as) {
-  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : on === 'file' ? 'на твой файл' : on === 'sticker' ? 'на твою наклейку' : 'на твоё письмо';
-  const how = { gif: 'Гифкой', photo: 'Фото', file: 'Файлом', sticker: 'Наклейкой' }[as];
+  const what = on === 'gif' ? 'на твою гифку' : on === 'photo' ? 'на твоё фото' : on === 'file' ? 'на твой файл' : on === 'voice' ? 'на твоё голосовое' : on === 'sticker' ? 'на твою наклейку' : 'на твоё письмо';
+  const how = { gif: 'Гифкой', photo: 'Фото', file: 'Файлом', sticker: 'Наклейкой', voice: 'Голосовым' }[as];
   return {
     title: `${sender(from, 'Он ответил', 'Она ответила')} 💌`,
     body: how ? `${how} ${what}` : what[0].toUpperCase() + what.slice(1),
@@ -4411,7 +4423,7 @@ function replyNote(from, on, as) {
 }
 // Відповідь новим повідомленням: цитата (до 300 знаків) і на що — для push
 const quoteOf = (b) => clip(b.quote, 300) || null;
-const quoteOn = (b) => (['gif', 'photo', 'file', 'sticker'].includes(b.on) ? b.on : 'letter');
+const quoteOn = (b) => (['gif', 'photo', 'file', 'sticker', 'voice'].includes(b.on) ? b.on : 'letter');
 
 async function pushRoute(req, env, side, path) {
   const m = req.method;

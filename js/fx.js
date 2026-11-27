@@ -275,7 +275,7 @@ const CANNON = '<svg viewBox="0 -14 60 54" width="86" height="77" aria-hidden="t
 // Темп реакцій: числа нижче — база, кожна анімація йде на 20 % повільніше (просили спокійніше)
 const SLOW = 1.2;
 // Скільки триває кожна — щоб кілька реакцій ішли по черзі
-const DUR = { '🌌': 4600, '🧸': 3000, '😉': 2600, '🍒': 2800, '🪖': 3200, '🎁': 3000, '🤣': 2700, '🫣': 2800, '🌸': 3000, '⭐': 3200, '🎖️': 3400, '🛡️': 3000, '🚀': 3000, '🍿': 2900, '💊': 3600, '🤮': 3300, '🌈': 3200, '😏': 2600, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 3000, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 3300, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2800, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 3400, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
+const DUR = { '🌌': 4600, '🧸': 3000, '😉': 2600, '🍒': 2800, '🪖': 3200, '🎁': 3000, '🤣': 2700, '🫣': 3000, '🌸': 3000, '⭐': 3200, '🎖️': 3400, '🛡️': 3000, '🚀': 3000, '🍿': 2900, '💊': 3600, '🤮': 3300, '🌈': 3200, '😏': 2600, '🪐': 2900, '🏹': 2700, '🐾': 2800, '❤️': 3400, '😍': 2500, '😂': 2300, '🥺': 2700, '🍓': 2600, '🫦': 2500, '🙏': 3000, '😎': 2700, '🫡': 3500, '🤯': 3100, '🤷': 2500, '🔥': 2600, '😴': 3000, '🤗': 2600, '😢': 3300, '🙃': 3100, '🍀': 2700, '💯': 2500, '😘': 2800, '👏': 2800, '🎉': 3000, '💪': 2700, '🙈': 2600, '👀': 2600, '😱': 3400, '🤔': 2900, '🌹': 4300, '☕': 2800, '👍': 2600, '☀️': 3200, '🌙': 3400, '😇': 3300, '🍷': 3000, '🍕': 2800, '🥶': 3000, '🥵': 2900, '🤒': 3300 };
 
 const REACT_FX = {
   // Серце двічі бʼється з ударною хвилею, потім сердечка злітають кульками
@@ -2216,44 +2216,65 @@ function glint(r, delay) {
     { duration: 900, delay, easing: 'ease-in-out', fill: 'both' });
 }
 
-// «Крик» 😱 — як у Мунка: екран заливає закатне небо хвилями, фіорд і міст; знизу виростає постать, обличчя
-// витягується й кричить, усе колишеться
+// «Крик» 😱 — як у Мунка: екран заливає закатне небо мазками, що пливуть кожен у своєму ритмі, фіорд і міст;
+// знизу виростає вигнута постать, обличчя витягується й кричить — від рота розходяться хвилі, екран здригається
 const MUNCH = '<svg viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
   + '<rect width="360" height="640" fill="#E06A32"/>'
   + '<g class="mu-sky" fill="none" stroke-linecap="round">'
-  + '<path d="M-60 30C20 0 80 60 160 30S300 0 420 40" stroke="#F3B342" stroke-width="34"/>'
-  + '<path d="M-60 80C30 50 90 110 180 80S310 50 420 90" stroke="#D8432B" stroke-width="30"/>'
-  + '<path d="M-60 128C20 100 100 158 190 126S320 100 420 136" stroke="#F08B3A" stroke-width="32"/>'
-  + '<path d="M-60 176C40 150 110 204 200 172S330 150 420 182" stroke="#F6CB5C" stroke-width="26"/>'
-  + '<path d="M-60 220C30 196 120 246 210 216S330 196 420 226" stroke="#C9382D" stroke-width="28"/>'
-  + '<path d="M-60 262C40 240 120 284 220 258S340 240 420 266" stroke="#EE9A3E" stroke-width="24"/></g>'
+  + '<path d="M-60 24C20 -6 80 54 160 24S300 -6 420 34" stroke="#F3B342" stroke-width="38"/>'
+  + '<path d="M-60 62C30 34 90 94 180 64S310 34 420 74" stroke="#E8522E" stroke-width="26"/>'
+  + '<path d="M-60 98C20 70 100 128 190 96S320 70 420 106" stroke="#F08B3A" stroke-width="30"/>'
+  + '<path d="M-60 136C40 110 110 164 200 132S330 110 420 142" stroke="#F6CB5C" stroke-width="24"/>'
+  + '<path d="M-60 172C30 148 120 198 210 168S330 148 420 178" stroke="#C9382D" stroke-width="28"/>'
+  + '<path d="M-60 208C40 186 120 230 220 204S340 186 420 212" stroke="#EE9A3E" stroke-width="26"/>'
+  + '<path d="M-60 242C30 222 130 264 220 238S340 222 420 248" stroke="#D85A30" stroke-width="22"/>'
+  + '<path d="M-60 272C40 254 120 292 220 268S340 254 420 278" stroke="#F2B04A" stroke-width="22"/>'
+  + '<path d="M-40 42C40 18 100 70 170 44S290 18 400 52" stroke="#FFE7A0" stroke-width="3" opacity=".6"/>'
+  + '<path d="M-40 116C40 92 110 142 190 114S320 92 400 124" stroke="#FFE7A0" stroke-width="3" opacity=".55"/>'
+  + '<path d="M-40 188C40 166 120 212 210 186S330 166 400 196" stroke="#8E2A22" stroke-width="3" opacity=".5"/>'
+  + '<path d="M-40 256C40 238 130 276 220 252S330 238 400 262" stroke="#FFD27A" stroke-width="3" opacity=".6"/></g>'
   + '<g class="mu-sea"><path d="M140 296C200 268 300 288 380 278V480C300 466 240 436 200 404 160 372 118 340 140 296Z" fill="#2E4C7C"/>'
-  + '<g fill="none" stroke-linecap="round"><path d="M172 318C222 298 290 314 380 304" stroke="#4A6EA3" stroke-width="12"/>'
-  + '<path d="M192 352C242 336 302 352 380 342" stroke="#22395F" stroke-width="12"/>'
-  + '<path d="M222 390C262 378 322 394 380 386" stroke="#4A6EA3" stroke-width="10"/></g></g>'
+  + '<g fill="none" stroke-linecap="round"><path d="M164 316C222 296 290 312 380 302" stroke="#4A6EA3" stroke-width="12"/>'
+  + '<path d="M184 340C240 324 300 340 380 330" stroke="#1D3256" stroke-width="7"/>'
+  + '<path d="M196 362C246 348 306 364 380 354" stroke="#5B80B5" stroke-width="10"/>'
+  + '<path d="M222 392C262 380 322 396 380 388" stroke="#22395F" stroke-width="10"/>'
+  + '<path d="M250 420C290 412 330 424 380 418" stroke="#4A6EA3" stroke-width="8"/></g></g>'
   + '<path d="M-20 276C60 266 120 298 150 330 172 360 204 402 262 442L-20 530Z" fill="#5B6A3A"/>'
-  + '<path d="M-20 318C60 318 110 348 150 390" stroke="#7A8A4A" stroke-width="10" fill="none" stroke-linecap="round"/>'
+  + '<g fill="none" stroke-linecap="round"><path d="M-20 300C60 296 112 324 146 356" stroke="#7A8A4A" stroke-width="10"/>'
+  + '<path d="M-20 340C50 342 104 370 140 408" stroke="#46532C" stroke-width="8"/>'
+  + '<path d="M-20 380C40 384 96 410 130 446" stroke="#7A8A4A" stroke-width="7"/></g>'
   + '<path d="M-20 398L380 598V660H-20Z" fill="#A9773F"/>'
-  + '<g stroke-linecap="round"><path d="M-20 388L380 588" stroke="#6E4020" stroke-width="10"/><path d="M-20 412L380 626" stroke="#7E4C26" stroke-width="5"/>'
-  + '<path d="M40 418v12M120 458v13M200 498v14M280 538v15" stroke="#6E4020" stroke-width="5"/></g>'
-  + '<g fill="#2A2233"><rect x="34" y="350" width="10" height="36" rx="5"/><circle cx="39" cy="345" r="6"/>'
-  + '<rect x="52" y="357" width="10" height="36" rx="5"/><circle cx="57" cy="352" r="6"/></g>'
-  + '<path class="mu-body" d="M156 470C138 520 170 572 146 660H226C206 580 232 520 206 470 196 461 166 461 156 470Z" fill="#3D3452"/>'
+  + '<g fill="none" stroke-linecap="round"><path d="M-20 430L380 640" stroke="#C08A4E" stroke-width="6" opacity=".7"/>'
+  + '<path d="M-20 470L300 650" stroke="#8C5E2E" stroke-width="5" opacity=".7"/></g>'
+  + '<g stroke-linecap="round"><path d="M-20 384L380 584" stroke="#5E361A" stroke-width="12"/><path d="M-20 410L380 624" stroke="#7E4C26" stroke-width="5"/>'
+  + '<path d="M20 404v18M80 434v19M140 464v20M200 494v21M260 524v22M320 554v23" stroke="#5E361A" stroke-width="5"/></g>'
+  + '<g fill="#2A2233"><path d="M33 352h12l2 34H31Z"/><circle cx="39" cy="346" r="6"/><rect x="32" y="336" width="14" height="4" rx="1"/><rect x="35" y="327" width="8" height="10" rx="1"/>'
+  + '<path d="M51 359h12l2 34H49Z"/><circle cx="57" cy="353" r="6"/><rect x="50" y="343" width="14" height="4" rx="1"/><rect x="53" y="334" width="8" height="10" rx="1"/></g>'
+  + '<g class="mu-body"><path d="M168 462C156 482 148 504 154 528 160 552 138 578 130 602 124 622 120 642 118 660H244C236 632 224 606 216 586 206 562 216 540 212 516 208 492 200 474 194 462Z" fill="#2E2640"/>'
+  + '<path d="M180 482C172 522 168 562 148 650" stroke="#55466E" stroke-width="5" fill="none" stroke-linecap="round"/>'
+  + '<path d="M200 492C204 530 196 566 214 640" stroke="#1C1729" stroke-width="5" fill="none" stroke-linecap="round"/></g>'
   + '</svg>';
 REACT_FX['😱'] = (el) => {
   const D = 3400;
   const box = shape('fx-munch', 0, 0, MUNCH);
   gone(box)(box.animate([{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.88 }, { opacity: 0 }], { duration: D, fill: 'backwards' }));
-  const wave = (sel, k) => box.querySelector(sel).animate([
-    { transform: 'translateX(0) skewY(0)' }, { transform: `translateX(${-16 * k}px) skewY(${1.5 * k}deg)`, offset: 0.3 },
-    { transform: `translateX(${12 * k}px) skewY(${-1.5 * k}deg)`, offset: 0.65 }, { transform: `translateX(${-6 * k}px) skewY(${0.8 * k}deg)` },
+  // Кожен мазок неба гнеться у своєму ритмі — небо «пливе», як на полотні
+  box.querySelectorAll('.mu-sky path').forEach((p, i) => {
+    const k = i % 2 ? -1 : 1;
+    const a = 7 + (i % 3) * 5;
+    p.animate([
+      { transform: 'translateX(0) skewY(0)' }, { transform: `translateX(${-a * k}px) skewY(${1.2 * k}deg)`, offset: 0.33 },
+      { transform: `translateX(${a * k}px) skewY(${-1.2 * k}deg)`, offset: 0.68 }, { transform: 'translateX(0) skewY(0)' },
+    ], { duration: D, delay: (i % 4) * 60, easing: 'ease-in-out', fill: 'both' });
+  });
+  box.querySelector('.mu-sea').animate([
+    { transform: 'translateX(0) skewY(0)' }, { transform: 'translateX(14px) skewY(-1.5deg)', offset: 0.3 },
+    { transform: 'translateX(-12px) skewY(1.5deg)', offset: 0.65 }, { transform: 'translateX(6px) skewY(-.8deg)' },
   ], { duration: D, easing: 'ease-in-out', fill: 'both' });
-  wave('.mu-sky', 1);
-  wave('.mu-sea', -1);
   box.querySelector('.mu-body').animate([
-    { transform: 'translateY(70%)' }, { transform: 'translateY(0) skewX(-5deg)', offset: 0.25 },
-    { transform: 'skewX(5deg) scaleY(1.04)', offset: 0.45 }, { transform: 'skewX(-4deg)', offset: 0.65 },
-    { transform: 'skewX(3deg)', offset: 0.85 }, { transform: 'skewX(0)' },
+    { transform: 'translateY(70%)' }, { transform: 'translateY(0) skewX(-6deg)', offset: 0.25 },
+    { transform: 'skewX(6deg) scaleY(1.05)', offset: 0.42 }, { transform: 'skewX(-5deg)', offset: 0.56 },
+    { transform: 'skewX(4deg) scaleY(1.03)', offset: 0.7 }, { transform: 'skewX(-2deg)', offset: 0.85 }, { transform: 'skewX(0)' },
   ], { duration: D, easing: 'ease-in-out', fill: 'both' });
   // Голова — над тілом постаті: координати з SVG (зріз по більшому боці, як preserveAspectRatio slice)
   const k = Math.max(innerWidth / 360, innerHeight / 640);
@@ -2261,10 +2282,19 @@ REACT_FX['😱'] = (el) => {
   const hy = innerHeight / 2 + (432 - 320) * k;
   big('😱', hx, hy, [
     { transform: 'translateY(170px) scale(.8)', opacity: 0 }, { transform: 'translateY(0) scale(1)', opacity: 1, offset: 0.25 },
-    { transform: 'scale(.94, 1.26) rotate(-4deg)', offset: 0.4 }, { transform: 'scale(1, 1.14) rotate(4deg)', offset: 0.52 },
-    { transform: 'scale(.94, 1.3) rotate(-3deg)', offset: 0.64 }, { transform: 'scale(1, 1.2) rotate(2deg)', opacity: 1, offset: 0.85 },
+    { transform: 'scale(.94, 1.26) rotate(-4deg)', offset: 0.38 }, { transform: 'scale(1, 1.14) rotate(4deg)', offset: 0.5 },
+    { transform: 'scale(.94, 1.3) rotate(-3deg)', offset: 0.62 }, { transform: 'scale(1, 1.2) rotate(2deg)', opacity: 1, offset: 0.85 },
     { transform: 'scale(1)', opacity: 0 },
   ], D, '5.4rem');
+  // На кожен «а-а-а» — хвиля від рота і здриг усієї картини
+  for (const o of [0.36, 0.5, 0.64]) {
+    const w = shape('fx-scream', hx, hy + 12);
+    gone(w)(w.animate([{ transform: `${C} scale(.5)`, opacity: 0.9 }, { transform: `${C} scale(3.4, 3)`, opacity: 0 }],
+      { duration: 950, delay: D * o, easing: 'ease-out', fill: 'backwards' }));
+    box.animate([
+      { transform: 'none' }, { transform: 'translate(-3px, 1px) scale(1.02)' }, { transform: 'translate(3px, -1px) scale(1.02)' }, { transform: 'none' },
+    ], { duration: 260, delay: D * o, easing: 'ease-in-out' });
+  }
   shout('А-а-а-а!', innerWidth / 2, innerHeight * 0.17, D * 0.36, D * 0.5, '2.4rem', 'fx-munch-say');
 };
 
@@ -2331,46 +2361,68 @@ REACT_FX['😏'] = (el, x, y) => {
   shout('ну-ну', x + 74, y - 96, D * 0.56, 1150);
 };
 
-// «Підглядаю» 🫣: долоні на очах — пальці розсуваються, крізь щілинки визирають очі, ховаються й розсуваються ще ширше,
-// щоки червоніють, злітають сердечка
-const hand = (px, fx) => fx.map((f, i) => `<rect class="f f${i}" x="${f}" y="4" width="10" height="38" rx="5"/>`).join('')
-  + `<rect x="${px}" y="32" width="47" height="30" rx="14"/>`;
-const HANDS = '<svg viewBox="0 0 120 64" width="104" height="55" aria-hidden="true"><g fill="#FFC83D" stroke="#E39B1B" stroke-width="1.5">'
-  + hand(8, [10, 21, 32, 43]) + hand(65, [67, 78, 89, 100]) + '</g></svg>';
+// «Підглядаю» 🫣: над листом опускається оксамитова завіса; обличчя двічі визирає у щілинку — зліва й справа, —
+// завіса розходиться, щоки червоніють, злітають сердечка — «Кто здесь?»
+const scallops = (w, n, y, dip) => {
+  const s = w / n;
+  let d = '';
+  for (let i = n; i > 0; i -= 1) d += `Q${(i - 0.5) * s} ${y + dip} ${(i - 1) * s} ${y}`;
+  return d;
+};
+const FOLDS = [['0', '#6E1A40'], ['.12', '#B23A6E'], ['.22', '#7E2149'], ['.36', '#C9457F'], ['.48', '#85244F'],
+  ['.62', '#C24078'], ['.74', '#7E2149'], ['.88', '#B23A6E'], ['1', '#8A2753']];
+const curtain = (right) => `<svg viewBox="0 0 124 214" width="124" height="214" aria-hidden="true"><defs><linearGradient id="cu${right ? 'R' : 'L'}" x2="1">`
+  + FOLDS.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('') + '</linearGradient></defs>'
+  + `<g${right ? ' transform="translate(124 0) scale(-1 1)"' : ''}>`
+  + `<path d="M0 0H124V200${scallops(124, 6, 200, 10)}Z" fill="url(#cu${right ? 'R' : 'L'})"/>`
+  + `<path d="M124 200${scallops(124, 6, 200, 10)}" fill="none" stroke="#F2C14E" stroke-width="3"/>`
+  + '<path d="M121 0V200" stroke="#F2C14E" stroke-width="3"/></g></svg>';
+const VALANCE = '<svg viewBox="0 0 264 48" width="264" height="48" aria-hidden="true">'
+  + `<path d="M0 0H264V26${scallops(264, 11, 26, 18)}Z" fill="#8A2753"/>`
+  + `<path d="M264 26${scallops(264, 11, 26, 18)}" fill="none" stroke="#F2C14E" stroke-width="3"/>`
+  + '<rect width="264" height="9" fill="#5C1534"/><g fill="#F2C14E">'
+  + Array.from({ length: 11 }, (_, i) => `<circle cx="${(i + 0.5) * 24}" cy="41" r="3"/>`).join('') + '</g></svg>';
 REACT_FX['🫣'] = (el, x, y) => {
-  const D = 2800;
-  big('😳', x, y, [
-    { transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.05)', opacity: 1, offset: 0.12 }, { transform: 'scale(1)', offset: 0.2 },
-    { transform: 'scale(1.02) rotate(-3deg)', offset: 0.5 }, { transform: 'scale(1.04) rotate(3deg)', offset: 0.7 },
-    { transform: 'scale(1)', opacity: 1, offset: 0.88 }, { transform: 'scale(.6)', opacity: 0 },
-  ], D, '6.2rem');
-  const box = shape('fx-hands', x, y - 16, HANDS);
-  gone(box)(box.animate([
-    { transform: `${C} translateY(60px) scale(.4)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.14 },
-    { transform: `${C} scale(1)`, opacity: 1, offset: 0.88 }, { transform: `${C} translateY(30px) scale(.6)`, opacity: 0 },
+  const D = 3000;
+  const cy = y - 6;
+  // Обличчя за завісою — видно лише у щілинці
+  big('🫣', x, cy, [
+    { transform: 'scale(.9)', opacity: 0 }, { transform: 'scale(.9)', opacity: 0, offset: 0.1 }, { transform: 'scale(1)', opacity: 1, offset: 0.12 },
+    { transform: 'scale(1)', offset: 0.2 }, { transform: 'translateX(-22px) rotate(-14deg)', offset: 0.26 }, { transform: 'translateX(-22px) rotate(-14deg)', offset: 0.33 },
+    { transform: 'scale(1)', offset: 0.39 }, { transform: 'scale(1)', offset: 0.44 },
+    { transform: 'translateX(22px) rotate(14deg)', offset: 0.5 }, { transform: 'translateX(22px) rotate(14deg)', offset: 0.57 },
+    { transform: 'scale(1)', offset: 0.61 }, { transform: 'translateY(-6px) scale(1.18)', offset: 0.7 }, { transform: 'scale(1)', offset: 0.76 },
+    { transform: 'rotate(-6deg)', offset: 0.82 }, { transform: 'rotate(5deg)', opacity: 1, offset: 0.9 }, { transform: 'scale(.7)', opacity: 0 },
+  ], D, '5.4rem');
+  // Поли: щілинка зліва, потім справа, потім обидві збираються до країв
+  const side = (dir, a, b) => {
+    const c = shape(`fx-curtain ${dir < 0 ? 'is-l' : 'is-r'}`, x + dir * 62, cy - 4, curtain(dir > 0));
+    const open = `${C} translateX(${dir * 14}px) scaleX(.42)`;
+    gone(c)(c.animate([
+      { transform: `${C} translateY(-50px)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.1 },
+      { transform: C, offset: a }, { transform: `${C} translateX(${dir * 36}px)`, offset: a + 0.05 },
+      { transform: `${C} translateX(${dir * 36}px)`, offset: b }, { transform: C, offset: b + 0.05 },
+      { transform: C, offset: 0.61 }, { transform: open, offset: 0.68 }, { transform: open, opacity: 1, offset: 0.9 }, { transform: open, opacity: 0 },
+    ], { duration: D, easing: 'ease-in-out', fill: 'backwards' }));
+  };
+  side(-1, 0.2, 0.34);
+  side(1, 0.44, 0.55);
+  const top = shape('fx-valance', x, cy - 111, VALANCE);
+  gone(top)(top.animate([
+    { transform: `${C} translateY(-50px)`, opacity: 0 }, { transform: C, opacity: 1, offset: 0.1 },
+    { transform: C, opacity: 1, offset: 0.9 }, { transform: C, opacity: 0 },
   ], { duration: D, easing: 'ease-out', fill: 'backwards' }));
-  // Пальці 0–1 відходять ліворуч, 2–3 праворуч — щілинка посередині кожної долоні
-  const spread = [-9, -16, 12, 7];
-  spread.forEach((deg, i) => {
-    for (const f of box.querySelectorAll(`.f${i}`)) {
-      f.animate([
-        { transform: 'rotate(0)' }, { transform: 'rotate(0)', offset: 0.24 },
-        { transform: `rotate(${deg * 0.7}deg)`, offset: 0.32 }, { transform: `rotate(${deg * 0.7}deg)`, offset: 0.4 },
-        { transform: 'rotate(0)', offset: 0.46 }, { transform: 'rotate(0)', offset: 0.54 },
-        { transform: `rotate(${deg * 1.25}deg)`, offset: 0.64 }, { transform: `rotate(${deg * 1.25}deg)`, offset: 0.82 },
-        { transform: 'rotate(0)' },
-      ], { duration: D, easing: 'ease-in-out', fill: 'both' });
-    }
-  });
-  for (const dx of [-36, 36]) {
-    const b = shape('fx-blush', x + dx, y + 22);
+  twinkle('✨', x - 30, cy - 26, '1.2rem', D * 0.27);
+  twinkle('✨', x + 30, cy - 26, '1.2rem', D * 0.51);
+  for (const dx of [-30, 30]) {
+    const b = shape('fx-blush', x + dx, cy + 18);
     gone(b)(b.animate([
-      { transform: `${C} scale(.4)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.4 },
+      { transform: `${C} scale(.4)`, opacity: 0 }, { transform: `${C} scale(1)`, opacity: 1, offset: 0.3 },
       { transform: `${C} scale(1.1)`, opacity: 1, offset: 0.8 }, { transform: `${C} scale(1)`, opacity: 0 },
-    ], { duration: D * 0.62, delay: D * 0.3, fill: 'backwards' }));
+    ], { duration: D * 0.3, delay: D * 0.66, fill: 'backwards' }));
   }
-  jolt(el, [{ transform: 'none' }, { transform: 'translateY(3px)' }, { transform: 'none' }], 300, D * 0.42);
-  rise(x, y - 40, ['💗', '💕'], 5, { delay: D * 0.66, up: 160, spread: 180, size: 1 });
+  rise(x, cy - 40, ['💗', '💕'], 6, { delay: D * 0.7, up: 160, spread: 180, size: 1 });
+  shout('Кто здесь?', x, cy + 74, D * 0.68, D * 0.3, '1.5rem');
 };
 
 // «Оплески» 👏: великі долоні плескають чотири рази, на кожен хлопок спалах, а на останній — овація маленьких 👏
@@ -2452,13 +2504,27 @@ REACT_FX['😉'] = (el, x, y, r) => {
   pop('💗', x - 74, y - 46, '2.2rem', D * 0.58, 1200);
 };
 
-// «Вишеньки» 🍒: дві вишеньки на гілочці спускаються над лист, розгойдуються й двічі «цілуються» — чмок, сердечка
-const CHERRIES = '<svg viewBox="0 0 140 150" width="150" height="161" aria-hidden="true">'
-  + '<path d="M70 12q8-12 26-8-8 14-26 8z" fill="#3FAE5A"/>'
-  + '<g class="ch-l"><path d="M70 12Q50 50 30 92" stroke="#5C7A2E" stroke-width="4" fill="none" stroke-linecap="round"/>'
-  + '<circle cx="30" cy="114" r="24" fill="#D7263D"/><ellipse cx="21" cy="104" rx="6" ry="9" fill="#fff" opacity=".55" transform="rotate(-25 21 104)"/></g>'
-  + '<g class="ch-r"><path d="M70 12Q90 50 110 92" stroke="#5C7A2E" stroke-width="4" fill="none" stroke-linecap="round"/>'
-  + '<circle cx="110" cy="114" r="24" fill="#C81D36"/><ellipse cx="101" cy="104" rx="6" ry="9" fill="#fff" opacity=".55" transform="rotate(-25 101 104)"/></g>'
+// «Вишеньки» 🍒: дві вишеньки на гілочці спускаються над лист, розгойдуються й двічі «цілуються» — чмок, сердечка.
+// Ягоди обʼємні: темніють донизу, ямка біля хвостика, блік і відсвіт; на вузлику — два листочки з прожилками
+const berry = (cx, g) => `<path d="M${cx} 93C${cx - 8} 85 ${cx - 27} 88 ${cx - 27} 111C${cx - 27} 129 ${cx - 14} 140 ${cx} 140`
+  + `C${cx + 14} 140 ${cx + 27} 129 ${cx + 27} 111C${cx + 27} 88 ${cx + 8} 85 ${cx} 93Z" fill="url(#${g})" stroke="#6B0A1C" stroke-width="1.5"/>`
+  + `<path d="M${cx - 4} 94Q${cx} 98 ${cx + 4} 94" stroke="#5A0816" stroke-width="2" fill="none" stroke-linecap="round"/>`
+  + `<ellipse cx="${cx - 11}" cy="${106}" rx="7" ry="11" fill="url(#chS)" transform="rotate(-25 ${cx - 11} 106)"/>`
+  + `<circle cx="${cx - 13}" cy="102" r="2.6" fill="#fff"/>`
+  + `<path d="M${cx + 8} 134Q${cx + 21} 128 ${cx + 23} 114" stroke="#FF8A95" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".55"/>`;
+const CHERRIES = '<svg viewBox="0 0 140 150" width="156" height="167" aria-hidden="true"><defs>'
+  + '<radialGradient id="chA" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#FF6B7A"/><stop offset=".45" stop-color="#E0213D"/><stop offset=".85" stop-color="#A0102A"/><stop offset="1" stop-color="#7A0A1E"/></radialGradient>'
+  + '<radialGradient id="chB" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#FF5E70"/><stop offset=".45" stop-color="#D21A38"/><stop offset=".85" stop-color="#930D26"/><stop offset="1" stop-color="#6E091B"/></radialGradient>'
+  + '<radialGradient id="chS"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'
+  + '<linearGradient id="chT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5E4220"/><stop offset=".35" stop-color="#6E8E2A"/><stop offset="1" stop-color="#8DB040"/></linearGradient>'
+  + '<linearGradient id="chF" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6CD27A"/><stop offset="1" stop-color="#2E8B3E"/></linearGradient></defs>'
+  + '<g class="ch-l"><path d="M70 12Q50 50 30 93" stroke="url(#chT)" stroke-width="4" fill="none" stroke-linecap="round"/>' + berry(30, 'chA') + '</g>'
+  + '<g class="ch-r"><path d="M70 12Q90 50 110 93" stroke="url(#chT)" stroke-width="4" fill="none" stroke-linecap="round"/>' + berry(110, 'chB') + '</g>'
+  + '<path d="M72 13C84 2 102 1 116 7 104 19 86 21 72 13Z" fill="url(#chF)" stroke="#2A7A36" stroke-width="1"/>'
+  + '<path d="M74 13Q95 7 114 7" stroke="#2A7A36" stroke-width="1.4" fill="none"/>'
+  + '<path d="M68 13C60 4 48 2 38 6 46 16 58 18 68 13Z" fill="url(#chF)" stroke="#2A7A36" stroke-width="1"/>'
+  + '<path d="M67 13Q52 8 40 6" stroke="#2A7A36" stroke-width="1.2" fill="none"/>'
+  + '<circle cx="70" cy="12" r="4" fill="#5B3A1E"/>'
   + '</svg>';
 REACT_FX['🍒'] = (el, x, y) => {
   const D = 2800;

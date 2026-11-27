@@ -3910,9 +3910,13 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 /* Блік по листу 😉 */
 .fx-glint { z-index: 57; overflow: hidden; border-radius: 18px; }
 .fx-glint i { position: absolute; top: 0; bottom: 0; left: 0; width: 60px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .75), transparent); }
-/* Долоні 🫣: пальці повертаються від основи */
-.fx-hands { z-index: 64; line-height: 0; }
-.fx-hands .f { transform-box: fill-box; transform-origin: 50% 100%; }
+/* Завіса 🫣: поли збираються до своїх країв, ламбрекен зверху */
+.fx-curtain { z-index: 64; line-height: 0; }
+.fx-curtain.is-l { transform-origin: 0 50%; }
+.fx-curtain.is-r { transform-origin: 100% 50%; }
+.fx-valance { z-index: 65; line-height: 0; filter: drop-shadow(0 3px 4px rgba(60, 10, 30, .35)); }
+/* Хвиля крику 😱 від рота */
+.fx-scream { z-index: 59; width: 90px; height: 70px; border-radius: 50%; border: 3px solid rgba(255, 236, 170, .8); box-shadow: 0 0 0 3px rgba(110, 40, 25, .35); }
 .fx-blush { z-index: 65; width: 34px; height: 18px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 92, 138, .75), rgba(255, 92, 138, 0)); }
 /* Спалах хлопка 👏 */
 .fx-clap { z-index: 61; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 244, 190, .95), rgba(255, 207, 92, .5) 45%, transparent 70%); }
@@ -4643,7 +4647,7 @@ html.is-still .top-heart.is-asked::after { animation: none; }
 .file-up-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #F7B8D2; transform: scaleX(0); transform-origin: left; transition: transform .2s linear; }
 [data-side="vin"] .file-up { background: #1d4a56; }
 [data-side="vin"] .file-up-bar { background: #EDB949; }
-.screen.is-chat .feed-row.is-meme .feed-bubble:has(> .file-card) { width: 84%; max-width: 360px; }
+.screen.is-chat .feed-row.is-meme .feed-bubble:is(:has(> .file-card), :has(> .voice-card)) { width: 84%; max-width: 360px; }
 
 /* Картка гри в чаті: щільна підложка (тло не просвічує), ставка плашкою в рядку з назвою, недивлений фінал — розмите поле */
 .duel-card { background: var(--paper); }
@@ -5436,3 +5440,64 @@ html.is-still :is(.wm-sakura, .wm-planet > g, .wm-planet .wm-star), html.is-cove
 /* І в «Планах» — та сама широка реплика */
 .plan-courier { width: 100%; }
 .plan-courier .bubble { flex: 1; min-width: 0; }
+
+/* Голосові: 🎤 під час запису червона й більша; смужка запису лягає на рядок «Написать…» */
+.cbar-act.is-rec, [data-side="vin"] .cbar-act.is-rec { background: #E5484D; color: #fff; transform: scale(1.18); transition: transform .15s; }
+.feed-voice { display: inline-grid; place-items: center; }
+.feed-voice svg { width: 20px; height: 20px; }
+.feed-voice.is-rec { background: #E5484D; color: #fff; }
+.voice-rec {
+  position: fixed; z-index: 70; display: flex; align-items: center; gap: 8px; box-sizing: border-box; padding: 0 6px 0 14px;
+  border-radius: 23px; border: 1.5px solid var(--wax); background: #fff; color: var(--plum);
+  box-shadow: 0 8px 20px -10px rgba(42, 23, 48, .5); animation: fade .15s;
+}
+[data-side="vin"] .voice-rec { background: #134A5E; color: var(--cream); border-color: var(--star); }
+.vr-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #E5484D; animation: vr-blink 1s ease-in-out infinite; }
+.vr-time { flex: none; min-width: 38px; font: 700 .9375rem var(--ui); font-variant-numeric: tabular-nums; }
+.vr-live { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; height: 24px; overflow: hidden; }
+.vr-live i { flex: none; width: 3px; height: 100%; border-radius: 2px; background: currentColor; opacity: .6; transform: scaleY(.12); transition: transform .1s; }
+.vr-hint { flex: none; color: var(--ink-soft); font-size: .8125rem; white-space: nowrap; }
+.vr-btn { display: none; flex: none; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; }
+.vr-btn svg { width: 20px; height: 20px; }
+.voice-rec:not([data-state="hold"]) .vr-btn { display: grid; }
+.vr-trash { background: transparent; color: #E5484D; }
+.vr-send { background: var(--plum); color: #fff; }
+[data-side="vin"] .vr-send { background: var(--star); color: var(--night); }
+.voice-rec[data-state="lock"] .vr-hint { display: none; }
+.voice-rec:is([data-state="done"], [data-state="sending"]) .vr-live { display: none; }
+.voice-rec:is([data-state="done"], [data-state="sending"]) .vr-hint { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.voice-rec:is([data-state="done"], [data-state="sending"]) .vr-dot { animation: none; opacity: .5; }
+.voice-rec[data-state="sending"] .vr-btn { opacity: .5; pointer-events: none; }
+.vr-lock {
+  position: fixed; z-index: 71; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 40px; padding: 9px 0 7px;
+  border-radius: 20px; background: #fff; color: var(--plum); box-shadow: 0 6px 16px -8px rgba(42, 23, 48, .5); transform: translate(-50%, 0);
+}
+[data-side="vin"] .vr-lock { background: #134A5E; color: var(--cream); }
+.vr-lock svg { width: 20px; height: 20px; }
+.vr-lock i { font-style: normal; font-weight: 700; line-height: 1; animation: vr-up 1s ease-in-out infinite; }
+.voice-tip {
+  position: fixed; z-index: 72; max-width: 230px; padding: 10px 12px; border-radius: 14px 14px 4px 14px;
+  background: var(--plum); color: #fff; font-size: .875rem; line-height: 1.35; box-shadow: 0 8px 20px -10px rgba(42, 23, 48, .6); animation: fade .2s;
+}
+[data-side="vin"] .voice-tip { background: var(--star); color: var(--night); }
+@keyframes vr-blink { 50% { opacity: .25; } }
+@keyframes vr-up { 50% { transform: translateY(-4px); } }
+
+/* Голосове в чаті: ▶, хвиля (тап — перемотати), час і крапка «не слухали», швидкість, ⬇ */
+.voice-card { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 10px 12px 2px; }
+.vc-play { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: var(--plum); color: #fff; cursor: pointer; }
+[data-side="vin"] .vc-play { background: var(--star); color: var(--night); }
+.vc-play svg { width: 22px; height: 22px; }
+.voice-card.is-loading .vc-play { opacity: .6; animation: vr-blink .9s ease-in-out infinite; }
+.vc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.vc-wave { display: flex; align-items: center; gap: 1.5px; height: 26px; cursor: pointer; }
+.vc-wave i { flex: 1 1 0; min-width: 1.5px; max-width: 4px; border-radius: 2px; background: currentColor; opacity: .3; }
+.vc-wave i.is-on { opacity: 1; background: var(--wax); }
+.vc-row { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.vc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wax); }
+.vc-speed { flex: none; min-width: 40px; height: 28px; padding: 0 6px; border: 0; border-radius: 14px; background: var(--chip); color: inherit; font: 700 .8125rem var(--ui); cursor: pointer; }
+.vc-dl { flex: none; display: grid; place-items: center; width: 30px; height: 36px; padding: 0; border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.vc-dl svg { width: 18px; height: 18px; }
+.voice-card.is-gone { min-width: 0; }
+.vc-gone { color: var(--ink-soft); font-size: .875rem; font-style: italic; }
+@media (prefers-reduced-motion: reduce) { .vr-dot, .vr-lock i, .voice-card.is-loading .vc-play { animation: none; } }

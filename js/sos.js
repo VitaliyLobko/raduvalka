@@ -6,6 +6,7 @@ import { h, toast, cap, hhmm } from './ui.js';
 import { deliver, newCid } from './outbox.js';
 import { hasSecret, seal } from './seal.js';
 import { sosAlarm } from './sound.js';
+import { recType } from './voicemsg.js';
 
 const REC_MAX = 30;
 // Місце, поки відкрита шторка: не частіше ніж раз на 30 с, лише якщо зсунулись на 25 м, і не довше 30 хв (GPS їсть батарею)
@@ -204,7 +205,7 @@ export async function openSos() {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) throw new Error('no mic');
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     if (!sheet.isConnected) { stopMic(); return; }
-    const type = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    const type = recType();
     rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), audioBitsPerSecond: 32000 });
     const parts = [];
     rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };

@@ -16,6 +16,8 @@ import { duelCard, duelSig, openDuel, gwishCard, duelKind } from './duel.js';
 import { sameCard, sameSig, openSame } from './same.js';
 import { hotCard, hotSig, openHot } from './hot.js';
 import { loveConstellation } from './depth.js';
+import { voiceCard, isVoice, voiceSecs, mmss, holdToRecord, canRecord } from './voicemsg.js';
+import { MIC } from './voice.js';
 
 const SWIPE = 70;
 // Від краю екрана Android гортає «Назад» — там свайп не починаємо
@@ -230,8 +232,8 @@ const isSticker = (m) => !m.url && !m.file && !!m.stick;
 const memeWord = (m, icon = false) => (isSticker(m) ? `${icon ? '🐾 ' : ''}Наклейка` : m.url ? `${icon ? '🎞 ' : ''}Гифка`
   : m.file ? `${icon ? '📎 ' : ''}${m.file.n || 'Файл'}` : `${icon ? '🖼 ' : ''}Фото`);
 // Що цитувати у відповіді на мемчик/файл і на що відповідають (для push)
-const memeSaid = (m) => m.caption || (isSticker(m) ? '🐾 наклейка' : m.url ? 'гифка' : m.file ? `📎 ${m.file.n || 'файл'}` : 'фото');
-const memeOn = (m) => (isSticker(m) ? 'sticker' : m.url ? 'gif' : m.file ? 'file' : 'photo');
+const memeSaid = (m) => m.caption || (isSticker(m) ? '🐾 наклейка' : m.url ? 'гифка' : isVoice(m) ? `🎤 голосовое · ${mmss(voiceSecs(m.file))}` : m.file ? `📎 ${m.file.n || 'файл'}` : 'фото');
+const memeOn = (m) => (isSticker(m) ? 'sticker' : m.url ? 'gif' : isVoice(m) ? 'voice' : m.file ? 'file' : 'photo');
 // Іконка файлу за типом
 const fileIcon = (t = '') => (/^image\//.test(t) ? '🖼' : /^video\//.test(t) ? '🎬' : /^audio\//.test(t) ? '🎤'
   : /pdf$/.test(t) ? '📕' : /zip|rar|7z|tar|gzip/.test(t) ? '🗜' : /sheet|excel|csv/.test(t) ? '📊' : /word|document|text/.test(t) ? '📄' : '📎');
@@ -587,9 +589,10 @@ function holdToReact(bubble, it) {
   let y0 = 0;
   const stop = () => clearTimeout(timer);
   bubble.addEventListener('pointerdown', (e) => {
+    stop();
+    if (e.target.closest('.feed-voice')) return;
     x0 = e.clientX;
     y0 = e.clientY;
-    stop();
     timer = setTimeout(() => {
       // Після довгого натискання клік не має ще й розгорнути лист
       bubble.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
@@ -601,7 +604,7 @@ function holdToReact(bubble, it) {
   bubble.addEventListener('pointerup', stop);
   bubble.addEventListener('pointercancel', stop);
   // На компʼютері мишею не тримають — правий клік відкриває ті самі смайлики
-  bubble.addEventListener('contextmenu', (e) => { e.preventDefault(); stop(); openReactions(bubble, it); });
+  bubble.addEventListener('contextmenu', (e) => { e.preventDefault(); stop(); if (!e.target.closest('.feed-voice')) openReactions(bubble, it); });
   // І звичайний клік мишею — теж. Як раніше лишаються: кнопки, фото, цитата, ще не прочитаний лист,
   // згорнутий довгий текст (клік його розкриває) і вже розкритий (клік згортає)
   bubble.addEventListener('click', (e) => {
@@ -810,6 +813,31 @@ function replyBtn(it) {
   }, '↩ Ответить');
 }
 
+// 🎤 поруч з «Ответить» (лист і голосове): утримуєш — записуєш, відпустив — голосове пішло відповіддю з цитатою
+function voiceReplyBtn(it) {
+  const target = replyTarget(it);
+  if (!canRecord || !DATA.files || !target || target.tpl || (it.type === 'meme' && !isVoice(it.m))) return null;
+  const b = h('button', { type: 'button', class: 'feed-act feed-voice', 'aria-label': 'Ответить голосовым — удерживай', html: MIC });
+  holdToRecord(b, {
+    busy: () => !!document.querySelector('.cbar-act.is-listening'),
+    onTap: () => toast('Удерживай 🎤 и говори — уйдёт голосовым ответом'),
+    onSend: async ({ file, d, w }) => {
+      const meme = it.type === 'meme';
+      const q = meme ? memeSaid(it.m) : (it.l.text || '');
+      const { sendFile } = await import('./files.js');
+      return sendFile(file, () => {
+        // Відповіла на лист — значить, прочитала
+        if (!meme && !it.l.opened) {
+          liveLetter(it.l).opened = true;
+          send(target.path, 'PUT', { opened: true }).catch(() => {});
+        }
+        document.dispatchEvent(new CustomEvent('radovalka:sent'));
+      }, { quote: q.length > 300 ? `${q.slice(0, 300)}…` : q, on: meme ? memeOn(it.m) : 'letter' }, { d, w });
+    },
+  });
+  return b;
+}
+
 // Відповісти на його/її старішу відповідь під повідомленням — так само новим повідомленням із цитатою
 function againBtn(reply) {
   return h('button', {
@@ -886,7 +914,7 @@ function inBubble(l) {
     : h('button', { type: 'button', class: 'sent-att feed-att-open', onclick: () => ops.open?.(l) }, `${sentAtt(l.media)} · открыть`)) : null;
   bubble.append(...[body, att,
     l.reply ? h('p', { class: 'sent-reply' }, h('b', {}, 'Твой ответ: '), l.reply) : null,
-    h('div', { class: 'feed-acts' }, like, replyBtn(it))].filter(Boolean));
+    h('div', { class: 'feed-acts' }, ...[like, replyBtn(it), voiceReplyBtn(it)].filter(Boolean))].filter(Boolean));
   function markRead() {
     l.opened = true;
     bubble.classList.remove('is-new');
@@ -1061,6 +1089,11 @@ function memeBubble(m) {
   const sticker = isSticker(m) ? stickParse(m.stick)[0] : null;
   const pic = sticker ? h('div', { class: 'meme-sticker', role: 'img', 'aria-label': `Наклейка: ${petName(sticker.key) || 'питомец'}` },
     stickImg(sticker, { style: sticker.fx ? 'transform: scaleX(-1)' : null }) || h('span', {}, '🐾'))
+    : isVoice(m) ? voiceCard(m, {
+      side: DATA.side,
+      load: async () => (await import('./files.js')).fileBlob(m),
+      save: async () => (await import('./files.js')).downloadFile(m),
+    })
     : m.file ? fileCard(m) : m.gone && !m.url
     ? h('p', { class: 'meme-gone' }, '🖼 Фото удалено, чтобы освободить место')
     : h('button', {
@@ -1079,7 +1112,7 @@ function memeBubble(m) {
     acts = [h('button', {
       type: 'button', class: 'feed-act', 'aria-label': 'Сердечко',
       onclick: (e) => { e.stopPropagation(); openReactions(e.currentTarget.closest('.feed-bubble'), it); },
-    }, '🤍'), replyBtn(it)];
+    }, '🤍'), replyBtn(it), voiceReplyBtn(it)];
   }
   const replyLine = m.reply
     ? h('p', { class: `sent-reply${m.mine && isNew ? ' is-fresh' : ''}`, 'data-replied': m.replied || 0 },
@@ -1095,13 +1128,13 @@ function memeBubble(m) {
     m.caption && !m.style ? h('p', { class: 'meme-cap' }, m.caption) : null,
     replyLine,
     h('div', { class: 'feed-acts' },
-      h('span', { class: 'feed-meta' }, `${m.file ? '📎' : '🖼'} ${hhmm(m.created)}`, newMark(!m.mine && isNew)),
+      h('span', { class: 'feed-meta' }, `${isVoice(m) ? '🎤' : m.file ? '📎' : '🖼'} ${hhmm(m.created)}`, newMark(!m.mine && isNew)),
       ...acts));
 }
 
 
 async function removeMeme(m) {
-  if (!await ask({ title: `Удалить ${isSticker(m) ? 'эту наклейку' : m.url ? 'эту гифку' : m.file ? 'этот файл' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
+  if (!await ask({ title: `Удалить ${isSticker(m) ? 'эту наклейку' : m.url ? 'эту гифку' : isVoice(m) ? 'это голосовое' : m.file ? 'этот файл' : 'это фото'} у обоих?`, yes: 'Удалить', say: 'deleteMeme' })) return;
   try {
     await send(`memes/${m.id}`, 'DELETE');
     DATA.memes = DATA.memes.filter((x) => x.id !== m.id);
@@ -1312,7 +1345,7 @@ export function swipeable(row, bubble, { onLeft, onRight, canRight = () => true,
   };
   bubble.addEventListener('pointerdown', (e) => {
     if (e.button || e.clientX < EDGE || e.clientX > innerWidth - EDGE) return;
-    if (e.target.closest('textarea, input')) return;
+    if (e.target.closest('textarea, input, .feed-voice')) return;
     x0 = e.clientX;
     y0 = e.clientY;
     dx = 0;

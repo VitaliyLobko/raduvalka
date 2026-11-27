@@ -5,6 +5,7 @@ import { sealBody, sealFile, openBlob, openDeep } from './seal.js';
 import { h, toast } from './ui.js';
 import { media, gifFrame, gifOver, freeStyle, prepare, prepareError, sendError } from './memes.js';
 import { openGifs } from './maker.js';
+import { recType } from './voicemsg.js';
 
 const VOICE_MAX = 60;
 const SONG_MAX = 25 * 1024 * 1024;
@@ -96,13 +97,6 @@ function sheet(title, onClose) {
   return { body, close };
 }
 
-// «🎤 Голос» у чаті: одразу запис (той самий, що в листі); onAtt({ k: 'voice', blob, t, d })
-export function pickVoice(onAtt) {
-  let stopMic = null;
-  const sh = sheet('🎤 Голосовое', () => stopMic?.());
-  stopMic = recorder(sh.body, (a) => { onAtt(a); sh.close(); }, () => sh.close(), 'Отправить', 300);
-}
-
 // «🎵 Музыка»: голос, посилання чи файл
 export function pickMusic(onAtt) {
   let stopMic = null;
@@ -147,7 +141,7 @@ function linkForm(body, done, back) {
 }
 
 // Запис голосу: велика кнопка, таймер до хвилини, прослухати, перезаписати, прикріпити. Повертає «вимкнути мікрофон»
-// max — до скількох секунд: у листі хвилина (сервер тримає вкладення до 75 с), у чаті — 5 хвилин файлом
+// max — до скількох секунд (сервер тримає вкладення листа до 75 с)
 function recorder(body, done, back, takeLabel = LABEL, max = VOICE_MAX) {
   let stream = null;
   let rec = null;
@@ -175,7 +169,7 @@ function recorder(body, done, back, takeLabel = LABEL, max = VOICE_MAX) {
       return;
     }
     if (!body.isConnected) { mic(); return; }
-    const type = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    const type = recType();
     rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), audioBitsPerSecond: 32000 });
     const parts = [];
     rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };

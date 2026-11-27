@@ -1,4 +1,5 @@
 // Рядок «Написать…» під перепискою, як у месенджері: ＋ зліва, поле, справа 🎤 (порожньо) або ➤.
+// 🎤: тап — диктовка текстом, утримання — голосове (voicemsg.js).
 // Над ним, поки пишеш, — хто понесе, коли (зараз / на утро) і «✨ Помочь»; над ними — цитата, якщо це відповідь.
 // «＋» — фото, гифка, спор і особливі листи (у конверт, до дати, велике вікно). Рядок один на весь запуск:
 // вкладка перемальовується, а набране, цитата й фокус лишаються
@@ -12,6 +13,7 @@ import { openGifs } from './maker.js';
 import { openGames } from './games.js';
 import { openWrite, draft, nextMorning, QUEUED, sentToast } from './write.js';
 import { listen, canDictate, MIC } from './voice.js';
+import { holdToRecord, canRecord, hintOnce } from './voicemsg.js';
 
 const PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
 const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -153,8 +155,18 @@ function build() {
   // На ноутбуці Ctrl+Enter — відправити; Enter — новий рядок, як і на телефоні
   area.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendText(); } });
   act.addEventListener('click', () => {
-    if (act.dataset.mode === 'mic') listen(area, act, () => paint());
-    else sendText();
+    if (act.dataset.mode !== 'mic') sendText();
+    else if (canDictate) listen(area, act, () => paint());
+    else toast('Удерживай 🎤 — запишется голосовое');
+  });
+  // Утримання 🎤 — голосове; поки йде диктовка чи в полі текст — ні
+  holdToRecord(act, {
+    busy: () => act.dataset.mode !== 'mic' || act.classList.contains('is-listening') || !DATA.files,
+    onSend: async ({ file, d, w }) => {
+      const { re, sent } = memeReply();
+      const { sendFile } = await import('./files.js');
+      return sendFile(file, sent, re, { d, w });
+    },
   });
 }
 
@@ -239,10 +251,15 @@ function paint() {
   plusBtn.setAttribute('aria-expanded', String(!!plus));
   // Порожньо — 🎤 (де браузер уміє голос); є текст або йде запис — ➤ чи та сама 🎤, поки слухає
   const listening = act.classList.contains('is-listening');
-  const mode = listening || (!text && canDictate) ? 'mic' : 'send';
+  const voice = canRecord && !!DATA.files;
+  const mode = listening || (!text && (canDictate || voice)) ? 'mic' : 'send';
   act.dataset.mode = mode;
   if (mode === 'mic') {
-    if (!listening) { act.innerHTML = MIC; act.setAttribute('aria-label', 'Сказать голосом'); }
+    if (!listening) {
+      act.innerHTML = MIC;
+      act.setAttribute('aria-label', voice ? (canDictate ? 'Тап — сказать текстом, удерживай — голосовое' : 'Удерживай — голосовое') : 'Сказать голосом');
+    }
+    if (voice && !typing && !plus && !emo) requestAnimationFrame(() => { if (act.isConnected) hintOnce(act); });
   } else {
     act.innerHTML = ARROW;
     act.setAttribute('aria-label', morning ? 'Отправить на утро' : when === 'time' ? `Отправить к ${hhmm(atTime)}` : 'Отправить');
@@ -361,16 +378,6 @@ function openPlus() {
       fileTile(camera, '📷', 'Камера'),
       DATA.files ? fileTile(filePicker, '📎', 'Файл') : null,
       tile('🎞', 'Гифка', () => { closePlus(); openGifs((gif) => composeGif(gif, sent, re)); }),
-      // Голосове: запис до хвилини — і файлом у чат (там його можна послухати ▶)
-      DATA.files ? tile('🎤', 'Голос', async () => {
-        closePlus();
-        const { pickVoice } = await import('./envattach.js');
-        pickVoice(async (a) => {
-          const ext = /ogg/.test(a.t) ? 'ogg' : /mp4|aac|m4a/.test(a.t) ? 'm4a' : 'webm';
-          const name = `Голосовое · ${Math.floor(a.d / 60)}:${String(a.d % 60).padStart(2, '0')}.${ext}`;
-          asFile(new File([a.blob], name, { type: a.t }));
-        });
-      }) : null,
       reply ? null : tile('🎲', 'Игры', () => { closePlus(); openGames(); }),
     ].filter(Boolean)),
     h('p', { class: 'cbar-plus-label' }, 'Особое письмо'),

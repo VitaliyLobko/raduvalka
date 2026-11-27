@@ -22,11 +22,11 @@ const b64u = (s) => {
 };
 
 // Смужка над рядком: назва, відсотки, ✕ — скасувати
-function progress(name, onCancel) {
+function progress(name, onCancel, icon = '📎') {
   const bar = h('i', { class: 'file-up-bar' });
   const pct = h('span', { class: 'file-up-pct' }, '0%');
   const el = h('div', { class: 'file-up', role: 'status' },
-    h('span', { class: 'file-up-name' }, `📎 ${name}`), pct,
+    h('span', { class: 'file-up-name' }, `${icon} ${name}`), pct,
     h('button', { type: 'button', class: 'file-up-x', 'aria-label': 'Отменить отправку', onclick: onCancel }, '✕'), bar);
   document.body.append(el);
   let raf = 0;
@@ -45,20 +45,26 @@ function progress(name, onCancel) {
   };
 }
 
-// re — { quote, on }: файл у відповідь на повідомлення
-export async function sendFile(file, done, re = null) {
-  if (!file.size) { toast('Файл пустой'); return; }
-  if (file.size > MAX_FILE) { toast(`Файл ${fileSize(file.size)} — можно до 25 МБ`); return; }
+// re — { quote, on }: файл у відповідь на повідомлення; voice — { d, w }: це голосове (секунди й хвиля).
+// Повертає true, коли пішло (голосове без зв'язку лишається на екрані запису — ➤ ще раз)
+export async function sendFile(file, done, re = null, voice = null) {
+  if (!file.size) { toast('Файл пустой'); return false; }
+  if (file.size > MAX_FILE) { toast(`Файл ${fileSize(file.size)} — можно до 25 МБ`); return false; }
   const name = (file.name || 'файл').slice(0, 200);
   let xhr = null;
-  const bar = progress(name, () => xhr?.abort());
+  const bar = progress(name, () => xhr?.abort(), voice ? '🎤' : '📎');
   try {
-    const [body, n, quote] = await Promise.all([
+    const [body, n, quote, w] = await Promise.all([
       sealFile(file),
       seal(name),
       re?.quote ? seal(String(re.quote).slice(0, 300)) : null,
+      voice?.w ? seal(voice.w) : '',
     ]);
-    const meta = b64u(JSON.stringify({ n, t: file.type || 'application/octet-stream', s: file.size, ...(re?.quote ? { quote, on: re.on } : {}), ...(re?.mascot ? { mascot: re.mascot } : {}) }));
+    const meta = b64u(JSON.stringify({
+      n, t: file.type || 'application/octet-stream', s: file.size,
+      ...(re?.quote ? { quote, on: re.on } : {}), ...(re?.mascot ? { mascot: re.mascot } : {}),
+      ...(voice ? { v: 1, d: voice.d, w } : {}),
+    }));
     const meme = await new Promise((ok, no) => {
       xhr = new XMLHttpRequest();
       xhr.open('POST', `${API}/api/files`);
@@ -77,15 +83,17 @@ export async function sendFile(file, done, re = null) {
     });
     await openDeep(meme);
     DATA.memes = [meme, ...(DATA.memes || [])];
-    toast('Файл отправлен 📎');
+    toast(voice ? 'Голосовое отправлено 🎤' : 'Файл отправлен 📎');
     done?.();
+    return true;
   } catch (e) {
     if (e.abort) toast('Отправка отменена');
-    else if (e.status === 429) toast('На сегодня файлов хватит — завтра снова можно');
+    else if (e.status === 429) toast(voice ? 'На сегодня голосовых хватит — завтра снова можно' : 'На сегодня файлов хватит — завтра снова можно');
     else if (e.status === 503) toast('Файлы пока не подключены');
     else if (e.status === 507) toast('Хранилище файлов заполнено — удали старые файлы из переписки');
     else if (e.status === 413) toast('Файл слишком большой — можно до 25 МБ');
     else toast('Не отправилось — нет связи');
+    return false;
   } finally {
     bar.done();
   }
