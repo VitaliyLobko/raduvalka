@@ -483,6 +483,31 @@ function starLoop() {
   }, 20000 + Math.random() * 40000);
 }
 
+// Сяйво й Чумацький Шлях малюються раз на canvas (js/sky.js) і лише коли це небо вибране; перемальовка — на зміну ширини
+// чи помітну зміну висоти (клавіатура її теж міняє, тож дрібниці пропускаємо)
+function watchSky(vin) {
+  const done = { aurora: '', milky: '' };
+  let wait = 0;
+  const paint = () => {
+    wait = 0;
+    const html = document.documentElement;
+    if (html.dataset.side !== 'vin') return;
+    const want = html.classList.contains('is-aurora') ? 'aurora' : html.classList.contains('is-milky') ? 'milky' : '';
+    if (!want) return;
+    const el = vin.querySelector(`.ds-${want}`);
+    const size = `${el.clientWidth}x${el.clientHeight}`;
+    const [w0, h0] = done[want].split('x').map(Number);
+    if (done[want] && w0 === el.clientWidth && Math.abs(h0 - el.clientHeight) < h0 * 0.15) return;
+    import('./sky.js').then((m) => {
+      if ((want === 'aurora' ? m.paintAurora : m.paintMilky)(el)) done[want] = size;
+    }).catch(() => {});
+  };
+  const later = () => { clearTimeout(wait); wait = setTimeout(paint, 250); };
+  new MutationObserver(() => requestAnimationFrame(paint)).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-side'] });
+  window.addEventListener('resize', later);
+  requestAnimationFrame(paint);
+}
+
 export function startDepth() {
   // Її половина: плями (далеко), сердечка й хвилі (посередині), лотос і сакура (близько)
   const vona = h('div', { class: 'depth depth-vona' },
@@ -497,7 +522,7 @@ export function startDepth() {
     h('i', { class: 'ds-chart', html: CHART }),
     h('i', { class: 'ds-moon' }, moon('ds-moon')),
     h('i', { class: 'ds-milky' }),
-    h('i', { class: 'ds-aurora' }, h('span'), h('span'), h('span')),
+    h('i', { class: 'ds-aurora' }),
     h('i', { class: 'ds-far' }, sky(70, 21)),
     h('i', { class: 'ds-mid' }, sky(26, 3), constellation(false)),
     near);
@@ -512,6 +537,7 @@ export function startDepth() {
   new MutationObserver(cover).observe(document.body, { childList: true });
   document.documentElement.classList.toggle('is-still', isStill());
   document.body.prepend(box);
+  watchSky(vin);
   document.addEventListener('click', (e) => {
     // Лише по фону: не по кнопках, полях, шторках і не по повідомленнях чи картках (у них свої дії)
     // Шлях події, а не e.target.closest: кнопка могла замінити свій значок (＋ → ✕), і ціль уже відірвана від кнопки

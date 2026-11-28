@@ -2,7 +2,7 @@
 // Далі щодня один «секретик» (раз на добу за Києвом, не в день туру): улюбленець вибовкує фішку й підсвічує, де вона.
 // Розказані збираються в меню «Секретики питомцев». Ролі: push — собака-листоноша, memes — кіт, aside — лінива кішка.
 // Тексти без роду читача; рід другого — з who(). Про сюрпризи лише натякаємо; сезони, свята, Луну й «Её фото» не чіпаємо
-import { mascotImg, petName, petFor } from './icons.js';
+import { mascotImg, petName, petFor, petSrc } from './icons.js';
 import { h, reduceMotion, toast } from './ui.js';
 import { DATA, who } from './data.js';
 import { turnOn, pushState, testPush, disablePush } from './push.js';
@@ -234,7 +234,9 @@ function overlay(steps, { secret = false, onFinish = () => {} } = {}) {
   // Обробник — властивістю onclick (go ставить свій на кожен крок, а крок дозволів — «Разрешить»)
   const next = h('button', { type: 'button', class: 'btn btn-primary tour-next' }, 'Дальше');
   const skip = h('button', { type: 'button', class: 'btn tour-skip', onclick: () => (secret ? finish(openSecrets) : finish()) }, secret ? 'Все секретики' : 'Пропустить');
-  const card = h('div', { class: 'tour-card' }, h('div', { class: 'tour-talk' }, petEl, say), h('div', { class: 'tour-foot' }, skip, dots, next));
+  // Слоган — лише на першому кроці туру
+  const slogan = h('p', { class: 'tour-slogan', hidden: true }, 'Радовалка — любовь в каждом пикселе!');
+  const card = h('div', { class: 'tour-card' }, slogan, h('div', { class: 'tour-talk' }, petEl, say), h('div', { class: 'tour-foot' }, skip, dots, next));
   // Шар ловить усі дотики: під час туру нічого під ним не натискається
   const root = h('div', { class: 'tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': secret ? 'Секретик от питомца' : 'Знакомство с Радовалкой' }, hole, card);
   const onKey = (e) => { if (e.key === 'Escape') finish(); };
@@ -284,10 +286,12 @@ function overlay(steps, { secret = false, onFinish = () => {} } = {}) {
     const key = petFor(s.who);
     const name = petName(key);
     const last = i === steps.length - 1;
-    petEl.innerHTML = key ? mascotImg(key, last || i === 0 ? 'festive' : 'main') : '';
+    // Святкова поза докачується у фоні — поки її нема (новий телефон), головна, яка є з першого екрана
+    petEl.innerHTML = key ? mascotImg(key, (last || i === 0) && petSrc(key, 'festive') ? 'festive' : 'main') : '';
     petEl.hidden = !key;
     const text = typeof s.text === 'function' ? s.text() : s.text;
     say.replaceChildren(...String(text).split('\n\n').map((para, k) => h('p', {}, ...[k === 0 && name ? h('b', {}, `${name}: `) : null, para].filter(Boolean))));
+    slogan.hidden = secret || i !== 0;
     next.textContent = secret ? 'Понятно 🐾' : last ? 'Начнём 💜' : 'Дальше';
     next.onclick = () => go(i + 1);
     if (s.perms) {
