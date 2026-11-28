@@ -51,34 +51,36 @@ function corePoint(box, W, H) {
   return { x: r.left - b.left + r.width * 0.28, y: r.top - b.top + r.height * 0.5 };
 }
 
-export function paintMilky(box) {
-  const W = box.clientWidth;
-  const H = box.clientHeight;
-  if (!W || !H) return false;
-  const { c, ctx, dpr } = canvasFor(W, H);
-  const r = rng(1987);
-  const core = corePoint(box, W, H);
-  const ang = -0.66;
+// Чумацький Шлях на два полотна: c — світло, ядро й пил (з мʼяким світінням), s — зоряна крупа (її можна мерехтіти окремо).
+// core — де ядро, ang — нахил; tint: cool — холодні краї (його небо), rose — бузкові й рожеві (реакція 🌌);
+// dust — колір пилу під тло; seed — однакове небо щоразу (без нього — випадкове).
+// at(t, off) — точка на смузі (t 0…1 уздовж видимої частини, off — пікселі вбік), wid(t) — ширина
+export function milkyLayers(W, H, { core, ang, tint = 'cool', dust = '5,18,28', seed = null, density = 22 }) {
+  const G = canvasFor(W, H);
+  const S = canvasFor(W, H);
+  const { ctx, dpr } = G;
+  const z = S.ctx;
+  const r = seed == null ? Math.random : rng(seed);
   const dx = Math.cos(ang);
   const dy = Math.sin(ang);
   const L = Math.hypot(W, H);
-  const at = (t, off) => [core.x + dx * t - dy * off, core.y + dy * t + dx * off];
+  const pos = (t, off) => [core.x + dx * t - dy * off, core.y + dy * t + dx * off];
   // Ширина смуги: біля ядра — товща
   const width = (t) => W * 0.11 * (1 + 1.5 * Math.exp(-((t / (W * 0.42)) ** 2)));
+  const edge = () => (tint === 'rose' ? (r() < 0.45 ? [247, 184, 214] : [176, 150, 255]) : [165, 190, 255]);
 
   ctx.globalCompositeOperation = 'lighter';
   // 1. Розсіяне світло — з багатьох дрібних «зоряних хмар», тож смуга плямиста, а не рівний градієнт
   for (let i = 0; i < 320; i++) {
     const t = (r() * 2 - 1) * L * 0.85;
     const w = width(t) * (0.25 + r() * 0.55);
-    const [x, y] = at(t, gauss(r) * width(t) * 0.3);
+    const [x, y] = pos(t, gauss(r) * width(t) * 0.3);
     const warm = Math.exp(-((t / (W * 0.5)) ** 2));
+    const e = edge();
     const g = ctx.createRadialGradient(x, y, 0, x, y, w);
-    const rr = Math.round(165 + 90 * warm);
-    const gg = Math.round(190 + 32 * warm);
-    const bb = Math.round(255 - 75 * warm);
-    g.addColorStop(0, `rgba(${rr},${gg},${bb},${(0.035 + 0.035 * warm).toFixed(3)})`);
-    g.addColorStop(1, `rgba(${rr},${gg},${bb},0)`);
+    const rgb = [Math.round(e[0] + (255 - e[0]) * warm), Math.round(e[1] + (222 - e[1]) * warm), Math.round(e[2] + (180 - e[2]) * warm)].join(',');
+    g.addColorStop(0, `rgba(${rgb},${(0.035 + 0.035 * warm).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
     ctx.fillStyle = g;
     ctx.fillRect(x - w, y - w, w * 2, w * 2);
   }
@@ -97,21 +99,7 @@ export function paintMilky(box) {
   ctx.arc(0, 0, rx, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
-  // 3. Зоряна крупа: тисячі зірок, густо вздовж осі й біля ядра
-  const N = Math.round((W * H) / 22);
-  for (let i = 0; i < N; i++) {
-    const t = (r() * 2 - 1) * L * 0.9;
-    const w = width(t);
-    const [x, y] = at(t, gauss(r) * w * 0.45);
-    if (x < -4 || y < -4 || x > W + 4 || y > H + 4) continue;
-    const s = 0.5 + r() ** 4 * 1.2;
-    const k = r();
-    const warm = Math.exp(-((t / (W * 0.45)) ** 2));
-    const col = k < 0.14 * (1 + warm) ? '255,222,180' : k > 0.9 ? '200,220,255' : '255,255,255';
-    ctx.fillStyle = `rgba(${col},${(0.15 + r() ** 2 * 0.6).toFixed(2)})`;
-    ctx.fillRect(x, y, s, s);
-  }
-  // 4. Пилові хмари (Великий Розлом): ланцюжки темних мʼяких плям, що блукають уздовж смуги й місцями рвуться
+  // 3. Пилові хмари (Великий Розлом): ланцюжки темних мʼяких плям, що блукають уздовж смуги й місцями рвуться
   ctx.globalCompositeOperation = 'source-over';
   const lanes = [[-0.12, 0.8, 0.04, 0.2], [0.02, 0.5, -0.16, 0.13], [-0.32, 0.02, 0.22, 0.12], [0.2, 0.75, 0.28, 0.09]];
   for (const [a, b, shift, base] of lanes) {
@@ -121,31 +109,59 @@ export function paintMilky(box) {
       const dens = Math.max(0, Math.sin(t / 41 + shift * 13) * 0.6 + 0.5);
       if (dens < 0.08) continue;
       const w = width(t);
-      const [x, y] = at(t, (shift + drift) * w);
+      const [x, y] = pos(t, (shift + drift) * w);
       const rad = base * w * (0.4 + r() * 0.8);
       const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-      g.addColorStop(0, `rgba(5,18,28,${(0.22 * dens).toFixed(3)})`);
-      g.addColorStop(1, 'rgba(5,18,28,0)');
+      g.addColorStop(0, `rgba(${dust},${(0.22 * dens).toFixed(3)})`);
+      g.addColorStop(1, `rgba(${dust},0)`);
       ctx.fillStyle = g;
       ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
     }
   }
-  // 5. Кілька яскравих зірок у смузі з ореолом
-  ctx.globalCompositeOperation = 'lighter';
+  bloom(G.c, ctx, dpr, W, H, 6, 0.35);
+  // 4. Зоряна крупа: тисячі зірок, густо вздовж осі й біля ядра; кілька яскравих з ореолом
+  z.globalCompositeOperation = 'lighter';
+  const N = Math.round((W * H) / density);
+  for (let i = 0; i < N; i++) {
+    const t = (r() * 2 - 1) * L * 0.9;
+    const w = width(t);
+    const [x, y] = pos(t, gauss(r) * w * 0.45);
+    if (x < -4 || y < -4 || x > W + 4 || y > H + 4) continue;
+    const s = 0.5 + r() ** 4 * 1.2;
+    const k = r();
+    const warm = Math.exp(-((t / (W * 0.45)) ** 2));
+    const col = k < 0.14 * (1 + warm) ? '255,222,180' : k > 0.9 ? (tint === 'rose' ? '255,210,232' : '200,220,255') : '255,255,255';
+    z.fillStyle = `rgba(${col},${(0.15 + r() ** 2 * 0.6).toFixed(2)})`;
+    z.fillRect(x, y, s, s);
+  }
   for (let i = 0; i < 26; i++) {
     const t = (r() * 2 - 1) * L * 0.8;
-    const [x, y] = at(t, gauss(r) * width(t) * 0.35);
+    const [x, y] = pos(t, gauss(r) * width(t) * 0.35);
     const rad = 2.5 + r() * 3;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    const g = z.createRadialGradient(x, y, 0, x, y, rad);
     g.addColorStop(0, 'rgba(255,255,255,.9)');
     g.addColorStop(0.25, 'rgba(220,232,255,.35)');
     g.addColorStop(1, 'rgba(220,232,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    z.fillStyle = g;
+    z.fillRect(x - rad, y - rad, rad * 2, rad * 2);
   }
-  bloom(c, ctx, dpr, W, H, 6, 0.35);
+  bloom(S.c, z, S.dpr, W, H, 4, 0.3);
+  // Видима частина смуги: від краю до краю екрана через його центр
+  const mid = (W / 2 - core.x) * dx + (H / 2 - core.y) * dy;
+  const half = (Math.abs(W * dx) + Math.abs(H * dy)) / 2;
+  const at = (t, off = 0) => pos(mid + (t * 2 - 1) * half, off);
+  const wid = (t) => width(mid + (t * 2 - 1) * half);
+  return { c: G.c, s: S.c, at, wid };
+}
+
+export function paintMilky(box) {
+  const W = box.clientWidth;
+  const H = box.clientHeight;
+  if (!W || !H) return false;
+  const { c, s } = milkyLayers(W, H, { core: corePoint(box, W, H), ang: -0.66, seed: 1987 });
   c.className = 'sky-art';
-  box.replaceChildren(c);
+  s.className = 'sky-art';
+  box.replaceChildren(c, s);
   return true;
 }
 

@@ -272,9 +272,9 @@ html.is-covered :is(.sgr-stars circle, .sgr-stars path) { animation-play-state: 
 .meteor-fly::after { transform: rotate(calc(var(--a, -28deg) * -1)); }
 /* Луна в шапці, праворуч від відмітки; ореол повільно дихає (лише прозорість) */
 .ds-moon { --k: 3px; }
-.ds-moon-box { position: absolute; top: 106px; left: calc(50% + 66px); width: 34px; height: 34px; }
+.ds-moon-box { position: absolute; top: 92px; left: calc(50% + 50px); width: 64px; height: 64px; }
 .ds-moon-disc svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; filter: drop-shadow(0 0 4px rgba(255, 236, 190, .45)); }
-.ds-moon-halo { position: absolute; inset: -18px; }
+.ds-moon-halo { position: absolute; inset: -30px; }
 .ds-moon-halo span { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(255, 238, 196, .34) 30%, rgba(255, 238, 196, 0) 70%); animation: moon-glow 7s ease-in-out infinite alternate; }
 @keyframes moon-glow { to { opacity: .45; } }
 html:is(.is-still, .is-covered) .ds-moon-halo span { animation-play-state: paused; }
@@ -282,7 +282,7 @@ html:is(.is-still, .is-covered) .ds-moon-halo span { animation-play-state: pause
 /* У неї Луна лише вночі: у шапці праворуч, між відміткою й «…»; тінь диска — під колір її ночі */
 .dv-moon { --k: 3px; display: none; }
 [data-dark] .dv-moon { display: block; }
-.dv-moon .ds-moon-box { top: 112px; left: calc(50% + 104px); width: 30px; height: 30px; }
+.dv-moon .ds-moon-box { top: 96px; left: calc(50% + 96px); width: 56px; height: 56px; }
 .dv-moon .moon-dark { fill: var(--night); }
 @media (prefers-reduced-motion: reduce) { .ds-moon-halo span { animation: none; } }
 /* У неї — своя падаюча зірка: біло-рожевий слід, інший час, ніж у нього */
@@ -4066,7 +4066,7 @@ html.is-still .top-heart.is-asked::after { animation: none; }
   background: linear-gradient(90deg, rgba(245, 184, 61, 0), #F5B83D 60%, #FFF3C4); box-shadow: 0 0 6px rgba(245, 184, 61, .8); }
 .fx-shoot::after { content: ''; position: absolute; right: -3px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px 3px rgba(255, 214, 110, .9); }
 /* 🌌 нічне небо й зорі, що складаються в серце */
-.fx-cosmos { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(58, 30, 92, .78), rgba(14, 10, 34, .9) 70%); }
+.fx-cosmos { inset: 0; z-index: 58; background: radial-gradient(circle at var(--vx) var(--vy), rgba(44, 24, 74, .93), rgba(12, 8, 30, .97) 70%); }
 .fx-dot { z-index: 61; left: 0; top: 0; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(255, 220, 150, .85); }
 .fx-dot.is-big { width: 10px; height: 10px; box-shadow: 0 0 10px 3px rgba(255, 170, 210, .9); }
 .fx-dot.is-tiny { z-index: 59; width: 3px; height: 3px; box-shadow: 0 0 3px 1px rgba(255, 255, 255, .6); }
