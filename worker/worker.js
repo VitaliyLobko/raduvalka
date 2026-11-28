@@ -4267,7 +4267,7 @@ async function berryRoute(req, env, side, rest, notify) {
 
 // ── «🎲 Кубики» на зустріч: три кубики (що · де · як) рівня 💗 / 🔥 / 🌶️. Кидаю для другого: до 3 перекидань,
 // «Сохранить купоном» — рядок marks kind gwish (src dice), той, кому подарували, відмічає «Исполнено ✓».
-// Кидає сервер; грані — у секреті DICE (JSON { soft|hot|fire: { act, part, how: [6 × [значок, текст]] } }), у репозиторії їх нема.
+// Кидає сервер; грані — у секреті DICE (JSON { soft|hot|fire|xxx: { act, part, how: [6 × [значок, текст]], ban? } }), у репозиторії їх нема.
 // doc dice:<side> — мій кидок, що ще не збережений: { id, level, faces, left, at }
 // xxx — «Без запретов»: кидати можна, лише коли обоє ввімкнули згоду (doc dice-xxx)
 const DICE_LEVELS = ['soft', 'hot', 'fire', 'xxx'];
@@ -4285,6 +4285,14 @@ function diceBank(env) {
   return diceCache || null;
 }
 const diceFaces = () => DICE_SIDES.map(() => Math.floor(Math.random() * 6));
+// Заборонені пари «Что × Куда» (bank[level].ban = [[act, part], …]) — кубик «Куда» тихо стає на іншу грань
+function diceFix(bank, level, faces) {
+  const ban = Array.isArray(bank[level]?.ban) ? bank[level].ban : [];
+  const bad = (p) => ban.some((x) => Array.isArray(x) && x[0] === faces[0] && x[1] === p);
+  if (!bad(faces[1])) return faces;
+  const ok = [0, 1, 2, 3, 4, 5].filter((p) => p !== faces[1] && !bad(p));
+  return ok.length ? [faces[0], ok[Math.floor(Math.random() * ok.length)], ...faces.slice(2)] : faces;
+}
 const diceFace = (bank, r, i) => bank[r.level][DICE_SIDES[i]][r.faces[i]];
 const diceView = (bank, r) => ({ id: r.id, level: r.level, faces: r.faces, icons: r.faces.map((_, i) => diceFace(bank, r, i)[0]), texts: r.faces.map((_, i) => diceFace(bank, r, i)[1]), left: r.left });
 
@@ -4325,7 +4333,7 @@ async function diceRoute(req, env, side, rest, notify) {
       if (cur.left <= 0) throw fail(409, 'rerolls');
       // Перекинути один кубик (die 0–2) — інша грань саме цього; без die — усі три, як раніше
       const die = Number.isInteger(b.die) && b.die >= 0 && b.die < DICE_SIDES.length ? b.die : null;
-      const faces = die === null ? diceFaces() : cur.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f));
+      const faces = diceFix(bank, cur.level, die === null ? diceFaces() : cur.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f)));
       const r = { ...cur, faces, left: cur.left - 1, at: now };
       await putDoc(db, key, r);
       return json({ roll: diceView(bank, r) });
@@ -4333,7 +4341,7 @@ async function diceRoute(req, env, side, rest, notify) {
     const level = String(b.level || '');
     if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
     if (level === 'xxx' && !(consent.vin && consent.vona)) throw fail(403, 'consent');
-    const r = { id: newId(), level, faces: diceFaces(), left: DICE_REROLLS, at: now };
+    const r = { id: newId(), level, faces: diceFix(bank, level, diceFaces()), left: DICE_REROLLS, at: now };
     await putDoc(db, key, r);
     return json({ roll: diceView(bank, r) }, 201);
   }
@@ -4366,7 +4374,7 @@ async function diceRoute(req, env, side, rest, notify) {
     if (!mk || mk.side === side) throw fail(409, 'gone');
     const v = JSON.parse(mk.mood);
     if (v.src !== 'dice' || v.done || v.lock || v.haggled != null || !Array.isArray(v.faces) || !(die >= 0 && die < DICE_SIDES.length)) throw fail(409, 'haggle');
-    v.faces = v.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f));
+    v.faces = diceFix(bank, v.level || 'hot', v.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f)));
     const view = diceView(bank, { id, level: v.level || 'hot', faces: v.faces, left: 0 });
     Object.assign(v, { icons: view.icons, texts: view.texts, text: view.texts.join(' · '), haggled: die });
     await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), `gwish-${id}`).run();

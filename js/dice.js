@@ -15,8 +15,8 @@ const LEVELS = [
   ['fire', '🌶️', 'Огонь', 'Самые откровенные купоны'],
   ['xxx', '🔞', 'Без запретов', 'Секс, игрушки, роли — когда согласны оба'],
 ];
-// Другий кубик — куди на тілі (місце в домі — серед «Как»)
-const DICE = ['Что', 'Куда', 'Как'];
+// Другий кубик — куди на тілі; у «Без запретов» — де (місце)
+const diceNames = (level) => ['Что', level === 'xxx' ? 'Где' : 'Куда', 'Как'];
 // Поки кубики котяться — мелькають нейтральні значки (справжні грані знає лише сервер)
 const BLUR = ['❤️', '✨', '💫', '💞', '🌙', '🔥', '💋', '🎲'];
 const blur = () => BLUR[Math.floor(Math.random() * BLUR.length)];
@@ -85,7 +85,8 @@ function stage(r, { canReroll = false, onReroll = null, lead = '' } = {}) {
   const texts = r.texts || [];
   const dies = r.icons.map((ic, i) => bigDie(ic, canReroll && r.left > 0 ? () => onReroll(i) : null));
   const words = texts.map((t) => h('span', { class: 'dice-word' }, t));
-  const cols = dies.map((d, i) => h('div', { class: 'dice-col' }, h('span', { class: 'dice-label' }, DICE[i]), d.el, words[i]));
+  const names = diceNames(r.level);
+  const cols = dies.map((d, i) => h('div', { class: 'dice-col' }, h('span', { class: 'dice-label' }, names[i]), d.el, words[i]));
   const phrase = h('p', { class: 'dice-phrase' }, lead, texts.join(' · '));
   const box = h('section', { class: `dice-stage is-${r.level}` },
     h('p', { class: 'dice-level' }, `${icon} ${name}`),
