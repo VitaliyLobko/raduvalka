@@ -4284,14 +4284,28 @@ function diceBank(env) {
   }
   return diceCache || null;
 }
-const diceFaces = () => DICE_SIDES.map(() => Math.floor(Math.random() * 6));
-// Заборонені пари «Что × Куда» (bank[level].ban = [[act, part], …]) — кубик «Куда» тихо стає на іншу грань
-function diceFix(bank, level, faces) {
+const DICE_VETO_MAX = 2;
+const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
+// Кидок без граней, які той, кому дарують, викреслив («Не моё»: veto = { level: { act|part|how: [індекси] } }),
+// і без заборонених пар «Что × Куда» (bank[level].ban = [[act, part], …]). prev + which — перекинути лише ці кубики
+function diceRoll(bank, level, veto, prev = null, which = [0, 1, 2]) {
+  const allowed = DICE_SIDES.map((d) => {
+    const no = Array.isArray(veto?.[level]?.[d]) ? veto[level][d] : [];
+    const a = [0, 1, 2, 3, 4, 5].filter((i) => !no.includes(i));
+    return a.length ? a : [0, 1, 2, 3, 4, 5];
+  });
+  const faces = DICE_SIDES.map((_, i) => {
+    if (prev && !which.includes(i)) return prev[i];
+    const other = prev ? allowed[i].filter((x) => x !== prev[i]) : allowed[i];
+    return anyOf(other.length ? other : allowed[i]);
+  });
   const ban = Array.isArray(bank[level]?.ban) ? bank[level].ban : [];
   const bad = (p) => ban.some((x) => Array.isArray(x) && x[0] === faces[0] && x[1] === p);
-  if (!bad(faces[1])) return faces;
-  const ok = [0, 1, 2, 3, 4, 5].filter((p) => p !== faces[1] && !bad(p));
-  return ok.length ? [faces[0], ok[Math.floor(Math.random() * ok.length)], ...faces.slice(2)] : faces;
+  if (bad(faces[1])) {
+    const ok = allowed[1].filter((p) => !bad(p));
+    if (ok.length) faces[1] = anyOf(ok);
+  }
+  return faces;
 }
 const diceFace = (bank, r, i) => bank[r.level][DICE_SIDES[i]][r.faces[i]];
 const diceView = (bank, r) => ({ id: r.id, level: r.level, faces: r.faces, icons: r.faces.map((_, i) => diceFace(bank, r, i)[0]), texts: r.faces.map((_, i) => diceFace(bank, r, i)[1]), left: r.left });
@@ -4304,6 +4318,28 @@ async function diceRoute(req, env, side, rest, notify) {
   const now = Date.now();
   const key = `dice:${side}`;
   const consent = (await getDoc(db, 'dice-xxx')) || {};
+  // «Не моё» кожного — бачить лише він сам; кидки, що дарують йому, цих граней не дають
+  const vetoOf = async (s) => (await getDoc(db, `dice-veto:${s}`)) || {};
+  if (m === 'GET' && rest === '/faces') {
+    const level = new URL(req.url).searchParams.get('level') || '';
+    if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
+    if (level === 'xxx' && !consent[side]) throw fail(403, 'consent');
+    return json({ level, faces: DICE_SIDES.map((d) => bank[level][d]), veto: (await vetoOf(side))[level] || {} });
+  }
+  if (m === 'POST' && rest === '/veto') {
+    const b = await readJson(req);
+    const level = String(b.level || '');
+    const die = Number(b.die);
+    const face = Number(b.face);
+    if (!DICE_LEVELS.includes(level) || !(die >= 0 && die < DICE_SIDES.length) || !Number.isInteger(face) || face < 0 || face > 5) throw fail(400, 'veto');
+    const veto = await vetoOf(side);
+    const d = DICE_SIDES[die];
+    const cur = (veto[level]?.[d] || []).filter((x) => x !== face);
+    if (b.on && cur.length >= DICE_VETO_MAX) throw fail(409, 'veto-limit');
+    const next = { ...veto, [level]: { ...(veto[level] || {}), [d]: b.on ? [...cur, face].sort((x, y) => x - y) : cur } };
+    await putDoc(db, `dice-veto:${side}`, next);
+    return json({ veto: next[level] });
+  }
   if (m === 'GET' && !rest) {
     const r = await getDoc(db, key);
     const rows = (await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'gwish' AND json_extract(mood, '$.src') = 'dice' ORDER BY at DESC LIMIT 40").all()).results;
@@ -4333,7 +4369,8 @@ async function diceRoute(req, env, side, rest, notify) {
       if (cur.left <= 0) throw fail(409, 'rerolls');
       // Перекинути один кубик (die 0–2) — інша грань саме цього; без die — усі три, як раніше
       const die = Number.isInteger(b.die) && b.die >= 0 && b.die < DICE_SIDES.length ? b.die : null;
-      const faces = diceFix(bank, cur.level, die === null ? diceFaces() : cur.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f)));
+      const veto = await vetoOf(other(side));
+      const faces = die === null ? diceRoll(bank, cur.level, veto) : diceRoll(bank, cur.level, veto, cur.faces, [die]);
       const r = { ...cur, faces, left: cur.left - 1, at: now };
       await putDoc(db, key, r);
       return json({ roll: diceView(bank, r) });
@@ -4341,7 +4378,7 @@ async function diceRoute(req, env, side, rest, notify) {
     const level = String(b.level || '');
     if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
     if (level === 'xxx' && !(consent.vin && consent.vona)) throw fail(403, 'consent');
-    const r = { id: newId(), level, faces: diceFix(bank, level, diceFaces()), left: DICE_REROLLS, at: now };
+    const r = { id: newId(), level, faces: diceRoll(bank, level, await vetoOf(other(side))), left: DICE_REROLLS, at: now };
     await putDoc(db, key, r);
     return json({ roll: diceView(bank, r) }, 201);
   }
@@ -4374,7 +4411,8 @@ async function diceRoute(req, env, side, rest, notify) {
     if (!mk || mk.side === side) throw fail(409, 'gone');
     const v = JSON.parse(mk.mood);
     if (v.src !== 'dice' || v.done || v.lock || v.haggled != null || !Array.isArray(v.faces) || !(die >= 0 && die < DICE_SIDES.length)) throw fail(409, 'haggle');
-    v.faces = diceFix(bank, v.level || 'hot', v.faces.map((f, i) => (i === die ? (f + 1 + Math.floor(Math.random() * 5)) % 6 : f)));
+    // Торгується той, кому подарували, — його «Не моё»
+    v.faces = diceRoll(bank, v.level || 'hot', await vetoOf(side), v.faces, [die]);
     const view = diceView(bank, { id, level: v.level || 'hot', faces: v.faces, left: 0 });
     Object.assign(v, { icons: view.icons, texts: view.texts, text: view.texts.join(' · '), haggled: die });
     await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), `gwish-${id}`).run();

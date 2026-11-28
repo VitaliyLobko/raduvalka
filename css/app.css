@@ -6224,6 +6224,18 @@ button.dice-die.is-big:active { transform: scale(.94); }
 .dice-coll-row > span { color: rgba(251, 233, 208, .6); font-size: .8rem; }
 .dice-coll-row.is-done { opacity: .75; }
 .dice-coll-row b { color: #ffb36b; white-space: nowrap; }
+/* «Не моё»: грані рівня чипами, викреслена — закреслена й пригашена */
+.dice-veto-btn { width: 100%; margin-top: 10px; }
+.dice-veto-about { margin: 0 0 8px; font-size: .85rem; }
+.dice-veto-levels { display: flex; justify-content: center; gap: 8px; margin: 0 0 6px; }
+.dice-veto-level { width: 48px; height: 40px; border-radius: 999px; border: 1px solid rgba(232, 192, 106, .45); background: rgba(255, 255, 255, .06); font-size: 1.2rem; cursor: pointer; }
+.dice-veto-level[aria-pressed="true"] { background: #E8C06A; border-color: #E8C06A; }
+.dice-veto-dies { display: flex; gap: 4px; margin: 0 0 10px; padding: 3px; border-radius: 14px; background: rgba(0, 0, 0, .22); }
+.dice-veto-die { flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: none; color: #F3CD85; font: inherit; font-size: .85rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.dice-veto-die[aria-pressed="true"] { background: rgba(232, 192, 106, .25); color: #FBE9D0; }
+.dice-veto-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dice-veto-chip { min-height: 52px; padding: 6px 10px; border-radius: 14px; border: 1px solid rgba(232, 192, 106, .35); background: rgba(255, 255, 255, .07); color: #FBE9D0; font: inherit; font-size: .88rem; line-height: 1.2; text-align: left; cursor: pointer; }
+.dice-veto-chip[aria-pressed="true"] { text-decoration: line-through; opacity: .55; border-style: dashed; background: rgba(0, 0, 0, .25); }
 /* «Было жарко»: 5 зірок у картці купона */
 .dice-stars { display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; }
 .dice-stars-label { margin-right: 6px; font-weight: 700; }

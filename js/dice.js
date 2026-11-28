@@ -68,7 +68,46 @@ function levels() {
       onclick: () => (level === 'xxx' && !both ? toast('🔞 Откроется, когда согласитесь оба — галочка ниже') : roll({ level })),
     }, h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, level === 'xxx' && !both ? '🔒' : icon), h('span', { class: 'game-tile-text' }, h('b', {}, name), h('span', {}, about))))),
     consent,
+    h('button', { type: 'button', class: 'btn dice-veto-btn', onclick: () => vetoes('soft') }, '🚫 Не моё — вычеркнуть грани'),
     ...[coll].filter(Boolean));
+}
+
+// «Не моё»: грані рівня списком, тап — викреслити (до 2 на кубик). Кидки, які дарують мені, їх не дають; другий цього не бачить
+async function vetoes(level, die = 0) {
+  if (open.busy) return;
+  const xxx = open.info?.xxx || {};
+  const names = diceNames(level);
+  const tabs = h('div', { class: 'dice-veto-levels', role: 'group', 'aria-label': 'Уровень' },
+    ...LEVELS.filter(([l]) => l !== 'xxx' || xxx.me).map(([l, icon, name]) => h('button', {
+      type: 'button', class: 'dice-veto-level', 'aria-pressed': String(l === level), 'aria-label': name, onclick: () => l !== level && vetoes(l, die),
+    }, icon)));
+  const dies = h('div', { class: 'dice-veto-dies', role: 'group', 'aria-label': 'Кубик' },
+    ...names.map((n, i) => h('button', { type: 'button', class: 'dice-veto-die', 'aria-pressed': String(i === die), onclick: () => i !== die && vetoes(level, i) }, n)));
+  const back = h('button', { type: 'button', class: 'duel-cancel', onclick: levels }, '← Назад');
+  open.busy = true;
+  let r;
+  try { r = await get(`dice/faces?level=${level}`); } catch {
+    if (open) { open.busy = false; toast('Нет связи — попробуй ещё раз'); }
+    return;
+  } finally { if (open) open.busy = false; }
+  if (!open) return;
+  const side = ['act', 'part', 'how'][die];
+  const chips = h('div', { class: 'dice-veto-chips' }, ...r.faces[die].map(([icon, text], j) => {
+    const chip = h('button', { type: 'button', class: 'dice-veto-chip', 'aria-pressed': String((r.veto?.[side] || []).includes(j)), onclick: async () => {
+      const on = chip.getAttribute('aria-pressed') !== 'true';
+      chip.disabled = true;
+      try {
+        await send('dice/veto', 'POST', { level, die, face: j, on });
+        chip.setAttribute('aria-pressed', String(on));
+      } catch (e) { toast(e.status === 409 ? 'Не больше двух на кубик — иначе выпадать будет нечему' : 'Нет связи — попробуй ещё раз'); }
+      chip.disabled = false;
+    } }, h('span', { 'aria-hidden': 'true' }, icon), ` ${text}`);
+    return chip;
+  }));
+  const P = who().partner;
+  open.body.replaceChildren(
+    h('p', { class: 'hint duel-hint dice-veto-about' }, `Вычеркни, что не по душе: в бросках для тебя этого не будет. ${P[0].toUpperCase()}${P.slice(1)} не узнает. До двух граней на кубик.`),
+    tabs, dies, chips, back);
 }
 
 // Великий кубик: грань — значок того, що випало; onTap — перекинути саме його
