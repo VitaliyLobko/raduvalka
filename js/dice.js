@@ -11,9 +11,9 @@ import { gameSheet } from './games.js';
 
 const LEVELS = [
   ['soft', '💗', 'Нежно', 'Поцелуи и ласки'],
-  ['hot', '🔥', 'Горячо', 'Посмелее: масло, лёд, повязка на глаза'],
-  ['fire', '🌶️', 'Огонь', 'Самые откровенные купоны'],
-  ['xxx', '🔞', 'Без запретов', 'Секс, игрушки, роли — когда согласны оба'],
+  ['hot', '🔥', 'Горячо', 'Масло, лёд, повязка'],
+  ['fire', '🌶️', 'Огонь', 'Самые откровенные'],
+  ['xxx', '🔞', 'Без запретов', 'Секс, игрушки, роли'],
 ];
 // Другий кубик — куди на тілі; у «Без запретов» — де (місце)
 const diceNames = (level) => ['Что', level === 'xxx' ? 'Где' : 'Куда', 'Как'];
@@ -50,26 +50,34 @@ function levels() {
   const xxx = info.xxx || { me: false, them: false };
   const both = xxx.me && xxx.them;
   const partner = who().partner;
-  const score = info.score ? h('p', { class: 'dice-score' }, `🎲 Купонов: ты подарил${partner === 'она' ? '' : 'а'} ${info.score.mine} · ${partner} — ${info.score.theirs}`) : null;
+  const score = info.score ? h('span', { class: 'dice-score' }, `🎲 Купонов: ты подарил${partner === 'она' ? '' : 'а'} ${info.score.mine} · ${partner} — ${info.score.theirs}`) : null;
   const consent = h('label', { class: 'dice-consent' },
     h('input', { type: 'checkbox', checked: xxx.me || null, onchange: async (e) => {
       try { const res = await send('dice/xxx', 'POST', { on: e.target.checked }); open.info = { ...info, xxx: res.xxx }; levels(); } catch { e.target.checked = !e.target.checked; toast('Нет связи — попробуй ещё раз'); }
     } }),
-    h('span', {}, `🔞 Я за «Без запретов»`, h('small', {}, both ? ' — вы оба согласны, уровень открыт' : xxx.them ? ` — ${partner} уже за, остался ты` : xxx.me ? ` — ждём, когда ${partner} тоже согласится` : ' — откроется, когда согласятся оба')));
-  const list = (info.list || []).slice(0, 12);
-  const coll = list.length ? h('details', { class: 'dice-coll' }, h('summary', {}, `💌 Наша коллекция · ${(info.list || []).length}`),
-    ...list.map((c) => h('p', { class: `dice-coll-row${c.done ? ' is-done' : ''}` }, h('span', {}, c.mine ? 'от тебя' : `от ${partner === 'она' ? 'неё' : 'него'}`), ' ', c.text,
-      c.done ? h('b', {}, c.stars ? ` 🔥${'★'.repeat(c.stars)}` : ' ✓') : null))) : null;
+    h('span', {}, `🔞 Я за «Без запретов»`, h('small', {}, both ? ' — вы оба согласны, уровень открыт' : xxx.them ? ` — ${partner} уже за, дело за тобой` : xxx.me ? ` — ждём, когда ${partner} тоже согласится` : ' — откроется, когда согласятся оба')));
+  const n = (info.list || []).length;
   open.body.replaceChildren(
-    ...[score].filter(Boolean),
-    h('p', { class: 'hint duel-hint dice-about' }, `Бросаешь ты — это твой подарок ${forThem()}: что, куда и как. Не нравится кубик — тапни его, и он перебросится. Понравилось — подари купон, ${who().partner} предъявит его на встрече 😏`),
-    h('div', { class: 'hot-levels' }, ...LEVELS.map(([level, icon, name, about]) => h('button', {
+    h('p', { class: 'dice-about' }, `Бросаешь ты — это подарок ${forThem()} 😏`, ...[score].filter(Boolean)),
+    h('div', { class: 'hot-levels dice-levels' }, ...LEVELS.map(([level, icon, name, about]) => h('button', {
       type: 'button', class: `game-tile hot-level is-${level}${level === 'xxx' && !both ? ' is-locked' : ''}`,
       onclick: () => (level === 'xxx' && !both ? toast('🔞 Откроется, когда согласитесь оба — галочка ниже') : roll({ level })),
     }, h('span', { class: 'game-tile-icon', 'aria-hidden': 'true' }, level === 'xxx' && !both ? '🔒' : icon), h('span', { class: 'game-tile-text' }, h('b', {}, name), h('span', {}, about))))),
     consent,
-    h('button', { type: 'button', class: 'btn dice-veto-btn', onclick: () => vetoes('soft') }, '🚫 Не моё — вычеркнуть грани'),
-    ...[coll].filter(Boolean));
+    h('div', { class: 'dice-tools' },
+      h('button', { type: 'button', class: 'btn dice-veto-btn', onclick: () => vetoes('soft') }, '🚫 Не моё'),
+      n ? h('button', { type: 'button', class: 'btn dice-coll-btn', onclick: collection }, `💌 Купоны · ${n}`) : null));
+}
+
+// Наша колекція купонів — окремим екраном, щоб головний влазив
+function collection() {
+  const partner = who().partner;
+  const list = (open.info?.list || []).slice(0, 20);
+  open.body.replaceChildren(
+    h('p', { class: 'dice-coll-head' }, `💌 Наша коллекция · ${(open.info?.list || []).length}`),
+    h('div', { class: 'dice-coll' }, ...list.map((c) => h('p', { class: `dice-coll-row${c.done ? ' is-done' : ''}` }, h('span', {}, c.mine ? 'от тебя' : `от ${partner === 'она' ? 'неё' : 'него'}`), ' ', c.text,
+      c.done ? h('b', {}, c.stars ? ` 🔥${'★'.repeat(c.stars)}` : ' ✓') : null))),
+    h('button', { type: 'button', class: 'duel-cancel', onclick: levels }, '← Назад'));
 }
 
 // «Не моё»: грані рівня списком, тап — викреслити (до 2 на кубик). Кидки, які дарують мені, їх не дають; другий цього не бачить

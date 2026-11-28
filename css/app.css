@@ -6213,7 +6213,17 @@ button.dice-die.is-big:active { transform: scale(.94); }
 .dice-stage.is-xxx { --glow: #ff1744; background: radial-gradient(120% 90% at 50% 0%, #7a0a22 0%, #3d0512 55%, #1a0207 100%); }
 .hot-level.is-xxx { background: radial-gradient(120% 140% at 0% 0%, #9b1030 0%, #4d0716 60%, #24030a 100%) !important; }
 .hot-level.is-locked { opacity: .55; filter: grayscale(.4); }
-.dice-score { margin: 0 0 8px; text-align: center; font-weight: 700; color: #F3CD85; }
+.dice-about { margin: 0 0 10px; text-align: center; font-size: .9rem; color: rgba(251, 233, 208, .82); }
+.dice-score { display: block; margin-top: 2px; font-weight: 700; color: #F3CD85; }
+/* Рівні сіткою 2×2: значок зверху, назва й короткий підпис — головний екран влазить у 640 */
+.dice-levels { grid-template-columns: 1fr 1fr; gap: 8px; }
+.dice-levels .game-tile { flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; margin: 0; }
+.dice-levels .game-tile-icon { font-size: 1.8rem; }
+.dice-levels .game-tile-text b { font-size: 1.3rem; }
+.dice-levels .game-tile-text span { font-size: .8rem; }
+.dice-tools { display: flex; gap: 8px; margin-top: 10px; }
+.dice-tools .btn { flex: 1; min-height: 44px; white-space: nowrap; }
+.dice-coll-head { margin: 0 0 8px; font-weight: 700; color: #F3CD85; }
 .dice-consent { display: flex; align-items: flex-start; gap: 10px; margin: 12px 2px 4px; font-weight: 600; cursor: pointer; }
 .dice-consent input, .dice-lock input { width: 20px; height: 20px; margin-top: 2px; accent-color: #E8C06A; flex: none; }
 .dice-consent small { display: block; font-weight: 400; color: rgba(251, 233, 208, .72); }
@@ -6225,7 +6235,6 @@ button.dice-die.is-big:active { transform: scale(.94); }
 .dice-coll-row.is-done { opacity: .75; }
 .dice-coll-row b { color: #ffb36b; white-space: nowrap; }
 /* «Не моё»: грані рівня чипами, викреслена — закреслена й пригашена */
-.dice-veto-btn { width: 100%; margin-top: 10px; }
 .dice-veto-about { margin: 0 0 8px; font-size: .85rem; }
 .dice-veto-levels { display: flex; justify-content: center; gap: 8px; margin: 0 0 6px; }
 .dice-veto-level { width: 48px; height: 40px; border-radius: 999px; border: 1px solid rgba(232, 192, 106, .45); background: rgba(255, 255, 255, .06); font-size: 1.2rem; cursor: pointer; }
