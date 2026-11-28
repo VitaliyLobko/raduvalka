@@ -6270,6 +6270,14 @@ button.dice-die.is-big:active { transform: scale(.94); }
 .plan-coupon-stars { color: #ffb36b; white-space: nowrap; }
 .plan-coupons .fold summary, .plan-coupons summary { color: #F3CD85; }
 .dice-show-stars { justify-content: center; }
+.dice-show > [hidden] { display: none; }
+.dice-show > .dice-stage { min-height: max-content; }
+.dice-pick { display: grid; gap: 8px; }
+.dice-pick-label { margin: 0; text-align: center; color: #e8c06a; font-weight: 700; }
+.dice-pick-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dice-pick-chip { min-height: 44px; padding: 6px 10px; border-radius: 14px; border: 1px solid rgba(232, 192, 106, .45); background: rgba(255, 255, 255, .08); color: #FBE9D0; font: inherit; font-size: .88rem; line-height: 1.2; text-align: left; cursor: pointer; }
+.dice-pick-chip:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.dice-pick-chip:disabled { opacity: .5; }
 .dice-show-close { justify-content: center; text-align: center; }
 .dice-show-claim { width: min(100%, 440px); justify-content: center; }
 .plan-coupons .plan-wait { margin-top: 10px; }

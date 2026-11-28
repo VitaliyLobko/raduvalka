@@ -3675,7 +3675,7 @@ async function gwishes(db) {
   return new Map(rows.map((r) => { const v = JSON.parse(r.mood); return [v.game, { ...v, by: r.side }]; }));
 }
 function gwishView(w, side) {
-  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}), ...(w.texts ? { texts: w.texts } : {}), ...(w.level ? { level: w.level } : {}), ...(w.src === 'dice' ? { lock: !!w.lock, haggled: w.haggled ?? null, stars: w.stars || null, claimed: w.claimed || null, canHaggle: !w.lock && w.haggled == null && Array.isArray(w.faces) } : {}) } : null;
+  return w ? { text: w.text, done: w.done || null, mine: w.by === side, ...(w.src ? { src: w.src } : {}), ...(w.icons ? { icons: w.icons } : {}), ...(w.texts ? { texts: w.texts } : {}), ...(w.level ? { level: w.level } : {}), ...(w.src === 'dice' ? { lock: !!w.lock, haggled: w.haggled ?? null, stars: w.stars || null, claimed: w.claimed || null, canHaggle: !w.lock && w.haggled == null && Array.isArray(w.faces), ...pickView(w, w.by === side) } : {}) } : null;
 }
 // Гра «на желание»: що загадано (чи ще ні) — у вигляді гри
 function withGwish(view, wishes, side) {
@@ -4287,16 +4287,22 @@ function diceBank(env) {
 const DICE_VETO_MAX = 2;
 const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
 // Кидок без граней, які той, кому дарують, викреслив («Не моё»: veto = { level: { act|part|how: [індекси] } }),
-// і без заборонених пар «Что × Куда» (bank[level].ban = [[act, part], …]). prev + which — перекинути лише ці кубики
-function diceRoll(bank, level, veto, prev = null, which = [0, 1, 2]) {
-  const allowed = DICE_SIDES.map((d) => {
-    const no = Array.isArray(veto?.[level]?.[d]) ? veto[level][d] : [];
-    const a = [0, 1, 2, 3, 4, 5].filter((i) => !no.includes(i));
-    return a.length ? a : [0, 1, 2, 3, 4, 5];
-  });
-  const faces = DICE_SIDES.map((_, i) => {
+// і без заборонених пар «Что × Куда» (bank[level].ban = [[act, part], …]). prev + which — перекинути лише ці кубики.
+// Без повторів: seen = { level: { act|part|how: [індекси] } } — грані збережених купонів дарувальника; поки не випали всі
+// дозволені, ці не випадають (коло скидає diceSeen)
+const diceAllowed = (veto, level) => DICE_SIDES.map((d) => {
+  const no = Array.isArray(veto?.[level]?.[d]) ? veto[level][d] : [];
+  const a = [0, 1, 2, 3, 4, 5].filter((i) => !no.includes(i));
+  return a.length ? a : [0, 1, 2, 3, 4, 5];
+});
+function diceRoll(bank, level, veto, prev = null, which = [0, 1, 2], seen = null) {
+  const allowed = diceAllowed(veto, level);
+  const faces = DICE_SIDES.map((d, i) => {
     if (prev && !which.includes(i)) return prev[i];
-    const other = prev ? allowed[i].filter((x) => x !== prev[i]) : allowed[i];
+    const used = Array.isArray(seen?.[level]?.[d]) ? seen[level][d] : [];
+    const fresh = allowed[i].filter((x) => !used.includes(x));
+    const pool = fresh.length ? fresh : allowed[i];
+    const other = prev ? pool.filter((x) => x !== prev[i]) : pool;
     return anyOf(other.length ? other : allowed[i]);
   });
   const ban = Array.isArray(bank[level]?.ban) ? bank[level].ban : [];
@@ -4307,6 +4313,25 @@ function diceRoll(bank, level, veto, prev = null, which = [0, 1, 2]) {
   }
   return faces;
 }
+// Збережений купон додає свої грані в seen; коли дозволені грані кубика вичерпано — нове коло з цієї грані
+function diceSeen(seen, veto, level, faces) {
+  const allowed = diceAllowed(veto, level);
+  const cur = { ...(seen?.[level] || {}) };
+  DICE_SIDES.forEach((d, i) => {
+    const list = [...new Set([...(Array.isArray(cur[d]) ? cur[d] : []), faces[i]])];
+    cur[d] = allowed[i].every((x) => list.includes(x)) ? [faces[i]] : list;
+  });
+  return { ...(seen || {}), [level]: cur };
+}
+// Джокер — грань «Как» зі значком 🃏: той, кому подарували, сам обирає одну з інших (крім своїх «Не моё»)
+const DICE_JOKER = '🃏';
+function dicePick(bank, level, faces, veto) {
+  const how = bank[level]?.how;
+  if (!how || how[faces[2]]?.[0] !== DICE_JOKER) return null;
+  return diceAllowed(veto, level)[2].filter((i) => how[i][0] !== DICE_JOKER).map((i) => [i, how[i][0], how[i][1]]);
+}
+// Варіанти джокера бачить лише той, кому подарували, і лише поки купон не виконано
+const pickView = (v, mine) => (!mine && !v.done && Array.isArray(v.pick) && v.pick.length ? { pick: v.pick } : {});
 const diceFace = (bank, r, i) => bank[r.level][DICE_SIDES[i]][r.faces[i]];
 const diceView = (bank, r) => ({ id: r.id, level: r.level, faces: r.faces, icons: r.faces.map((_, i) => diceFace(bank, r, i)[0]), texts: r.faces.map((_, i) => diceFace(bank, r, i)[1]), left: r.left });
 
@@ -4320,6 +4345,7 @@ async function diceRoute(req, env, side, rest, notify) {
   const consent = (await getDoc(db, 'dice-xxx')) || {};
   // «Не моё» кожного — бачить лише він сам; кидки, що дарують йому, цих граней не дають
   const vetoOf = async (s) => (await getDoc(db, `dice-veto:${s}`)) || {};
+  const seenOf = async (s) => (await getDoc(db, `dice-seen:${s}`)) || {};
   if (m === 'GET' && rest === '/faces') {
     const level = new URL(req.url).searchParams.get('level') || '';
     if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
@@ -4344,7 +4370,7 @@ async function diceRoute(req, env, side, rest, notify) {
     const r = await getDoc(db, key);
     const rows = (await db.prepare("SELECT side, mood, at FROM marks WHERE kind = 'gwish' AND json_extract(mood, '$.src') = 'dice' ORDER BY at DESC LIMIT 40").all()).results;
     // Купон цілком — щоб відкрити його й з «Планов» (повтор кидка, торг, «Было жарко»)
-    const list = rows.map((x) => { const v = JSON.parse(x.mood); return { id: v.game, mine: x.side === side, text: v.text, icons: v.icons, texts: v.texts || null, level: v.level || null, done: v.done || null, stars: v.stars || null, lock: !!v.lock, haggled: v.haggled ?? null, canHaggle: !v.lock && v.haggled == null && Array.isArray(v.faces), claimed: v.claimed || null, at: x.at }; });
+    const list = rows.map((x) => { const v = JSON.parse(x.mood); return { id: v.game, mine: x.side === side, text: v.text, icons: v.icons, texts: v.texts || null, level: v.level || null, done: v.done || null, stars: v.stars || null, lock: !!v.lock, haggled: v.haggled ?? null, canHaggle: !v.lock && v.haggled == null && Array.isArray(v.faces), claimed: v.claimed || null, ...pickView(v, x.side === side), at: x.at }; });
     return json({
       roll: r?.id ? diceView(bank, r) : null,
       xxx: { me: !!consent[side], them: !!consent[other(side)] },
@@ -4370,7 +4396,8 @@ async function diceRoute(req, env, side, rest, notify) {
       // Перекинути один кубик (die 0–2) — інша грань саме цього; без die — усі три, як раніше
       const die = Number.isInteger(b.die) && b.die >= 0 && b.die < DICE_SIDES.length ? b.die : null;
       const veto = await vetoOf(other(side));
-      const faces = die === null ? diceRoll(bank, cur.level, veto) : diceRoll(bank, cur.level, veto, cur.faces, [die]);
+      const seen = await seenOf(side);
+      const faces = die === null ? diceRoll(bank, cur.level, veto, null, [0, 1, 2], seen) : diceRoll(bank, cur.level, veto, cur.faces, [die], seen);
       const r = { ...cur, faces, left: cur.left - 1, at: now };
       await putDoc(db, key, r);
       return json({ roll: diceView(bank, r) });
@@ -4378,7 +4405,7 @@ async function diceRoute(req, env, side, rest, notify) {
     const level = String(b.level || '');
     if (!DICE_LEVELS.includes(level)) throw fail(400, 'dice');
     if (level === 'xxx' && !(consent.vin && consent.vona)) throw fail(403, 'consent');
-    const r = { id: newId(), level, faces: diceRoll(bank, level, await vetoOf(other(side))), left: DICE_REROLLS, at: now };
+    const r = { id: newId(), level, faces: diceRoll(bank, level, await vetoOf(other(side)), null, [0, 1, 2], await seenOf(side)), left: DICE_REROLLS, at: now };
     await putDoc(db, key, r);
     return json({ roll: diceView(bank, r) }, 201);
   }
@@ -4387,9 +4414,12 @@ async function diceRoute(req, env, side, rest, notify) {
     if (!cur?.id || cur.id !== String(b.id || '')) throw fail(409, 'gone');
     const v = diceView(bank, cur);
     const text = v.texts.join(' · ');
+    const theirVeto = await vetoOf(other(side));
+    const pick = dicePick(bank, cur.level, cur.faces, theirVeto);
     const res = await db.prepare('INSERT OR IGNORE INTO marks (id, side, kind, mood, at) VALUES (?, ?, ?, ?, ?)')
-      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, texts: v.texts, faces: cur.faces, level: cur.level, lock: !!b.lock, done: null, src: 'dice' }), now).run();
+      .bind(`gwish-${cur.id}`, side, 'gwish', JSON.stringify({ game: cur.id, text, icons: v.icons, texts: v.texts, faces: cur.faces, level: cur.level, lock: !!b.lock, done: null, src: 'dice', ...(pick ? { pick } : {}) }), now).run();
     await db.prepare('DELETE FROM docs WHERE k = ?').bind(key).run();
+    if (res.meta?.changes) await putDoc(db, `dice-seen:${side}`, diceSeen(await seenOf(side), theirVeto, cur.level, cur.faces));
     if (res.meta?.changes && await hasPush(db, other(side))) notify.send(other(side), diceNote(side));
     return json({ wish: gwishView((await gwishes(db)).get(cur.id), side) });
   }
@@ -4411,12 +4441,34 @@ async function diceRoute(req, env, side, rest, notify) {
     if (!mk || mk.side === side) throw fail(409, 'gone');
     const v = JSON.parse(mk.mood);
     if (v.src !== 'dice' || v.done || v.lock || v.haggled != null || !Array.isArray(v.faces) || !(die >= 0 && die < DICE_SIDES.length)) throw fail(409, 'haggle');
+    if (die === 2 && v.picked != null) throw fail(409, 'haggle');
     // Торгується той, кому подарували, — його «Не моё»
-    v.faces = diceRoll(bank, v.level || 'hot', await vetoOf(side), v.faces, [die]);
+    const myVeto = await vetoOf(side);
+    v.faces = diceRoll(bank, v.level || 'hot', myVeto, v.faces, [die], await seenOf(mk.side));
     const view = diceView(bank, { id, level: v.level || 'hot', faces: v.faces, left: 0 });
     Object.assign(v, { icons: view.icons, texts: view.texts, text: view.texts.join(' · '), haggled: die });
+    if (die === 2) {
+      const pick = dicePick(bank, v.level || 'hot', v.faces, myVeto);
+      if (pick) v.pick = pick; else delete v.pick;
+    }
     await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), `gwish-${id}`).run();
     if (await hasPush(db, other(side))) notify.send(other(side), diceHaggleNote(side));
+    return json({ wish: gwishView((await gwishes(db)).get(id), side) });
+  }
+  // Джокер: той, кому подарували, обирає «Как» з запропонованих; дарувальнику — сповіщення без тексту
+  if (rest === '/pick') {
+    const id = String(b.id || '');
+    const face = Number(b.face);
+    const mk = await db.prepare("SELECT side, mood FROM marks WHERE id = ? AND kind = 'gwish'").bind(`gwish-${id}`).first();
+    if (!mk || mk.side === side) throw fail(409, 'gone');
+    const v = JSON.parse(mk.mood);
+    if (v.src !== 'dice' || v.done || !Array.isArray(v.pick) || !v.pick.some((p) => p[0] === face)) throw fail(409, 'pick');
+    v.faces = [v.faces[0], v.faces[1], face];
+    const view = diceView(bank, { id, level: v.level || 'hot', faces: v.faces, left: 0 });
+    Object.assign(v, { icons: view.icons, texts: view.texts, text: view.texts.join(' · '), picked: face });
+    delete v.pick;
+    await db.prepare('UPDATE marks SET mood = ? WHERE id = ?').bind(JSON.stringify(v), `gwish-${id}`).run();
+    if (await hasPush(db, other(side))) notify.send(other(side), dicePickNote(side));
     return json({ wish: gwishView((await gwishes(db)).get(id), side) });
   }
   if (rest === '/drop') {
@@ -4825,6 +4877,9 @@ function diceClaimNote(from) {
 }
 function diceHaggleNote(from) {
   return { tag: 'gwish', go: 'letter', title: '🎲 Торг по купону', body: sender(from, 'Он перебросил один кубик в твоём купоне — посмотри', 'Она перебросила один кубик в твоём купоне — посмотри') };
+}
+function dicePickNote(from) {
+  return { tag: 'gwish', go: 'letter', title: '🃏 Джокер в купоне', body: sender(from, 'Он выбрал, как именно — посмотри', 'Она выбрала, как именно — посмотри') };
 }
 function diceNote(from) {
   return { tag: 'gwish', go: 'letter', title: '🎲 Купон на встречу', body: sender(from, 'Он выкинул тебе купон — посмотри', 'Она выкинула тебе купон — посмотри') };

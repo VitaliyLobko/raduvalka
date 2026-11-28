@@ -244,6 +244,7 @@ export function couponStep(w, canHaggle = false) {
   if (w.done) return w.mine ? `✓ Исполнено — ${p} поставил${p === 'она' ? 'а' : ''} звёзды` : '✓ Исполнено — купон в нашей коллекции';
   if (w.mine) return w.claimed ? `📩 ${P} предъявил${p === 'она' ? 'а' : ''} купон. Твой ход: исполни 😏` : `⏳ Ждём, когда ${p} предъявит. Исполняешь ты`;
   if (w.claimed) return `📩 Предъявлено. Ждём, когда ${p} исполнит, потом поставь звёзды`;
+  if (w.pick?.length) return 'Выпал джокер: как именно — решаешь ты';
   return canHaggle ? 'Твой ход: предъяви купон. Не нравится кубик — тапни его, перебросить можно один раз' : 'Твой ход: предъяви купон здесь или на встрече 😏';
 }
 
@@ -269,12 +270,37 @@ export function diceShow(w, onDone = () => {}, { id = null, onChange = null } = 
   const close = () => { stop(); layer.remove(); document.removeEventListener('keydown', onKey); onDone(); };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   const tip = h('p', { class: 'dice-show-hint dice-step' }, couponStep(w, haggle));
+  // Джокер 🃏 на «Как»: той, кому подарували, обирає сам; зірки — після вибору
+  const pickEl = !w.mine && !w.done && id && w.pick?.length ? h('div', { class: 'dice-pick', role: 'group', 'aria-label': 'Джокер: выбери, как' },
+    h('p', { class: 'dice-pick-label' }, '🃏 Джокер — выбери, как:'),
+    h('div', { class: 'dice-pick-list' }, ...w.pick.map(([face, icon, text]) => h('button', { type: 'button', class: 'dice-pick-chip', onclick: async () => {
+      const btns = [...pickEl.querySelectorAll('button')];
+      btns.forEach((x) => { x.disabled = true; });
+      try {
+        const res = await send('dice/pick', 'POST', { id, face });
+        Object.assign(w, res.wish);
+        w.pick = res.wish.pick || null;
+        onChange?.(res.wish);
+        const fresh = make(w);
+        s.box.replaceWith(fresh.box);
+        s = fresh;
+        stop = s.roll([2]);
+        pickEl.remove();
+        layer.querySelectorAll('.dice-show > [hidden]').forEach((el) => { el.hidden = false; });
+        tip.textContent = couponStep(w, false);
+        toast(`🃏 Выбрано — ${who().partner} узнает`);
+      } catch (err) {
+        btns.forEach((x) => { x.disabled = false; });
+        toast(err?.status === 409 ? 'Выбрать уже нельзя' : 'Нет связи — попробуй ещё раз');
+      }
+    } }, `${icon} ${text}`)))) : null;
   const from = w.mine ? 'Твой купон' : `${who().partner === 'она' ? 'Она дарит' : 'Он дарит'} тебе купон`;
   const layer = h('div', { class: 'dice-show', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Купон на встречу' },
     h('p', { class: 'dice-show-head' }, `🎲 ${from}`),
     s.box,
     tip,
-    !w.mine && !w.done && id ? h('div', { class: 'dice-stars dice-show-stars', role: 'group', 'aria-label': 'Было жарко — оцени' },
+    pickEl,
+    !w.mine && !w.done && id ? h('div', { class: 'dice-stars dice-show-stars', role: 'group', 'aria-label': 'Было жарко — оцени', hidden: !!pickEl },
       h('span', { class: 'dice-stars-label' }, '🔥 Было жарко?'),
       ...[1, 2, 3, 4, 5].map((k) => h('button', { type: 'button', class: 'dice-star', 'aria-label': `${k} из 5`, onclick: async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
@@ -304,6 +330,8 @@ export function diceShow(w, onDone = () => {}, { id = null, onChange = null } = 
     } }, `📩 ${w.claimed ? 'Напомнить' : 'Предъявить'} ${who().partner === 'она' ? 'ей' : 'ему'}`) : null,
     w.mine ? null : h('button', { type: 'button', class: 'btn dice-show-back', onclick: () => { close(); setTimeout(openDice, 250); } }, `🎲 Бросить в ответ ${who().partner === 'она' ? 'ей' : 'ему'}`),
     h('button', { type: 'button', class: 'btn btn-primary dice-show-close', onclick: () => close() }, 'Закрыть'));
+  // Поки джокер не обрано — на екрані лише вибір (і «Закрыть»): решта не влізла б у 640
+  if (pickEl) [tip, layer.querySelector('.dice-show-claim'), layer.querySelector('.dice-show-back')].forEach((el) => { if (el) el.hidden = true; });
   document.body.append(layer);
   document.addEventListener('keydown', onKey);
   let stop = s.roll();
