@@ -1378,7 +1378,7 @@ export async function photoEditor(blob, { send, fail, image, label = 'Отпра
   // ── Відправка ──
   // Не «Отправить» (у лист — прикласти): словами й скріпкою, щоб не плутати зі стрілкою відправки
   const go = label === 'Отправить' ? h('button', { type: 'button', class: 'ph-send', 'aria-label': label, title: label, html: ARROW })
-    : h('button', { type: 'button', class: 'ph-send is-attach' }, '📎 ', label);
+    : h('button', { type: 'button', class: 'ph-send is-attach' }, label === 'Прикрепить' ? '📎 ' : null, label);
   go.addEventListener('click', async () => {
     if (go.disabled) return;
     go.disabled = true;

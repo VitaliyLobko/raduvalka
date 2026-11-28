@@ -51,7 +51,7 @@ const WARM_KEY = 'radovalka:warm-write';
 const WARM = '📷 🎞 ✨ 🎂 🎁 💗 😏 🔥 😄 🌸 🙂 ✎ 🎲 ↩ ⬇ 🌷 🍝 💆 😂 🥰 🥺 😜 💪 ☀️ 🌙 🎤 ✂️ ✓';
 let snapped = false;
 function snapWrite(sheet) {
-  if (snapped) return;
+  if (snapped || sheet.classList.contains('is-edit')) return;
   snapped = true;
   try { localStorage.setItem(WARM_KEY, JSON.stringify({ cls: sheet.className, html: sheet.innerHTML.slice(0, 80000) })); } catch { /* немає місця — прогріється простіше */ }
 }
@@ -80,12 +80,15 @@ export function prewarmWrite() {
 // { reply: { quote, on, sent } } — відповідь: той самий екран із цитатою зверху; лист, фото чи гифка йдуть новим
 // повідомленням із цією цитатою; on — на що відповідають ('letter' | 'gif' | 'photo'), sent() — після відправки.
 // З рядка під чатом: where ('time' + at | 'morning' | 'env'), pet — хто понесе, text — уже набране (для відповіді),
-// help — одразу розгорнути «✨ Помочь», onClose(sent, text) — вікно закрилось: надіслано чи ні і що лишилось у полі
+// help — одразу розгорнути «✨ Помочь», onClose(sent, text) — вікно закрилось: надіслано чи ні і що лишилось у полі.
+// edit — { env, note, done } — правка листа, що вже лежить у її конверті (note — з envelopes/theirs): той самий екран,
+// але без чернетки й без «хто понесе», «Сохранить» замість «Отправить»; done() — після збереження чи прибирання
 export function openWrite(preset = {}) {
   const reply = preset.reply || null;
+  const edit = preset.edit || null;
   const me = who();
   const envs = DATA.partnerEnvelopes || [];
-  const presetEnv = envs.some((e) => e.id === preset.envId) ? preset.envId : null;
+  const presetEnv = edit ? edit.env.id : envs.some((e) => e.id === preset.envId) ? preset.envId : null;
   // 'time' — свій час (atTime), як «Ко времени» в рядку; «на утро» — той самий свій час о 8:00
   let atTime = preset.where === 'morning' ? nextMorning().getTime() : preset.at > Date.now() ? preset.at : 0;
   let where = presetEnv || (preset.where === 'env' && envs.length) ? 'env' : atTime ? 'time' : 'now';
@@ -100,45 +103,57 @@ export function openWrite(preset = {}) {
   const said = `Пиши как есть — так, как ${me.partner === 'она' ? 'сказал' : 'сказала'} бы вслух…`;
   const area = h('textarea', { class: 'write-text', 'data-voice': true, 'aria-label': reply ? 'Текст ответа' : 'Текст письма', placeholder: reply ? 'Пару слов в ответ…' : said });
   // Чернетка — лише в листа: відповідь коротка й прив'язана до свого повідомлення
-  if (!reply) {
+  if (edit) area.value = edit.note.text || '';
+  else if (!reply) {
     area.value = draft.get();
     area.addEventListener('input', () => draft.set(area.value));
   } else if (preset.text) area.value = preset.text;
 
   const note = h('p', { class: 'write-note' });
-  const envRow = h('div', { class: 'mk-chips write-envs', hidden: true });
   // Вкладення (кілька, до MAX_ATT): фото, гифки, голос, пісні — лише в конверт або святковий
   let atts = [];
+  // Правка: уже покладені вкладення (at — номер у списку на сервері); прибрані — у dropped, підуть на сервер при «Сохранить»
+  const oldMedia = edit?.note.media;
+  let olds = !oldMedia || oldMedia.gone ? [] : (oldMedia.k === 'multi' ? oldMedia.items || [] : [oldMedia]).map((x, at) => ({ ...x, at }));
+  const dropped = [];
+  const editRow = edit ? (edit.note.own ? edit.note.id : edit.note.row) : null;
+  const attCount = () => olds.length + atts.length;
   // id — один на набір вкладень: повтор після обірваної відповіді сервер упізнає й не покладе листа вдруге; змінили набір — новий
   let attCid = null;
   const attOk = () => where === 'env' || festive;
   const attBox = h('div', { class: 'write-att', hidden: true });
   const lazyAttach = () => import('./envattach.js');
+  // Плитки під полем: уже покладені (правка) і нові; тап по новому фото — знову редактор
   const paintAtt = async () => {
-    attBox.hidden = !atts.length || !attOk();
-    if (!atts.length) { attBox.replaceChildren(); return; }
-    const { attachChip } = await lazyAttach();
-    attBox.replaceChildren(...atts.map((a) => attachChip(a, () => { atts = atts.filter((x) => x !== a); attCid = null; paintAtt(); paintNote(); })));
+    attBox.hidden = !attCount() || !attOk();
+    if (!attCount()) { attBox.replaceChildren(); return; }
+    const ea = await lazyAttach();
+    attBox.replaceChildren(
+      ...olds.map((a) => ea.attachTile(a, { row: editRow, onRemove: () => { if (!olds.includes(a)) return; olds = olds.filter((x) => x !== a); dropped.push(a.at); paintAtt(); } })),
+      ...atts.map((a) => ea.attachTile(a, {
+        onRemove: () => { if (!atts.includes(a)) return; atts = atts.filter((x) => x !== a); attCid = null; paintAtt(); paintNote(); },
+        onOpen: a.k === 'photo' ? () => ea.editPhoto(a, (b) => { atts = atts.map((x) => (x === a ? b : x)); attCid = null; paintAtt(); }) : null,
+      })));
   };
-  // Ще одне до вже прикладених (не замість)
-  const setAtt = async (a) => {
+  // Ще одне до вже прикладених (не замість); quiet — пачка фото з галереї, тост один на всю пачку
+  const setAtt = async (a, quiet = false) => {
     const { MAX_ATT } = await lazyAttach();
-    if (atts.length >= MAX_ATT) { toast(`В одно письмо — не больше ${MAX_ATT} вложений`); return; }
+    if (attCount() >= MAX_ATT) { toast(`В одно письмо — не больше ${MAX_ATT} вложений`); return; }
     atts = [...atts, a];
     attCid = null;
     paintAtt();
     paintNote();
-    toast(atts.length > 1 ? `Приложено: ${atts.length}. Можно добавить ещё или отправить` : 'Приложено. Можно добавить ещё или отправить');
+    if (!quiet) toast(atts.length > 1 ? `Приложено: ${atts.length}. Можно добавить ещё или отправить` : 'Приложено. Можно добавить ещё или отправить');
   };
   const paintNote = () => {
     const at = sendAt();
+    if (edit) { note.textContent = `Ещё не открыто — ${me.partner} увидит уже исправленное.`; return; }
     note.textContent = where === 'now'
       ? `Появится у ${me.partner === 'он' ? 'него' : 'неё'}, как только ${me.partner} откроет Радовалку.`
       : where === 'env'
         ? `Ляжет в конверт — ${me.partner} откроет, когда понадобится.`
         : `Придёт ${dayWord(at)} в ${hhmm(at)} запечатанным конвертом.`;
     if (festive) note.textContent += ' Золотой конверт, принесут все вместе 🎉';
-    envRow.hidden = where !== 'env';
   };
 
   const chips = (items, picked, onPick) => {
@@ -172,28 +187,44 @@ export function openWrite(preset = {}) {
     whereRow.querySelector('[data-v="time"]').textContent = timeLabel();
     paintNote();
   });
-  // «Уже в конверте: N» — його записки в цьому конверті (докласти фото чи пісню); скільки — питаємо раз, коли вікно «В конверт»
-  let counts = null;
-  const tplBtn = h('button', {
-    type: 'button', class: 'write-tpl', hidden: true,
+  // Конверт — карточкою над полем: який, скільки в ньому лежить і скільки ще не відкрито. Тап — усі конверти сіткою,
+  // «Что внутри» — його листи в цьому конверті (поправити, докласти). Що лежить — питаємо, коли вікно «В конверт»
+  let theirs = null;
+  const envOf = () => envs.find((x) => x.id === envId);
+  const cardPick = h('button', {
+    type: 'button', class: 'write-envpick',
     onclick: async () => {
-      const e = envs.find((x) => x.id === envId);
-      if (e) (await import('./envtpl.js')).openTemplates(e, () => { counts = null; });
+      if (edit) return;
+      const v = await (await import('./envtpl.js')).pickEnvelope(envs, theirs, envId);
+      if (v) { envId = v; paintCard(); }
     },
   });
-  const paintTpl = () => {
-    const n = counts?.[envId] || 0;
-    tplBtn.hidden = where !== 'env' || !n;
-    tplBtn.textContent = `📎 Уже в конверте: ${n} · поправить, приложить`;
+  // Другий рядок карточки: скільки лежить; є що — тап відкриває «Что внутри»
+  const cardLook = h('button', {
+    type: 'button', class: 'write-envlook', hidden: true,
+    onclick: async () => { const e = envOf(); if (e && !cardLook.disabled) (await import('./envtpl.js')).openTemplates(e, loadTheirs); },
+  });
+  const envCard = where === 'env' ? h('div', { class: `write-envcard${edit ? ' is-fixed' : ''}` }, cardPick, cardLook) : null;
+  const paintCard = () => {
+    const e = envOf();
+    if (!envCard || !e) return;
+    const notes = theirs?.find((x) => x.id === envId)?.notes;
+    cardPick.setAttribute('aria-label', edit ? `Конверт «${e.label}»` : `Конверт «${e.label}» — выбрать другой`);
+    cardPick.replaceChildren(...[
+      h('span', { class: 'write-envemo', 'aria-hidden': 'true' }, e.emoji),
+      h('span', { class: 'write-envname' }, h('b', {}, e.label)),
+      edit ? null : h('span', { class: 'write-envmore' }, 'сменить ▾')].filter(Boolean));
+    cardLook.hidden = !!edit || !notes;
+    cardLook.disabled = !notes?.length;
+    cardLook.replaceChildren(...[h('span', {}, notes?.length ? envSub(notes) : 'Пока пусто — это письмо будет первым'),
+      notes?.length ? h('span', { class: 'write-envgo' }, 'Что внутри ›') : null].filter(Boolean));
   };
-  if (where === 'env') {
-    import('./api.js').then(({ send }) => send('envelopes/theirs', 'GET'))
-      .then((l) => { counts = Object.fromEntries(l.map((e) => [e.id, e.notes.length])); paintTpl(); })
-      .catch(() => { /* без звʼязку — без цього рядка */ });
-  }
-  envRow.append(chips(envs.map((e) => ({ v: e.id, label: `${e.emoji} ${e.label}` })), envId, (v) => { envId = v; paintTpl(); }));
-  envRow.append(tplBtn);
-  [whereRow, envRow.firstChild].forEach((row) => { row.classList.add('write-when'); ribbon(row); });
+  const loadTheirs = () => import('./api.js').then(({ send }) => send('envelopes/theirs?own=1', 'GET'))
+    .then((l) => { theirs = l; paintCard(); })
+    .catch(() => { /* без звʼязку — без лічильників */ });
+  if (envCard) { paintCard(); if (!edit) loadTheirs(); }
+  whereRow.classList.add('write-when');
+  ribbon(whereRow);
   paintNote();
 
   const pets = Object.keys(DATA.mascots);
@@ -208,13 +239,16 @@ export function openWrite(preset = {}) {
   const helper = h('div', { class: 'write-helper' });
   // «✨ Помочь» з рядка — лише помічник: узяли чернетку чи поправку — вікно закривається, текст іде в рядок
   mountHelper(helper, area, preset.help ? { solo: true, onTake: () => close() } : {});
-  const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: `${ARROW}Отправить` });
+  const go = h('button', { type: 'button', class: 'btn btn-primary write-go', html: edit ? 'Сохранить' : `${ARROW}Отправить` });
+  const dropBtn = edit ? h('button', { type: 'button', class: 'btn write-drop', onclick: () => dropEdit() }, '🗑 Убрать') : null;
 
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  // Esc — лише верхнє вікно: правка листа відкривається поверх списку конверта й поверх іншого «Написать»
+  const onKey = (e) => { if (e.key === 'Escape' && [...document.querySelectorAll('[role=dialog]')].pop() === sheet) close(); };
   // fast — одразу, без згортання: далі відкривається інша шторка (фото, гифка)
   const close = (fast = false) => {
     document.removeEventListener('keydown', onKey);
-    document.documentElement.classList.remove('is-covered');
+    // Правка закрилась, а «Написать» під нею ще відкрите — фон лишається на паузі
+    if (document.querySelectorAll('.sheet-write').length < 2) document.documentElement.classList.remove('is-covered');
     // Закрили ще під час руху — знімок для прогріву все одно потрібен
     snapWrite(sheet);
     preset.onClose?.(sentOk, area.value);
@@ -229,12 +263,21 @@ export function openWrite(preset = {}) {
   const re = reply ? { quote: reply.quote, on: reply.on } : null;
   // input лишається в шторці, доки не обрано файл, — від'єднаний input change не надійний
   const picker = h('input', {
-    type: 'file', accept: 'image/*', class: 'visually-hidden',
+    type: 'file', accept: 'image/*', class: 'visually-hidden', multiple: attOk(),
     onchange: async (e) => {
-      const [file] = e.target.files;
+      const files = [...e.target.files];
+      const [file] = files;
       e.target.value = '';
       if (!file) return;
-      if (attOk()) { (await lazyAttach()).pickPhoto(file, setAtt); return; }
+      // У конверт і святковий — одразу кілька фото мініатюрами (тап по мініатюрі — редактор)
+      if (attOk()) {
+        const ea = await lazyAttach();
+        const before = atts.length;
+        await ea.quickPhotos(files, ea.MAX_ATT - attCount(), (a) => setAtt(a, true));
+        const n = atts.length - before;
+        if (n) toast(n > 1 ? `Фото приложены: ${n}. Нажми на фото, чтобы обрезать или подписать` : 'Фото приложено. Нажми на него, чтобы обрезать или подписать');
+        return;
+      }
       close(true);
       composeMeme(file, memeSent, re);
     },
@@ -254,7 +297,16 @@ export function openWrite(preset = {}) {
       },
     }, '🎞️ Гифка'),
     musicBtn,
-    reply || festive ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openGames(); } }, '🎲 Игры'),
+    reply || festive || where === 'env' ? null : h('button', { type: 'button', class: 'mk-chip', onclick: () => { close(true); openGames(); } }, '🎲 Игры'),
+    // У конверт — глянути, як лист відкриється в неї (нічого не надсилає)
+    where === 'env' ? h('button', {
+      type: 'button', class: 'mk-chip write-preview',
+      onclick: async () => {
+        const e = envOf();
+        if (!e) return;
+        (await import('./envtpl.js')).previewLetter({ env: e, text: area.value.trim(), list: [...olds, ...atts], row: editRow });
+      },
+    }, `👁 Как увидит ${me.partner}`) : null,
     helper);
 
   // Відповідь — над полем цитата (тап — цілим); новий лист — кусок переписки, як у месенджері: новіше внизу, біля поля
@@ -264,7 +316,8 @@ export function openWrite(preset = {}) {
   },
     h('span', { class: 'write-ctx-label' }, 'Отвечаешь на'),
     h('span', { class: 'write-ctx-text' }, reply.quote)) : null;
-  const recent = reply || preset.help ? [] : recentThread();
+  // У конверт — без шматка переписки: такий лист читатимуть пізніше, не у відповідь
+  const recent = reply || preset.help || where === 'env' ? [] : recentThread();
   const thread = recent.length ? h('div', { class: 'write-thread', role: 'log', 'aria-label': 'Последние сообщения' },
     ...recent.map((m) => h('div', { class: `write-msg ${m.mine ? 'is-mine' : 'is-theirs'}` },
       h('span', { class: 'write-msg-text' }, m.text),
@@ -303,7 +356,63 @@ export function openWrite(preset = {}) {
     toast(sentToast(pet));
   };
 
+  // Правка: текст, прибрані й нові вкладення — по черзі; 409 — вона вже відкрила, правити пізно
+  const editFail = (e, ea) => toast(e?.status === 409 ? `Поздно — ${me.partner} уже ${me.partnerOpened}` : ea ? ea.attachError(e) : 'Не сохранилось — нет связи. Попробуй ещё раз');
+  const saveEdit = async () => {
+    const { send } = await import('./api.js');
+    const n = edit.note;
+    const text = area.value.trim();
+    if (!text && !attCount()) { toast('Пустое письмо не сохранить — лучше убери его'); area.focus(); return; }
+    if (!text && !n.own) { toast('У этого письма должен остаться текст'); area.focus(); return; }
+    go.disabled = true;
+    const label = go.innerHTML;
+    const ea = await lazyAttach();
+    try {
+      if (text !== (n.text || '').trim()) {
+        await send(n.own ? `letters/${n.id}` : `envelopes/${edit.env.id}/note/${n.i}`, 'PUT', { text });
+      }
+      // Із кінця: номери тих, що лишаються, не зсуваються. Прибране — одразу з черги: повтор після обриву
+      // не зачепить сусіднє вкладення, що зсунулось на його місце
+      const order = [...dropped].sort((a, b) => b - a);
+      const dropOne = async (k) => { await send(`letters/${editRow}/media/${k}`, 'DELETE'); dropped.splice(dropped.indexOf(k), 1); };
+      // Лист без тексту: останнє вкладення сервер не прибере (лишився б порожній лист) — тож спершу нове, потім останнє старе
+      const hold = n.own && !text && !olds.length && atts.length ? order.pop() : undefined;
+      for (const k of order) await dropOne(k);
+      if (atts.length) {
+        const body = { kind: 'env', env: edit.env.id, text: '', cid: newCid(), ...(n.own ? { to: n.id } : { tpl: n.i }) };
+        if (ea.hasBytes(atts)) await ea.sendAttached(body, atts, (p) => { go.textContent = `${Math.round(p * 100)}%`; });
+        else await send('letters', 'POST', { ...body, media: atts.map(ea.mediaBody) });
+        atts = [];
+      }
+      if (hold !== undefined) await dropOne(hold);
+    } catch (e) {
+      go.innerHTML = label;
+      go.disabled = false;
+      editFail(e, ea);
+      edit.done?.();
+      return;
+    }
+    sentOk = true;
+    close();
+    toast('Письмо поправлено');
+    edit.done?.();
+  };
+  const dropEdit = async () => {
+    const n = edit.note;
+    const { ask } = await import('./ask.js');
+    if (!await ask({ title: 'Убрать письмо из конверта?', text: String(n.text || '').slice(0, 120), yes: 'Убрать' })) return;
+    const { send } = await import('./api.js');
+    try {
+      await send(n.own ? `letters/${n.id}` : `envelopes/${edit.env.id}/note/${n.i}`, 'DELETE');
+    } catch (e) { editFail(e); return; }
+    sentOk = true;
+    close();
+    toast('Письмо убрано из конверта');
+    edit.done?.();
+  };
+
   go.addEventListener('click', async () => {
+    if (edit) { saveEdit(); return; }
     const text = area.value.trim();
     const withAtt = attOk() && atts.length > 0;
     if (!text && !withAtt) { area.focus(); return; }
@@ -341,9 +450,9 @@ export function openWrite(preset = {}) {
   });
 
   // На весь екран, як у месенджері: заголовок, переписка (або цитата), інструменти, поле, знизу — «Когда», хто понесе, «Отправить»
-  const title = preset.help ? '✨ Помочь написать' : reply ? 'Ответ' : festive ? '🎉 Праздничное письмо' : `Письмо ${me.toWhom}`;
+  const title = preset.help ? '✨ Помочь написать' : reply ? 'Ответ' : edit ? 'Правка письма' : festive ? '🎉 Праздничное письмо' : where === 'env' ? 'Письмо в конверт' : `Письмо ${me.toWhom}`;
   const backdrop = h('div', { class: 'backdrop', onclick: () => close() });
-  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}${preset.help ? ' is-help-solo' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+  const sheet = h('div', { class: `sheet sheet-full sheet-maker sheet-write${reply ? ' is-reply' : ''}${thread ? ' has-thread' : ''}${preset.help ? ' is-help-solo' : ''}${where === 'env' ? ' is-env' : ''}${edit ? ' is-edit' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     writeDecor(),
     h('div', { class: 'sheet-inner' }, ...[
       h('div', { class: 'write-head' },
@@ -352,12 +461,13 @@ export function openWrite(preset = {}) {
       ctx,
       thread,
       split?.bar,
+      envCard,
       tools,
-      attBox,
       area,
+      attBox,
       h('div', { class: 'write-dock' }, ...[
-        where === 'env' ? null : whereRow, envRow, note,
-        h('div', { class: 'write-send' }, ...[pets.length ? petRow : null, go].filter(Boolean)),
+        where === 'env' ? null : whereRow, note,
+        h('div', { class: 'write-send' }, ...(edit ? [dropBtn, go] : [pets.length ? petRow : null, go]).filter(Boolean)),
       ].filter(Boolean)),
     ].filter(Boolean)));
   document.body.append(backdrop, sheet);
@@ -381,7 +491,17 @@ export function openWrite(preset = {}) {
   if (shown) shown.finished.then(() => { settled(); focusArea(); }, () => {});
   else { settled(); focusArea(); }
   if (area.value) grow();
+  // Правка: уже покладені вкладення — плитками одразу
+  if (olds.length) paintAtt();
   return { sheet, area };
+}
+
+const plural = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many);
+function envSub(notes) {
+  if (!notes) return 'конверт';
+  if (!notes.length) return 'пока пусто';
+  const left = notes.filter((n) => !n.read).length;
+  return `${notes.length} ${plural(notes.length, 'письмо', 'письма', 'писем')} · ${left ? `не открыто ${left}` : 'все открыты'}`;
 }
 
 // Межа між верхом вікна (переписка чи цитата) і полем: тягнеш угору чи вниз — міняються висоти, поле бере решту.

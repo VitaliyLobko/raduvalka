@@ -68,6 +68,27 @@ export async function pickPhoto(file, onAtt) {
   });
 }
 
+// Кілька фото з галереї одразу — без редактора, мініатюрами в лист (тап по мініатюрі — редактор). room — скільки ще влізе
+export async function quickPhotos(files, room, onAtt) {
+  const list = [...files].slice(0, Math.max(0, room));
+  if (files.length > list.length) toast(`В одно письмо — не больше ${MAX_ATT} вложений`);
+  for (const file of list) {
+    try {
+      const blob = await prepare(file);
+      await onAtt({ k: 'photo', blob, t: blob.type, cap: null }, list.length);
+    } catch (e) { toast(prepareError(e)); }
+  }
+}
+// Уже прикладене (ще не відправлене) фото — знову в редактор: обрізати, наклейки, підпис; done(нове) — замість старого
+export async function editPhoto(a, done) {
+  const { photoEditor } = await import('./photoedit.js');
+  photoEditor(a.blob, {
+    label: 'Готово',
+    fail: sendError,
+    send: async (out, cap) => done({ ...a, blob: out, t: out.type, cap: cap || a.cap || null }),
+  });
+}
+
 export function pickGif(onAtt) {
   openGifs(async (gif) => {
     const { gifEditor } = await import('./gifedit.js');
@@ -238,20 +259,35 @@ export function player(blob, title, d = 0, { onEnd } = {}) {
   };
 }
 
-// ── Рядок у «Написать»: що прикріплено, ✕ — прибрати ──
-export function attachChip(a, onRemove) {
-  let thumb = null;
+// ── Плитка в «Написать»: мініатюра того, що прикріплено, ✕ — прибрати, тап — поправити (лише нове фото).
+// row — id рядка на сервері: уже покладене фото тягнемо звідти й розшифровуємо ──
+const TILE_IC = { photo: '📷', gif: '🎞️', voice: '🎤', song: '🎵', link: '🔗' };
+const tileCap = (a) => (a.k === 'voice' ? mmss(a.d || 0) : a.k === 'song' ? a.n || 'песня' : a.k === 'link' ? service(a.url) : '');
+export function attachTile(a, { onRemove, onOpen, row } = {}) {
   let url = null;
-  if (a.k === 'photo') { url = URL.createObjectURL(a.blob); thumb = h('img', { src: url, alt: '' }); }
-  if (a.k === 'gif') thumb = media(a.gif.url, '', a.gif.url);
-  const el = h('div', { class: 'write-att-chip' },
-    thumb ? h('span', { class: 'write-att-thumb' }, thumb) : null,
-    h('span', { class: 'write-att-text' }, attachLine(a)),
-    h('button', {
-      type: 'button', class: 'write-att-x', 'aria-label': 'Убрать вложение',
-      onclick: () => { if (url) URL.revokeObjectURL(url); onRemove(); },
-    }, '✕'));
-  return el;
+  const face = h('button', {
+    type: 'button', class: `att-face is-${a.k}`, 'aria-label': onOpen ? `${attachLine(a)} — поправить` : attachLine(a),
+    ...(onOpen ? { onclick: onOpen } : { tabindex: '-1' }),
+  });
+  const icon = () => face.replaceChildren(...[h('span', { class: 'att-ic', 'aria-hidden': 'true' }, TILE_IC[a.k] || '📎'),
+    tileCap(a) ? h('span', { class: 'att-cap' }, tileCap(a)) : null].filter(Boolean));
+  const gif = typeof a.gif === 'string' ? a.gif : a.gif?.url;
+  if (a.k === 'photo' && a.blob) { url = URL.createObjectURL(a.blob); face.append(h('img', { src: url, alt: '' })); }
+  else if (a.k === 'gif' && gif) face.append(media(gif, '', gif));
+  else {
+    icon();
+    if (a.k === 'photo' && row) {
+      bytesOf(row, a.t, a.f || 0).then((b) => {
+        if (!b || !face.isConnected) return;
+        url = URL.createObjectURL(b);
+        face.replaceChildren(h('img', { src: url, alt: '' }));
+      }).catch(() => { /* лишається значок */ });
+    }
+  }
+  return h('div', { class: 'att-tile' }, face, h('button', {
+    type: 'button', class: 'att-x', 'aria-label': 'Убрать вложение',
+    onclick: () => { if (url) URL.revokeObjectURL(url); onRemove(); },
+  }, '✕'));
 }
 
 // Опис для сервера: лише те, що він зберігає (підпис, назва й посилання шифрує sealBody)
@@ -313,8 +349,11 @@ const gone = () => ({ el: h('p', { class: 'ea-gone' }, attachLine({ gone: true }
 export async function renderAttach(note, opts = {}) {
   const m = note.media;
   if (!m || m.gone) return gone();
-  const list = m.k === 'multi' ? m.items : [m];
-  const parts = await Promise.all(list.map((x) => renderOne(note.id, x, opts)));
+  return renderList(note.id, m.k === 'multi' ? m.items : [m], opts);
+}
+// Список вкладень: уже покладені (байти з сервера за id рядка) і щойно прикладені (a.blob — ще в телефоні)
+export async function renderList(id, list, opts = {}) {
+  const parts = await Promise.all(list.map((x) => renderOne(id, x, opts)));
   const stop = () => parts.forEach((x) => x.stop());
   // split — як у листі: картинки (фото, гифки) над текстом, звук (голос, пісні) під ним; el — картинки, sound — звук
   if (opts.split) {
@@ -329,7 +368,8 @@ const SOUND = ['voice', 'song', 'link'];
 async function renderOne(id, a, opts) {
   if (!a || a.gone) return gone();
   if (a.k === 'gif') {
-    const el = media(a.gif, 'Гифка в письме', a.gif);
+    const g = typeof a.gif === 'string' ? a.gif : a.gif?.url;
+    const el = media(g, 'Гифка в письме', g);
     const free = a.cap && freeStyle(a.style);
     return {
       el: h('div', { class: 'ea-gif' }, gifOver(el, a.cap, a.style, a.stick) || gifFrame(el), !free && a.cap ? h('p', { class: 'ea-cap' }, a.cap) : null),
@@ -346,7 +386,7 @@ async function renderOne(id, a, opts) {
       stop: () => {},
     };
   }
-  const blob = await bytesOf(id, a.t, a.f);
+  const blob = a.blob || await bytesOf(id, a.t, a.f);
   if (!blob) return gone();
   if (a.k === 'photo') {
     const url = URL.createObjectURL(blob);

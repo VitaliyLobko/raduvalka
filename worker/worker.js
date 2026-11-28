@@ -301,6 +301,8 @@ async function route(req, env, ctx, info = {}) {
       ...(side === 'vin' ? { claude: !!env.ANTHROPIC_KEY } : {}),
       // Підпис під листами другого (doc signs: { vona, vin }), без нього — звичайне «Твой/Твоя»
       partnerSign: (await getDoc(env.DB, 'signs'))?.[other(side)] || null,
+      // Свій підпис — для «Как увидит» перед тим, як покласти лист у її конверт
+      mySign: (await getDoc(env.DB, 'signs'))?.[side] || null,
       // Інструмент другого — ним звучить те, що прийшло від нього; з його mine — лише це поле
       partnerInstrument: theirs?.instrument || null,
       // Версії фото поз (час заливки): телефон бере їх зі свого кешу, поки версія та сама
@@ -326,7 +328,8 @@ async function route(req, env, ctx, info = {}) {
   if (m === 'POST' && path === 'checkin/ask') return checkinAsk(req, env.DB, side, notify);
   if (path === 'sos' || path.startsWith('sos/')) return sosRoute(req, env.DB, side, path, notify);
   if (m === 'GET' && path === 'envelopes') return json(await myEnvelopes(env.DB, side));
-  if (m === 'GET' && path === 'envelopes/theirs') return json(await theirTemplates(env.DB, side));
+  // own=1 — і його листи з «Написать» (0.4.192+); старий телефон їх не бачить: його кнопки адресують записку позицією
+  if (m === 'GET' && path === 'envelopes/theirs') return json(await theirTemplates(env.DB, side, url.searchParams.get('own') === '1'));
   const tplDel = path.match(/^envelopes\/([\w-]{1,40})\/tpl\/(\d{1,3})$/);
   if (m === 'DELETE' && tplDel) return tplRemove(env.DB, side, env.FILES, tplDel[1], Number(tplDel[2]));
   const noteAt = path.match(/^envelopes\/([\w-]{1,40})\/note\/(\d{1,3})$/);
@@ -1245,18 +1248,75 @@ function tplNote(n, rows) {
 }
 
 // Його заготовлені записки в її конвертах — щоб докласти фото чи пісню: текст, вкладення, чи вже прочитано
-async function theirTemplates(db, side) {
+async function theirTemplates(db, side, withOwn = false) {
   const list = (await getDoc(db, `envelopes:${other(side)}`)) || [];
   const seen = ((await getDoc(db, `mine:${other(side)}`)) || {}).seen || {};
   const rows = await tplRows(db, other(side));
-  return list.map((e) => ({
-    id: e.id,
-    notes: (e.notes || []).map((n, i) => {
+  // Його листи з «Написать» лежать після заготовок, за часом (як їх бачить вона в myEnvelopes)
+  const own = !withOwn ? [] : (await db.prepare(
+    "SELECT id, env, text, media, opened FROM letters WHERE src = ? AND kind = 'env' ORDER BY created",
+  ).bind(side).all()).results;
+  return list.map((e) => {
+    const read = seen[e.id] || 0;
+    const tpl = (e.notes || []).map((n, i) => {
       const v = tplNote(n, rows);
-      return typeof v === 'string' ? { i, text: v, read: i < (seen[e.id] || 0) }
-        : { i, text: v.text, media: v.media, read: i < (seen[e.id] || 0) };
-    }),
-  }));
+      return typeof v === 'string' ? { i, text: v, read: i < read }
+        : { i, row: v.id, text: v.text, media: v.media, read: i < read };
+    });
+    const mine = own.filter((r) => r.env === e.id)
+      .map((r, k) => ({ id: r.id, own: true, text: r.text, media: mediaOf(r), read: !!r.opened || tpl.length + k < read }));
+    return { id: e.id, notes: [...tpl, ...mine] };
+  });
+}
+
+// Його лист у її конверті вже прочитано: позначка листа або місце в черзі конверта (після заготовок, за часом)
+async function ownEnvRead(db, side, r) {
+  if (r.opened) return true;
+  const list = (await getDoc(db, `envelopes:${other(side)}`)) || [];
+  const tpl = list.find((x) => x.id === r.env)?.notes?.length || 0;
+  const read = (((await getDoc(db, `mine:${other(side)}`)) || {}).seen || {})[r.env] || 0;
+  if (read <= tpl) return false;
+  const before = await db.prepare("SELECT COUNT(*) AS n FROM letters WHERE src = ? AND kind = 'env' AND env = ? AND created < ?")
+    .bind(side, r.env, r.created).first();
+  return tpl + (before?.n || 0) < read;
+}
+// Його ще не прочитаний лист у її конверті — поправити текст, докласти чи прибрати вкладення
+async function ownTarget(db, side, id) {
+  const row = await db.prepare("SELECT * FROM letters WHERE id = ? AND kind = 'env' AND src = ?").bind(String(id || ''), side).first();
+  if (!row) throw fail(404, 'not found');
+  if (await ownEnvRead(db, side, row)) throw fail(409, 'opened');
+  return { row };
+}
+// Докласти вкладення до вже наявного рядка (заготовка з вкладенням чи його лист у конверті)
+async function appendMedia(db, row, add) {
+  const old = mediaOf(row);
+  if (old?.gone) throw fail(409, 'tpl');
+  const list = [...mediaItems(old), ...add];
+  if (list.length > MAX_ITEMS) throw fail(400, 'media');
+  const media = packMedia(list);
+  await db.prepare('UPDATE letters SET media = ? WHERE id = ?').bind(JSON.stringify(media), row.id).run();
+  return { id: row.id, media };
+}
+// Прибрати одне вкладення: з його листа в конверті чи із заготовки; останнє із заготовки — записка знову просто текст
+async function dropItem(db, side, files, r, k) {
+  if (r.src !== side || !['env', 'tpl'].includes(r.kind)) throw fail(403, 'forbidden');
+  const items = mediaItems(mediaOf(r));
+  if (!Number.isInteger(k) || !items[k]) throw fail(404, 'not found');
+  if (r.kind === 'tpl') {
+    const list = (await getDoc(db, `envelopes:${other(side)}`)) || [];
+    const i = (list.find((x) => x.id === r.env)?.notes || []).findIndex((n) => n?.letter === r.id);
+    if (i < 0) throw fail(404, 'not found');
+    if (items.length === 1) return tplRemove(db, side, files, r.env, i);
+    await noteTarget(db, side, r.env, i);
+  } else {
+    await ownTarget(db, side, r.id);
+    if (items.length === 1 && !r.text) throw fail(400, 'empty');
+  }
+  const [it] = items.splice(k, 1);
+  const media = packMedia(items);
+  await db.prepare('UPDATE letters SET media = ? WHERE id = ?').bind(media ? JSON.stringify(media) : null, r.id).run();
+  if (it.s != null && files) await files.delete(lkey(r.id, it.f));
+  return json({ ok: true, media });
 }
 
 // Куди докласти: записка ще не прочитана й без вкладення. Повертає, що записати в заготовку
@@ -1283,13 +1343,7 @@ async function tplAttach(db, side, t, i, id, add, mascot, now) {
     await tplInsert(db, side, t, i, id, media, mascot, now);
     return { id, media };
   }
-  const old = mediaOf(t.row);
-  if (old?.gone) throw fail(409, 'tpl');
-  const list = [...mediaItems(old), ...add];
-  if (list.length > MAX_ITEMS) throw fail(400, 'media');
-  const media = packMedia(list);
-  await db.prepare("UPDATE letters SET media = ? WHERE id = ? AND kind = 'tpl'").bind(JSON.stringify(media), t.row.id).run();
-  return { id: t.row.id, media };
+  return appendMedia(db, t.row, add);
 }
 // Рядок вкладення й заготовка — одним batch: не лишиться ні рядка без записки, ні записки без рядка
 async function tplInsert(db, side, t, i, id, media, mascot, now) {
@@ -1507,6 +1561,13 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
       const out = await tplAttach(db, side, t, Number(b.tpl), id, links, mascot, now);
       return json({ id: out.id, kind: 'tpl', env: envId, media: out.media }, 201);
     }
+    if (kind === 'env' && b.to != null) {
+      if (!media) throw fail(400, 'letter');
+      const { row } = await ownTarget(db, side, b.to);
+      if (row.env !== envId) throw fail(400, 'env');
+      const out = await appendMedia(db, row, links);
+      return json({ id: out.id, kind: 'env', env: envId, media: out.media }, 201);
+    }
     const stocked = kind === 'stock' ? now : null;
     // «Сейчас» — сповіщаємо одразу; «На утро» і святковий на свій час — cron, коли настане час; записки в конверт — ні.
     // Святковий «зараз» (час уже настав) — одразу, як звичайний
@@ -1522,7 +1583,7 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
     return json({ id, kind, env: envId, text, quote, at, created: now, opened: false, liked: false, reply: null, media }, 201);
   }
 
-  const [lid, sub] = rest.split('/');
+  const [lid, sub, arg] = rest.split('/');
   const r = await db.prepare('SELECT * FROM letters WHERE id = ?').bind(lid).first();
   // Лист у запасі для отримувача ще не існує
   if (!r || (r.src !== side && r.dst !== side) || (r.kind === 'stock' && r.dst === side)) throw fail(404, 'not found');
@@ -1539,7 +1600,17 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
       headers: { 'content-type': 'application/octet-stream', 'cache-control': 'private, max-age=31536000, immutable' },
     });
   }
+  if (m === 'DELETE' && sub === 'media') return dropItem(db, side, files, r, Number(arg));
   if (sub) throw fail(404, 'not found');
+
+  // Відправник править текст свого листа в конверті, поки його не відкрили; вкладення й місце лишаються
+  if (m === 'PUT' && r.src === side) {
+    const { row } = await ownTarget(db, side, r.id);
+    const text = clip((await readJson(req)).text, MAX_LETTER);
+    if (!text && !mediaOf(row)) throw fail(400, 'letter');
+    await db.prepare('UPDATE letters SET text = ? WHERE id = ?').bind(text, row.id).run();
+    return json({ ok: true });
+  }
 
   // Отримувач: відкрив, ❤️, відповідь
   if (m === 'PUT') {
@@ -1575,7 +1646,7 @@ async function lettersRoute(req, db, side, rest, notify, files, hard) {
   // Відправник забирає лист, поки його не відкрили
   if (m === 'DELETE') {
     if (r.src !== side) throw fail(403, 'forbidden');
-    if (r.opened) throw fail(409, 'opened');
+    if (r.opened || (r.kind === 'env' && await ownEnvRead(db, side, r))) throw fail(409, 'opened');
     await db.prepare('DELETE FROM letters WHERE id = ?').bind(r.id).run();
     if (files && mediaOf(r)?.s != null) await files.delete(lkeys(r.id));
     return json({ ok: true });
@@ -1627,10 +1698,15 @@ async function attachLetter(req, db, side, files, hard, notify) {
   }
   // До заготовленої записки в її конверті: ще не прочитана й без вкладення — перевіряємо до квоти й R2
   const tpl = !festive && b.tpl != null ? await tplTarget(db, side, envId, Number(b.tpl)) : null;
+  const own = !festive && !tpl && b.to != null ? await ownTarget(db, side, b.to) : null;
+  if (own && own.row.env !== envId) throw fail(400, 'env');
+  const target = tpl || own;
+  // Більше MAX_ITEMS — відмова ще до R2, щоб не лишити файлів без листа
+  if (target?.row && mediaItems(mediaOf(target.row)).length + add.length > MAX_ITEMS) throw fail(400, 'media');
   // Квота доби й межа сховища — уже знаючи, що це не повтор
   const quota = await fileQuota(db, side, bytes.byteLength, hard);
   // Номери файлів у R2: до заготовки з вкладенням — після вже покладених
-  let f = nextF(tpl);
+  let f = nextF(target);
   for (const m of add) if (m.s != null) m.f = f++;
   const mascots = (await getDoc(db, 'mascots')) || {};
   const mascot = mascots[b.mascot] ? String(b.mascot) : null;
@@ -1645,12 +1721,16 @@ async function attachLetter(req, db, side, files, hard, notify) {
   await quota.take(bytes.byteLength);
   // Спершу байти, потім рядок: обірвалось між ними — лишиться файл без листа, але лише в цьому рідкісному разі
   // й під тим самим id (повтор із тим самим cid його перезапише)
-  const rowId = tpl?.row ? tpl.row.id : id;
+  const rowId = target?.row ? target.row.id : id;
   const fs = add.filter((m) => m.s != null);
   await Promise.all(fs.map((m, k) => files.put(lkey(rowId, m.f), parts[k])));
   if (tpl) {
     const out = await tplAttach(db, side, tpl, Number(b.tpl), id, add, mascot, now);
     return json({ id: out.id, kind: 'tpl', env: envId, media: out.media }, 201);
+  }
+  if (own) {
+    const out = await appendMedia(db, own.row, add);
+    return json({ id: out.id, kind: 'env', env: envId, media: out.media }, 201);
   }
   const media = packMedia(add);
   await db.prepare(

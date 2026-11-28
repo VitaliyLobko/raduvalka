@@ -1027,6 +1027,20 @@ function outBubble(l, later) {
       }
     },
   }, 'Забрать');
+  // Лист у конверті, поки не відкрили, — правка у великому вікні (текст, вкладення)
+  const fix = l.kind !== 'env' || l.opened ? null : h('button', {
+    type: 'button', class: 'sent-take sent-fix',
+    onclick: async (ev) => {
+      ev.stopPropagation();
+      try {
+        const env = (DATA.partnerEnvelopes || []).find((x) => x.id === l.env);
+        const note = (await send('envelopes/theirs?own=1', 'GET')).find((x) => x.id === l.env)?.notes.find((n) => n.id === l.id);
+        if (!env || !note) { toast('Письма уже нет в конверте'); return; }
+        if (note.read) { toast(`Поздно — ${me.partner} уже ${me.partnerOpened}`); return; }
+        (await import('./write.js')).openWrite({ where: 'env', edit: { env, note, done: () => document.dispatchEvent(new CustomEvent('radovalka:sent')) } });
+      } catch { toast('Не получилось — нет связи'); }
+    },
+  }, 'Поправить');
   const isNew = (l.replied || 0) > seenAt.replies;
   bubble.append(...[
     quoteLine(l.quote, l.created || l.at),
@@ -1035,7 +1049,7 @@ function outBubble(l, later) {
     h('p', { class: 'feed-meta' }, h('span', {}, `${where} · ${state}`)),
     l.reply ? h('p', { class: `sent-reply${isNew ? ' is-fresh' : ''}`, 'data-replied': l.replied || 0 },
       h('b', {}, `${cap(me.partner)} ответил${me.partner === 'она' ? 'а' : ''}: `), l.reply, newMark(isNew)) : null,
-    h('div', { class: 'feed-acts' }, take, l.reply ? againBtn(l.reply) : null)].filter(Boolean));
+    h('div', { class: 'feed-acts' }, fix, take, l.reply ? againBtn(l.reply) : null)].filter(Boolean));
   return bubble;
 }
 

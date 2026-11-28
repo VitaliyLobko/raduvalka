@@ -6283,3 +6283,92 @@ button.dice-die.is-big:active { transform: scale(.94); }
 .plan-coupons .plan-wait { margin-top: 10px; }
 .plan-coupons .plan-wait > summary { color: #F3CD85 !important; opacity: 1; }
 .plan-coupons .plan-wait > summary::marker { color: #F3CD85; }
+
+/* «Письмо в конверт»: конверт карточкою над полем — який, скільки лежить; тап — сітка конвертів */
+.write-envcard { display: grid; margin-bottom: 10px; padding: 4px; border: 1px solid var(--env-shade); border-radius: 16px;
+  background: linear-gradient(160deg, var(--env) 0 60%, var(--env-shade)); }
+[data-dark] .write-envcard { border-color: color-mix(in srgb, var(--star) 35%, transparent); background: color-mix(in srgb, var(--star) 9%, transparent); }
+.write-envpick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px; border: 0; border-radius: 12px; background: none; color: inherit; text-align: left; cursor: pointer; }
+.write-envpick:active { background: var(--chip); }
+.write-envcard.is-fixed .write-envpick { cursor: default; }
+.write-envcard.is-fixed .write-envpick:active { background: none; }
+.write-envemo { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; font-size: 1.5rem; line-height: 1;
+  background: color-mix(in srgb, var(--wax) 14%, var(--paper)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--wax) 30%, transparent); }
+[data-dark] .write-envemo { background: color-mix(in srgb, var(--star) 16%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--star) 40%, transparent); }
+.write-envname { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.write-envname b { font: 400 1.5rem/1.05 var(--hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.write-envname small { font-size: .8125rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.write-envmore { flex: none; font-size: .8125rem; color: var(--ink-soft); white-space: nowrap; }
+.write-envlook { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; margin: 2px 0 0; padding: 0 12px;
+  border: 0; border-top: 1px dashed var(--env-shade); border-radius: 0 0 12px 12px; background: none; color: var(--ink-soft); font: 400 .8125rem/1.2 var(--ui); text-align: left; cursor: pointer; }
+[data-dark] .write-envlook { border-top-color: color-mix(in srgb, var(--star) 30%, transparent); }
+.write-envlook:disabled { cursor: default; }
+.write-envlook:not(:disabled):active { background: var(--chip); }
+.write-envlook[hidden] { display: none; }
+.write-envgo { flex: none; color: var(--wax); font-weight: 700; white-space: nowrap; }
+[data-dark] .write-envgo { color: var(--star); }
+/* Вкладення — плитками під полем, у рядок (прокрутка вбік, якщо не влізли) */
+.sheet-write .write-att { display: flex; gap: 10px; margin: 10px 0 0; padding: 8px 2px 2px; overflow-x: auto; scrollbar-width: none; }
+.sheet-write .write-att::-webkit-scrollbar { display: none; }
+.sheet-write .write-att[hidden] { display: none; }
+.att-tile { position: relative; flex: none; width: 66px; height: 66px; }
+.att-face { display: grid; place-content: center; justify-items: center; gap: 2px; width: 100%; height: 100%; padding: 0; overflow: hidden; border: 0; border-radius: 14px;
+  background: var(--chip); color: inherit; cursor: pointer; }
+.att-face[tabindex="-1"] { cursor: default; }
+.att-face > :is(img, video) { display: block; width: 66px; height: 66px; object-fit: cover; }
+.att-ic { font-size: 1.5rem; line-height: 1; }
+.att-cap { max-width: 60px; font-size: .6875rem; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+.att-x { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 2px solid var(--paper); border-radius: 50%;
+  background: var(--plum); color: #fff; font-size: .75rem; line-height: 1; cursor: pointer; }
+.att-x::after { content: ''; position: absolute; inset: -8px; }
+[data-dark] .att-x { border-color: var(--night); background: var(--cream); color: var(--night); }
+/* Правка листа: «🗑 Убрать» поруч із «Сохранить» */
+.write-send .write-drop { flex: none; min-height: 50px; margin: 0; padding: 0 16px; }
+/* Сітка конвертів */
+.env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.env-cell { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 84px; padding: 8px 6px; border: 1px solid var(--env-shade); border-radius: 14px;
+  background: var(--env); color: inherit; text-align: center; cursor: pointer; }
+[data-dark] .env-cell { border-color: color-mix(in srgb, var(--star) 25%, transparent); background: color-mix(in srgb, var(--star) 8%, transparent); }
+.env-cell[aria-checked="true"] { box-shadow: 0 0 0 3px var(--wax); }
+[data-dark] .env-cell[aria-checked="true"] { box-shadow: 0 0 0 3px var(--star); }
+.env-cell-emo { font-size: 1.75rem; line-height: 1.1; }
+.env-cell-name { font: 400 1.3rem/1.05 var(--hand); }
+.env-cell-sub { font-size: .75rem; color: var(--ink-soft); }
+.env-cell.is-low .env-cell-sub { color: var(--wax); font-weight: 600; }
+[data-dark] .env-cell.is-low .env-cell-sub { color: var(--star); }
+/* «Что внутри»: листи картками почерком; відкриті — згорнуті під «Открытые» */
+.tpl-card { position: relative; display: grid; gap: 4px; width: 100%; padding: 10px 34px 10px 14px; border: 1px solid transparent; border-radius: 14px;
+  background: color-mix(in srgb, var(--lavender) 20%, var(--paper)); color: inherit; text-align: left; font: inherit; cursor: pointer; }
+[data-dark] .tpl-card { background: color-mix(in srgb, var(--star) 9%, transparent); border-color: color-mix(in srgb, var(--star) 18%, transparent); }
+.tpl-card:active { filter: brightness(.96); }
+.tpl-card.is-read { cursor: default; opacity: .6; padding-right: 14px; }
+.tpl-card .tpl-text { font: 400 1.3rem/1.2 var(--hand); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tpl-meta { display: flex; align-items: center; gap: 10px; font-size: .8125rem; color: var(--ink-soft); }
+.tpl-att { color: var(--wax); font-weight: 600; }
+[data-dark] .tpl-att { color: var(--star); }
+.tpl-go { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); font-size: 1.5rem; color: var(--ink-soft); }
+.tpl-fold { justify-self: start; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--ink-soft); font: 600 .875rem/1.2 var(--ui); cursor: pointer; }
+/* «👁 Как увидит»: її вигляд листа поверх вікна правки */
+.reader.is-preview { z-index: 30; }
+.preview-label { margin: 0 0 10px; text-align: center; color: #fff; font: 600 .875rem/1.3 var(--ui); text-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
+/* Відкрита клавіатура в «Письмо в конверт»: конверт — одним рядком без лічильника, інструменти — однією стрічкою вбік,
+   плитки менші; поле й «Отправить» лишаються на екрані */
+@media (max-height: 600px) {
+  .sheet-write.is-env .write-envcard { margin-bottom: 0; padding: 2px; }
+  .sheet-write.is-env .write-envlook { display: none; }
+  .sheet-write.is-env .write-envpick { min-height: 38px; padding: 2px 8px; }
+  .sheet-write.is-env .write-envemo { width: 30px; height: 30px; font-size: 1.1rem; }
+  .sheet-write.is-env .write-envname b { font-size: 1.25rem; }
+  .sheet-write.is-env:not(.is-helping) .write-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .sheet-write.is-env:not(.is-helping) .write-tools::-webkit-scrollbar { display: none; }
+  .sheet-write.is-env .write-tools > * { flex: none; }
+  .sheet-write.is-env .write-att { margin-top: 4px; padding-top: 6px; }
+  .sheet-write.is-env .att-tile, .sheet-write.is-env .att-face > :is(img, video) { width: 44px; height: 44px; }
+  .sheet-write.is-env .att-x { width: 22px; height: 22px; top: -6px; right: -6px; font-size: .625rem; }
+  .sheet-write.is-env .sheet-inner { min-height: 0; }
+  .sheet-write.is-env .write-head h2 { font-size: 1.3rem; }
+  .sheet-write.is-env .write-att { margin-top: 0; padding-top: 4px; }
+  .sheet-write.is-env .write-text { min-height: 56px; }
+  .sheet-write.is-env .write-send .write-go, .sheet-write.is-env .write-send .write-drop { min-height: 44px; }
+  .sheet-write.is-env .write-send .write-pets .mk-chip img { width: 34px; height: 34px; }
+}

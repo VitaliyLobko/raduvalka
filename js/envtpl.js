@@ -1,127 +1,142 @@
-// «Уже в конверте»: його заготовлені записки в її конверті — поправити текст, прибрати чи докласти фото, гифку, пісню
-// (лише до ще не прочитаної). Вкладення стає на місце записки (сервер: kind 'tpl'). Вантажиться лише з тапу
+// «Что внутри»: його листи в її конверті — заготовки й написані в застосунку, по черзі, як вона їх відкриватиме.
+// Ще не відкрите — тап, і воно відкривається у великому вікні правки (текст, вкладення, «Убрать»); відкриті — згорнуті.
+// І вибір конверта сіткою з лічильниками. Вантажиться лише з тапу
 import { send } from './api.js';
-import { h, toast } from './ui.js';
-import { newCid } from './outbox.js';
-import { ask } from './ask.js';
+import { h, signLine } from './ui.js';
+import { DATA, SIDES, who } from './data.js';
 
-const ICON = { photo: '📷 фото', gif: '🎞️ гифка', voice: '🎤 голос', song: '🎵 песня', link: '🎵 песня по ссылке' };
+// «👁 Как увидит»: лист так, як його відкриє друга половина з конверта — картинки над текстом, звук під ним, підпис.
+// Нічого не надсилає. row — id рядка на сервері для вже покладених вкладень; нові (a.blob) — ще в телефоні
+export async function previewLetter({ env, text, list = [], row = null }) {
+  const partner = SIDES[DATA.side === 'vin' ? 'vona' : 'vin'];
+  const slot = list.length ? h('div', { class: 'ea-slot' }, h('p', { class: 'ea-wait' }, 'Достаю вложения…')) : null;
+  const below = list.length ? h('div', { class: 'ea-slot ea-below' }) : null;
+  let stop = null;
+  const onKey = (e) => {
+    if (e.key !== 'Escape' || [...document.querySelectorAll('[role=dialog]')].pop() !== reader) return;
+    e.stopPropagation();
+    close();
+  };
+  const close = () => { stop?.(); document.removeEventListener('keydown', onKey, true); reader.remove(); };
+  const back = h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Вернуться к письму');
+  const reader = h('div', {
+    class: 'reader is-preview', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Как увидит',
+    onclick: (e) => { if (!e.target.closest('.letter, .btn')) close(); },
+  }, h('div', { class: 'reader-inner' },
+    h('p', { class: 'preview-label' }, `👁 Так письмо откроется у ${who().partner === 'она' ? 'неё' : 'него'}`),
+    h('article', { class: 'letter' },
+      h('p', { class: 'letter-kind' }, `${env.emoji} Открой, когда ${env.label}`),
+      slot,
+      text ? h('p', { class: 'letter-text' }, text) : null,
+      below,
+      signLine(DATA.mySign, partner.from)),
+    h('div', { class: 'actions' }, back)));
+  document.body.append(reader);
+  document.addEventListener('keydown', onKey, true);
+  back.focus();
+  if (!list.length) return;
+  try {
+    const ea = await import('./envattach.js');
+    const m = await ea.renderList(row, list, { split: true });
+    if (!reader.isConnected) { m.stop(); return; }
+    stop = m.stop;
+    slot.replaceChildren(...[m.el].filter(Boolean));
+    below.replaceChildren(...[m.sound].filter(Boolean));
+  } catch {
+    if (reader.isConnected) slot.replaceChildren(h('p', { class: 'ea-wait' }, 'Вложения не загрузились — нет связи'));
+  }
+}
 
-// env — { id, emoji, label } з DATA.partnerEnvelopes; changed() — щось доклали чи прибрали
-export async function openTemplates(env, changed) {
-  const ea = await import('./envattach.js');
-  const list = h('div', { class: 'tpl-list', 'aria-live': 'polite' }, h('p', { class: 'ea-wait' }, 'Достаю письма…'));
-  const close = () => { document.removeEventListener('keydown', onKey, true); backdrop.remove(); sheet.remove(); };
-  // Esc — лише коли зверху саме цей список (а не редактор фото чи вибір пісні над ним); вікно листа під ним лишається
+const IC = { photo: '📷', gif: '🎞️', voice: '🎤', song: '🎵', link: '🔗' };
+const items = (m) => (!m || m.gone ? [] : m.k === 'multi' ? m.items || [] : [m]);
+const plural = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many);
+
+// Шторка поверх «Написать»: заголовок, ✕, тіло. Esc — лише коли вона зверху (а не правка листа над нею)
+function sheetOf(cls, label, title) {
   const onKey = (e) => {
     if (e.key !== 'Escape' || [...document.querySelectorAll('[role=dialog]')].pop() !== sheet) return;
     e.stopPropagation();
     close();
   };
+  const close = () => { document.removeEventListener('keydown', onKey, true); backdrop.remove(); sheet.remove(); sheet.onclose?.(); };
   const backdrop = h('div', { class: 'backdrop tpl-shade', onclick: close });
-  const sheet = h('div', { class: 'sheet tpl-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Уже в конверте: ${env.label}` },
+  const sheet = h('div', { class: `sheet tpl-sheet ${cls}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': label },
     h('div', { class: 'write-head' },
-      h('h2', {}, `${env.emoji} ${env.label}`),
-      h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')),
-    h('p', { class: 'tpl-hint' }, 'Письмо, которое ещё не открыли, можно поправить ✏️, убрать 🗑 или приложить к нему фото, гифку, музыку.'),
-    list);
+      h('h2', {}, title),
+      h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Закрыть', onclick: close }, '✕')));
   document.body.append(backdrop, sheet);
   document.addEventListener('keydown', onKey, true);
+  return { sheet, close };
+}
 
-  // Один запит — одна відповідь сервера; помилка — чесно, без черги: записку могли вже прочитати
-  const upload = async (note, a, row) => {
-    row.classList.add('is-busy');
-    const st = row.querySelector('.tpl-state');
-    st.parentElement.hidden = false;
-    st.textContent = 'Отправляю…';
-    try {
-      const body = { kind: 'env', env: env.id, tpl: note.i, text: '', cid: newCid() };
-      if (ea.hasBytes(a)) await ea.sendAttached(body, a, (p) => { st.textContent = `${Math.round(p * 100)}%`; });
-      else await send('letters', 'POST', { ...body, media: ea.mediaBody(a) });
-      toast('Приложено — откроют вместе с письмом. Можно добавить ещё');
-      changed?.();
-    } catch (e) {
-      toast(e?.status === 409 ? 'Это письмо уже открыли — к нему не приложить' : ea.attachError(e));
-    }
-    paint();
+// Усі конверти сіткою: емодзі, назва, скільки лежить і скільки ще не відкрито. Повертає id обраного чи null
+export function pickEnvelope(envs, theirs, current) {
+  return new Promise((done) => {
+    let picked = null;
+    const { sheet, close } = sheetOf('env-grid-sheet', 'Выбрать конверт', 'Какой конверт?');
+    sheet.onclose = () => done(picked);
+    const notesOf = (id) => theirs?.find((x) => x.id === id)?.notes;
+    sheet.append(h('div', { class: 'env-grid', role: 'radiogroup', 'aria-label': 'Конверты' }, ...envs.map((e) => {
+      const notes = notesOf(e.id);
+      const left = notes ? notes.filter((n) => !n.read).length : 0;
+      const sub = !notes ? '' : !notes.length ? 'пусто' : `${notes.length} ${plural(notes.length, 'письмо', 'письма', 'писем')} · ${left ? `не открыто ${left}` : 'все открыты'}`;
+      return h('button', {
+        type: 'button', role: 'radio', class: `env-cell${left ? '' : ' is-low'}`, 'aria-checked': String(e.id === current),
+        onclick: () => { picked = e.id; close(); },
+      },
+      h('span', { class: 'env-cell-emo', 'aria-hidden': 'true' }, e.emoji),
+      h('b', { class: 'env-cell-name' }, e.label),
+      sub ? h('small', { class: 'env-cell-sub' }, sub) : null);
+    })));
+  });
+}
+
+// env — { id, emoji, label } з DATA.partnerEnvelopes; changed() — щось поправили, доклали чи прибрали
+export async function openTemplates(env, changed) {
+  const list = h('div', { class: 'tpl-list', 'aria-live': 'polite' }, h('p', { class: 'ea-wait' }, 'Достаю письма…'));
+  const { sheet } = sheetOf('', `Что внутри: ${env.label}`, `${env.emoji} ${env.label}`);
+  sheet.append(h('p', { class: 'tpl-hint' }, 'Откроет по порядку, сверху вниз. Неоткрытое можно поправить — нажми на письмо.'), list);
+  let showRead = false;
+
+  const editNote = async (note) => {
+    const { openWrite } = await import('./write.js');
+    openWrite({ where: 'env', edit: { env, note, done: () => { changed?.(); paint(); } } });
   };
-  const remove = async (note) => {
-    try {
-      await send(`envelopes/${env.id}/tpl/${note.i}`, 'DELETE');
-      changed?.();
-    } catch { toast('Не убралось — попробуй ещё раз'); }
-    paint();
-  };
-  const opened = (e, other) => toast(e?.status === 409 ? 'Это письмо уже открыли — его не поменять' : other);
-  // Правка тексту на місці рядка: поле замість тексту, «Сохранить» / «Отмена»
-  const edit = (note, row) => {
-    const field = h('textarea', { class: 'tpl-field', rows: 4, maxlength: 4000, 'aria-label': 'Текст письма' });
-    field.value = note.text || '';
-    const save = h('button', { type: 'button', class: 'btn btn-primary' }, 'Сохранить');
-    save.onclick = async () => {
-      const text = field.value.trim();
-      if (!text) { field.focus(); return; }
-      save.disabled = true;
-      try {
-        await send(`envelopes/${env.id}/note/${note.i}`, 'PUT', { text });
-        toast('Письмо поправлено');
-      } catch (e) { opened(e, 'Не сохранилось — попробуй ещё раз'); }
-      paint();
-    };
-    row.replaceChildren(field, h('div', { class: 'tpl-edit-btns' },
-      h('button', { type: 'button', class: 'btn', onclick: paint }, 'Отмена'), save));
-    field.focus();
-  };
-  const drop = async (note) => {
-    const yes = await ask({ title: 'Убрать письмо из конверта?', text: String(note.text || '').slice(0, 120), yes: 'Убрать' });
-    if (!yes) return;
-    try {
-      await send(`envelopes/${env.id}/note/${note.i}`, 'DELETE');
-      toast('Письмо убрано из конверта');
-      changed?.();
-    } catch (e) { opened(e, 'Не убралось — попробуй ещё раз'); }
-    paint();
+  // Картка листа: початок тексту почерком, значки вкладень; ще не відкрите — кнопка в правку
+  const card = (note) => {
+    const text = String(note.text || '').replace(/\s+/g, ' ').trim();
+    const att = items(note.media);
+    const meta = h('span', { class: 'tpl-meta' },
+      att.length ? h('span', { class: 'tpl-att', 'aria-label': `вложений: ${att.length}` }, att.map((x) => IC[x.k] || '📎').join(' ')) : null,
+      note.media?.gone ? h('span', { class: 'tpl-att' }, '📎 удалено') : null,
+      h('span', { class: 'tpl-when' }, note.read ? 'открыто ✓' : 'ещё не открыто'));
+    const body = [h('span', { class: 'tpl-text' }, text || (att.length ? 'Без текста' : '…')), meta];
+    if (note.read) return h('div', { class: 'tpl-card is-read' }, ...body);
+    return h('button', { type: 'button', class: 'tpl-card', 'aria-label': `Поправить письмо: ${text.slice(0, 60)}`, onclick: () => editNote(note) },
+      ...body, h('span', { class: 'tpl-go', 'aria-hidden': 'true' }, '›'));
   };
 
   async function paint() {
     let notes;
     try {
-      notes = (await send('envelopes/theirs', 'GET')).find((e) => e.id === env.id)?.notes || [];
+      notes = (await send('envelopes/theirs?own=1', 'GET')).find((e) => e.id === env.id)?.notes || [];
     } catch {
       list.replaceChildren(h('p', { class: 'ea-wait' }, 'Нет связи — список не загрузился'));
       return;
     }
     if (!sheet.isConnected) return;
-    if (!notes.length) { list.replaceChildren(h('p', { class: 'ea-wait' }, 'В этом конверте пока нет писем')); return; }
-    list.replaceChildren(...notes.map((note) => {
-      const text = String(note.text || '').replace(/\s+/g, ' ').trim();
-      const row = h('div', { class: `tpl-row${note.read ? ' is-read' : ''}` },
-        h('p', { class: 'tpl-text' }, text || '…'));
-      const picker = h('input', {
-        type: 'file', accept: 'image/*', class: 'visually-hidden',
-        onchange: (e) => { const [f] = e.target.files; e.target.value = ''; if (f) ea.pickPhoto(f, (a) => upload(note, a, row)); },
-      });
-      // Уже прикладене — значками (✕ прибирає все); поки не більше MAX_ATT — можна докласти ще
-      const items = ea.attachItems(note.media);
-      const more = items.length < ea.MAX_ATT;
-      if (note.read) { row.append(h('span', { class: 'tpl-state' }, 'уже открыто')); return row; }
-      // Рядок стану: що вже прикладено (і ✕ — прибрати все); під час відправки тут же відсотки
-      const status = h('div', { class: 'tpl-status', hidden: !items.length },
-        h('span', { class: `tpl-state${items.length ? ' tpl-has' : ''}` },
-          !items.length ? '' : items.length === 1 ? ICON[items[0].k] || '📎 вложение' : items.map((x) => (ICON[x.k] || '📎').split(' ')[0]).join(' ')),
-        items.length ? h('button', { type: 'button', class: 'mk-chip tpl-x', 'aria-label': 'Убрать все вложения', onclick: () => remove(note) }, '✕') : null);
-      // Кнопки — однакові кружечки: зліва «приложить», справа «поправить» і «убрать»
-      const btn = (label, ic, onclick, cls = '') => h('button', { type: 'button', class: `mk-chip tpl-add${cls}`, 'aria-label': label, onclick }, ic);
-      const attach = more ? h('span', { class: 'tpl-group' },
-        h('label', { class: 'mk-chip tpl-add', 'aria-label': 'Приложить фото' }, picker, '📷'),
-        btn('Приложить гифку', '🎞️', () => ea.pickGif((a) => upload(note, a, row))),
-        btn('Приложить музыку', '🎵', () => ea.pickMusic((a) => upload(note, a, row)))) : null;
-      const fix = h('span', { class: 'tpl-group tpl-fix' },
-        btn('Поправить текст', '✏️', () => edit(note, row), ' tpl-edit'),
-        btn('Убрать письмо', '🗑️', () => drop(note), ' tpl-drop'));
-      row.append(status, h('div', { class: 'tpl-tools' }, attach, fix));
-      return row;
-    }));
+    if (!notes.length) { list.replaceChildren(h('p', { class: 'ea-wait' }, 'В этом конверте пока пусто')); return; }
+    const fresh = notes.filter((n) => !n.read);
+    const read = notes.filter((n) => n.read);
+    const fold = read.length ? h('button', {
+      type: 'button', class: 'tpl-fold', 'aria-expanded': String(showRead),
+      onclick: () => { showRead = !showRead; paint(); },
+    }, `${showRead ? '▾' : '▸'} Открытые · ${read.length} ${plural(read.length, 'письмо', 'письма', 'писем')}`) : null;
+    list.replaceChildren(...[
+      ...(fresh.length ? fresh.map(card) : [h('p', { class: 'ea-wait' }, 'Всё, что лежало, уже открыто')]),
+      fold,
+      ...(showRead ? read.map(card) : []),
+    ].filter(Boolean));
   }
   paint();
 }
