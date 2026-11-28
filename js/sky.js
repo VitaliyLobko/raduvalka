@@ -121,7 +121,9 @@ export function milkyLayers(W, H, { core, ang, tint = 'cool', dust = '5,18,28', 
   bloom(G.c, ctx, dpr, W, H, 6, 0.35);
   // 4. Зоряна крупа: тисячі зірок, густо вздовж осі й біля ядра; кілька яскравих з ореолом
   z.globalCompositeOperation = 'lighter';
+  // Зорі групуємо за кольором і яскравістю: fillStyle — раз на групу, а не 13 тисяч разів (розбір рядка кольору дорогий)
   const N = Math.round((W * H) / density);
+  const groups = new Map();
   for (let i = 0; i < N; i++) {
     const t = (r() * 2 - 1) * L * 0.9;
     const w = width(t);
@@ -131,8 +133,14 @@ export function milkyLayers(W, H, { core, ang, tint = 'cool', dust = '5,18,28', 
     const k = r();
     const warm = Math.exp(-((t / (W * 0.45)) ** 2));
     const col = k < 0.14 * (1 + warm) ? '255,222,180' : k > 0.9 ? (tint === 'rose' ? '255,210,232' : '200,220,255') : '255,255,255';
-    z.fillStyle = `rgba(${col},${(0.15 + r() ** 2 * 0.6).toFixed(2)})`;
-    z.fillRect(x, y, s, s);
+    const key = `rgba(${col},${(Math.round((0.15 + r() ** 2 * 0.6) * 10) / 10).toFixed(1)})`;
+    let g = groups.get(key);
+    if (!g) groups.set(key, (g = []));
+    g.push(x, y, s);
+  }
+  for (const [style, g] of groups) {
+    z.fillStyle = style;
+    for (let i = 0; i < g.length; i += 3) z.fillRect(g[i], g[i + 1], g[i + 2], g[i + 2]);
   }
   for (let i = 0; i < 26; i++) {
     const t = (r() * 2 - 1) * L * 0.8;
